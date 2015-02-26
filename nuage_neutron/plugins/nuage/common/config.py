@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_config import cfg
+from oslo.config import cfg
 
 
 restproxy_opts = [
@@ -38,12 +38,20 @@ restproxy_opts = [
     cfg.IntOpt('default_floatingip_quota',
                default=254,
                help=_("Per Net Partition quota of floating ips")),
+    cfg.StrOpt('default_l3domain_template', default=''),
+    cfg.StrOpt('default_l2domain_template', default=''),
+    cfg.StrOpt('default_isolated_zone', default=''),
+    cfg.StrOpt('default_shared_zone', default=''),
 ]
 
 syncmanager_opts = [
     cfg.BoolOpt('enable_sync', default=False,
                 help=_("Nuage plugin will sync resources between openstack "
                        "and VSD")),
+    cfg.BoolOpt('enable_audit', default=False,
+                help=_("Nuage plugin will audit resources between openstack "
+                       "and VSD. If 'enable_sync' flag is set to TRUE, "
+                       "plugin will audit and sync resources.")),
     cfg.IntOpt('sync_interval', default=0,
                help=_("Sync interval in seconds between openstack and VSD. "
                       "It defines how often the synchronization is done. "

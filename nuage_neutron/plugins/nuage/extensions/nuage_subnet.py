@@ -22,9 +22,9 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'default': None,
             'validate': {'type:string_or_none': None}
         },
-        'nuage_subnet_template': {
+        'nuagenet': {
             'allow_post': True,
-            'allow_put': False,
+            'allow_put': True,
             'is_visible': True,
             'default': None,
             'validate': {'type:uuid_or_none': None}

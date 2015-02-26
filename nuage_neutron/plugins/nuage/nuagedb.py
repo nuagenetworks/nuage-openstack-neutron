@@ -12,7 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.common import constants as os_constants
 from neutron.db import common_db_mixin
+from neutron.db import external_net_db
 from neutron.db import extraroute_db
 from neutron.db import l3_db
 from neutron.db import models_v2
@@ -22,11 +24,14 @@ from neutron.plugins.nuage import nuage_models
 
 def add_net_partition(session, netpart_id,
                       l3dom_id, l2dom_id,
-                      ent_name):
+                      ent_name, l3isolated,
+                      l3shared):
     net_partitioninst = nuage_models.NetPartition(id=netpart_id,
                                                   name=ent_name,
                                                   l3dom_tmplt_id=l3dom_id,
-                                                  l2dom_tmplt_id=l2dom_id)
+                                                  l2dom_tmplt_id=l2dom_id,
+                                                  isolated_zone=l3isolated,
+                                                  shared_zone=l3shared)
     session.add(net_partitioninst)
     return net_partitioninst
 
@@ -67,12 +72,7 @@ def get_net_partition_ids(session):
 def get_net_partition_with_lock(session, netpart_id):
     query = session.query(nuage_models.NetPartition)
     netpart_db = query.filter_by(id=netpart_id).with_lockmode('update').one()
-    return make_net_partition_dict(netpart_db)
-
-
-def get_subnet_ids(session):
-    query = session.query(models_v2.Subnet.id)
-    return [subn[0] for subn in query]
+    return netpart_db
 
 
 def get_subnet_with_lock(session, sub_id):
@@ -81,20 +81,10 @@ def get_subnet_with_lock(session, sub_id):
     return subnet_db
 
 
-def get_router_ids(session):
-    query = session.query(l3_db.Router.id)
-    return [router[0] for router in query]
-
-
 def get_router_with_lock(session, router_id):
     query = session.query(l3_db.Router)
     router_db = query.filter_by(id=router_id).with_lockmode('update').one()
     return router_db
-
-
-def get_secgrp_ids(session):
-    query = session.query(securitygroups_db.SecurityGroup.id)
-    return [secgrp[0] for secgrp in query]
 
 
 def get_secgrp_with_lock(session, secgrp_id):
@@ -121,6 +111,14 @@ def get_port_with_lock(session, port_id):
     return port_db
 
 
+def get_dhcp_port_with_lock(session, net_id):
+    query = session.query(models_v2.Port)
+    port_db = query.filter_by(network_id=net_id).filter_by(
+        device_owner=os_constants.DEVICE_OWNER_DHCP).with_lockmode(
+        'update').first()
+    return port_db
+
+
 def get_fip_with_lock(session, fip_id):
     query = session.query(l3_db.FloatingIP)
     fip_db = query.filter_by(id=fip_id).with_lockmode('update').one()
@@ -129,11 +127,17 @@ def get_fip_with_lock(session, fip_id):
 
 def add_entrouter_mapping(session, np_id,
                           router_id,
-                          n_l3id):
+                          n_l3id, rt, rd):
     ent_rtr_mapping = nuage_models.NetPartitionRouter(net_partition_id=np_id,
                                                       router_id=router_id,
-                                                      nuage_router_id=n_l3id)
+                                                      nuage_router_id=n_l3id,
+                                                      nuage_rtr_rt=rt,
+                                                      nuage_rtr_rd=rd)
     session.add(ent_rtr_mapping)
+
+
+def update_entrouter_mapping(ent_rtr_mapping, new_dict):
+    ent_rtr_mapping.update(new_dict)
 
 
 def add_subnetl2dom_mapping(session, neutron_subnet_id,
@@ -141,14 +145,22 @@ def add_subnetl2dom_mapping(session, neutron_subnet_id,
                             np_id,
                             l2dom_id=None,
                             nuage_user_id=None,
-                            nuage_group_id=None):
+                            nuage_group_id=None,
+                            managed=False):
     subnet_l2dom = nuage_models.SubnetL2Domain(subnet_id=neutron_subnet_id,
                                                nuage_subnet_id=nuage_sub_id,
                                                net_partition_id=np_id,
                                                nuage_l2dom_tmplt_id=l2dom_id,
                                                nuage_user_id=nuage_user_id,
-                                               nuage_group_id=nuage_group_id)
+                                               nuage_group_id=nuage_group_id,
+                                               nuage_managed_subnet=managed)
     session.add(subnet_l2dom)
+    return subnet_l2dom
+
+
+def get_update_netpartition(session, new_dict):
+    netpart = get_net_partition_with_lock(session, new_dict['id'])
+    netpart.update(new_dict)
 
 
 def update_subnetl2dom_mapping(subnet_l2dom,
@@ -178,6 +190,9 @@ def get_subnet_l2dom_by_id(session, id):
     query = session.query(nuage_models.SubnetL2Domain)
     return query.filter_by(subnet_id=id).first()
 
+def get_subnet_l2dom_by_nuage_id(session, id):
+    query = session.query(nuage_models.SubnetL2Domain)
+    return query.filter_by(nuage_subnet_id=str(id)).first()
 
 def get_subnet_l2dom_with_lock(session, id):
     query = session.query(nuage_models.SubnetL2Domain)
@@ -212,6 +227,11 @@ def get_network_binding(session, network_id):
             first())
 
 
+def get_network_binding_with_lock(session, network_id):
+    return (session.query(nuage_models.ProviderNetBinding).
+            filter_by(network_id=network_id).with_lockmode('update').first())
+
+
 def get_ent_rtr_mapping_with_lock(session, rtrid):
     query = session.query(nuage_models.NetPartitionRouter)
     entrtr = query.filter_by(router_id=rtrid).with_lockmode('update').one()
@@ -240,11 +260,32 @@ def get_all_routes(session):
     return make_route_list(routes)
 
 
+def get_ext_network_ids(session):
+    query = session.query(external_net_db.ExternalNetwork.network_id)
+    return [net[0] for net in query]
+
+
 def get_route_with_lock(session, dest, nhop):
     query = session.query(extraroute_db.RouterRoute)
     route_db = (query.filter_by(destination=dest).filter_by(nexthop=nhop)
                 .with_lockmode('update').one())
     return make_route_dict(route_db)
+
+
+def get_all_provider_nets(session):
+    provider_nets = session.query(nuage_models.ProviderNetBinding)
+    return make_provider_net_list(provider_nets)
+
+
+def make_provider_net_list(provider_nets):
+    return [make_provider_net_dict(pnet) for pnet in provider_nets]
+
+
+def make_provider_net_dict(provider_net):
+    return {'network_id': provider_net['network_id'],
+            'network_type': provider_net['network_type'],
+            'physical_network': provider_net['physical_network'],
+            'vlan_id': provider_net['vlan_id']}
 
 
 def make_ipalloc_dict(subnet_db):
@@ -289,3 +330,10 @@ def make_entrtr_dict(entrtr):
     return {'net_partition_id': entrtr['net_partition_id'],
             'router_id': entrtr['router_id'],
             'nuage_router_id': entrtr['nuage_router_id']}
+
+
+def make_provider_net_dict(provider_net):
+    return {'network_id': provider_net['network_id'],
+            'network_type': provider_net['network_type'],
+            'physical_network': provider_net['physical_network'],
+            'vlan_id': provider_net['vlan_id']}

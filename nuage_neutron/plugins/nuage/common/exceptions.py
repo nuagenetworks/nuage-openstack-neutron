@@ -23,3 +23,11 @@ class OperationNotSupported(n_exc.InvalidConfigurationOption):
 
 class NuageBadRequest(n_exc.BadRequest):
     message = _("Bad request: %(msg)s")
+
+
+class NuageAPIException(n_exc.NeutronException):
+    message = _("Nuage API: %(msg)s")
+
+
+class NuageNotFound(n_exc.NotFound):
+    message = _("%(resource)s %(resource_id)s could not be found")
