@@ -14,7 +14,6 @@
 
 from oslo.config import cfg
 
-
 restproxy_opts = [
     cfg.StrOpt('server', default='localhost:8800',
                help=_("IP Address and Port of Nuage's VSD server")),
@@ -42,6 +41,8 @@ restproxy_opts = [
     cfg.StrOpt('default_l2domain_template', default=''),
     cfg.StrOpt('default_isolated_zone', default=''),
     cfg.StrOpt('default_shared_zone', default=''),
+    cfg.StrOpt('nuage_pat', default='notavailable'),
+    cfg.BoolOpt('nuage_fip_underlay', default=False)
 ]
 
 syncmanager_opts = [

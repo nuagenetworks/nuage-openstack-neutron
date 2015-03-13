@@ -36,7 +36,7 @@ from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import extraroute_db
-from neutron.db import l3_db
+from neutron.db import l3_gwmode_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import external_net
@@ -71,13 +71,14 @@ def handle_nuage_api_error(fn):
 
 
 class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
-                        external_net_db.External_net_db_mixin,
-                        extraroute_db.ExtraRoute_db_mixin,
-                        l3_db.L3_NAT_db_mixin,
-                        netpartition.NetPartitionPluginBase,
-                        sg_db.SecurityGroupDbMixin):
+                  external_net_db.External_net_db_mixin,
+                  extraroute_db.ExtraRoute_db_mixin,
+                  l3_gwmode_db.L3_NAT_db_mixin,
+                  netpartition.NetPartitionPluginBase,
+                  sg_db.SecurityGroupDbMixin):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
-    vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet"]
+    vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
+                         "ext-gw-mode"]
 
     binding_view = "extension:port_binding:view"
 
@@ -657,7 +658,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return net_partition
 
     @log.log
-    def _validate_create_subnet(self, context, subnet):
+    def _validate_create_subnet(self, context, subnet, network_external):
         subnets = self._get_subnets_by_network(context, subnet['network_id'])
         subnet_nuagenet = subnet.get('nuagenet')
         # do not allow os_managed subnets if the network already has
@@ -685,6 +686,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             msg = "Gateway IP outside of the subnet CIDR "
             raise nuage_exc.NuageBadRequest(msg=msg)
 
+        if (not network_external and
+            subnet['underlay'] != attributes.ATTR_NOT_SPECIFIED):
+            msg = _("underlay attribute can not be set for internal subnets")
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
     @log.log
     def _validate_create_provider_subnet(self, context, net_id):
         net_filter = {'network_id': [net_id]}
@@ -709,7 +715,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return existing_subn
 
     @log.log
-    def _add_nuage_sharedresource(self, subnet, net_id, type):
+    def _add_nuage_sharedresource(self, subnet, net_id, type,
+                                  req_subnet=None):
         net = netaddr.IPNetwork(subnet['cidr'])
         params = {
             'neutron_subnet': subnet,
@@ -717,18 +724,22 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             'type': type,
             'net_id': net_id
         }
+        params['underlay_config'] = cfg.CONF.RESTPROXY.nuage_fip_underlay
+        if (req_subnet and req_subnet.get('underlay') in [True, False]):
+            params['underlay'] = req_subnet.get('underlay')
         self.nuageclient.create_nuage_sharedresource(params)
 
     @log.log
     def _create_nuage_sharedresource(self, context, subnet, type):
-        subn = subnet['subnet']
-        net_id = subn['network_id']
+        req_subnet = copy.deepcopy(subnet['subnet'])
+        net_id = req_subnet['network_id']
         self._validate_nuage_sharedresource(context, 'subnet', net_id)
         with context.session.begin(subtransactions=True):
-            subn = super(NuagePlugin, self).create_subnet(context,
-                                                                subnet)
-            self._add_nuage_sharedresource(subn, net_id, type)
-            return subn
+            neutron_subnet = super(NuagePlugin, self).create_subnet(context,
+                                                                    subnet)
+            self._add_nuage_sharedresource(neutron_subnet,
+                                           net_id, type,req_subnet=req_subnet)
+            return neutron_subnet
 
     @log.log
     def _create_port_gateway(self, context, subnet, gw_ip=None):
@@ -985,9 +996,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         subn = subnet['subnet']
         net_id = subn['network_id']
 
-        self._validate_create_subnet(context, subn)
         pnet_binding = nuagedb.get_network_binding(context.session, net_id)
         network_external = self._network_is_external(context, net_id)
+        self._validate_create_subnet(context, subn, network_external)
 
         if subn.get('nuagenet', None):
             return self._link_nuage_adv_subnet(context, subnet)
@@ -1321,17 +1332,25 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @handle_nuage_api_error
     @log.log
     def create_router(self, context, router):
+        req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_router(context,
                                                            router['router'])
+        if (cfg.CONF.RESTPROXY.nuage_pat == 'notavailable' and
+            req_router.get('external_gateway_info')):
+            msg = _("nuage_pat config is set to 'notavailable'. "
+                    "Can't set ext-gw-info")
+            raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
+
         neutron_router = super(NuagePlugin, self).create_router(context,
                                                                 router)
         params = {
             'net_partition': net_partition,
-            'tenant_id': neutron_router['tenant_id']
+            'tenant_id': neutron_router['tenant_id'],
+            'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
         }
         try:
             nuage_router = self.nuageclient.create_router(neutron_router,
-                                                          router['router'],
+                                                          req_router,
                                                           params)
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -1370,6 +1389,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def update_router(self, context, id, router):
         r = router['router']
+        if (cfg.CONF.RESTPROXY.nuage_pat == 'notavailable' and
+            r.get('external_gateway_info')):
+            msg = _("nuage_pat config is set to 'notavailable'. "
+                    "Can't update ext-gw-info")
+            raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
+
         with context.session.begin(subtransactions=True):
             if 'routes' in r:
                 old_routes = self._get_extra_routes_by_router_id(context,
@@ -1407,6 +1432,29 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     }
                     self.nuageclient.create_nuage_staticroute(
                         params)
+                return router_updated
+            elif 'external_gateway_info' in r:
+                curr_router = self.get_router(context, id)
+                router_updated = super(NuagePlugin, self).update_router(
+                    context, id, router)
+                curr_ext_gw_info = curr_router['external_gateway_info']
+                new_ext_gw_info = router_updated['external_gateway_info']
+                send_update = False
+                if curr_ext_gw_info and not new_ext_gw_info:
+                    if curr_ext_gw_info['enable_snat']:
+                        send_update = True
+                elif not curr_ext_gw_info and new_ext_gw_info:
+                    if new_ext_gw_info['enable_snat']:
+                        send_update = True
+                elif (curr_ext_gw_info and
+                      new_ext_gw_info and
+                      curr_ext_gw_info['enable_snat'] !=
+                      new_ext_gw_info['enable_snat']):
+                    send_update = True
+                if send_update:
+                    self.nuageclient.update_router_gw(
+                        router_updated, params={
+                        'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat})
             else:
                 if ('rd' in r.keys() and r['rd'] or
                     'rt' in r.keys() and r['rt']):

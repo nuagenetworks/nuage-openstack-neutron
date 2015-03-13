@@ -12,6 +12,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.api.v2 import attributes
+
 
 EXTENDED_ATTRIBUTES_2_0 = {
     'subnets': {
@@ -28,6 +30,13 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'is_visible': True,
             'default': None,
             'validate': {'type:uuid_or_none': None}
+        },
+        'underlay': {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': attributes.ATTR_NOT_SPECIFIED,
+            'convert_to': attributes.convert_to_boolean_if_not_none,
         },
     },
 }
