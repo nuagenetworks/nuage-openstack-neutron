@@ -312,6 +312,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         sg_groups = None
         session = context.session
         with session.begin(subtransactions=True):
+            original_port = self.get_port(context, id)
+            changed_owner = p.get('device_owner')
+            current_owner =  original_port['device_owner']
+
             if p.get('device_owner', '').startswith(
                 constants.NOVA_PORT_OWNER_PREF):
                 LOG.debug("Port %s is owned by nova:compute", id)
@@ -356,6 +360,17 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 subnet_id = updated_port['fixed_ips'][0]['subnet_id']
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                             context.session, subnet_id)
+                # nova delete has removed the compute:none from device_owner
+                if not changed_owner and current_owner.startswith(
+                        constants.NOVA_PORT_OWNER_PREF):
+                    LOG.debug("Removing nova:compute onwership for port %s ",
+                               id)
+                    if subnet_mapping:
+                        net_partition = nuagedb.get_net_partition_by_id(
+                                session, subnet_mapping['net_partition_id'])
+                        # delete nuage_vm
+                        self._delete_nuage_vport(context, original_port,
+                                                 net_partition['name'])
         if (subnet_mapping and
             subnet_mapping['nuage_managed_subnet'] is False):
             if sg_groups:
