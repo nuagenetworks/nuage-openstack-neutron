@@ -255,15 +255,33 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                       self)._create_port_security_group_binding(context,
                                                                 port_id,
                                                                 sg_id)
+        l2dom_id = None
+        l3dom_id = None
+        #Get l2dom or l3dom_id
+        if not port.get('fixed_ips'):
+            return self._make_port_dict(port)
+        subnet_id = port['fixed_ips'][0]['subnet_id']
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                        subnet_id)
+        if subnet_mapping:
+            if subnet_mapping['nuage_l2dom_tmplt_id']:
+                l2dom_id = subnet_mapping['nuage_subnet_id']
+            else:
+                l3dom_id = subnet_mapping['nuage_subnet_id']
         try:
             vptag_vport_list = []
             for sg_id in sec_group:
                 params = {
                     'neutron_port_id': port_id,
                     'nuage_vport_type': vport_type,
-                    'nuage_vport_id': vport_id
+                    'nuage_vport_id': vport_id,
+                    'l2dom_id': l2dom_id,
+                    'l3dom_id': l3dom_id
                 }
-                nuage_port = self.nuageclient.get_nuage_port_by_id(params)
+                #To-Do: Verify gateway API feature
+                nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
+                nuage_port['l2dom_id'] = l2dom_id
+                nuage_port['l3dom_id'] = l3dom_id
                 if nuage_port and nuage_port.get('nuage_vport_id'):
                     nuage_vport_id = nuage_port['nuage_vport_id']
                     sg = self._get_security_group(context, sg_id)
@@ -303,7 +321,24 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def _delete_port_security_group_bindings(self, context, port_id):
         super(NuagePlugin,
               self)._delete_port_security_group_bindings(context, port_id)
-        self.nuageclient.delete_port_security_group_bindings(port_id)
+        port = self.get_port(context, port_id)
+        if port.get('device_owner') not in constants.AUTO_CREATE_PORT_OWNERS:
+            subnet_id = port['fixed_ips'][0]['subnet_id']
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                            subnet_id)
+            if subnet_mapping:
+                l2dom_id = None
+                l3dom_id = None
+                if subnet_mapping['nuage_l2dom_tmplt_id']:
+                    l2dom_id = subnet_mapping['nuage_subnet_id']
+                else:
+                    l3dom_id = subnet_mapping['nuage_subnet_id']
+                params = {
+                    'neutron_port_id': port_id,
+                    'l2dom_id': l2dom_id,
+                    'l3dom_id': l3dom_id
+                }
+                self.nuageclient.delete_port_security_group_bindings(params)
 
     @lockutils.synchronized('create_port', 'nuage-port', external=True)
     @nuage_utils.handle_nuage_api_error
