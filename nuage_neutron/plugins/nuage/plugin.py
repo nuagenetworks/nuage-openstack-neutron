@@ -44,7 +44,7 @@ from neutron.extensions import l3
 from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.openstack.common import log as logging
+from oslo_log import log  as logging
 from neutron.openstack.common import loopingcall
 from nuage_neutron.plugins.nuage.common import config
 from nuage_neutron.plugins.nuage.common import constants

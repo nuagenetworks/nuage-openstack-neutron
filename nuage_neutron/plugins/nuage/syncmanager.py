@@ -28,7 +28,7 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.db import db_base_plugin_v2
 from neutron.db import extraroute_db
 from neutron.db import securitygroups_db
-from neutron.openstack.common import log
+from oslo_log import log
 from neutron.openstack.common.gettextutils import _LE, _LI, _LW
 from nuage_neutron.plugins.nuage import nuagedb
 from nuage_neutron.plugins.nuage.common import config as nuage_config
