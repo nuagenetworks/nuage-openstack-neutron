@@ -72,7 +72,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "vsd-subnet",
-                         "nuage-gateway"]
+                         "nuage-gateway", "appdesigner"]
 
     binding_view = "extension:port_binding:view"
 
@@ -424,17 +424,20 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         with session.begin(subtransactions=True):
             original_port = self.get_port(context, id)
             changed_owner = p.get('device_owner')
-            current_owner =  original_port['device_owner']
+            current_owner = original_port['device_owner']
 
-            if p.get('device_owner', '').startswith(
-                constants.NOVA_PORT_OWNER_PREF):
+            if p.get('device_owner', '').startswith(constants.NOVA_PORT_OWNER_PREF):
                 LOG.debug("Port %s is owned by nova:compute", id)
                 port = self._get_port(context, id)
+
+                if current_owner == constants.APPD_PORT:
+                    p['device_owner'] = constants.APPD_PORT
                 port.update(p)
+
                 if not port.get('fixed_ips'):
                     return self._make_port_dict(port)
-                subnet_id = port['fixed_ips'][0]['subnet_id']
 
+                subnet_id = port['fixed_ips'][0]['subnet_id']
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
                                                                 subnet_id)
                 if subnet_mapping:
@@ -473,6 +476,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     sg_groups = sg_port[ext_sg.SECURITYGROUPS]
             else:
                 LOG.debug("Port %s is not owned by nova:compute", id)
+                if current_owner == constants.APPD_PORT:
+                    p['device_owner'] = constants.APPD_PORT
+                    port.update(p)
                 filters = {'device_id': [original_port['device_id']]}
                 ports = self.get_ports(context, filters)
                 #nova removes device_owner and device_id fields, in this
@@ -484,12 +490,19 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                       port)
                 if not updated_port.get('fixed_ips'):
                     return updated_port
+
                 subnet_id = updated_port['fixed_ips'][0]['subnet_id']
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-                            context.session, subnet_id)
+                    context.session, subnet_id)
                 # nova delete has removed the compute:none from device_owner
-                if not changed_owner and current_owner.startswith(
-                        constants.NOVA_PORT_OWNER_PREF):
+                # Delete the nuage_vport on VSD when the device_owner is appd
+                # and only when the call is nova delete. When it is neutron
+                # port update, we cannot receive binding:host_id in the
+                # dict since this is not an updatable attribute.
+                if ((not changed_owner and current_owner.startswith(
+                        constants.NOVA_PORT_OWNER_PREF)) or
+                        ((current_owner == constants.APPD_PORT and
+                        'binding:host_id' in p))):
                     LOG.debug("nova:compute onwership removed for port %s ",
                                id)
                     if subnet_mapping:
@@ -540,7 +553,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         }
         subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
         nuage_port = self.nuageclient.get_nuage_port_by_id(port_params)
-        if constants.NOVA_PORT_OWNER_PREF in port['device_owner']:
+        if (constants.NOVA_PORT_OWNER_PREF in port['device_owner'] or
+                    port['device_owner'] == constants.APPD_PORT):
             LOG.debug("Deleting VM port %s", port['id'])
             # This was a VM Port
             if nuage_port:
@@ -599,9 +613,18 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         net_partition = nuagedb.get_net_partition_by_id(context.session,
                                                         netpart_id)
 
-        self._delete_nuage_vport(context, port, net_partition['name'],
-                                 subnet_mapping)
-        super(NuagePlugin, self).delete_port(context, id)
+        if port['device_owner'] == constants.APPD_PORT:
+            match = re.match(attributes.UUID_PATTERN, port['device_id'])
+            if match:
+                msg = (_("port with ID %s has a VM with ID %s attached to it")
+                         % (port['id'], port['device_id']))
+                raise nuage_exc.NuageBadRequest(msg=msg)
+            else:
+                super(NuagePlugin, self).delete_port(context, id)
+        else:
+            self._delete_nuage_vport(context, port, net_partition['name'],
+                                     subnet_mapping)
+            super(NuagePlugin, self).delete_port(context, id)
 
     @log.log
     def _check_view_auth(self, context, resource, action):
@@ -625,7 +648,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def get_ports(self, context, filters=None, fields=None):
         ports = super(NuagePlugin, self).get_ports(context,
-                                                         filters, fields)
+                                                   filters, fields)
         return [self._fields(self._extend_port_dict_binding(context, port),
                              fields) for port in ports]
 
@@ -821,12 +844,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 # vsd managed subnet
                 if subnet_l2dom.get('nuage_managed_subnet'):
                     if not subnet_nuagenet:
-                        msg = _('Network has vsd managed subnets, cannot create '
+                        msg = _('Network has vsd managed subnets,'
+                                ' cannot create '
                                 'os managed subnets')
                         raise nuage_exc.NuageBadRequest(msg=msg)
                 else:
                     if subnet_nuagenet:
-                        msg = _('Network has os managed subnets, cannot create '
+                        msg = _('Network has os managed subnets,'
+                                ' cannot create '
                                 'vsd managed subnets')
                         raise nuage_exc.NuageBadRequest(msg=msg)
 
@@ -939,7 +964,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             params['dhcp_ip'] = gw_port['fixed_ips'][0]['ip_address']
         else:
             LOG.warning(_("CIDR parameter ignored for unmanaged subnet "))
-            LOG.warning(_("Allocation Pool parameter ignored for unmanaged subnet "))
+            LOG.warning(_("Allocation Pool parameter ignored"
+                          " for unmanaged subnet "))
             params['dhcp_ip'] = None
 
         try:
@@ -995,7 +1021,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                    " Nuage net-partition")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-        if nuagedb.get_subnet_l2dom_by_nuage_id(context.session, nuage_subn_id):
+        if nuagedb.get_subnet_l2dom_by_nuage_id(
+                context.session, nuage_subn_id):
             msg = ("Multiple Openstack subnets cannot be linked to the "
                    "same VSD network")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
@@ -1092,8 +1119,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         try:
             with contextlib.nested(lockutils.lock('db-access'),
                 context.session.begin(subtransactions=True)):
-                neutron_subnet = super(NuagePlugin, self).create_subnet(context,
-                subnet)
+                neutron_subnet = super(NuagePlugin, self).create_subnet(
+                    context, subnet)
                 if subn['enable_dhcp']:
                     # Create the dhcp port only for adv. managed subnets
                     # this the dhcp port which is being created for the
@@ -2348,3 +2375,607 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         l2dom_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
             session, subnet['subnet_id'])
         return l2dom_mapping is not None
+
+
+    @log.log
+    def _get_default_net_partition(self, context):
+        def_net_part = cfg.CONF.RESTPROXY.default_net_partition_name
+        net_partition = nuagedb.get_net_partition_by_name(context.session,
+                                                          def_net_part)
+        if not net_partition:
+            msg = _("Default net_partition is not created at the start")
+            raise n_exc.BadRequest(resource='netpartition', msg=msg)
+        return net_partition
+
+    @log.log
+    def _create_appd_network(self, context, name):
+        network = {
+            'network': {
+                'name': name,
+                'router:external': False,
+                'provider:physical_network': attributes.ATTR_NOT_SPECIFIED,
+                'admin_state_up': True,
+                'tenant_id': context.tenant_id,
+                'provider:network_type': attributes.ATTR_NOT_SPECIFIED,
+                'shared': False,
+                'provider:segmentation_id': attributes.ATTR_NOT_SPECIFIED
+            }
+        }
+        binding = None
+        (network_type, physical_network,
+         vlan_id) = self._process_provider_create(context,
+                                                  network['network'])
+        with context.session.begin(subtransactions=True):
+            self._ensure_default_security_group(
+                context,
+                network['network']['tenant_id']
+            )
+            net = super(NuagePlugin, self).create_network(context,
+                                                          network)
+            self._process_l3_create(context, net, network['network'])
+            if network_type == 'vlan':
+                binding = nuagedb.add_network_binding(context.session,
+                                                      net['id'],
+                                                      network_type,
+                                                      physical_network,
+                                                      vlan_id)
+            self._extend_network_dict_provider_nuage(net, None, binding)
+            return net
+
+    def _get_appd_network_id(self, appdomain_id):
+        application_domain = self.nuageclient.get_nuage_application_domain(
+            appdomain_id)
+        return application_domain['externalID']
+
+    @log.log
+    def _delete_appd_network(self, context, appdomain_id):
+        with context.session.begin(subtransactions=True):
+            id = self._get_appd_network_id(appdomain_id)
+            self._process_l3_delete(context, id)
+            filter = {'network_id': [id]}
+            subnets = self.get_subnets(context, filters=filter)
+            for subnet in subnets:
+                LOG.debug("Deleting subnet %s", subnet['id'])
+                self.delete_subnet(context, subnet['id'])
+            LOG.debug('Deleting network %s', id)
+            super(NuagePlugin, self).delete_network(context, id)
+
+    @log.log
+    def _make_nuage_application_domain_dict(self, application_router,
+                                            context=None, fields=None):
+        res = {
+            'id': application_router['ID'],
+            'name': application_router['name'],
+            'applicationDeploymentPolicy': 'ZONE',
+        }
+        if context:
+            res['tenant_id'] = context.tenant_id
+        return self._fields(res, fields)
+
+    @log.log
+    def _make_nuage_application_dict(self, application, context=None,
+                                     fields=None):
+        res = {
+            'id': application['ID'],
+            'name': application['name'],
+            'associateddomainid': application['associatedDomainID']
+        }
+        if context:
+            res['tenant_id'] = context.tenant_id
+        return self._fields(res, fields)
+
+    @log.log
+    def _make_nuage_service_dict(self, service, context=None,
+                                 fields=None):
+        res = {
+            'id': service['ID'],
+            'name': service['name'],
+            'direction': service['direction'],
+            'src_port': service['sourcePort'],
+            'dest_port': service['destinationPort'],
+            'etherype': service['etherType'],
+            'dscp': service['DSCP'],
+            'protocol': service['protocol']
+        }
+        if context:
+            res['tenant_id'] = context.tenant_id
+        return self._fields(res, fields)
+
+    @log.log
+    def _make_nuage_flow_dict(self, flow, context=None,
+                              fields=None):
+        res = {
+            'id': flow['ID'],
+            'name': flow['name'],
+            'origin_tier': flow['originTierID'],
+            'dest_tier': flow['destinationTierID'],
+            'application_id': flow['parentID']
+        }
+        if context:
+            res['tenant_id'] = context.tenant_id
+        return self._fields(res, fields)
+
+    @log.log
+    def _make_nuage_tier_dict(self, tier, context=None,
+                              fields=None):
+        res = {
+            'id': tier['ID'],
+            'name': tier['name'],
+            'associatedappid': tier['parentID'],
+            'type': tier['type'],
+        }
+        if context:
+            res['tenant_id'] = context.tenant_id
+        return self._fields(res, fields)
+
+    def _get_neutron_subn_id_for_tier(self, context, name, asppdnet_id):
+        filters = {'tenant_id': [context.tenant_id],
+                   'name': [name]}
+        subnets = self.get_subnets(context, filters=filters)
+        for subn in subnets:
+            if subn['network_id'] == asppdnet_id:
+                return subn
+
+    @log.log
+    def _link_nuage_tier(self, context, subnet):
+        subn = subnet['subnet']
+        nuage_subn_id = subn['nuagenet']
+        nuage_tmplt_id = nuage_subn_id
+        gw_ip = subn['gateway_ip']
+        nuage_netpart_name = subn['net_partition']
+        nuage_netpart = nuagedb.get_net_partition_by_name(context.session,
+                                                          nuage_netpart_name)
+        self._validate_adv_subnet(context, subn, nuage_netpart)
+
+        try:
+            with contextlib.nested(lockutils.lock('db-access'),
+                                   context.session.begin(
+                                           subtransactions=True)):
+                neutron_subnet = super(NuagePlugin, self).create_subnet(
+                    context, subnet)
+                if subn['enable_dhcp']:
+                    self._create_port_gateway(context, neutron_subnet, gw_ip)
+
+                subnet_l2dom = nuagedb.add_subnetl2dom_mapping(
+                    context.session, neutron_subnet['id'],
+                    nuage_subn_id, nuage_netpart['id'],
+                    l2dom_id=str(nuage_tmplt_id), managed=True)
+        except db_exc.DBError as e:
+            if isinstance(e.inner_exception, sql_exc.IntegrityError):
+                msg = _("A concurrent binding to the same VSD managed"
+                        " subnet detected. This operation is not allowed.")
+                raise n_exc.BadRequest(resource='subnet', msg=msg)
+        try:
+            nuage_npid = nuage_netpart['id']
+            (nuage_uid,
+             nuage_gid) = self.nuageclient.attach_nuage_group_to_nuagenet(
+                 context.tenant, nuage_npid, nuage_subn_id,
+                 neutron_subnet.get('shared'))
+        except Exception:
+            filters = {
+                'fixed_ips': {'subnet_id': [neutron_subnet['id']]},
+                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+            }
+            gw_ports = self.get_ports(context, filters=filters)
+            self._delete_port_gateway(context, gw_ports)
+            super(NuagePlugin, self).delete_subnet(context,
+                                                   neutron_subnet['id'])
+            msg = "Communication with Nuage VSD failed"
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
+
+        ns_dict = {}
+        ns_dict['nuage_user_id'] = nuage_uid
+        ns_dict['nuage_group_id'] = nuage_gid
+        with context.session.begin(subtransactions=True):
+            nuagedb.update_subnetl2dom_mapping(subnet_l2dom,
+                                               ns_dict)
+
+    @log.log
+    def _delete_underlying_neutron_subnet(self, context, id):
+        subnet = self.get_subnet(context, id)
+        filters = {
+            'fixed_ips': {'subnet_id': [id]},
+            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+        }
+        ports = self.get_ports(context, filters)
+        for port in ports:
+            if port['device_owner'] != constants.DEVICE_OWNER_DHCP_NUAGE:
+                raise n_exc.SubnetInUse(subnet_id=id)
+        self._delete_port_gateway(context, ports)
+
+        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session, id)
+        if subnet_l2dom:
+            LOG.debug("Found l2domain mapping for subnet %s", id)
+            try:
+                self.nuageclient.delete_subnet(id)
+            except Exception:
+                msg = (_('Unable to complete operation on subnet %s.'
+                         'One or more ports have an IP allocation '
+                         'from this subnet.') % id)
+                raise n_exc.BadRequest(resource='subnet', msg=msg)
+        super(NuagePlugin, self).delete_subnet(context, id)
+
+        if subnet_l2dom:
+            if subnet_l2dom['nuage_managed_subnet']:
+                self.nuageclient.detach_nuage_group_to_nuagenet(
+                    context.tenant, subnet_l2dom['net_partition_id'],
+                    subnet_l2dom['nuage_subnet_id'], subnet['shared'], True)
+
+            if not self._check_router_subnet_for_tenant(
+                context, subnet['tenant_id']):
+                LOG.debug("No router/subnet found for tenant %s", subnet[
+                    'tenant_id'])
+                self.nuageclient.delete_user(subnet_l2dom['nuage_user_id'])
+                self.nuageclient.delete_group(subnet_l2dom['nuage_group_id'])
+
+    @log.log
+    def _create_appdport(self, context, params):
+        tier = self.nuageclient.get_nuage_tier(params['tier_id'])
+        nuage_app = self.nuageclient.get_nuage_application(tier['parentID'])
+        net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
+        neutron_subnet = self._get_neutron_subn_id_for_tier(
+            context, tier['name'], net_id)
+        port = {
+            'port': {
+                'status': 'ACTIVE',
+                'device_owner': constants.APPD_PORT,
+                'binding:vnic_type': 'normal',
+                'name': params['name'],
+                'binding:host_id': attributes.ATTR_NOT_SPECIFIED,
+                'binding:profile': attributes.ATTR_NOT_SPECIFIED,
+                'mac_address': attributes.ATTR_NOT_SPECIFIED,
+                'network_id': net_id,
+                'tenant_id': params['tenant_id'],
+                'admin_state_up': True,
+                'fixed_ips': [{'subnet_id': neutron_subnet['id'], }],
+                'device_id': ''
+            }
+        }
+        port = super(NuagePlugin, self).create_port(context, port)
+        return self._extend_port_dict_binding(context, port)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def create_application_domain(self, context, application_domain):
+        app_domain = application_domain['application_domain']
+        net = self._create_appd_network(context, app_domain['name'])
+        net_partition = self._get_default_net_partition(context)
+        appdomain_def_templID = self.nuageclient.\
+            get_default_appdomain_templateID(net_partition)
+        if not appdomain_def_templID:
+            appdomain_def_templID = self.nuageclient.\
+                create_default_appdomain_template(net_partition)
+        params = {
+            'net_partition': net_partition,
+            'tenant_id': app_domain['tenant_id'],
+            'name': app_domain['name'],
+            'nuage_domain_template': app_domain.get('nuage_domain_template'),
+            'template_id':  appdomain_def_templID,
+            'externalID': net['id'],
+            'description': app_domain.get('description', '')
+        }
+        return self.nuageclient.create_nuage_application_domain(params)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_application_domain(self, context, id, fields=None):
+        application_domain = self.nuageclient.get_nuage_application_domain(id)
+        return self._make_nuage_application_domain_dict(
+            application_domain, context=context)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_application_domains(self, context, filters=None, fields=None):
+        net_partition = self._get_default_net_partition(context)
+        if 'id' in filters.keys():
+            application_domains = (self.nuageclient.
+                                   get_nuage_application_domains(
+                                   net_partition['id'],
+                                   filters['id'][0]))
+        elif 'name' in filters.keys():
+            application_domains = (self.nuageclient.
+                                   get_nuage_application_domains(
+                                   net_partition['id'],
+                                   filters['name'][0]))
+        else:
+            application_domains = (self.nuageclient.
+                                   get_nuage_application_domains(
+                                   net_partition['id']))
+
+        return [self._make_nuage_application_domain_dict(application_domain,
+                                                         context, fields)
+                for application_domain in application_domains]
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def update_application_domain(self, context, id, application_domain):
+        app_domain = application_domain['application_domain']
+        return self.nuageclient.update_nuage_application_domain(id, app_domain)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def delete_application_domain(self, context, id):
+        self._delete_appd_network(context, id)
+        self.nuageclient.delete_nuage_application_domain(id)
+        net_partition = self._get_default_net_partition(context)
+        application_domains = self.nuageclient.get_nuage_application_domains(
+            net_partition['id'])
+        if not application_domains:
+            self.nuageclient.delete_default_appdomain_template(net_partition)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def create_application(self, context, application):
+        net_partition = self._get_default_net_partition(context)
+        app = application['application']
+        params = {
+            'net_partition': net_partition,
+            'name': app['name'],
+            'associatedDomainID': app['applicationdomain_id'],
+            'description': app['description']
+        }
+        return self.nuageclient.create_nuage_application(params)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_application(self, context, id, fields=None):
+        application = self.nuageclient.get_nuage_application(id)
+        return self._make_nuage_application_dict(application, context=context)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_applications(self, context, filters=None, fields=None):
+        net_partition = self._get_default_net_partition(context)
+        if 'id' in filters.keys():
+            applications = self.nuageclient.get_nuage_applications(
+                net_partition['id'], filters['id'][0])
+        elif 'name' in filters.keys():
+            applications = self.nuageclient.get_nuage_applications(
+                net_partition['id'], filters['name'][0])
+        else:
+            applications = self.nuageclient.get_nuage_applications(
+                net_partition['id'])
+
+        return [self._make_nuage_application_dict(application, context, fields)
+                for application in applications]
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def delete_application(self, context, id):
+        net_partition = self._get_default_net_partition(context)
+        std_tiers_in_app = self.nuageclient.get_std_tiers_in_application(id)
+        nuage_app = self.nuageclient.get_nuage_application(id)
+        net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
+        with context.session.begin(subtransactions=True):
+            for tier in std_tiers_in_app:
+                neutron_subnet = self._get_neutron_subn_id_for_tier(
+                    context, tier['name'], net_id)
+                self._delete_underlying_neutron_subnet(
+                    context, neutron_subnet['id'])
+        self.nuageclient.delete_nuage_application(net_partition['id'], id)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def update_application(self, context, id, application):
+        app = application['application']
+        return self.nuageclient.update_nuage_application(id, app)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def create_tier(self, context, tier):
+        net_partition = self._get_default_net_partition(context)
+        subn = tier['tier']
+        params = {
+            'name': subn['name'],
+            'np_id': net_partition['id'],
+            'app_id': subn['app_id'],
+            'type': subn['type'],
+            'fip_pool_id': subn['fip_pool_id'],
+            'cidr': subn['cidr']
+        }
+        nuage_tier = self.nuageclient.create_nuage_tier(params)
+        if subn['type'] == constants.TIER_STANDARD:
+            nuage_app = self.nuageclient.get_nuage_application(
+                nuage_tier['associatedappid'])
+            net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
+            subnet = {
+                'subnet': {
+                    'name': subn['name'],
+                    'enable_dhcp': True,
+                    'network_id': net_id,
+                    'tenant_id': subn['tenant_id'],
+                    'net_partition': net_partition['name'],
+                    'ip_version': 4,
+                    'cidr': subn['cidr'],
+                    'nuagenet': nuage_tier['nuage_subnetid'],
+                    'gateway_ip': nuage_tier['gateway_ip'],
+                    'allocation_pools': attributes.ATTR_NOT_SPECIFIED,
+                    'dns_nameservers': attributes.ATTR_NOT_SPECIFIED,
+                    'host_routes': attributes.ATTR_NOT_SPECIFIED
+                }
+            }
+            try:
+                self._link_nuage_tier(context, subnet)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    self.nuageclient.delete_nuage_tier(nuage_tier['id'])
+        return nuage_tier
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def update_tier(self, context, id, tier):
+        nuage_tier = tier['tier']
+        orig_tier = self.nuageclient.get_nuage_tier(id)
+        if orig_tier['type'] == constants.TIER_STANDARD:
+            nuage_app = self.nuageclient.get_nuage_application(
+                orig_tier['parentID'])
+            net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
+            neutron_subnet = self._get_neutron_subn_id_for_tier(
+                context, orig_tier['name'], net_id)
+            subnet = {'subnet': {'name': nuage_tier['name']}}
+            super(NuagePlugin, self).update_subnet(
+                context, neutron_subnet['id'], subnet)
+        return self.nuageclient.update_nuage_tier(id, nuage_tier)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_tier(self, context, id, fields=None):
+        tier = self.nuageclient.get_nuage_tier(id)
+        return self._make_nuage_tier_dict(tier, context=context)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_tiers(self, context, filters=None, fields=None):
+        if 'id' in filters.keys():
+            tiers = self.nuageclient.get_nuage_tiers(
+                None, id=filters['id'][0])
+        elif 'tenant_id' in filters.keys():
+            tiers = []
+        else:
+            tiers = self.nuageclient.get_nuage_tiers(filters['app_id'][0])
+
+        return [self._make_nuage_tier_dict(tier, context, fields)
+                for tier in tiers]
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def delete_tier(self, context, id):
+        macro_name = None
+        tier = self.nuageclient.get_nuage_tier(id)
+        net_partition = self._get_default_net_partition(context)
+        nuage_app = self.nuageclient.get_nuage_application(tier['parentID'])
+        net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
+        if not tier:
+            raise nuage_exc.NuageNotFound(resource='tier', resource_id=id)
+        if tier['type'] == constants.TIER_STANDARD:
+            neutron_subnet = self._get_neutron_subn_id_for_tier(
+                context, tier['name'], net_id)
+            self._delete_underlying_neutron_subnet(context,
+                                                   neutron_subnet['id'])
+        elif tier['type'] == 'NETWORK_MACRO':
+            macro_name = tier['name'] + '_' + tier['ID']
+        self.nuageclient.delete_nuage_tier(id)
+        if macro_name:
+            self.nuageclient.delete_nwmacro_assoc_with_tier(
+                macro_name, net_partition['id'])
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def create_appdport(self, context, appdport):
+        p = appdport['appdport']
+        params = {
+            'name': p['name'],
+            'tier_id': p['tier_id'],
+            'tenant_id': p['tenant_id']
+        }
+        return self._create_appdport(context, params)
+
+    @log.log
+    def get_appdports(self, context, filters=None, fields=None):
+        filters = {
+            'device_owner': [constants.APPD_PORT]
+        }
+        return self.get_ports(context, filters=filters)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def create_service(self, context, service):
+        net_partition = self._get_default_net_partition(context)
+        svc = service['service']
+        params = {
+            'net_partition': net_partition,
+            'name': svc['name'],
+            'sourcePort': svc['src_port'],
+            'destinationPort': svc['dest_port'],
+            'protocol': svc['protocol'],
+            'ethertype': svc['ethertype'],
+            'direction': svc['direction'],
+            'dscp': svc['dscp'],
+            'description': svc['description']
+        }
+        nuage_service = self.nuageclient.create_nuage_service(params)
+        return nuage_service
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_service(self, context, id, fields=None):
+        service = self.nuageclient.get_nuage_service(id)
+        return self._make_nuage_service_dict(service, context=context)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_services(self, context, filters=None, fields=None):
+        net_partition = self._get_default_net_partition(context)
+        if 'id' in filters.keys():
+            services = self.nuageclient.get_nuage_services(
+                net_partition['id'], filters['id'][0])
+        elif 'name' in filters.keys():
+            services = self.nuageclient.get_nuage_services(
+                net_partition['id'], filters['name'][0])
+        else:
+            services = self.nuageclient.get_nuage_services(net_partition['id'])
+
+        return [self._make_nuage_service_dict(service, context, fields)
+                for service in services]
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def delete_service(self, context, id):
+        net_partition = self._get_default_net_partition(context)
+        self.nuageclient.delete_nuage_service(net_partition['id'], id)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def update_service(self, context, id, service):
+        svc = service['service']
+        return self.nuageclient.update_nuage_service(id, svc)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def create_flow(self, context, flow):
+        nuage_flow = flow['flow']
+        net_partition = self._get_default_net_partition(context)
+        nuage_app_id = self.nuageclient.get_app_id_of_tier(
+            nuage_flow['origin_tier'])
+        params = {
+            'net_partition': net_partition,
+            'name': nuage_flow['name'],
+            'originTierID': nuage_flow['origin_tier'],
+            'destinationTierID': nuage_flow['dest_tier'],
+            'app_id': nuage_app_id,
+            'nuage_services': nuage_flow.get('nuage_services'),
+            'src_addr_overwrite': nuage_flow.get('src_addr_overwrite'),
+            'dest_addr_overwrite': nuage_flow.get('dest_addr_overwrite')
+        }
+
+        return self.nuageclient.create_nuage_flow(params)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_flow(self, context, id, fields=None):
+        flow = self.nuageclient.get_nuage_flow(id)
+        return self._make_nuage_flow_dict(flow, context=context)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_flows(self, context, filters=None, fields=None):
+        if 'id' in filters.keys():
+            flows = self.nuageclient.get_nuage_flows(
+                None, id=filters['id'][0])
+        elif 'tenant_id' in filters.keys():
+            flows = []
+        else:
+            flows = self.nuageclient.get_nuage_flows(filters['app_id'][0])
+
+        return [self._make_nuage_flow_dict(flow, context, fields)
+                for flow in flows]
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def delete_flow(self, context, id):
+        self.nuageclient.delete_nuage_flow(id)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def update_flow(self, context, id, flow):
+        return self.nuageclient.update_nuage_flow(id, flow['flow'])
