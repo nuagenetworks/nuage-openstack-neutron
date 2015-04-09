@@ -38,6 +38,12 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'default': attributes.ATTR_NOT_SPECIFIED,
             'convert_to': attributes.convert_to_boolean_if_not_none,
         },
+        'vsd_managed': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        }
     },
 }
 

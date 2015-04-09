@@ -19,7 +19,9 @@ from neutron.db import extraroute_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
+from neutron.db.models_v2 import Subnet
 from neutron.plugins.nuage import nuage_models
+from neutron.db import db_base_plugin_v2 as db_base
 
 
 def add_net_partition(session, netpart_id,
@@ -190,9 +192,50 @@ def get_subnet_l2dom_by_id(session, id):
     query = session.query(nuage_models.SubnetL2Domain)
     return query.filter_by(subnet_id=id).first()
 
+
+def get_nuage_subnet_info(session, subnet, fields):
+    if not fields or 'vsd_managed' in fields:
+        result = session \
+            .query(Subnet.id, nuage_models.SubnetL2Domain.nuage_managed_subnet) \
+            .outerjoin(nuage_models.SubnetL2Domain) \
+            .filter(Subnet.id == subnet['id']) \
+            .group_by(Subnet.id).all()
+
+        result = dict(result)
+        subnet['vsd_managed'] = True if result[subnet['id']] else False
+    return subnet
+
+
+def get_nuage_subnets_info(session, subnets, fields, filters):
+    ids = [subnet['id'] for subnet in subnets]
+    query = session \
+        .query(Subnet.id, nuage_models.SubnetL2Domain.nuage_managed_subnet) \
+        .outerjoin(nuage_models.SubnetL2Domain) \
+        .filter(Subnet.id.in_(ids))
+
+    if filters is not None and 'vsd_managed' in filters.keys():
+        filter = filters['vsd_managed']
+        filter = [value.lower() == 'true' for value in filter]
+        query = query.filter(
+            nuage_models.SubnetL2Domain.nuage_managed_subnet.in_(filter))
+
+    result = query.group_by(Subnet.id).all()
+
+    if not fields or 'vsd_managed' in fields:
+        filtered = []
+        result = dict(result)
+        for subnet in subnets:
+            if subnet['id'] in result:
+                subnet['vsd_managed'] = True if result[subnet['id']] else False
+                filtered.append(subnet)
+        subnets = filtered
+    return subnets
+
+
 def get_subnet_l2dom_by_nuage_id(session, id):
     query = session.query(nuage_models.SubnetL2Domain)
     return query.filter_by(nuage_subnet_id=str(id)).first()
+
 
 def get_subnet_l2dom_with_lock(session, id):
     query = session.query(nuage_models.SubnetL2Domain)

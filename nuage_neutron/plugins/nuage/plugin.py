@@ -18,7 +18,6 @@ import logging as py_logging
 import netaddr
 import re
 import sys
-import json
 
 from logging import handlers
 from oslo.db import exception as db_exc
@@ -54,6 +53,7 @@ from nuage_neutron.plugins.nuage.common import constants
 from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
 from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage.extensions import netpartition
+from nuage_neutron.plugins.nuage.extensions import vsd_subnet
 from nuage_neutron.plugins.nuage import nuagedb
 from oslo_log import log as logging
 
@@ -78,10 +78,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                   extraroute_db.ExtraRoute_db_mixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
                   netpartition.NetPartitionPluginBase,
-                  sg_db.SecurityGroupDbMixin):
+                  sg_db.SecurityGroupDbMixin,
+                  vsd_subnet.VsdSubnetPluginBase):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
-                         "ext-gw-mode", "nuage-floatingip"]
+                         "ext-gw-mode", "nuage-floatingip", "vsd-subnet"]
 
     binding_view = "extension:port_binding:view"
 
@@ -1009,6 +1010,27 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             nuagedb.update_subnetl2dom_mapping(subnet_l2dom,
                                                ns_dict)
         return neutron_subnet
+
+    @log.log
+    def get_subnet(self, context, id, fields=None):
+        subnet = super(NuagePlugin, self).get_subnet(context, id, None)
+        subnet = nuagedb.get_nuage_subnet_info(context.session, subnet, fields)
+
+        return self._fields(subnet, fields)
+
+
+    @log.log
+    def get_subnets(self, context, filters=None, fields=None, sorts=None,
+                    limit=None, marker=None, page_reverse=False):
+        subnets = super(NuagePlugin, self).get_subnets(context, filters, None,
+                                                       sorts, limit, marker,
+                                                       page_reverse)
+        subnets = nuagedb.get_nuage_subnets_info(context.session, subnets,
+                                                 fields, filters)
+        for idx, subnet in enumerate(subnets):
+            subnets[idx] = self._fields(subnet, fields)
+        return subnets
+
 
     @handle_nuage_api_error
     @log.log
@@ -2147,4 +2169,48 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         super(NuagePlugin, self).delete_security_group_rule(context, id)
         self.nuageclient.delete_nuage_sgrule([local_sg_rule])
         LOG.debug("Deleted security group rule %s", id)
+
+    @handle_nuage_api_error
+    @log.log
+    def get_vsd_subnet(self, context, id, fields=None):
+        subnet, type = self.nuageclient.get_subnet_or_domain_subnet_by_id(id)
+        vsd_subnet = {'id': subnet['subnet_id'],
+                      'name': subnet['subnet_name'],
+                      'cidr': self._calc_cidr(subnet),
+                      'gateway': subnet['subnet_gateway'],
+                      'ip_version': subnet['subnet_iptype'],
+                      'linked': self._is_subnet_linked(context.session,
+                                                       subnet)}
+        if type == 'Subnet':
+            domain_id = self.nuageclient.get_router_by_domain_subnet_id(
+                vsd_subnet['id'])
+            netpart_id = self.nuageclient.get_router_np_id(domain_id)
+        else:
+            netpart_id = subnet['subnet_parent_id']
+
+        net_partition = self.nuageclient.get_net_partition_name_by_id(
+            netpart_id)
+        vsd_subnet['net_partition'] = net_partition
+        return self._fields(vsd_subnet, fields)
+
+    def _calc_cidr(self, subnet):
+        if not subnet['subnet_address'] and \
+                not subnet['subnet_shared_net_id']:
+            return None
+
+        shared_id = subnet['subnet_shared_net_id']
+        if shared_id:
+            subnet = self.nuageclient.get_nuage_sharedresource(shared_id)
+        ip = netaddr.IPNetwork(subnet['subnet_address'] + '/' +
+                               subnet['subnet_netmask'])
+        return str(ip)
+
+    def _is_subnet_linked(self, session, subnet):
+        if subnet['subnet_os_id']:
+            return True
+
+        l2dom_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
+            session, subnet['subnet_id'])
+        return l2dom_mapping is not None
+
 
