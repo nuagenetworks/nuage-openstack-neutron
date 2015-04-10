@@ -1,0 +1,12 @@
+Source: neutron-plugin-nuage
+Maintainer: infra-nuage <infra-nuage@list.alcatel-lucent.com>
+Section: python
+Priority: optional
+Build-Depends: python-setuptools, python-all, debhelper (>= 7)
+Standards-Version: 3.9.3
+Homepage: http://nuagenetworks.net/
+
+Package: neutron-plugin-nuage
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}
+Description: Openstack Neutron plugin for interop with Nuage Networks VSP solution
