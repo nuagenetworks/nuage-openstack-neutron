@@ -154,6 +154,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                             subnet_mapping):
         filters = {'device_id': [port['device_id']]}
         ports = self.get_ports(context, filters)
+        subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
         params = {
             'port_id': port['id'],
             'id': port['device_id'],
@@ -161,7 +162,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             'netpart_name': np_name,
             'ip': port['fixed_ips'][0]['ip_address'],
             'no_of_ports': len(ports),
-            'tenant': port['tenant_id'],
+            'tenant': subn['tenant_id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id']
         }
 
@@ -401,6 +402,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         params = {
             'neutron_port_id': port['id'],
         }
+        subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
         nuage_port = self.nuageclient.get_nuage_port_by_id(params)
 
         if constants.NOVA_PORT_OWNER_PREF in port['device_owner']:
@@ -413,7 +415,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             params = {
                 'no_of_ports': len(ports),
                 'netpart_name': np_name,
-                'tenant': port['tenant_id'],
+                'tenant': subn['tenant_id'],
                 'mac': port['mac_address'],
                 'nuage_vif_id': nuage_vif_id,
                 'id': port['device_id']
