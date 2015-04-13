@@ -29,7 +29,7 @@ fi
 mv ../neutron-plugin-nuage* .
 if [ -n "$BUILD_NAME" ]
 then
-    dpkg-sig -k 83496517 -s builder nuagenetlib_*.changes
+    dpkg-sig -k 83496517 -s builder neutron-plugin-nuage_*.changes
 fi
 
 exit 0
