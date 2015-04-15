@@ -16,7 +16,7 @@ OVS_BUILD_NUMBER=$(echo $BUILD_NAME | sed "s/^.*-\(.*\)$/\1/")
 python setup.py egg_info
 
 DEBEMAIL="Nuage Networks <info@nuagenetworks.net>" dch -b --newversion \
-            ${OVS_BUILD_NUMBER}nuage "Jenkins build" --distribution $(lsb_release --codename --short)
+            ${OVS_BUILD_NUMBER}-nuage-kilo "Jenkins build" --distribution $(lsb_release --codename --short)
 
 debuild -b -kinfo@nuagenetworks.net
 
