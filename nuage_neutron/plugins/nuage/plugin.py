@@ -15,6 +15,7 @@
 import copy
 import re
 import sys
+import json
 
 import contextlib
 import netaddr
@@ -46,6 +47,7 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from oslo_log import log  as logging
 from neutron.openstack.common import loopingcall
+from neutron.openstack.common.policy import Rules
 from nuage_neutron.plugins.nuage.common import config
 from nuage_neutron.plugins.nuage.common import constants
 from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
@@ -1333,6 +1335,20 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @handle_nuage_api_error
     @log.log
+    def get_router(self, context, id, fields=None):
+        router = super(NuagePlugin, self).get_router(context, id, fields)
+        nuage_router = self.nuageclient.get_router_by_external(id)
+        if nuage_router:
+            if not fields or 'tunnel_type' in fields:
+                router['tunnel_type'] = nuage_router['tunnelType']
+            if not fields or 'rd' in fields:
+                router['rd'] = nuage_router['routeDistinguisher']
+            if not fields or 'rt' in fields:
+                router['rt'] = nuage_router['routeTarget']
+        return router
+
+    @handle_nuage_api_error
+    @log.log
     def create_router(self, context, router):
         req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_router(context,
@@ -1369,6 +1385,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                               nuage_router['nuage_domain_id'],
                                               nuage_router['rt'],
                                               nuage_router['rd'])
+            neutron_router['tunnel_type'] = nuage_router['tunnel_type']
+            neutron_router['rd'] = nuage_router['rd']
+            neutron_router['rt'] = nuage_router['rt']
 
         return neutron_router
 
@@ -1458,8 +1477,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         router_updated, params={
                         'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat})
             else:
+                neutron_router = None
                 if ('rd' in r.keys() and r['rd'] or
-                    'rt' in r.keys() and r['rt']):
+                        'rt' in r.keys() and r['rt']):
                     neutron_router = self.get_router(context, id)
                     net_partition = self._get_net_partition_for_router(
                         context, router)
@@ -1471,7 +1491,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
                     ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
                         context.session, id)
-                    if ent_rtr_mapping:
+                    if (ent_rtr_mapping and
+                            (neutron_router['rd'] != r['rd'] or
+                             neutron_router['rt'] != r['rt'])):
                         nuage_domain_id = ent_rtr_mapping['nuage_router_id']
                         self.nuageclient.update_router_rt_rd(neutron_router,
                                                              router['router'],
@@ -1482,6 +1504,19 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         ns_dict['nuage_rtr_rd'] = r['rd']
                         nuagedb.update_entrouter_mapping(ent_rtr_mapping,
                                                          ns_dict)
+                if r.get('tunnel_type'):
+                    if not neutron_router:
+                        neutron_router = self.get_router(context, id)
+                    if neutron_router['tunnel_type'] != r['tunnel_type']:
+                        net_partition = self._get_net_partition_for_router(
+                            context, router)
+                        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+                            context.session, id)
+
+                        nuage_domain_id = ent_rtr_mapping['nuage_router_id']
+                        self.nuageclient.update_router_tunnel_type(
+                            neutron_router, router['router'], net_partition,
+                            nuage_domain_id)
 
                 router_updated = super(NuagePlugin, self).update_router(
                     context, id, router)

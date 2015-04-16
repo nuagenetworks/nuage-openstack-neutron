@@ -27,14 +27,16 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': True,
             'is_visible': True,
             'default': None,
-            'validate': {'type:string_or_none': None}
+            'validate': {'type:string_or_none': None},
+            'enforce_policy': True
         },
         'rt': {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
             'default': None,
-            'validate': {'type:string_or_none': None}
+            'validate': {'type:string_or_none': None},
+            'enforce_policy': True
         },
         'nuage_router_template': {
             'allow_post': True,
@@ -43,6 +45,14 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'default': None,
             'validate': {'type:uuid_or_none': None}
         },
+        'tunnel_type': {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:values': ['VXLAN', 'GRE', None]},
+            'enforce_policy': True,
+            },
     },
 }
 
