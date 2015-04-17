@@ -60,7 +60,13 @@ syncmanager_opts = [
                       "performed only once, at the Neutron startup time.")),
 ]
 
+fiprate_opts = [
+    cfg.StrOpt('fip_rate_change_log', default=''),
+    cfg.IntOpt('default_fip_rate', default=None),
+]
+
 
 def nuage_register_cfg_opts():
     cfg.CONF.register_opts(restproxy_opts, "RESTPROXY")
     cfg.CONF.register_opts(syncmanager_opts, "SYNCMANAGER")
+    cfg.CONF.register_opts(fiprate_opts, "FIPRATE")
