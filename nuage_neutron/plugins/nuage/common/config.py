@@ -41,7 +41,7 @@ restproxy_opts = [
     cfg.StrOpt('default_l2domain_template', default=''),
     cfg.StrOpt('default_isolated_zone', default=''),
     cfg.StrOpt('default_shared_zone', default=''),
-    cfg.StrOpt('nuage_pat', default='notavailable'),
+    cfg.StrOpt('nuage_pat', default='defaultdisabled'),
     cfg.BoolOpt('nuage_fip_underlay', default=False)
 ]
 

@@ -1880,7 +1880,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                   % (neutron_fip['id'], neutron_fip['tenant_id'], port_id)))
 
         # Add QOS to port for rate limiting
-        if 'nuage_fip_rate' in neutron_fip:
+        if neutron_fip.get('nuage_fip_rate', None):
             if not nuage_port:
                 msg = _('Rate limiting requires the floating ip to be '
                         'associated to a port.')
@@ -2106,10 +2106,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     'router_id': ent_rtr_mapping['nuage_router_id'],
                     'fip_id': fip_id
                 }
-                fip = self.nuageclient.get_nuage_fip_by_id(params)
-                if fip:
+                nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                if nuage_fip:
                     self.nuageclient.delete_nuage_floatingip(
-                        fip['nuage_fip_id'])
+                        nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
             super(NuagePlugin, self).delete_floatingip(context, fip_id)
