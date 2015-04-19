@@ -1,4 +1,4 @@
-# Copyright 2014 Alcatel-Lucent USA Inc.
+# Copyright 2015 Alcatel-Lucent USA Inc.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -12,24 +12,20 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.common import constants
+import sys
 
-AUTO_CREATE_PORT_OWNERS = [
-    constants.DEVICE_OWNER_DHCP,
-    constants.DEVICE_OWNER_ROUTER_INTF,
-    constants.DEVICE_OWNER_ROUTER_GW,
-    constants.DEVICE_OWNER_FLOATINGIP
-]
+from neutron.common import exceptions as n_exc
+from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
 
-NOVA_PORT_OWNER_PREF = 'compute:'
 
-SR_TYPE_FLOATING = "FLOATING"
-
-DEVICE_OWNER_DHCP_NUAGE = "network:dhcp:nuage"
-
-DEF_L3DOM_TEMPLATE_PFIX = '_def_L3_Template'
-DEF_L2DOM_TEMPLATE_PFIX = '_def_L2_Template'
-DEF_NUAGE_ZONE_PREFIX = 'def_zone'
-
-HOST_VPORT = 'HOST'
-VM_VPORT = 'VM'
+def handle_nuage_api_error(fn):
+    def wrapped(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as ex:
+            if isinstance(ex, n_exc.NeutronException):
+                raise
+            et, ei, tb = sys.exc_info()
+            raise nuage_exc.NuageAPIException, \
+                nuage_exc.NuageAPIException(msg=ex), tb
+    return wrapped

@@ -298,6 +298,12 @@ def get_all_net_partitions(session):
     return make_net_partition_list(net_partitions)
 
 
+def get_default_net_partition(context, def_net_part):
+    net_partition = get_net_partition_by_name(context.session,
+                                              def_net_part)
+    return net_partition
+
+
 def get_all_routes(session):
     routes = session.query(extraroute_db.RouterRoute)
     return make_route_list(routes)

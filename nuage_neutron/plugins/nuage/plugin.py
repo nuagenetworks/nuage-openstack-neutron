@@ -17,7 +17,6 @@ import copy
 import logging as py_logging
 import netaddr
 import re
-import sys
 
 from logging import handlers
 from oslo.db import exception as db_exc
@@ -51,38 +50,29 @@ from neutron import policy
 from nuage_neutron.plugins.nuage.common import config
 from nuage_neutron.plugins.nuage.common import constants
 from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
+from nuage_neutron.plugins.nuage.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage.extensions import netpartition
 from nuage_neutron.plugins.nuage.extensions import vsd_subnet
+from nuage_neutron.plugins.nuage import gateway
 from nuage_neutron.plugins.nuage import nuagedb
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
 
-def handle_nuage_api_error(fn):
-    def wrapped(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except Exception as ex:
-            if isinstance(ex, n_exc.NeutronException):
-                raise
-            et, ei, tb = sys.exc_info()
-            raise nuage_exc.NuageAPIException, \
-                nuage_exc.NuageAPIException(msg=ex), tb
-    return wrapped
-
-
 class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                   external_net_db.External_net_db_mixin,
                   extraroute_db.ExtraRoute_db_mixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
+                  gateway.NuagegatewayMixin,
                   netpartition.NetPartitionPluginBase,
                   sg_db.SecurityGroupDbMixin,
                   vsd_subnet.VsdSubnetPluginBase):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
-                         "ext-gw-mode", "nuage-floatingip", "vsd-subnet"]
+                         "ext-gw-mode", "nuage-floatingip", "vsd-subnet",
+                         "nuage-gateway"]
 
     binding_view = "extension:port_binding:view"
 
@@ -204,7 +194,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def _process_port_create_security_group(self, context, port,
-                                            sec_group):
+                                            sec_group,
+                                            vport_type=constants.VM_VPORT,
+                                            vport_id=None):
         if not attributes.is_attr_set(sec_group):
             port[ext_sg.SECURITYGROUPS] = []
             return
@@ -223,7 +215,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             vptag_vport_list = []
             for sg_id in sec_group:
                 params = {
-                    'neutron_port_id': port_id
+                    'neutron_port_id': port_id,
+                    'nuage_vport_type': vport_type,
+                    'nuage_vport_id': vport_id
                 }
                 nuage_port = self.nuageclient.get_nuage_port_by_id(params)
                 if nuage_port and nuage_port.get('nuage_vport_id'):
@@ -268,7 +262,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         self.nuageclient.delete_port_security_group_bindings(port_id)
 
     @lockutils.synchronized('create_port', 'nuage-port', external=True)
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def create_port(self, context, port):
         session = context.session
@@ -326,7 +320,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                   'subnet type'), port['device_id'])
         return self._extend_port_dict_binding(context, port)
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def update_port(self, context, id, port):
         p = port['port']
@@ -442,7 +436,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self.nuageclient.delete_vms(params)
 
     @lockutils.synchronized('delete-port', 'nuage-del', external=True)
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_port(self, context, id, l3_port_check=True):
         if l3_port_check:
@@ -555,7 +549,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return network_type, physical_network, segmentation_id
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def create_network(self, context, network):
         binding = None
@@ -611,7 +605,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     raise n_exc.NetworkInUse(net_id=id)
         return (is_external_set, subnet)
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def update_network(self, context, id, network):
         pnet._raise_if_updates_provider_attributes(network['network'])
@@ -649,7 +643,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                    constants.SR_TYPE_FLOATING)
         return net
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_network(self, context, id):
         with context.session.begin(subtransactions=True):
@@ -1031,8 +1025,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             subnets[idx] = self._fields(subnet, fields)
         return subnets
 
-
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def create_subnet(self, context, subnet):
         subn = subnet['subnet']
@@ -1059,7 +1052,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                   pnet_binding)
         return neutron_subnet
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def update_subnet(self, context, id, subnet):
         subn = copy.deepcopy(subnet['subnet'])
@@ -1101,7 +1094,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             return updated_subnet
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_subnet(self, context, id):
         subnet = self.get_subnet(context, id)
@@ -1147,7 +1140,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 self.nuageclient.delete_user(subnet_l2dom['nuage_user_id'])
                 self.nuageclient.delete_group(subnet_l2dom['nuage_group_id'])
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def add_router_interface(self, context, router_id, interface_info):
         session = context.session
@@ -1258,7 +1251,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return rtr_if_info
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def remove_router_interface(self, context, router_id, interface_info):
         if 'subnet_id' in interface_info:
@@ -1371,7 +1364,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             raise n_exc.BadRequest(resource='router', msg=msg)
         return net_partition
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def get_router(self, context, id, fields=None):
         router = super(NuagePlugin, self).get_router(context, id, fields)
@@ -1385,7 +1378,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 router['rt'] = nuage_router['routeTarget']
         return router
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def create_router(self, context, router):
         req_router = copy.deepcopy(router['router'])
@@ -1444,7 +1437,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 raise n_exc.BadRequest(resource='router', msg=msg)
             cidrs.append(ip)
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def update_router(self, context, id, router):
         r = router['router']
@@ -1560,7 +1553,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     context, id, router)
         return router_updated
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_router(self, context, id):
         neutron_router = self.get_router(context, id)
@@ -1754,13 +1747,13 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                l3isolated,
                                                l3shared)
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
         return self._validate_create_net_partition(ent["name"], context.session)
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_net_partition(self, context, id):
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_entid(
@@ -1800,19 +1793,25 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 for net_partition in net_partitions]
 
     @log.log
-    def _check_floatingip_update(self, context, port):
+    def _check_floatingip_update(self, context, port,
+                                 vport_type=constants.VM_VPORT,
+                                 vport_id=None):
         filter = {'fixed_port_id': [port['id']]}
         local_fip = self.get_floatingips(context,
                                          filters=filter)
         if local_fip:
             fip = local_fip[0]
             self._create_update_floatingip(context,
-                                           fip, port['id'])
+                                           fip, port['id'],
+                                           vport_type=vport_type,
+                                           vport_id=vport_id)
 
     @log.log
     def _create_update_floatingip(self, context,
                                   neutron_fip, port_id,
-                                  last_known_router_id=None):
+                                  last_known_router_id=None,
+                                  vport_type=constants.VM_VPORT,
+                                  vport_id=None):
         if last_known_router_id:
             rtr_id = last_known_router_id
         else:
@@ -1860,7 +1859,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         params = {
             'neutron_port_id': port_id,
             'nuage_fip_id': nuage_fip_id,
-            'nuage_rtr_id': ent_rtr_mapping['nuage_router_id']
+            'nuage_rtr_id': ent_rtr_mapping['nuage_router_id'],
+            'nuage_vport_type': vport_type,
+            'nuage_vport_id': vport_id
         }
         nuage_port = self.nuageclient.get_nuage_port_by_id(params)
         if nuage_port:
@@ -1895,7 +1896,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     if neutron_fip['nuage_fip_rate']
                     else "unlimited"))))
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuagePlugin, self).get_floatingip(context, id)
@@ -1913,7 +1914,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return self._fields(fip, fields)
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def create_floatingip(self, context, floatingip):
         fip = floatingip['floatingip']
@@ -1941,7 +1942,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         context, neutron_fip['id'])
             return neutron_fip
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def disassociate_floatingips(self, context, port_id, do_notify=True):
         fips = self.get_floatingips(context, filters={'port_id': [port_id]})
@@ -1970,7 +1971,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return router_ids
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def update_floatingip(self, context, id, floatingip):
         fip = floatingip['floatingip']
@@ -2060,7 +2061,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return neutron_fip
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_floatingip(self, context, fip_id):
         fip = self._get_floatingip(context, fip_id)
@@ -2116,7 +2117,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self.fip_rate_log.info('FIP %s (owned by tenant %s) deleted' %
                                    (fip_id, fip['tenant_id']))
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_security_group(self, context, id):
         filters = {'security_group_id': [id]}
@@ -2134,7 +2135,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         super(NuagePlugin, self).delete_security_group(context, id)
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def create_security_group_rule(self, context, security_group_rule):
         sg_rule = security_group_rule['security_group_rule']
@@ -2162,7 +2163,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return local_sg_rule
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_security_group_rule(self, context, id):
         local_sg_rule = self.get_security_group_rule(context, id)
@@ -2170,7 +2171,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         self.nuageclient.delete_nuage_sgrule([local_sg_rule])
         LOG.debug("Deleted security group rule %s", id)
 
-    @handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_error
     @log.log
     def get_vsd_subnet(self, context, id, fields=None):
         subnet, type = self.nuageclient.get_subnet_or_domain_subnet_by_id(id)
@@ -2212,5 +2213,3 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         l2dom_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
             session, subnet['subnet_id'])
         return l2dom_mapping is not None
-
-

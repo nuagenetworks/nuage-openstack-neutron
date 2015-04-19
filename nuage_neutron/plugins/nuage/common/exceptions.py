@@ -31,3 +31,7 @@ class NuageAPIException(n_exc.NeutronException):
 
 class NuageNotFound(n_exc.NotFound):
     message = _("%(resource)s %(resource_id)s could not be found")
+
+
+class NuageNotAuthorized(n_exc.NotAuthorized):
+    message = _("Not authorized for this operation: %(msg)s")
