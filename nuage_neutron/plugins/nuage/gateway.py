@@ -69,6 +69,7 @@ class NuagegatewayMixin(object):
             'gatewayport': vlan['gw_vlan_port_id'],
             'status': vlan['gw_vlan_status'],
             'usermnemonic': vlan['gw_vlan_mnemonic'],
+            'assigned': vlan['gw_vlan_assigned_to']
         }
 
         if context:
