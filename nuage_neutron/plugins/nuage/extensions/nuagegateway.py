@@ -118,6 +118,9 @@ RESOURCE_ATTRIBUTE_MAP = {
         'usermnemonic': {'allow_post': False, 'allow_put': False,
                          'validate': {'type:string': None},
                          'is_visible': True},
+        'assigned': {'allow_post': False, 'allow_put': False,
+                     'validate': {'type:string': None},
+                     'is_visible': True},
     },
     'nuage_gateway_vports': {
         'id': {'allow_post': False, 'allow_put': False,
