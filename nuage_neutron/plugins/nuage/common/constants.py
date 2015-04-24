@@ -34,6 +34,7 @@ DEVICE_OWNER_DHCP_NUAGE = "network:dhcp:nuage"
 DEF_L3DOM_TEMPLATE_PFIX = '_def_L3_Template'
 DEF_L2DOM_TEMPLATE_PFIX = '_def_L2_Template'
 DEF_NUAGE_ZONE_PREFIX = 'def_zone'
+SOFTWARE = 'SOFTWARE'
 
 HOST_VPORT = 'HOST'
 VM_VPORT = 'VM'

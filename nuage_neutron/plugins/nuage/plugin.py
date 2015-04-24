@@ -336,10 +336,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self.nuageclient.delete_port_redirect_target_bindings(params)
 
     @log.log
-    def _process_port_create_security_group(self, context, port,
-                                            sec_group,
-                                            vport_type=constants.VM_VPORT,
-                                            vport_id=None):
+    def _process_port_create_security_group(self, context, port, sec_group):
         if not attributes.is_attr_set(sec_group):
             port[ext_sg.SECURITYGROUPS] = []
             return
@@ -372,12 +369,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             for sg_id in sec_group:
                 params = {
                     'neutron_port_id': port_id,
-                    'nuage_vport_type': vport_type,
-                    'nuage_vport_id': vport_id,
                     'l2dom_id': l2dom_id,
                     'l3dom_id': l3dom_id
                 }
-                #To-Do: Verify gateway API feature
+
                 nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
                 if nuage_port and nuage_port.get('nuage_vport_id'):
                     nuage_port['l2dom_id'] = l2dom_id
@@ -385,8 +380,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     nuage_vport_id = nuage_port['nuage_vport_id']
                     sg = self._get_security_group(context, sg_id)
                     sg_rules = self.get_security_group_rules(
-                                        context,
-                                        {'security_group_id': [sg_id]})
+                        context,
+                        {'security_group_id': [sg_id]})
                     sg_params = {
                         'nuage_port': nuage_port,
                         'sg': sg,
@@ -408,9 +403,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 self.nuageclient.update_nuage_vport(params)
         except Exception:
             with excutils.save_and_reraise_exception():
-                for sg_id in sec_group:
-                    super(NuagePlugin,
-                          self)._delete_port_security_group_bindings(context,
+                super(NuagePlugin,
+                      self)._delete_port_security_group_bindings(context,
                                                                  port_id)
         # Convert to list as a set might be passed here and
         # this has to be serialized

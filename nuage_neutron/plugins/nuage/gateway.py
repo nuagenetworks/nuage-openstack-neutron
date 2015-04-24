@@ -132,14 +132,14 @@ class NuagegatewayMixin(object):
                                                      params)
         if port_id:
             port = params['port']
-            self._delete_port_security_group_bindings(context,
-                                                      port['id'])
-            self._process_port_create_security_group(
-                context,
-                port,
-                port[ext_sg.SECURITYGROUPS],
-                constants.HOST_VPORT, resp['vport_id'])
-            LOG.debug("Created security group for port %s", port['id'])
+            if resp['vport_gw_type'] == constants.SOFTWARE:
+                self._delete_port_security_group_bindings(context, port['id'])
+                self._process_port_create_security_group(
+                    context,
+                    port,
+                    port[ext_sg.SECURITYGROUPS]
+                )
+                LOG.debug("Created security group for port %s", port['id'])
             self._check_floatingip_update(context, port,
                                           vport_type=constants.HOST_VPORT,
                                           vport_id=resp['vport_id'])
