@@ -280,9 +280,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 }
                 #To-Do: Verify gateway API feature
                 nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
-                nuage_port['l2dom_id'] = l2dom_id
-                nuage_port['l3dom_id'] = l3dom_id
                 if nuage_port and nuage_port.get('nuage_vport_id'):
+                    nuage_port['l2dom_id'] = l2dom_id
+                    nuage_port['l3dom_id'] = l3dom_id
                     nuage_vport_id = nuage_port['nuage_vport_id']
                     sg = self._get_security_group(context, sg_id)
                     sg_rules = self.get_security_group_rules(
