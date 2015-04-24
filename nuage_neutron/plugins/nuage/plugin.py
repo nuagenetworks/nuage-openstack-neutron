@@ -183,7 +183,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def _create_nuage_port(self, context, port, np_name,
-                            subnet_mapping):
+                           subnet_mapping):
         filters = {'device_id': [port['device_id']]}
         ports = self.get_ports(context, filters)
         params = {
@@ -204,7 +204,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def _update_nuage_port(self, context, port, np_name,
-                            subnet_mapping, nuage_port):
+                           subnet_mapping, nuage_port):
         filters = {'device_id': [port['device_id']]}
         ports = self.get_ports(context, filters)
         params = {
@@ -295,7 +295,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     }
                     nuage_vptag_id = (
                         self.nuageclient.process_port_create_security_group(
-                                                                    sg_params))
+                            sg_params))
                     vptag_vport = {
                         'nuage_vporttag_id': nuage_vptag_id
                     }
@@ -426,7 +426,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             changed_owner = p.get('device_owner')
             current_owner = original_port['device_owner']
 
-            if p.get('device_owner', '').startswith(constants.NOVA_PORT_OWNER_PREF):
+            if p.get('device_owner', '').startswith(
+                    constants.NOVA_PORT_OWNER_PREF):
                 LOG.debug("Port %s is owned by nova:compute", id)
                 port = self._get_port(context, id)
 
@@ -443,7 +444,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 if subnet_mapping:
                     l2dom_id = None
                     l3dom_id = None
-                    if subnet_mapping['nuage_l2dom_tmplt_id']:
+                    if (subnet_mapping['nuage_l2dom_tmplt_id'] and
+                                port['device_owner'] != constants.APPD_PORT):
                         l2dom_id = subnet_mapping['nuage_subnet_id']
                     else:
                         l3dom_id = subnet_mapping['nuage_subnet_id']
@@ -461,7 +463,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                  subnet_mapping, nuage_port)
                     else:
                         #should not come here, log debug message
-                        LOG.debug("Nuage vport does not exist for port %s ",id)
+                        LOG.debug("Nuage vport does not"
+                                  " exist for port %s ", id)
                 else:
                     LOG.error(_('VM with uuid %s will not be resolved '
                               'in VSD because its created on unsupported'
@@ -476,33 +479,23 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     sg_groups = sg_port[ext_sg.SECURITYGROUPS]
             else:
                 LOG.debug("Port %s is not owned by nova:compute", id)
-                if current_owner == constants.APPD_PORT:
-                    p['device_owner'] = constants.APPD_PORT
-                    port.update(p)
                 filters = {'device_id': [original_port['device_id']]}
                 ports = self.get_ports(context, filters)
                 #nova removes device_owner and device_id fields, in this
                 #update_port, hence before update_port, get_ports for
                 #device_id and pass the no_of_ports to delete_nuage_vport
                 no_of_ports = len(ports)
-                updated_port = super(NuagePlugin,
-                    self).update_port(context, id,
-                                      port)
+                updated_port = super(NuagePlugin, self).update_port(
+                    context, id, port)
                 if not updated_port.get('fixed_ips'):
                     return updated_port
 
                 subnet_id = updated_port['fixed_ips'][0]['subnet_id']
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                     context.session, subnet_id)
-                # nova delete has removed the compute:none from device_owner
-                # Delete the nuage_vport on VSD when the device_owner is appd
-                # and only when the call is nova delete. When it is neutron
-                # port update, we cannot receive binding:host_id in the
-                # dict since this is not an updatable attribute.
-                if ((not changed_owner and current_owner.startswith(
-                        constants.NOVA_PORT_OWNER_PREF)) or
-                        ((current_owner == constants.APPD_PORT and
-                        'binding:host_id' in p))):
+
+                if not changed_owner and current_owner.startswith(
+                        constants.NOVA_PORT_OWNER_PREF):
                     LOG.debug("nova:compute onwership removed for port %s ",
                                id)
                     if subnet_mapping:
@@ -513,8 +506,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                  net_partition['name'],
                                                  subnet_mapping, no_of_ports)
 
-        if (subnet_mapping and
-            subnet_mapping['nuage_managed_subnet'] is False):
+        if (subnet_mapping
+                and subnet_mapping['nuage_managed_subnet'] is False):
             if sg_groups:
                 self._delete_port_security_group_bindings(
                     context, updated_port['id'])
@@ -530,7 +523,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     updated_port,
                     p[ext_sg.SECURITYGROUPS]
                 )
-        elif (subnet_mapping and subnet_mapping['nuage_managed_subnet']):
+        elif subnet_mapping and subnet_mapping['nuage_managed_subnet']:
             if sg_groups or (ext_sg.SECURITYGROUPS in p):
                 LOG.warning(_("Security Groups is ignored for ports on "
                               "VSD Managed Subnet"))
@@ -542,7 +535,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         nuage_vif_id = None
         l2dom_id = None
         l3dom_id = None
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
+        # In case of appd port, the nuage_l2dom_tmplt_id is set to the ID of
+        # the nuage_man_subn. But this is a domain subnet.
+        if (subnet_mapping['nuage_l2dom_tmplt_id'] and
+                    port['device_owner'] != constants.APPD_PORT):
             l2dom_id = subnet_mapping['nuage_subnet_id']
         else:
             l3dom_id = subnet_mapping['nuage_subnet_id']
@@ -553,8 +549,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         }
         subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
         nuage_port = self.nuageclient.get_nuage_port_by_id(port_params)
-        if (constants.NOVA_PORT_OWNER_PREF in port['device_owner'] or
-                    port['device_owner'] == constants.APPD_PORT):
+        if constants.NOVA_PORT_OWNER_PREF in port['device_owner']:
             LOG.debug("Deleting VM port %s", port['id'])
             # This was a VM Port
             if nuage_port:
@@ -576,12 +571,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self.nuageclient.delete_vms(params)
 
         # delete nuage vport
-        if not nuage_port and (port.get('device_owner') not in
-            constants.AUTO_CREATE_PORT_OWNERS):
+        if not nuage_port and (port.get('device_owner')
+                               not in constants.AUTO_CREATE_PORT_OWNERS):
             nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
             if nuage_vport:
                 self.nuageclient.delete_nuage_vport(
-                        nuage_vport.get('nuage_vport_id'))
+                    nuage_vport.get('nuage_vport_id'))
 
     @lockutils.synchronized('delete-port', 'nuage-del', external=True)
     @nuage_utils.handle_nuage_api_error
@@ -613,18 +608,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         net_partition = nuagedb.get_net_partition_by_id(context.session,
                                                         netpart_id)
 
-        if port['device_owner'] == constants.APPD_PORT:
-            match = re.match(attributes.UUID_PATTERN, port['device_id'])
-            if match:
-                msg = (_("port with ID %s has a VM with ID %s attached to it")
-                         % (port['id'], port['device_id']))
-                raise nuage_exc.NuageBadRequest(msg=msg)
-            else:
-                super(NuagePlugin, self).delete_port(context, id)
-        else:
-            self._delete_nuage_vport(context, port, net_partition['name'],
+        self._delete_nuage_vport(context, port, net_partition['name'],
                                      subnet_mapping)
-            super(NuagePlugin, self).delete_port(context, id)
+        super(NuagePlugin, self).delete_port(context, id)
 
     @log.log
     def _check_view_auth(self, context, resource, action):
@@ -2122,7 +2108,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     nuage_port['nuage_vport_id'], fip['id'])
                 self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                        'disassociated from port %s'
-                                       % (fip['id'], fip['tenant_id'], port_id))
+                                       % (fip['id'], fip['tenant_id'],
+                                          port_id))
             params = {
                 'nuage_vport_id': nuage_port['nuage_vport_id'],
                 'nuage_fip_id': None
@@ -2632,6 +2619,20 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             }
         }
         port = super(NuagePlugin, self).create_port(context, port)
+
+        subnet_id = port['fixed_ips'][0]['subnet_id']
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                        subnet_id)
+
+        try:
+            net_partition = nuagedb.get_net_partition_by_id(
+                context.session, subnet_mapping['net_partition_id'])
+            self._create_nuage_port(context, port, net_partition['name'],
+                                    subnet_mapping)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                super(NuagePlugin, self).delete_port(context, port['id'])
+
         return self._extend_port_dict_binding(context, port)
 
     @nuage_utils.handle_nuage_api_error
@@ -2876,6 +2877,37 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             'device_owner': [constants.APPD_PORT]
         }
         return self.get_ports(context, filters=filters)
+
+    @log.log
+    def get_appdport(self, context, id, fields=None):
+        return self.get_port(context, id)
+
+    @log.log
+    def delete_appdport(self, context, id):
+        port = self._get_port(context, id)
+        self.disassociate_floatingips(context, id)
+        if not port['fixed_ips']:
+            return super(NuagePlugin, self).delete_port(context, id)
+
+        sub_id = port['fixed_ips'][0]['subnet_id']
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                        sub_id)
+        if not subnet_mapping:
+            LOG.debug("No subnet to l2domain mapping found for subnet %s",
+                      sub_id)
+            return super(NuagePlugin, self).delete_port(context, id)
+
+        match = re.match(attributes.UUID_PATTERN, port['device_id'])
+        if match:
+            msg = (_("port with ID %s has a VM with ID %s attached to it")
+                     % (port['id'], port['device_id']))
+            raise nuage_exc.NuageBadRequest(msg=msg)
+        else:
+            net_partition = nuagedb.get_net_partition_by_id(
+                context.session, subnet_mapping['net_partition_id'])
+            self._delete_nuage_vport(context, port, net_partition['name'],
+                                     subnet_mapping)
+            super(NuagePlugin, self).delete_port(context, id)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
