@@ -17,11 +17,14 @@ import copy
 import logging as py_logging
 import netaddr
 import re
+import sys
+import functools
 
 from logging import handlers
 from oslo.db import exception as db_exc
 from oslo_concurrency import lockutils
 from oslo_config import cfg
+from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import importutils
 from sqlalchemy import exc as sql_exc
@@ -53,12 +56,12 @@ from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
 from nuage_neutron.plugins.nuage.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage.extensions import netpartition
-from nuage_neutron.plugins.nuage.extensions import vsd_subnet
 from nuage_neutron.plugins.nuage import gateway
 from nuage_neutron.plugins.nuage.extensions import (
     nuage_redirect_target as ext_rtarget)
 from nuage_neutron.plugins.nuage import nuagedb
-from oslo_log import log as logging
+from nuagenetlib.restproxy import RESTProxyError
+from neutron import policy
 
 LOG = logging.getLogger(__name__)
 
@@ -69,13 +72,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                   l3_gwmode_db.L3_NAT_db_mixin,
                   gateway.NuagegatewayMixin,
                   netpartition.NetPartitionPluginBase,
-                  sg_db.SecurityGroupDbMixin,
-                  vsd_subnet.VsdSubnetPluginBase):
+                  sg_db.SecurityGroupDbMixin):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
-                         "ext-gw-mode", "nuage-floatingip", "vsd-subnet",
-                         "nuage-gateway", "appdesigner",
-                         "nuage-redirect-target"]
+                         "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
+                         "appdesigner", "nuage-redirect-target", "vsd-resource"]
 
     binding_view = "extension:port_binding:view"
 
@@ -1295,6 +1296,27 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @nuage_utils.handle_nuage_api_error
     @log.log
+    def get_subnet(self, context, id, fields=None):
+        subnet = super(NuagePlugin, self).get_subnet(context, id, None)
+        subnet = nuagedb.get_nuage_subnet_info(context.session, subnet, fields)
+
+        return self._fields(subnet, fields)
+
+    @log.log
+    def get_subnets(self, context, filters=None, fields=None, sorts=None,
+                    limit=None, marker=None, page_reverse=False):
+        subnets = super(NuagePlugin, self).get_subnets(context, filters, None,
+                                                       sorts, limit, marker,
+                                                       page_reverse)
+        subnets = nuagedb.get_nuage_subnets_info(context.session, subnets,
+                                                 fields, filters)
+        for idx, subnet in enumerate(subnets):
+            subnets[idx] = self._fields(subnet, fields)
+        return subnets
+
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
     def create_subnet(self, context, subnet):
         subn = subnet['subnet']
         net_id = subn['network_id']
@@ -2463,6 +2485,26 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         vsd_subnet['net_partition'] = net_partition
         return self._fields(vsd_subnet, fields)
 
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_vsd_subnets(self, context, filters=None, fields=None):
+        if 'vsd_zone_id' not in filters:
+            msg = _('vsd_zone_id is a required filter parameter for this API.')
+            raise n_exc.BadRequest(resource='vsd-subnets', msg=msg)
+        l3subs = self.nuageclient.get_domain_subnet_by_zone_id(
+            filters['vsd_zone_id'][0])
+        vsd_to_os = {
+            'subnet_id': 'id',
+            'subnet_name': 'name',
+            self._calc_cidr: 'cidr',
+            'subnet_gateway': 'gateway',
+            'subnet_iptype': 'ip_version',
+            functools.partial(self._is_subnet_linked,context.session): 'linked',
+            functools.partial(
+                self._return_val,filters['vsd_zone_id'][0]): 'vsd_zone_id'
+        }
+        return self._trans_vsd_to_os(l3subs, vsd_to_os, filters, fields)
+
     def _calc_cidr(self, subnet):
         if not subnet['subnet_address'] and \
                 not subnet['subnet_shared_net_id']:
@@ -3352,3 +3394,112 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def get_nuage_redirect_target_rules_count(self, context, filters=None):
         return 0
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_vsd_zones(self, context, filters=None, fields=None):
+        if 'vsd_domain_id' not in filters:
+            msg = _('vsd_domain_id is a required filter parameter for this '
+                    'API.')
+            raise n_exc.BadRequest(resource='vsd-zones', msg=msg)
+        try:
+            vsd_zones = self.nuageclient.get_zone_by_domainid(
+                filters['vsd_domain_id'][0])
+        except RESTProxyError as e:
+            if e.code == 404:
+                return []
+            else:
+                raise e
+
+        vsd_zones = [self._update_dict(zone, 'vsd_domain_id',
+                                       filters['vsd_domain_id'][0])
+                     for zone in vsd_zones]
+        vsd_to_os = {
+            'zone_id': 'id',
+            'zone_name': 'name',
+            'vsd_domain_id': 'vsd_domain_id'
+        }
+        return self._trans_vsd_to_os(vsd_zones, vsd_to_os, filters, fields)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_vsd_domains(self, context, filters=None, fields=None):
+        if 'vsd_organisation_id' not in filters:
+            msg = _('vsd_organisation_id is a required filter parameter for '
+                    'this API.')
+            raise n_exc.BadRequest(resource='vsd-domains', msg=msg)
+        vsd_domains = self.nuageclient.get_routers_by_netpart(
+            filters['vsd_organisation_id'][0])
+        vsd_l2domains = self.nuageclient.get_subnet_by_netpart(
+            filters['vsd_organisation_id'][0])
+        if vsd_domains:
+            vsd_domains = [self._update_dict(vsd_domain, 'type', 'L3')
+                           for vsd_domain in vsd_domains]
+        if vsd_l2domains:
+            vsd_l2domains = [self._update_dict(l2domain, 'type', 'L2')
+                             for l2domain in vsd_l2domains]
+        vsd_domains = ((vsd_domains if vsd_domains else [])
+                       + (vsd_l2domains if vsd_l2domains else []))
+        vsd_domains = [self._update_dict(vsd_domain, 'net_partition_id',
+                                         filters['vsd_organisation_id'][0])
+                       for vsd_domain in vsd_domains]
+        vsd_to_os = {
+            'domain_id': 'id',
+            'domain_name': 'name',
+            'type': 'type',
+            'net_partition_id': 'net_partition_id'
+        }
+        return self._trans_vsd_to_os(vsd_domains, vsd_to_os, filters, fields)
+
+    def _update_dict(self, dict, key, val):
+        dict[key] = val
+        return dict
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def get_vsd_organisations(self, context, filters=None, fields=None):
+        netpartitions = self.nuageclient.get_net_partitions()
+        vsd_to_os = {
+            'net_partition_id': 'id',
+            'net_partition_name': 'name'
+        }
+        return self._trans_vsd_to_os(netpartitions, vsd_to_os, filters, fields)
+
+    def _trans_vsd_to_os(self, vsd_list, mapping, filters, fields):
+        os_list = []
+        if not filters:
+            filters = {}
+        for filter in filters:
+            filters[filter] = [value.lower() for value in filters[filter]]
+
+        for vsd_obj in vsd_list:
+            os_obj = {}
+            for vsd_key in mapping:
+                if callable(vsd_key):
+                    os_obj[mapping[vsd_key]] = vsd_key(vsd_obj)
+                else:
+                    os_obj[mapping[vsd_key]] = vsd_obj[vsd_key]
+
+            if self._passes_filters(os_obj, filters):
+                self._fields(os_obj, fields)
+                os_list.append(os_obj)
+
+        return os_list
+
+    def _passes_filters(self, obj, filters):
+        for filter in filters:
+            if (filter in obj
+                and not str(obj[filter]).lower() in filters[filter]):
+                return False
+        return True
+
+    def _return_val(self, val, dummy):
+        return val
+
+    def _filter_fields(self, subnet, fields):
+        for key in subnet:
+            if not key in fields:
+                del subnet[key]
+        return subnet
+
+
