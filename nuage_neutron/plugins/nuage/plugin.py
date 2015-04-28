@@ -568,16 +568,13 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
                 self._check_floatingip_update(context, port)
                 updated_port = self._make_port_dict(port)
+                # TO DO: We don't need this anymore, as we process sg_create
+                # on port create instead of at nova boot now.
                 if subnet_mapping['nuage_managed_subnet'] is False:
                     sg_port = self._extend_port_dict_security_group(
                         updated_port,
                         port)
                     sg_groups = sg_port[ext_sg.SECURITYGROUPS]
-                if subnet_mapping['nuage_managed_subnet'] is False:
-                    rtarget_port = self._extend_port_dict_remote_target(
-                        updated_port,
-                        port)
-                    rtargets = rtarget_port[ext_rtarget.REDIRECTTARGETS]
             else:
                 LOG.debug("Port %s is not owned by nova:compute", id)
                 filters = {'device_id': [original_port['device_id']]}
@@ -627,14 +624,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     updated_port,
                     p[ext_sg.SECURITYGROUPS]
                 )
-            if rtargets:
-                self._delete_port_redirect_target_bindings(
-                    context, updated_port['id'])
-                self.process_port_redirect_target(context,
-                                                  updated_port,
-                                                  rtargets)
-                LOG.debug("Updated redirect targets on port %s", id)
-            elif ext_rtarget.REDIRECTTARGETS in p:
+            if ext_rtarget.REDIRECTTARGETS in p:
                 self._delete_port_redirect_target_bindings(
                     context, updated_port['id'])
                 self.process_port_redirect_target(
