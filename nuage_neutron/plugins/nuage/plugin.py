@@ -2774,7 +2774,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             'externalID': net['id'],
             'description': app_domain.get('description', '')
         }
-        return self.nuageclient.create_nuage_application_domain(params)
+        try:
+            return self.nuageclient.create_nuage_application_domain(params)
+        except Exception:
+            super(NuagePlugin, self).delete_network(context, net['id'])
+            raise
 
     @nuage_utils.handle_nuage_api_error
     @log.log
