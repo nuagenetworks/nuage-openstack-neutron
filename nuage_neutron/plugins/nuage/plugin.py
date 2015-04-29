@@ -42,6 +42,7 @@ from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db as sg_db
+from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import external_net
 from neutron.extensions import l3
 from neutron.extensions import portbindings
@@ -49,7 +50,7 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.openstack.common import loopingcall
 from neutron import policy
-
+from nuage_neutron.plugins.nuage import addresspair
 from nuage_neutron.plugins.nuage.common import config
 from nuage_neutron.plugins.nuage.common import constants
 from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
@@ -65,7 +66,8 @@ from nuagenetlib.restproxy import RESTProxyError
 LOG = logging.getLogger(__name__)
 
 
-class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
+class NuagePlugin(addresspair.NuageAddressPair,
+                  db_base_plugin_v2.NeutronDbPluginV2,
                   external_net_db.External_net_db_mixin,
                   extraroute_db.ExtraRoute_db_mixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
@@ -76,7 +78,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
                          "appdesigner", "nuage-redirect-target",
-                         "vsd-resource"]
+                         "vsd-resource", "allowed-address-pairs"]
 
     binding_view = "extension:port_binding:view"
 
@@ -442,8 +444,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def create_port(self, context, port):
         session = context.session
+        subnet_mapping = None
+        net_partition = None
+        p = port['port']
         with session.begin(subtransactions=True):
-            p = port['port']
             self._ensure_default_security_group_on_port(context, port)
             port = super(NuagePlugin, self).create_port(context, port)
             device_owner = port.get('device_owner', None)
@@ -520,6 +524,19 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         LOG.error(_('VM with uuid %s will not be resolved '
                                     'in VSD because its created on unsupported'
                                     'subnet type'), port['device_id'])
+
+        if subnet_mapping:
+            try:
+                self.create_allowed_address_pairs(context, port, p)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    # Since this is outside the transaction, undo the port
+                    # changes
+                    self._delete_nuage_vport(context, port,
+                                             net_partition['name'],
+                                             subnet_mapping)
+                    super(NuagePlugin, self).delete_port(context, port['id'])
+
         return self._extend_port_dict_binding(context, port)
 
     def _validate_update_port(self, context, port, original_port):
@@ -602,12 +619,15 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def update_port(self, context, id, port):
         create_vm = False
+        updated_port_dict = port
         p = port['port']
         delete_security_groups = self._check_update_deletes_security_groups(
             port)
         has_security_groups = self._check_update_has_security_groups(port)
 
         session = context.session
+        original_port = self.get_port(context, id)
+        old_port = copy.deepcopy(original_port)
         with session.begin(subtransactions=True):
             original_port = self.get_port(context, id)
             current_owner = original_port['device_owner']
@@ -630,8 +650,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             if not updated_port.get('fixed_ips'):
                 return updated_port
             subnet_id = updated_port['fixed_ips'][0]['subnet_id']
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
-                                                            subnet_id)
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
             if p.get('device_owner', '').startswith(
                     constants.NOVA_PORT_OWNER_PREF) or create_vm:
                 LOG.debug("Port %s is owned by nova:compute", id)
@@ -651,6 +670,26 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 # device_id and pass the no_of_ports to delete_nuage_vport
                 self._process_update_port(context, p, original_port,
                                           subnet_mapping)
+
+        try:
+            self.update_allowed_address_pairs(context, id, old_port, p,
+                                              updated_port, updated_port_dict)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                # Revert the address pairs and port back to original state
+                updated_port_dict = {
+                    'port': {
+                        addr_pair.ADDRESS_PAIRS: old_port.get(
+                            addr_pair.ADDRESS_PAIRS)
+                    }
+                }
+                self.update_address_pairs_on_port(context, id,
+                                                  updated_port_dict,
+                                                  updated_port,
+                                                  old_port)
+
+                super(NuagePlugin, self).update_port(context, id,
+                                                     {'port': old_port})
 
         if (subnet_mapping
                 and subnet_mapping['nuage_managed_subnet'] is False):
@@ -2311,6 +2350,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 'FIP %s (owned by tenant %s) associated to port %s'
                 % (neutron_fip['id'], neutron_fip['tenant_id'], port_id))
 
+        # Check if we have to associate a FIP to a VIP
+        self._process_fip_to_vip(context, port_id, nuage_fip_id)
+
         # Add QOS to port for rate limiting
         if neutron_fip.get('nuage_fip_rate') and not nuage_vport:
             msg = _('Rate limiting requires the floating ip to be '
@@ -2445,6 +2487,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     ret_msg = _('Rate limiting requires the floating ip to be '
                                 'associated to a port.')
                     raise n_exc.BadRequest(resource='floatingip', msg=ret_msg)
+
+                # Check for disassociation of fip from vip, only if port_id
+                # is not None
+                if port_id:
+                    self._process_fip_to_vip(context, port_id)
 
                 nuage_vport = self._get_vport_for_fip(context, port_id)
                 if nuage_vport:
