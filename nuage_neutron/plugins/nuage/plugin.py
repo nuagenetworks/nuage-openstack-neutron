@@ -2620,14 +2620,15 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return self._fields(res, fields)
 
     @log.log
-    def _make_nuage_flow_dict(self, flow, context=None,
+    def _make_nuage_flow_dict(self, flow, nuage_svc, context=None,
                               fields=None):
         res = {
             'id': flow['ID'],
             'name': flow['name'],
             'origin_tier': flow['originTierID'],
             'dest_tier': flow['destinationTierID'],
-            'application_id': flow['parentID']
+            'application_id': flow['parentID'],
+            'nuage_services': nuage_svc
         }
         if context:
             res['tenant_id'] = context.tenant_id
@@ -3145,8 +3146,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_flow(self, context, id, fields=None):
-        flow = self.nuageclient.get_nuage_flow(id)
-        return self._make_nuage_flow_dict(flow, context=context)
+        flow, nuage_svc = self.nuageclient.get_nuage_flow(id)
+        return self._make_nuage_flow_dict(flow, nuage_svc, context=context)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
