@@ -2852,7 +2852,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_application_domain(self, context, id):
-        self._delete_appd_network(context, id)
+        try:
+            self._delete_appd_network(context, id)
+        except n_exc.NetworkNotFound:
+            pass
         self.nuageclient.delete_nuage_application_domain(id)
         net_partition = self._get_default_net_partition(context)
         application_domains = self.nuageclient.get_nuage_application_domains(
