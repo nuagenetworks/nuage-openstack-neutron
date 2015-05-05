@@ -62,7 +62,7 @@ syncmanager_opts = [
 
 fiprate_opts = [
     cfg.StrOpt('fip_rate_change_log', default=''),
-    cfg.IntOpt('default_fip_rate', default=None),
+    cfg.IntOpt('default_fip_rate', default=-1),
 ]
 
 
