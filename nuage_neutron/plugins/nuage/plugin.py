@@ -336,8 +336,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         if not attributes.is_attr_set(sec_group):
             port[ext_sg.SECURITYGROUPS] = []
             return
-        if len(sec_group) > 1:
-            msg = (_("Multiple security group on a port not supported "
+        if len(sec_group) > 6:
+            msg = (_("Exceeds maximum num of security groups on a port supported "
                      "on nuage VSP"))
             raise nuage_exc.NuageBadRequest(msg=msg)
         port_id = port['id']
