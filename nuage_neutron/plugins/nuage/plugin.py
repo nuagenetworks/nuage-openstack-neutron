@@ -898,6 +898,16 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         self.nuageclient.delete_user(user_id)
                         self.nuageclient.delete_group(group_id)
 
+                    # delete the neutron port that was reserved with IP of
+                    # the dhcp server that is reserved.
+                    # Now, this port is not reqd.
+                    filters = {
+                        'fixed_ips': {'subnet_id': [subn['id']]},
+                        'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+                    }
+                    gw_ports = self.get_ports(context, filters=filters)
+                    self._delete_port_gateway(context, gw_ports)
+
                     self._add_nuage_sharedresource(subnet[0],
                                                    id,
                                                    constants.SR_TYPE_FLOATING)
