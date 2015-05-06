@@ -514,6 +514,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                   'subnet type'), port['device_id'])
         return self._extend_port_dict_binding(context, port)
 
+
+    def _validate_update_port(self, context, port, original_port):
+        if (original_port['device_owner'] == constants.DEVICE_OWNER_VIP_NUAGE
+            and 'device_owner' in port.keys()):
+            msg = _("device_owner of port with device_owner set to %s "
+                    "can not be modified") % original_port['device_owner']
+            raise nuage_exc.OperationNotSupported(msg=msg)
+
     @nuage_utils.handle_nuage_api_error
     @log.log
     def update_port(self, context, id, port):
@@ -526,6 +534,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             changed_owner = p.get('device_owner')
             current_owner = original_port['device_owner']
 
+            self._validate_update_port(context, p,
+                                       original_port)
             if p.get('device_owner', '').startswith(
                     constants.NOVA_PORT_OWNER_PREF):
                 LOG.debug("Port %s is owned by nova:compute", id)
