@@ -25,6 +25,7 @@ from oslo.db import exception as db_exc
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_log.formatters import ContextFormatter
 from oslo_utils import excutils
 from oslo_utils import importutils
 from sqlalchemy import exc as sql_exc
@@ -48,7 +49,6 @@ from neutron.extensions import l3
 from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.openstack.common import log as neutron_log
 from neutron.openstack.common import loopingcall
 from neutron import policy
 from nuage_neutron.plugins.nuage.common import config
@@ -113,16 +113,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                              '-1'))
         self.fip_rate_log = None
         if cfg.CONF.FIPRATE.fip_rate_change_log:
-            formatter = py_logging.Formatter('%(asctime)s %(levelname)s '
-                                             '[%(user_name)s] %(message)s')
-            self.fip_rate_log = neutron_log.ContextAdapter(
-                logging.getLogger('neutron.nuage.fip.rate'),
-                'neutron.nuage.fip.rate',
-                'unknown')
+            formatter = ContextFormatter()
+            formatter.conf.logging_context_format_string = (
+                '%(asctime)s %(levelname)s [%(user_name)s] %(message)s')
+            self.fip_rate_log = logging.getLogger('neutron.nuage.fip.rate')
             handler = handlers.WatchedFileHandler(
                 cfg.CONF.FIPRATE.fip_rate_change_log)
             handler.setFormatter(formatter)
-            self.fip_rate_log.logger.logger.addHandler(handler)
+            self.fip_rate_log.logger.addHandler(handler)
         else:
             self.fip_rate_log = LOG
 
