@@ -1406,7 +1406,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         filters = {
             'fixed_ips': {'subnet_id': [id]},
-            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
         }
         ports = self.get_ports(context, filters)
         for port in ports:
