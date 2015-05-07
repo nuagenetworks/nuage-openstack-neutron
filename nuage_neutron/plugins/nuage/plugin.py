@@ -2168,23 +2168,18 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             nuage_fip_id = fip['nuage_fip_id']
 
         # Update VM if required
-        params = {
-            'neutron_port_id': port_id,
-            'nuage_fip_id': nuage_fip_id,
-            'nuage_rtr_id': ent_rtr_mapping['nuage_router_id'],
-            'nuage_vport_type': vport_type,
-            'nuage_vport_id': vport_id
-        }
-        nuage_port = self.nuageclient.get_nuage_port_by_id(params)
-        if nuage_port:
-            if (nuage_port['nuage_domain_id']) != (
+        nuage_vport = self._get_vport_for_fip(context, port_id,
+                                              vport_type=vport_type,
+                                              vport_id=vport_id)
+        if nuage_vport:
+            if (nuage_vport['nuage_domain_id']) != (
                     ent_rtr_mapping['nuage_router_id']):
-                msg = _('Floating IP can not be associated to VM in '
+                msg = _('Floating IP can not be associated to port in '
                         'different router context')
                 raise nuage_exc.OperationNotSupported(msg=msg)
 
             params = {
-                'nuage_vport_id': nuage_port['nuage_vport_id'],
+                'nuage_vport_id': nuage_vport['nuage_vport_id'],
                 'nuage_fip_id': nuage_fip_id
             }
             self.nuageclient.update_nuage_vm_vport(params)
@@ -2194,12 +2189,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         # Add QOS to port for rate limiting
         if neutron_fip.get('nuage_fip_rate', None):
-            if not nuage_port:
+            if not nuage_vport:
                 msg = _('Rate limiting requires the floating ip to be '
                         'associated to a port.')
                 raise nuage_exc.NuageBadRequest(msg=msg)
             self.nuageclient.create_update_rate_limiting(
-                neutron_fip['nuage_fip_rate'], nuage_port['nuage_vport_id'],
+                neutron_fip['nuage_fip_rate'], nuage_vport['nuage_vport_id'],
                 neutron_fip['id'])
             self.fip_rate_log.info(
                 _('FIP %s (owned by tenant %s) rate limit updated to %s Mb/s' %
@@ -2213,15 +2208,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuagePlugin, self).get_floatingip(context, id)
 
-        if (not fields or 'nuage_fip_rate' in fields
-                and 'port_id' in fip):
-            params = {
-                'neutron_port_id': fip['port_id'],
-            }
-            nuage_port = self.nuageclient.get_nuage_port_by_id(params)
-            if nuage_port:
+        if (not fields or 'nuage_fip_rate' in fields) and fip.get('port_id'):
+            nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
+            if nuage_vport:
                 rate_limit = self.nuageclient.get_rate_limit(
-                    nuage_port['nuage_vport_id'], fip['id'])
+                    nuage_vport['nuage_vport_id'], fip['id'])
                 fip['nuage_fip_rate'] = rate_limit
 
         return self._fields(fip, fields)
@@ -2239,7 +2230,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                             'associated to a port.')
                     raise nuage_exc.NuageBadRequest(msg=msg)
                 neutron_fip['nuage_fip_rate'] = fip['nuage_fip_rate']
-            else:
+            elif fip.get('port_id'):
                 neutron_fip['nuage_fip_rate'] = self.def_fip_rate
 
             if not neutron_fip['router_id']:
@@ -2258,24 +2249,22 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def disassociate_floatingips(self, context, port_id, do_notify=True):
         fips = self.get_floatingips(context, filters={'port_id': [port_id]})
-
         router_ids = super(NuagePlugin, self).disassociate_floatingips(
             context, port_id, do_notify=do_notify)
 
-        params = {
-            'neutron_port_id': port_id,
-        }
-        nuage_port = self.nuageclient.get_nuage_port_by_id(params)
-        if nuage_port:
+        if not fips:
+            return
+        nuage_vport = self._get_vport_for_fip(context, port_id)
+        if nuage_vport:
             for fip in fips:
                 self.nuageclient.delete_rate_limiting(
-                    nuage_port['nuage_vport_id'], fip['id'])
+                    nuage_vport['nuage_vport_id'], fip['id'])
                 self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                        'disassociated from port %s'
                                        % (fip['id'], fip['tenant_id'],
                                           port_id))
             params = {
-                'nuage_vport_id': nuage_port['nuage_vport_id'],
+                'nuage_vport_id': nuage_vport['nuage_vport_id'],
                 'nuage_fip_id': None
             }
             self.nuageclient.update_nuage_vm_vport(params)
@@ -2323,18 +2312,15 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             elif 'port_id' in fip:
                 # This happens when {'port_id': null} is in request.
                 # Disassociate
-                params = {
-                    'neutron_port_id': port_id,
-                }
-                nuage_port = self.nuageclient.get_nuage_port_by_id(params)
-                if nuage_port:
+                nuage_vport = self._get_vport_for_fip(context, port_id)
+                if nuage_vport:
                     params = {
-                        'nuage_vport_id': nuage_port['nuage_vport_id'],
+                        'nuage_vport_id': nuage_vport['nuage_vport_id'],
                         'nuage_fip_id': None
                     }
                     self.nuageclient.update_nuage_vm_vport(params)
                     self.nuageclient.delete_rate_limiting(
-                        nuage_port['nuage_vport_id'], fip['id'])
+                        nuage_vport['nuage_vport_id'], fip['id'])
                     self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                            'disassociated from port %s'
                                            % (id, fip['tenant_id'], port_id))
@@ -2346,10 +2332,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         'associated to a port')
                 raise n_exc.BadRequest(resource='floatingip', msg=msg)
             # Add QOS to port for rate limiting
-            params = {
-                'neutron_port_id': port_id,
-            }
-            nuage_port = self.nuageclient.get_nuage_port_by_id(params)
+            nuage_vport = self._get_vport_for_fip(context, port_id)
 
             if fip['nuage_fip_rate'] is None:
                 orig_fip['nuage_fip_rate'] = self.def_fip_rate
@@ -2357,7 +2340,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 orig_fip['nuage_fip_rate'] = fip['nuage_fip_rate']
 
             self.nuageclient.create_update_rate_limiting(
-                orig_fip['nuage_fip_rate'], nuage_port['nuage_vport_id'],
+                orig_fip['nuage_fip_rate'], nuage_vport['nuage_vport_id'],
                 orig_fip['id'])
             self.fip_rate_log.info(
                 _('FIP %s (owned by tenant %s) rate limit updated to %s Mb/s'
@@ -2381,23 +2364,20 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         port_id = fip['fixed_port_id']
         with context.session.begin(subtransactions=True):
             if port_id:
-                params = {
-                    'neutron_port_id': port_id,
-                }
-                nuage_port = self.nuageclient.get_nuage_port_by_id(params)
-                if (nuage_port and
-                    nuage_port['nuage_vport_id'] is not None):
+                nuage_vport = self._get_vport_for_fip(context, port_id)
+                if (nuage_vport and
+                    nuage_vport['nuage_vport_id'] is not None):
                     params = {
-                        'nuage_vport_id': nuage_port['nuage_vport_id'],
+                        'nuage_vport_id': nuage_vport['nuage_vport_id'],
                         'nuage_fip_id': None
                     }
                     self.nuageclient.update_nuage_vm_vport(params)
                     LOG.debug("Floating-ip %(fip)s is disassociated from "
                               "vport %(vport)s",
                               {'fip': fip_id,
-                               'vport': nuage_port['nuage_vport_id']})
+                               'vport': nuage_vport['nuage_vport_id']})
                     self.nuageclient.delete_rate_limiting(
-                        nuage_port['nuage_vport_id'], fip_id)
+                        nuage_vport['nuage_vport_id'], fip_id)
                     self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                            'disassociated from port %s'
                                            % (fip_id, fip['tenant_id'],
@@ -2429,6 +2409,39 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             super(NuagePlugin, self).delete_floatingip(context, fip_id)
             self.fip_rate_log.info('FIP %s (owned by tenant %s) deleted' %
                                    (fip_id, fip['tenant_id']))
+
+    def _get_vport_for_fip(self, context, port_id,
+                           vport_type=constants.VM_VPORT,
+                           vport_id=None):
+        port = self.get_port(context, port_id)
+        if not port['fixed_ips']:
+            return
+
+        nova_port = constants.NOVA_PORT_OWNER_PREF
+        if port['device_owner'].startswith(nova_port):
+            #This port is created by nova during VM creation.
+            #Vport on vsd has no externalID and we must find vport via
+            #vminterface
+            params = {
+                'neutron_port_id': port_id,
+                'nuage_vport_type': vport_type,
+                'nuage_vport_id': vport_id
+            }
+            return self.nuageclient.get_nuage_port_by_id(params)
+        else:
+            #This port is created by user. Vport on vsd has a externalID.
+            #There is no guarantee vminterface exists.
+            subnet_id = port['fixed_ips'][0]['subnet_id']
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                            subnet_id)
+            params = {
+                'neutron_port_id': port_id,
+            }
+            if subnet_mapping['nuage_l2dom_tmplt_id']:
+                params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
+            else:
+                params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+            return self.nuageclient.get_nuage_vport_by_id(params)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
