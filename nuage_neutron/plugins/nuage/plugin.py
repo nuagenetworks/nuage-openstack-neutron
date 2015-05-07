@@ -591,7 +591,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         port)
                     sg_groups = sg_port[ext_sg.SECURITYGROUPS]
             else:
-                LOG.debug("Port %s is not owned by nova:compute", id)
                 filters = {'device_id': [original_port['device_id']]}
                 ports = self.get_ports(context, filters)
                 #nova removes device_owner and device_id fields, in this
@@ -609,9 +608,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                     context.session, subnet_id)
 
-                if not changed_owner and (current_owner == constants.APPD_PORT
-                                          or current_owner.startswith(
-                        constants.NOVA_PORT_OWNER_PREF)):
+                if (not changed_owner
+                    and (current_owner == constants.APPD_PORT or
+                    current_owner.startswith(constants.NOVA_PORT_OWNER_PREF))
+                    and ('device_id' in p.keys() and not p.get('device_id'))):
                     LOG.debug("nova:compute onwership removed for port %s ",
                                id)
                     if subnet_mapping:
@@ -623,7 +623,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                  subnet_mapping, no_of_ports)
 
         if (subnet_mapping
-                and subnet_mapping['nuage_managed_subnet'] is False):
+            and subnet_mapping['nuage_managed_subnet'] is False):
             if sg_groups:
                 self._delete_port_security_group_bindings(
                     context, updated_port['id'])
