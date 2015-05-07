@@ -2881,6 +2881,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self._delete_appd_network(context, id)
         except n_exc.NetworkNotFound:
             pass
+        app_domain = self.nuageclient.get_nuage_application_domain(id)
+        if app_domain.get('applicationDeploymentPolicy') != 'ZONE':
+            msg = (_("%s is not an application domain " % app_domain['name']))
+            raise nuage_exc.NuageBadRequest(msg=msg)
         self.nuageclient.delete_nuage_application_domain(id)
         net_partition = self._get_default_net_partition(context)
         application_domains = self.nuageclient.get_nuage_application_domains(
