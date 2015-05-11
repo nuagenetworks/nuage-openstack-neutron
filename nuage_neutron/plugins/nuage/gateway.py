@@ -279,12 +279,18 @@ class NuagegatewayMixin(object):
         if not filters:
             # No gateway or gatewayport specified by user
             if context.is_admin:
-                msg = (_('--gateway or --gatewayport option is required'))
+                msg = (_('--gatewayport or --gateway and --gatewayport option '
+                         'is required'))
                 raise nuage_exc.NuageBadRequest(msg=msg)
 
             fetch_tenant = context.tenant_id
         else:
-            if not context.is_admin:
+            if context.is_admin:
+                if 'gateway' in filters and 'gatewayport' not in filters:
+                    msg = (_('--gateway and --gatewayport option '
+                             'should be provided'))
+                    raise nuage_exc.NuageBadRequest(msg=msg)
+            else:
                 if 'gateway' in filters or 'gatewayport' in filters:
                     msg = (_('--gateway or --gatewayport option not '
                              'supported'))
