@@ -2808,6 +2808,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
         neutron_subnet = self._get_neutron_subn_id_for_tier(
             context, tier['name'], net_id)
+        if not neutron_subnet:
+            msg = (_("Underlying neutron subnet for tier %s not found."
+                     " APPD Port-create failed" % params['tier_id']))
+            raise nuage_exc.NuageBadRequest(msg=msg)
         port = {
             'port': {
                 'status': 'ACTIVE',
@@ -2968,8 +2972,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             for tier in std_tiers_in_app:
                 neutron_subnet = self._get_neutron_subn_id_for_tier(
                     context, tier['name'], net_id)
-                self._delete_underlying_neutron_subnet(
-                    context, neutron_subnet['id'])
+                if neutron_subnet:
+                    self._delete_underlying_neutron_subnet(
+                        context, neutron_subnet['id'])
         self.nuageclient.delete_nuage_application(net_partition['id'], id)
 
     @nuage_utils.handle_nuage_api_error
@@ -3030,6 +3035,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
             neutron_subnet = self._get_neutron_subn_id_for_tier(
                 context, orig_tier['name'], net_id)
+            if not neutron_subnet:
+                msg = (_("Underlying neutron subnet for tier %s not found."
+                         " Update failed " % nuage_tier['name']))
+                raise nuage_exc.NuageBadRequest(msg=msg)
             subnet = {'subnet': {}}
             subnet['subnet'].update(nuage_tier)
             super(NuagePlugin, self).update_subnet(
@@ -3069,8 +3078,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         if tier['type'] == constants.TIER_STANDARD:
             neutron_subnet = self._get_neutron_subn_id_for_tier(
                 context, tier['name'], net_id)
-            self._delete_underlying_neutron_subnet(context,
-                                                   neutron_subnet['id'])
+            if neutron_subnet:
+                self._delete_underlying_neutron_subnet(context,
+                                                       neutron_subnet['id'])
         elif tier['type'] == 'NETWORK_MACRO':
             macro_name = tier['name'] + '_' + tier['ID']
         self.nuageclient.delete_nuage_tier(id)
