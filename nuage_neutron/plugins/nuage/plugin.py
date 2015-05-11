@@ -3030,7 +3030,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
             neutron_subnet = self._get_neutron_subn_id_for_tier(
                 context, orig_tier['name'], net_id)
-            subnet = {'subnet': {'name': nuage_tier['name']}}
+            subnet = {'subnet': {}}
+            subnet['subnet'].update(nuage_tier)
             super(NuagePlugin, self).update_subnet(
                 context, neutron_subnet['id'], subnet)
         return self.nuageclient.update_nuage_tier(id, nuage_tier)
