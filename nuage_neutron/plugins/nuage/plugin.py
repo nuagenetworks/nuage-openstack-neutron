@@ -669,11 +669,20 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         l3dom_id = None
         # In case of appd port, the nuage_l2dom_tmplt_id is set to the ID of
         # the nuage_man_subn. But this is a domain subnet.
-        if (subnet_mapping['nuage_l2dom_tmplt_id'] and
-                    port['device_owner'] != constants.APPD_PORT):
-            l2dom_id = subnet_mapping['nuage_subnet_id']
+
+        if subnet_mapping['nuage_managed_subnet']:
+            # This is because we do not know if this advanced subn
+            # is a domain-subn ot not. In both cases, the
+            # l2dom_templ_id is the ID of the l2dom or domSubn.
+            l2dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
+            l3dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
         else:
-            l3dom_id = subnet_mapping['nuage_subnet_id']
+            if (subnet_mapping['nuage_l2dom_tmplt_id'] and
+                        port['device_owner'] != constants.APPD_PORT):
+                l2dom_id = subnet_mapping['nuage_subnet_id']
+            else:
+                l3dom_id = subnet_mapping['nuage_subnet_id']
+
         port_params = {
             'neutron_port_id': port['id'],
             'l2dom_id': l2dom_id,
