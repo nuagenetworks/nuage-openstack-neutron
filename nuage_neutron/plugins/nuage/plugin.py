@@ -2417,31 +2417,30 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         if not port['fixed_ips']:
             return
 
-        nova_port = constants.NOVA_PORT_OWNER_PREF
-        if port['device_owner'].startswith(nova_port):
-            #This port is created by nova during VM creation.
-            #Vport on vsd has no externalID and we must find vport via
-            #vminterface
-            params = {
-                'neutron_port_id': port_id,
-                'nuage_vport_type': vport_type,
-                'nuage_vport_id': vport_id
-            }
-            return self.nuageclient.get_nuage_port_by_id(params)
+        vport = None
+        params = {
+            'neutron_port_id': port_id,
+            'nuage_vport_type': vport_type,
+            'nuage_vport_id': vport_id
+        }
+        try:
+            vport = self.nuageclient.get_nuage_port_by_id(params)
+        except Exception:
+            pass
+        if vport:
+            return vport
+
+        subnet_id = port['fixed_ips'][0]['subnet_id']
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                        subnet_id)
+        params = {
+            'neutron_port_id': port_id,
+        }
+        if subnet_mapping['nuage_l2dom_tmplt_id']:
+            params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
-            #This port is created by user. Vport on vsd has a externalID.
-            #There is no guarantee vminterface exists.
-            subnet_id = port['fixed_ips'][0]['subnet_id']
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
-                                                            subnet_id)
-            params = {
-                'neutron_port_id': port_id,
-            }
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-            else:
-                params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-            return self.nuageclient.get_nuage_vport_by_id(params)
+            params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        return self.nuageclient.get_nuage_vport_by_id(params)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
