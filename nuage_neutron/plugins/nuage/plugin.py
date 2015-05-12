@@ -2197,11 +2197,13 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                   % (neutron_fip['id'], neutron_fip['tenant_id'], port_id)))
 
         # Add QOS to port for rate limiting
-        if neutron_fip.get('nuage_fip_rate', None):
-            if not nuage_vport:
-                msg = _('Rate limiting requires the floating ip to be '
-                        'associated to a port.')
-                raise nuage_exc.NuageBadRequest(msg=msg)
+        if neutron_fip.get('nuage_fip_rate') and not nuage_vport:
+            msg = _('Rate limiting requires the floating ip to be '
+                    'associated to a port.')
+            raise nuage_exc.NuageBadRequest(msg=msg)
+        if nuage_vport:
+            if not neutron_fip.get('nuage_fip_rate'):
+                neutron_fip['nuage_fip_rate'] = self.def_fip_rate
             self.nuageclient.create_update_rate_limiting(
                 neutron_fip['nuage_fip_rate'], nuage_vport['nuage_vport_id'],
                 neutron_fip['id'])
@@ -2218,11 +2220,16 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         fip = super(NuagePlugin, self).get_floatingip(context, id)
 
         if (not fields or 'nuage_fip_rate' in fields) and fip.get('port_id'):
-            nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
-            if nuage_vport:
-                rate_limit = self.nuageclient.get_rate_limit(
-                    nuage_vport['nuage_vport_id'], fip['id'])
-                fip['nuage_fip_rate'] = rate_limit
+            try:
+                nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
+                if nuage_vport:
+                    rate_limit = self.nuageclient.get_rate_limit(
+                        nuage_vport['nuage_vport_id'], fip['id'])
+                    fip['nuage_fip_rate'] = rate_limit
+            except Exception as e:
+                msg = (_('Got exception while retrieving fip rate from vsd: %s')
+                       % e.message)
+                LOG.error(msg)
 
         return self._fields(fip, fields)
 
@@ -2239,8 +2246,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                             'associated to a port.')
                     raise nuage_exc.NuageBadRequest(msg=msg)
                 neutron_fip['nuage_fip_rate'] = fip['nuage_fip_rate']
-            elif fip.get('port_id'):
-                neutron_fip['nuage_fip_rate'] = self.def_fip_rate
 
             if not neutron_fip['router_id']:
                 return neutron_fip
@@ -2299,9 +2304,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     ret_msg = 'floating-ip is not associated yet'
                     raise n_exc.BadRequest(resource='floatingip',
                                            msg=ret_msg)
-                if not fip.get('nuage_fip_rate'):
-                    neutron_fip['nuage_fip_rate'] = self.def_fip_rate
-                else:
+                if fip.get('nuage_fip_rate'):
                     neutron_fip['nuage_fip_rate'] = fip['nuage_fip_rate']
 
                 try:
