@@ -17,12 +17,15 @@ from neutron.common import constants
 
 DEVICE_OWNER_VIP_NUAGE = 'nuage:vip'
 
+DEVICE_OWNER_IRONIC = 'compute:ironic'
+
 AUTO_CREATE_PORT_OWNERS = [
     constants.DEVICE_OWNER_DHCP,
     constants.DEVICE_OWNER_ROUTER_INTF,
     constants.DEVICE_OWNER_ROUTER_GW,
     constants.DEVICE_OWNER_FLOATINGIP,
-    DEVICE_OWNER_VIP_NUAGE
+    DEVICE_OWNER_VIP_NUAGE,
+    DEVICE_OWNER_IRONIC
 ]
 
 NOVA_PORT_OWNER_PREF = 'compute:'
