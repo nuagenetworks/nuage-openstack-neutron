@@ -94,19 +94,27 @@ def convert_dscp(value):
             raise NuageServiceInvalidDscp(dscp=value,
                                           values=nuage_svc_supported_dscp)
 
-def convert_port(value):
-    if value == '*':
-        return value
+
+def validate_port(value):
     try:
         val = int(value)
     except (ValueError, TypeError, AttributeError):
         raise NuageServiceInvalidPortValue(
             port=value, values='')
     else:
-        if val in nuage_svc_supported_port:
-            return val
-        else:
+        if val not in nuage_svc_supported_port:
             raise NuageServiceInvalidPortValue(port=value, values='')
+
+
+def convert_port(value):
+    if value == '*':
+        pass
+    elif '-' in value:
+        for port in value.split('-'):
+            validate_port(port)
+    else:
+        validate_port(value)
+    return value
 
 
 def convert_ethertype(ethertype):
