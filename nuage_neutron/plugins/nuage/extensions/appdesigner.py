@@ -38,6 +38,8 @@ nuage_svc_supported_protocol_num = [const.PROTO_NUM_ICMP, const.PROTO_NUM_TCP,
 
 nuage_svc_supported_dscp = range(0, 64)
 
+nuage_svc_supported_port = range(1, 65536)
+
 nuage_svc_supported_protocols_map = {
     'tcp': const.PROTO_NUM_TCP,
     'udp': const.PROTO_NUM_UDP,
@@ -65,7 +67,8 @@ class NuageServiceInvalidDscp(exceptions.InvalidInput):
 
 
 class NuageServiceInvalidPortValue(exceptions.InvalidInput):
-    message = _("Invalid value for port %(port)s")
+    message = _("Invalid value for port %(port)s. Port must be *,"
+                " a single port number, or a port range (1 - 65535).")
 
 
 class NuageServiceInvalidEtherType(exceptions.InvalidInput):
@@ -81,11 +84,29 @@ def convert_dscp(value):
         return value
     try:
         val = int(value)
-        if val in nuage_svc_supported_dscp:
-            return val
     except (ValueError, TypeError, AttributeError):
         raise NuageServiceInvalidDscp(
             dscp=value, values=nuage_svc_supported_dscp)
+    else:
+        if val in nuage_svc_supported_dscp:
+            return val
+        else:
+            raise NuageServiceInvalidDscp(dscp=value,
+                                          values=nuage_svc_supported_dscp)
+
+def convert_port(value):
+    if value == '*':
+        return value
+    try:
+        val = int(value)
+    except (ValueError, TypeError, AttributeError):
+        raise NuageServiceInvalidPortValue(
+            port=value, values='')
+    else:
+        if val in nuage_svc_supported_port:
+            return val
+        else:
+            raise NuageServiceInvalidPortValue(port=value, values='')
 
 
 def convert_ethertype(ethertype):
@@ -95,6 +116,7 @@ def convert_ethertype(ethertype):
         return nuage_svc_supported_ethertypes_map[ethertype.lower()]
     raise NuageServiceInvalidEtherType(ethertype=ethertype,
                                        values=nuage_svc_supported_ethertypes)
+
 
 def convert_protocol(protocol):
     if protocol is None:
@@ -234,9 +256,11 @@ RESOURCE_ATTRIBUTE_MAP = {
                  'default': "*", 'is_visible': True,
                  'convert_to': convert_dscp},
         'src_port': {'allow_post': True, 'allow_put': False,
-                     'default': "N/A", 'is_visible': True},
+                     'default': "N/A", 'is_visible': True,
+                     'convert_to': convert_port},
         'dest_port': {'allow_post': True, 'allow_put': False,
-                      'default': "N/A", 'is_visible': True},
+                      'default': "N/A", 'is_visible': True,
+                      'convert_to': convert_port},
         'description': {'allow_post': True, 'allow_put': True,
                         'is_visible': True, 'default': '',
                         'validate': {'type:string_or_none': None}},
