@@ -107,7 +107,7 @@ def validate_port(value):
 
 
 def convert_port(value):
-    if value == '*':
+    if value == '*' or value == 'N/A':
         pass
     elif '-' in value:
         for port in value.split('-'):
