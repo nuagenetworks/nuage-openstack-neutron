@@ -1328,27 +1328,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @nuage_utils.handle_nuage_api_error
     @log.log
-    def get_subnet(self, context, id, fields=None):
-        subnet = super(NuagePlugin, self).get_subnet(context, id, None)
-        subnet = nuagedb.get_nuage_subnet_info(context.session, subnet, fields)
-
-        return self._fields(subnet, fields)
-
-    @log.log
-    def get_subnets(self, context, filters=None, fields=None, sorts=None,
-                    limit=None, marker=None, page_reverse=False):
-        subnets = super(NuagePlugin, self).get_subnets(context, filters, None,
-                                                       sorts, limit, marker,
-                                                       page_reverse)
-        subnets = nuagedb.get_nuage_subnets_info(context.session, subnets,
-                                                 fields, filters)
-        for idx, subnet in enumerate(subnets):
-            subnets[idx] = self._fields(subnet, fields)
-        return subnets
-
-
-    @nuage_utils.handle_nuage_api_error
-    @log.log
     def create_subnet(self, context, subnet):
         subn = subnet['subnet']
         net_id = subn['network_id']
