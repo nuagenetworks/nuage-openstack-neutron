@@ -517,142 +517,137 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @nuage_utils.handle_nuage_api_error
     @log.log
+    def _process_update_nuage_vport(self, context, port_id, updated_port,
+                                   subnet_mapping, current_owner):
+        l2dom_id = None
+        l3dom_id = None
+        if subnet_mapping['nuage_managed_subnet']:
+            # This is because we do not know if this advanced subn
+            # is a domain-subn ot not. In both cases, the
+            # l2dom_templ_id is the ID of the l2dom or domSubn.
+            l2dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
+            l3dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
+        else:
+            #ToDO: if nuage_l2dom_tmplt but current_owner != APPD_PORT
+            #goes in to else, is that the intended behavior?
+            if (subnet_mapping['nuage_l2dom_tmplt_id'] and
+                    current_owner != constants.APPD_PORT):
+                l2dom_id = subnet_mapping['nuage_subnet_id']
+            else:
+                l3dom_id = subnet_mapping['nuage_subnet_id']
+
+        params = {
+            'neutron_port_id': port_id,
+            'l2dom_id': l2dom_id,
+            'l3dom_id': l3dom_id
+        }
+        nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
+        if nuage_port:
+            net_partition = nuagedb.get_net_partition_by_id(
+                context.session, subnet_mapping['net_partition_id'])
+            self._update_nuage_port(context, updated_port,
+                                    net_partition['name'],
+                                    subnet_mapping, nuage_port)
+        else:
+            #should not come here, log debug message
+            LOG.debug("Nuage vport does not exist for port %s ", id)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def _process_update_port(self, context, p, original_port, subnet_mapping):
+        current_owner = original_port['device_owner']
+        # Need no of ports with device_id in delete_nuage_vm
+        filters = {'device_id': [original_port['device_id']]}
+        ports = self.get_ports(context, filters)
+        no_of_ports = len(ports)
+        device_id_removed = ('device_id' in p and
+                                     (not p.get('device_id')))
+        nova_device_owner_removed = (
+            'device_owner' in p and (not p.get('device_owner')) and
+            current_owner.startswith(constants.NOVA_PORT_OWNER_PREF))
+        appd_device_owner_removed = (
+            'device_owner' in p and (not p.get('device_owner'))
+            and current_owner == constants.APPD_PORT)
+
+        if ((nova_device_owner_removed or appd_device_owner_removed)
+            and device_id_removed):
+            LOG.debug("nova:compute onwership removed for port %s ",
+                       id)
+            if subnet_mapping:
+                net_partition = nuagedb.get_net_partition_by_id(
+                        context.session, subnet_mapping['net_partition_id'])
+                # delete nuage_vm
+                self._delete_nuage_vport(context, original_port,
+                                         net_partition['name'],
+                                         subnet_mapping, no_of_ports)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
     def update_port(self, context, id, port):
         p = port['port']
-        sg_groups = None
-        rtargets = None
+        delete_security_groups = self._check_update_deletes_security_groups(
+            port)
+        has_security_groups = self._check_update_has_security_groups(port)
+
         session = context.session
         with session.begin(subtransactions=True):
             original_port = self.get_port(context, id)
-            changed_owner = p.get('device_owner')
             current_owner = original_port['device_owner']
 
             self._validate_update_port(context, p,
                                        original_port)
+            if current_owner == constants.APPD_PORT:
+                    p['device_owner'] = constants.APPD_PORT
+
+            updated_port = super(NuagePlugin,
+                                 self).update_port(context, id, port)
+            if not updated_port.get('fixed_ips'):
+                    return updated_port
+            subnet_id = updated_port['fixed_ips'][0]['subnet_id']
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
+                                                                subnet_id)
             if p.get('device_owner', '').startswith(
                     constants.NOVA_PORT_OWNER_PREF):
                 LOG.debug("Port %s is owned by nova:compute", id)
-                port = self._get_port(context, id)
-
-                if current_owner == constants.APPD_PORT:
-                    p['device_owner'] = constants.APPD_PORT
-
-                port.update(p)
-
-                if not port.get('fixed_ips'):
-                    return self._make_port_dict(port)
-
-                subnet_id = port['fixed_ips'][0]['subnet_id']
-                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
-                                                                subnet_id)
                 if subnet_mapping:
-                    l2dom_id = None
-                    l3dom_id = None
-                    if subnet_mapping['nuage_managed_subnet']:
-                        # This is because we do not know if this advanced subn
-                        # is a domain-subn ot not. In both cases, the
-                        # l2dom_templ_id is the ID of the l2dom or domSubn.
-                        l2dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
-                        l3dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
-                    else:
-                        if (subnet_mapping['nuage_l2dom_tmplt_id'] and
-                                current_owner != constants.APPD_PORT):
-                            l2dom_id = subnet_mapping['nuage_subnet_id']
-                        else:
-                            l3dom_id = subnet_mapping['nuage_subnet_id']
-
-                    params = {
-                        'neutron_port_id': id,
-                        'l2dom_id': l2dom_id,
-                        'l3dom_id': l3dom_id
-                    }
-                    nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
-                    if nuage_port:
-                        net_partition = nuagedb.get_net_partition_by_id(
-                            session, subnet_mapping['net_partition_id'])
-                        self._update_nuage_port(context, port,
-                                                net_partition['name'],
-                                                subnet_mapping, nuage_port)
-                    else:
-                        #should not come here, log debug message
-                        LOG.debug("Nuage vport does not"
-                                  " exist for port %s ", id)
+                    self._process_update_nuage_vport(
+                        context, id, updated_port, subnet_mapping,
+                        current_owner)
                 else:
                     LOG.error(_('VM with uuid %s will not be resolved '
                               'in VSD because its created on unsupported'
                               'subnet type'), port['device_id'])
 
-                self._check_floatingip_update(context, port)
-                updated_port = self._make_port_dict(port)
-                # TO DO: We don't need this anymore, as we process sg_create
-                # on port create instead of at nova boot now.
-                if subnet_mapping['nuage_managed_subnet'] is False:
-                    sg_port = self._extend_port_dict_security_group(
-                        updated_port,
-                        port)
-                    sg_groups = sg_port[ext_sg.SECURITYGROUPS]
+                self._check_floatingip_update(context, updated_port)
             else:
-                filters = {'device_id': [original_port['device_id']]}
-                ports = self.get_ports(context, filters)
                 #nova removes device_owner and device_id fields, in this
                 #update_port, hence before update_port, get_ports for
                 #device_id and pass the no_of_ports to delete_nuage_vport
-                no_of_ports = len(ports)
-                if current_owner == constants.APPD_PORT:
-                    port['port']['device_owner'] = constants.APPD_PORT
-                updated_port = super(NuagePlugin, self).update_port(
-                    context, id, port)
-                if not updated_port.get('fixed_ips'):
-                    return updated_port
-
-                subnet_id = updated_port['fixed_ips'][0]['subnet_id']
-                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-                    context.session, subnet_id)
-
-                if (not changed_owner
-                    and (current_owner == constants.APPD_PORT or
-                    current_owner.startswith(constants.NOVA_PORT_OWNER_PREF))
-                    and ('device_id' in p.keys() and not p.get('device_id'))):
-                    LOG.debug("nova:compute onwership removed for port %s ",
-                               id)
-                    if subnet_mapping:
-                        net_partition = nuagedb.get_net_partition_by_id(
-                                session, subnet_mapping['net_partition_id'])
-                        # delete nuage_vm
-                        self._delete_nuage_vport(context, original_port,
-                                                 net_partition['name'],
-                                                 subnet_mapping, no_of_ports)
+                self._process_update_port(context, p, original_port,
+                                          subnet_mapping)
 
         if (subnet_mapping
             and subnet_mapping['nuage_managed_subnet'] is False):
-            if sg_groups:
-                self._delete_port_security_group_bindings(
-                    context, updated_port['id'])
-                self._process_port_create_security_group(context,
-                                                         updated_port,
-                                                         sg_groups)
-                LOG.debug("Updated security-groups on port %s", id)
-            elif ext_sg.SECURITYGROUPS in p:
-                self._delete_port_security_group_bindings(
-                    context, updated_port['id'])
-                self._process_port_create_security_group(
-                    context,
-                    updated_port,
-                    p[ext_sg.SECURITYGROUPS]
-                )
+            if (delete_security_groups or has_security_groups):
+                # delete the port binding and process new sg binding
+                self._delete_port_security_group_bindings(context, id)
+                sgids = self._get_security_groups_on_port(context, port)
+                self._process_port_create_security_group(context, updated_port,
+                                                         sgids)
             if ext_rtarget.REDIRECTTARGETS in p:
                 self._delete_port_redirect_target_bindings(
-                    context, updated_port['id'])
+                    context, id)
                 self.process_port_redirect_target(
                     context,
                     updated_port,
                     p[ext_rtarget.REDIRECTTARGETS]
                 )
         elif (subnet_mapping and subnet_mapping['nuage_managed_subnet']):
-            if sg_groups or (ext_sg.SECURITYGROUPS in p):
+            if ext_sg.SECURITYGROUPS in p:
                 LOG.warning(_("Security Groups is ignored for ports on "
                               "VSD Managed Subnet"))
         return updated_port
+
 
     @log.log
     def _delete_nuage_vport(self, context, port, np_name, subnet_mapping,
