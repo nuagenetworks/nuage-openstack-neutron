@@ -3485,7 +3485,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                            for vsd_domain in vsd_domains]
         if vsd_l2domains:
             vsd_l2domains = [self._update_dict(l2domain, 'type', 'L2')
-                             for l2domain in vsd_l2domains]
+                             for l2domain in vsd_l2domains
+                             if self.l2domain_not_linked(context.session,
+                                                         l2domain)]
         vsd_domains = ((vsd_domains if vsd_domains else [])
                        + (vsd_l2domains if vsd_l2domains else []))
         vsd_domains = [self._update_dict(vsd_domain, 'net_partition_id',
@@ -3498,6 +3500,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             'net_partition_id': 'net_partition_id'
         }
         return self._trans_vsd_to_os(vsd_domains, vsd_to_os, filters, fields)
+
+    def l2domain_not_linked(self, session, l2domain):
+        if l2domain['subnet_os_id']:
+            return False
+
+        l2dom_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
+            session, l2domain['domain_id'])
+        return l2dom_mapping is None
 
     def _update_dict(self, dict, key, val):
         dict[key] = val
