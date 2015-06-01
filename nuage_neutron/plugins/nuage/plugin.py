@@ -142,31 +142,32 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                          cfg.CONF.SYNCMANAGER.enable_sync)
 
     @log.log
-    def _resource_finder(self, context, for_resource, resource, user_req):
-        match = re.match(attributes.UUID_PATTERN, user_req[resource])
+    def _resource_finder(self, context, for_resource, resource_type,
+                             resource):
+        match = re.match(attributes.UUID_PATTERN, resource)
         if match:
-            obj_lister = getattr(self, "get_%s" % resource)
-            found_resource = obj_lister(context, user_req[resource])
+            obj_lister = getattr(self, "get_%s" % resource_type)
+            found_resource = obj_lister(context, resource)
             if not found_resource:
                 msg = (_("%(resource)s with id %(resource_id)s does not "
-                         "exist") % {'resource': resource,
-                                     'resource_id': user_req[resource]})
+                         "exist") % {'resource': resource_type,
+                                     'resource_id': resource})
                 raise n_exc.BadRequest(resource=for_resource, msg=msg)
         else:
-            filter = {'name': [user_req[resource]]}
-            obj_lister = getattr(self, "get_%ss" % resource)
+            filter = {'name': [resource]}
+            obj_lister = getattr(self, "get_%ss" % resource_type)
             found_resource = obj_lister(context, filters=filter)
             if not found_resource:
                 msg = (_("Either %(resource)s %(req_resource)s not found "
                          "or you dont have credential to access it")
-                       % {'resource': resource,
-                          'req_resource': user_req[resource]})
+                       % {'resource': resource_type,
+                          'req_resource': resource})
                 raise n_exc.BadRequest(resource=for_resource, msg=msg)
             if len(found_resource) > 1:
                 msg = (_("More than one entry found for %(resource)s "
                          "%(req_resource)s. Use id instead")
-                       % {'resource': resource,
-                          'req_resource': user_req[resource]})
+                       % {'resource': resource_type,
+                          'req_resource': resource})
                 raise n_exc.BadRequest(resource=for_resource, msg=msg)
             found_resource = found_resource[0]
         return found_resource
@@ -244,8 +245,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @nuage_utils.handle_nuage_api_error
     @log.log
-    def process_port_redirect_target(self, context, port,
-                                     rtargets):
+    def process_port_redirect_target(self, context, port, rtargets):
         l2dom_id = None
         l3dom_id = None
         if not attributes.is_attr_set(rtargets):
@@ -255,11 +255,23 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             msg = (_("Multiple redirect targets on a port not supported "))
             raise nuage_exc.NuageBadRequest(msg=msg)
 
+        nuage_rtargets_ids = []
         for rtarget in rtargets:
+            uuid_match = re.match(attributes.UUID_PATTERN, rtarget)
+            if not uuid_match:
+                nuage_rtarget = self._resource_finder(
+                            context, 'port', 'nuage_redirect_target', rtarget)
+                nuage_rtarget_id = nuage_rtarget['id']
+                nuage_rtargets_ids.append(nuage_rtarget_id)
+            else:
+                nuage_rtarget_id = rtarget
+                nuage_rtargets_ids.append(rtarget)
             #validate rtarget is in the same subnet as port
-            rtarget_resp = self.nuageclient.get_nuage_redirect_target(rtarget)
+            rtarget_resp = self.nuageclient.get_nuage_redirect_target(
+                nuage_rtarget_id)
             if not rtarget_resp:
-                msg = (_("Redirect target %s does not exist on VSD " % rtarget))
+                msg = (_("Redirect target %s does not exist on VSD " %
+                         nuage_rtarget_id))
                 raise nuage_exc.NuageBadRequest(msg=msg)
             parent_type = rtarget_resp['parentType']
             parent = rtarget_resp['parentID']
@@ -296,12 +308,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 nuage_port['l3dom_id'] = l3dom_id
                 if nuage_port and nuage_port.get('nuage_vport_id'):
                     self.nuageclient.update_nuage_vport_redirect_target(
-                        rtarget, nuage_port.get('nuage_vport_id'))
+                        nuage_rtarget_id, nuage_port.get('nuage_vport_id'))
             except Exception:
                 raise
 
-        port[ext_rtarget.REDIRECTTARGETS] = (list(rtargets) if rtargets else
-                                             [])
+        port[ext_rtarget.REDIRECTTARGETS] = (list(nuage_rtargets_ids)
+                                             if nuage_rtargets_ids else [])
 
     @log.log
     def _delete_port_redirect_target_bindings(self, context, port_id):
@@ -966,8 +978,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             net_partition = nuagedb.get_net_partition_by_name(context.session,
                                                               def_net_part)
         else:
-            net_partition = self._resource_finder(context, 'subnet',
-                                                  'net_partition', subnet)
+            net_partition = self._resource_finder(
+                context, 'subnet', 'net_partition', subnet['net_partition'])
         if not net_partition:
             msg = _('Either net_partition is not provided with subnet OR '
                     'default net_partition is not created at the start')
@@ -1661,8 +1673,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             net_partition = nuagedb.get_net_partition_by_name(context.session,
                                                               def_net_part)
         else:
-            net_partition = self._resource_finder(context, 'router',
-                                                  'net_partition', rtr)
+            net_partition = self._resource_finder(
+                context, 'router', 'net_partition', rtr['net_partition'])
         if not net_partition:
             msg = _("Either net_partition is not provided with router OR "
                     "default net_partition is not created at the start")

@@ -66,13 +66,12 @@ class RedirectTargetRuleRemoteGroupAndRemoteIpPrefix(nexception.InvalidInput):
                 "be provided.")
 
 
-def validate_uuid_or_none(value_list):
+def convert_to_list_or_none(value_list):
     if value_list == 'None':
         return []
-    if not uuidutils.is_uuid_like(value_list):
-        msg = _("'%s' is not an integer or uuid") % value_list
-        raise nexception.InvalidInput(error_message=msg)
-    return [value_list]
+    if value_list:
+        values = value_list.split(',')
+        return values
 
 def convert_protocol(value):
     if value is None:
@@ -188,7 +187,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
     'ports': {REDIRECTTARGETS: {'allow_post': True,
                                'allow_put': True,
                                'is_visible': True,
-                               'convert_to': validate_uuid_or_none,
+                               'convert_to': convert_to_list_or_none,
                                'default': attr.ATTR_NOT_SPECIFIED}}
             }
 
