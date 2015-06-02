@@ -197,7 +197,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'description': description
         }
-
+        if port['device_owner'] == constants.APPD_PORT:
+            params['name'] = port['name']
         if subnet_mapping['nuage_managed_subnet']:
             params['parent_id'] = subnet_mapping['nuage_l2dom_tmplt_id']
 
@@ -2709,7 +2710,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     context, subnet)
                 if subn['enable_dhcp']:
                     self._create_port_gateway(context, neutron_subnet, gw_ip)
-
+                self.nuageclient.set_subn_external_id(neutron_subnet['id'],
+                                                      nuage_subn_id)
                 subnet_l2dom = nuagedb.add_subnetl2dom_mapping(
                     context.session, neutron_subnet['id'],
                     nuage_subn_id, nuage_netpart['id'],
@@ -2810,7 +2812,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             }
         }
         port = super(NuagePlugin, self).create_port(context, port)
-
+        port.update({'description': params['description']})
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
@@ -2819,7 +2821,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             net_partition = nuagedb.get_net_partition_by_id(
                 context.session, subnet_mapping['net_partition_id'])
             self._create_nuage_port(context, port, net_partition['name'],
-                                    subnet_mapping)
+                                    subnet_mapping, params['description'])
         except Exception:
             with excutils.save_and_reraise_exception():
                 super(NuagePlugin, self).delete_port(context, port['id'])
@@ -3076,7 +3078,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         params = {
             'name': p['name'],
             'tier_id': p['tier_id'],
-            'tenant_id': p['tenant_id']
+            'tenant_id': p['tenant_id'],
+            'description': p['description']
         }
         return self._create_appdport(context, params)
 
@@ -3122,6 +3125,21 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 self.nuageclient.delete_nuage_vport(
                     nuage_vport.get('nuage_vport_id'))
             super(NuagePlugin, self).delete_port(context, id)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def update_appdport(self, context, id, appdport):
+        original_nport = self.get_port(context, id)
+        port = {'port': appdport['appdport']}
+        updated_port = super(NuagePlugin, self).update_port(context, id, port)
+        try:
+            self.nuageclient.update_nuage_appdport(original_nport,
+                                                   appdport['appdport'])
+        except Exception:
+            port = {'port': {'name': original_nport['name']}}
+            super(NuagePlugin, self).update_port(context, id, port)
+            raise
+        return updated_port
 
     @nuage_utils.handle_nuage_api_error
     @log.log
