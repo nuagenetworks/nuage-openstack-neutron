@@ -2865,12 +2865,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def get_application_domains(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
-        if 'id' in filters.keys():
+        if 'id' in filters:
             application_domains = (self.nuageclient.
                                    get_nuage_application_domains(
                                    net_partition['id'],
                                    filters['id'][0]))
-        elif 'name' in filters.keys():
+        elif 'name' in filters:
             application_domains = (self.nuageclient.
                                    get_nuage_application_domains(
                                    net_partition['id'],
@@ -2931,10 +2931,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def get_applications(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
-        if 'id' in filters.keys():
+        if 'id' in filters:
             applications = self.nuageclient.get_nuage_applications(
                 net_partition['id'], filters['id'][0])
-        elif 'name' in filters.keys():
+        elif 'name' in filters:
             applications = self.nuageclient.get_nuage_applications(
                 net_partition['id'], filters['name'][0])
         else:
@@ -3037,10 +3037,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_tiers(self, context, filters=None, fields=None):
-        if 'id' in filters.keys():
+        if 'id' in filters:
             tiers = self.nuageclient.get_nuage_tiers(
                 None, id=filters['id'][0])
-        elif 'tenant_id' in filters.keys():
+        elif 'tenant_id' in filters:
             tiers = []
         else:
             tiers = self.nuageclient.get_nuage_tiers(filters['app_id'][0])
@@ -3085,9 +3085,23 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def get_appdports(self, context, filters=None, fields=None):
-        filters = {
-            'device_owner': [constants.APPD_PORT]
-        }
+        if 'id' in filters:
+            return self.get_port(context, id)
+        elif 'tier_id' in filters:
+            tier = self.nuageclient.get_nuage_tier(filters['tier_id'][0])
+            nuage_app = self.nuageclient.get_nuage_application(
+                tier['parentID'])
+            net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
+            neutron_subnet = self._get_neutron_subn_id_for_tier(
+                context, tier['name'], net_id)
+            filters = {
+                'fixed_ips': {'subnet_id': [neutron_subnet['id']]},
+                'device_owner': [constants.APPD_PORT]
+            }
+        else:
+            filters = {
+                'device_owner': [constants.APPD_PORT]
+            }
         return self.get_ports(context, filters=filters)
 
     @log.log
@@ -3170,10 +3184,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def get_services(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
-        if 'id' in filters.keys():
+        if 'id' in filters:
             services = self.nuageclient.get_nuage_services(
                 net_partition['id'], filters['id'][0])
-        elif 'name' in filters.keys():
+        elif 'name' in filters:
             services = self.nuageclient.get_nuage_services(
                 net_partition['id'], filters['name'][0])
         else:
@@ -3223,10 +3237,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_flows(self, context, filters=None, fields=None):
-        if 'id' in filters.keys():
+        if 'id' in filters:
             flows = self.nuageclient.get_nuage_flows(
                 None, id=filters['id'][0])
-        elif 'tenant_id' in filters.keys():
+        elif 'tenant_id' in filters:
             flows = []
         else:
             flows = self.nuageclient.get_nuage_flows(filters['app_id'][0])
