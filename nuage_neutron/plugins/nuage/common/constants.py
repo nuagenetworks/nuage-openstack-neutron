@@ -50,3 +50,5 @@ MAX_VSD_INTEGER = 2147483647  # Maximum Java integer value. 2^31-1
 NUAGE_PAT_NOT_AVAILABLE = 'not_available'
 NUAGE_PAT_DEF_ENABLED = 'default_enabled'
 NUAGE_PAT_DEF_DISABLED = 'default_disabled'
+
+RES_NOT_FOUND = 404

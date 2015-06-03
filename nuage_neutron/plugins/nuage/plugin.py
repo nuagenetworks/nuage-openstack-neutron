@@ -820,6 +820,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             self._delete_nuage_vport(context, port, net_partition['name'],
                                      subnet_mapping, port_delete=True)
+        else:
+            # Check and delete gateway host vport associated with the port
+            self.delete_gw_host_vport(context, port, subnet_mapping)
+
         super(NuagePlugin, self).delete_port(context, id)
 
     @log.log

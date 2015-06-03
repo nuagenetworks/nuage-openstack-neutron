@@ -353,3 +353,32 @@ class NuagegatewayMixin(object):
                                              filters=filters)
         return [self._make_gateway_dict(gw, fields=fields, context=context)
                 for gw in resp]
+
+    @log.log
+    def delete_gw_host_vport(self, context, port, subnet_mapping):
+        port_params = {
+            'neutron_port_id': port['id']
+        }
+
+        # Check if l2domain/subnet exist. In case of router_interface_delete,
+        # subnet is deleted and then call comes to delete_port. In that
+        # case, we just return
+        try:
+            self.nuageclient.get_subnet_or_domain_subnet_by_id(
+                subnet_mapping['nuage_subnet_id'])
+        except Exception as e:
+            if e.code != constants.RES_NOT_FOUND:
+                raise
+            else:
+                return
+
+        if subnet_mapping['nuage_l2dom_tmplt_id']:
+            port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
+        else:
+            port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
+        if nuage_vport and (nuage_vport['nuage_vport_type'] ==
+                            constants.HOST_VPORT):
+            self.nuageclient.delete_nuage_gateway_vport(
+                context.tenant_id,
+                nuage_vport.get('nuage_vport_id'))
