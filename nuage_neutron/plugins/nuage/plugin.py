@@ -3404,11 +3404,21 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         elif redirect_target_rule['networkType'] == 'POLICYGROUP':
             remote_group_id = redirect_target_rule['networkID']
 
+        port_range_min = '*'
+        port_range_max = '*'
+
+        if redirect_target_rule['destinationPort'] != port_range_max:
+            destination_port = redirect_target_rule['destinationPort']
+            port_range = destination_port.split('-')
+            port_range_min = port_range[0]
+            port_range_max = port_range[1]
+
         res = {
             'id': redirect_target_rule['ID'],
             'priority': redirect_target_rule['priority'],
             'protocol': redirect_target_rule['protocol'],
-            'port_range_max': redirect_target_rule['destinationPort'],
+            'port_range_min': port_range_min,
+            'port_range_max': port_range_max,
             'action': redirect_target_rule['action'],
             'redirect_target_id': redirect_target_rule['redirectVPortTagID'],
             'remote_ip_prefix': remote_ip_prefix,
