@@ -149,14 +149,19 @@ class NuagegatewayMixin(object):
     @log.log
     def create_nuage_gateway_vlan(self, context, nuage_gateway_vlan):
         vlan = nuage_gateway_vlan['nuage_gateway_vlan']
+        def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
+        netpart = nuagedb.get_default_net_partition(context, def_netpart)
+
         resp = self.nuageclient.create_gateway_port_vlan(context.tenant_id,
-                                                         vlan)
+                                                         vlan, netpart['id'])
         return self._make_vlan_dict(resp, context=context)
 
     @utils.handle_nuage_api_error
     @log.log
     def delete_nuage_gateway_vlan(self, context, id):
-        self.nuageclient.delete_gateway_port_vlan(context.tenant_id, id)
+        def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
+        netpart = nuagedb.get_default_net_partition(context, def_netpart)
+        self.nuageclient.delete_gateway_port_vlan(id, netpart['id'])
 
     @utils.handle_nuage_api_error
     @log.log
