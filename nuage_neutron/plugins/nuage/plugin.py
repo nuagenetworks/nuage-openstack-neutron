@@ -111,6 +111,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         if self.def_fip_rate < -1:
             raise cfg.ConfigFileValueError(_('default_fip_rate can not be < '
                                              '-1'))
+        if self.def_fip_rate > constants.MAX_VSD_INTEGER:
+            raise cfg.ConfigFileValueError(_('default_fip_rate can not be > '
+                                             '%s' % constants.MAX_VSD_INTEGER))
+
         self.fip_rate_log = None
         if cfg.CONF.FIPRATE.fip_rate_change_log:
             formatter = ContextFormatter()
