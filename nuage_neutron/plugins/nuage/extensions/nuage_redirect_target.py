@@ -137,9 +137,6 @@ RESOURCE_ATTRIBUTE_MAP = {
         'description': {'allow_post': True, 'allow_put': False,
                         'is_visible': True, 'default': '',
                         'validate': {'type:string_or_none': None}},
-        'virtual_ip_address': {'allow_post': True, 'allow_put': False,
-                               'is_visible': True, 'default': None,
-                               'validate': {'type:ip_address_or_none': None}},
         'redundancy_enabled': {'allow_post': True, 'allow_put': False,
                                'is_visible': True, 'default': '',
                                'validate': {'type:boolean': None}},
@@ -148,7 +145,28 @@ RESOURCE_ATTRIBUTE_MAP = {
                            'validate': {'type:string': None}},
         'subnet_id': {'allow_post': True, 'allow_put': False,
                       'is_visible': True, 'default': None,
+                      'validate': {'type:uuid_or_none': None}},
+        'router_id': {'allow_post': True, 'allow_put': False,
+                      'is_visible': True, 'default': None,
+                      'validate': {'type:uuid_or_none': None}},
+        'tenant_id': {'allow_post': True, 'allow_put': False,
+                      'required_by_policy': True,
+                      'is_visible': True},
+    },
+    'nuage_redirect_target_vips': {
+        'id': {'allow_post': False, 'allow_put': False,
+               'validate': {'type:uuid': None},
+               'is_visible': True,
+               'primary_key': True},
+        'virtual_ip_address': {'allow_post': True, 'allow_put': False,
+                               'is_visible': True, 'default': None,
+                               'validate': {'type:ip_address': None}},
+        'subnet_id': {'allow_post': True, 'allow_put': False,
+                      'is_visible': True, 'default': None,
                       'validate': {'type:uuid': None}},
+        'redirect_target_id': {'allow_post': True, 'allow_put': False,
+                               'is_visible': True, 'default': None,
+                               'validate': {'type:uuid': None}},
         'tenant_id': {'allow_post': True, 'allow_put': False,
                       'required_by_policy': True,
                       'is_visible': True},
@@ -232,7 +250,8 @@ class Nuage_redirect_target(object):
         exts = []
         plugin = manager.NeutronManager.get_plugin()
         for resource_name in ['nuage_redirect_target',
-                              'nuage_redirect_target_rule']:
+                              'nuage_redirect_target_rule',
+                              'nuage_redirect_target_vip']:
             collection_name = resource_name.replace('_', '-') + "s"
             params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
             quota.QUOTAS.register_resource_by_name(resource_name)

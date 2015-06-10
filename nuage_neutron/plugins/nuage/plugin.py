@@ -1495,6 +1495,19 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 self.nuageclient.delete_user(subnet_l2dom['nuage_user_id'])
                 self.nuageclient.delete_group(subnet_l2dom['nuage_group_id'])
 
+    def _nuage_vips_on_subnet(self, context, subnet):
+        vip_found = False
+        filters = {'device_owner':
+                   [constants.DEVICE_OWNER_VIP_NUAGE],
+                   'network_id': [subnet['network_id']]}
+        ports = self.get_ports(context, filters)
+
+        for p in ports:
+            if p['fixed_ips'][0]['subnet_id'] == subnet['id']:
+                vip_found = True
+                break
+        return vip_found
+
     @nuage_utils.handle_nuage_api_error
     @log.log
     def add_router_interface(self, context, router_id, interface_info):
@@ -1565,6 +1578,15 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                 router_id,
                                                 interface_info)
             msg = (_("Subnet %s has one or more nuage VPORTS "
+                   "Router-IF add not permitted") % subnet_id)
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
+        if self.nuageclient.nuage_redirect_targets_on_l2domain(
+                nuage_subnet_id):
+            super(NuagePlugin,
+                  self).remove_router_interface(context,
+                                                router_id,
+                                                interface_info)
+            msg = (_("Subnet %s has one or more nuage redirect targets "
                    "Router-IF add not permitted") % subnet_id)
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
@@ -1670,6 +1692,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             raise n_exc.BadRequest(resource='subnet', msg=msg)
         if self.nuageclient.nuage_vports_on_subnet(nuage_subn_id):
             msg = (_("Subnet %s has one or more nuage VPORTS "
+                     "Router-IF delete not permitted") % subnet_id)
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
+        if self._nuage_vips_on_subnet(context, subnet):
+            msg = (_("Subnet %s has one or more active nuage VIPs "
                      "Router-IF delete not permitted") % subnet_id)
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
@@ -3350,20 +3376,19 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def update_flow(self, context, id, flow):
         return self.nuageclient.update_nuage_flow(id, flow['flow'])
 
-    def _validate_create_redirect_target(self, context, redirect_target,
-                                         subnet_mapping):
+    def _validate_create_redirect_target_vip(self, context, redirect_target,
+                                             subnet_mapping, vip):
         # VIP not allowed if redudancyEnabled is False
-        if not subnet_mapping['nuage_l2dom_tmplt_id']:
-            if redirect_target.get('redundancy_enabled') == "False":
-                if redirect_target.get('virtual_ip_address'):
-                    msg = (_("VIP can be addded to a redirect target only "
-                             "when redundancyEnabled is True"))
-                    raise nuage_exc.NuageBadRequest(msg=msg)
+        if redirect_target.get('redundancy_enabled') == "False":
+            if redirect_target.get('virtual_ip_address'):
+                msg = (_("VIP can be addded to a redirect target only "
+                         "when redundancyEnabled is True"))
+                raise nuage_exc.NuageBadRequest(msg=msg)
+
         # VIP should be in the same subnet as redirect_target['subnet_id']
-        if redirect_target['virtual_ip_address']:
+        if vip:
             subnet = self.get_subnet(context, subnet_mapping['subnet_id'])
-            if not self._check_subnet_ip(subnet['cidr'], redirect_target[
-                'virtual_ip_address']):
+            if not self._check_subnet_ip(subnet['cidr'], vip):
                 msg = ("VIP should be in the same subnet as subnet %s " %
                        subnet_mapping['subnet_id'])
                 raise nuage_exc.NuageBadRequest(msg=msg)
@@ -3385,61 +3410,33 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def create_nuage_redirect_target(self, context, nuage_redirect_target):
-        vip_create = False
         redirect_target = nuage_redirect_target['nuage_redirect_target']
         subnet_id = redirect_target.get('subnet_id')
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
-                                                        subnet_id)
-        self._validate_create_redirect_target(context, redirect_target,
-                                              subnet_mapping)
-        if redirect_target.get('virtual_ip_address'):
-            vip_create = True
-        with context.session.begin(subtransactions=True):
-            if subnet_mapping:
-                l2dom_id = None
-                l3dom_id = None
-                if subnet_mapping['nuage_l2dom_tmplt_id']:
-                    l2dom_id = subnet_mapping['nuage_subnet_id']
-                else:
-                    l3dom_id = subnet_mapping['nuage_subnet_id']
-                params = {
-                    'l2dom_id': l2dom_id,
-                    'l3dom_id': l3dom_id,
-                    'redirect_target': redirect_target
-                }
-                if vip_create:
-                    # Port has no 'tenant-id', as it is hidden from user
-                    subnet = self.get_subnet(context, subnet_id)
-                    network_id = subnet['network_id']
-                    fixed_ips = {'ip_address': redirect_target.get(
-                        'virtual_ip_address')}
-                    vip_port = self.create_port(
-                        context, {
-                            'port': {
-                                'tenant_id': redirect_target['tenant_id'],
-                                'network_id': network_id,
-                                'mac_address': attributes.ATTR_NOT_SPECIFIED,
-                                'fixed_ips': [fixed_ips],
-                                'device_id': '',
-                                'device_owner':
-                                    constants.DEVICE_OWNER_VIP_NUAGE,
-                                'admin_state_up': True,
-                                'name': ''
-                            }
-                        })
-                    if not vip_port['fixed_ips']:
-                        self.delete_port(context, vip_port['id'])
-                        msg = ('No IPs available for VIP %s') % network_id
-                        raise n_exc.BadRequest(
-                            resource='nuage-redirect-tagert', msg=msg)
+        router_id = redirect_target.get('router_id')
 
-                rtarget_resp = self.nuageclient.create_nuage_redirect_target(
-                    params, vip_create)
-                if vip_create:
-                    super(NuagePlugin, self).update_port(
-                        context, vip_port['id'],
-                        {'port': {'device_id': rtarget_resp[3][0]['ID']}})
-                return self._make_redirect_target_dict(rtarget_resp[3][0])
+        with context.session.begin(subtransactions=True):
+            l2dom_id = None
+            l3dom_id = None
+            if subnet_id:
+                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+                    context.session, subnet_id)
+                if subnet_mapping:
+                    l2dom_id = None
+                    if subnet_mapping['nuage_l2dom_tmplt_id']:
+                        l2dom_id = subnet_mapping['nuage_subnet_id']
+            elif router_id:
+                nuage_router = self.nuageclient.get_router_by_external(
+                    router_id)
+                if nuage_router:
+                    l3dom_id = nuage_router['ID']
+            params = {
+                'l2dom_id': l2dom_id,
+                'l3dom_id': l3dom_id,
+                'redirect_target': redirect_target
+            }
+            rtarget_resp = self.nuageclient.create_nuage_redirect_target(
+                params)
+            return self._make_redirect_target_dict(rtarget_resp[3][0])
 
     @log.log
     def get_nuage_redirect_target(self, context, rtarget_id, fields=None):
@@ -3497,6 +3494,73 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def get_nuage_redirect_targets_count(self, context, filters=None):
+        return 0
+
+    @log.log
+    def _make_redirect_target_vip_dict(self, rtarget_vip,
+                                       context=None, fields=None):
+        res = {
+            'id': rtarget_vip['ID'],
+            'virtualIP': rtarget_vip['virtualIP']
+        }
+        if context:
+            res['tenant_id'] = context.tenant_id
+        return self._fields(res, fields)
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def create_nuage_redirect_target_vip(self, context,
+                                         nuage_redirect_target_vip):
+        redirect_target = nuage_redirect_target_vip[
+            'nuage_redirect_target_vip']
+        nuage_redirect_target = self.get_nuage_redirect_target(
+            context, redirect_target['redirect_target_id'])
+        subnet_id = redirect_target.get('subnet_id')
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                        subnet_id)
+
+        vip = redirect_target.get('virtual_ip_address')
+        self._validate_create_redirect_target_vip(
+            context, nuage_redirect_target, subnet_mapping, vip)
+        with context.session.begin(subtransactions=True):
+            # Port has no 'tenant-id', as it is hidden from user
+            subnet = self.get_subnet(context, subnet_id)
+            network_id = subnet['network_id']
+            fixed_ips = {'ip_address': vip}
+            vip_port = self.create_port(
+                context,
+                {'port': {
+                    'tenant_id': redirect_target['tenant_id'],
+                    'network_id': network_id,
+                    'mac_address': attributes.ATTR_NOT_SPECIFIED,
+                    'fixed_ips': [fixed_ips],
+                    'device_id': '',
+                    'device_owner': constants.DEVICE_OWNER_VIP_NUAGE,
+                    'admin_state_up': True,
+                    'name': ''
+                }}
+            )
+            if not vip_port['fixed_ips']:
+                self.delete_port(context, vip_port['id'])
+                msg = ('No IPs available for VIP %s') % network_id
+                raise n_exc.BadRequest(
+                    resource='nuage-redirect-tagert', msg=msg)
+
+            vip_resp = self.nuageclient.create_virtual_ip(
+                redirect_target['redirect_target_id'],
+                redirect_target['virtual_ip_address'])
+
+            super(NuagePlugin, self).update_port(
+                context, vip_port['id'],
+                {'port':
+                    {'device_id': redirect_target['redirect_target_id']}})
+            return self._make_redirect_target_vip_dict(vip_resp[3][0])
+
+    @log.log
+    def get_nuage_redirect_target_vips_count(self, context, filters=None):
+        # neutron call this count function when creating a resource, to see
+        # if it is within the quota limit, as this is VSD specific resource
+        # and VSD doesn't have any quota limit, returning zero here
         return 0
 
     @log.log
