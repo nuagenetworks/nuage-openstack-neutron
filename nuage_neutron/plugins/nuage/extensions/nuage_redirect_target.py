@@ -60,6 +60,8 @@ class RedirectTargetRuleInvalidProtocol(nexception.InvalidInput):
                 "Only protocol values %(values)s and their integer "
                 "representation (0 to 142) are supported.")
 
+class RedirectTargetRuleProtocolRequiredWithPorts(nexception.InvalidInput):
+    message = _("Must also specifiy protocol if port range is given.")
 
 class RedirectTargetRuleRemoteGroupAndRemoteIpPrefix(nexception.InvalidInput):
     message = _("Only remote_ip_prefix or remote_group_id may "
