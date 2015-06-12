@@ -1747,7 +1747,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def update_router(self, context, id, router):
         # Fix-me(sayajirp) : Optimize update_router calls to VSD into a single
         # call.
-
         r = router['router']
         if (cfg.CONF.RESTPROXY.nuage_pat == 'notavailable' and
             r.get('external_gateway_info')):
@@ -1764,13 +1763,15 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                          "assoc on VSD. extra-route failed") % id)
                 raise n_exc.BadRequest(resource='router', msg=msg)
 
+            old_routes = []
+            if 'routes' in r:
+                old_routes = self._get_extra_routes_by_router_id(context, id)
+
             router_updated = super(NuagePlugin, self).update_router(
                 context,
                 id,
                 copy.deepcopy(router))
             if 'routes' in r:
-                old_routes = self._get_extra_routes_by_router_id(context,
-                                                                 id)
                 added, removed = utils.diff_list_of_dict(old_routes,
                                                          r['routes'])
                 self._validate_nuage_staticroutes(old_routes, added, removed)
