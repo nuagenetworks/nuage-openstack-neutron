@@ -3433,12 +3433,57 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
+    @log.log
+    def _validate_nuage_redirect_target_rule(self, rule):
+        NuagePlugin._validate_redirect_target_rule_priority(rule['priority'])
+        self._validate_redirect_target_port_range(rule)
+
+    @staticmethod
+    @log.log
+    def _validate_redirect_target_rule_priority(priority):
+        try:
+            val = int(priority)
+        except (ValueError, TypeError):
+            message = _("Invalid value for priority.")
+            raise nuage_exc.NuageAPIException(msg=message)
+
+        #VSD requires port number 0 not valid
+        if val >= 0 and val <= 999999999:
+            return
+        else:
+            message = _("Priority should be >=0 and <= 999999999")
+            raise nuage_exc.NuageAPIException(msg=message)
+
+    @log.log
+    def _validate_redirect_target_port_range(self, rule):
+        # Check that port_range is valid.
+        if (rule['port_range_min'] is None and
+            rule['port_range_max'] is None):
+            return
+        if not rule['protocol']:
+            raise ext_rtarget.RedirectTargetRuleProtocolRequiredWithPorts()
+        try:
+            port_min = int(rule['port_range_min'])
+            port_max = int(rule['port_range_max'])
+        except (ValueError, TypeError):
+            message = _("Invalid value for port_min, port_max.")
+            raise n_exc.InvalidInput(error_message=message)
+
+        ip_proto = self._get_ip_proto_number(rule['protocol'])
+        if ip_proto in [os_constants.PROTO_NUM_TCP,
+                        os_constants.PROTO_NUM_UDP]:
+            if (rule['port_range_min'] is not None and
+                rule['port_range_min'] <= rule['port_range_max']):
+                pass
+            else:
+                raise ext_rtarget.RedirectTargetRuleInvalidPortRange()
 
     @nuage_utils.handle_nuage_api_error
     @log.log
     def create_nuage_redirect_target_rule(self, context,
                                           nuage_redirect_target_rule):
         rtarget_rule = nuage_redirect_target_rule['nuage_redirect_target_rule']
+        self._validate_nuage_redirect_target_rule(rtarget_rule)
         rtarget_rule_resp = self.nuageclient.create_nuage_redirect_target_rule(
             rtarget_rule)
 
