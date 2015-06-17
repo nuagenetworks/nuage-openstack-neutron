@@ -3371,12 +3371,18 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def get_nuage_redirect_target(self, context, rtarget_id, fields=None):
-        rtarget_resp = self.nuageclient.get_nuage_redirect_target(rtarget_id)
+        try:
+            rtarget_resp = self.nuageclient.get_nuage_redirect_target(
+                rtarget_id)
+        except Exception:
+            raise nuage_exc.NuageNotFound(resource='nuage-redirect-target',
+                                          resource_id=rtarget_id)
         return self._make_redirect_target_dict(rtarget_resp)
 
     @log.log
     def get_nuage_redirect_targets(self, context, filters=None, fields=None):
         # get all redirect targets
+        resource_id = None
         params = {}
         if filters.get('subnet'):
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
@@ -3395,10 +3401,16 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             params['router'] = filters.get('router')[0]
         elif filters.get('id'):
             params['id'] = filters.get('id')[0]
+            resource_id = params['id']
         elif filters.get('name'):
             params['name'] = filters.get('name')[0]
+            resource_id = params['name']
 
-        rtargets = self.nuageclient.get_nuage_redirect_targets(params)
+        try:
+            rtargets = self.nuageclient.get_nuage_redirect_targets(params)
+        except Exception:
+            raise nuage_exc.NuageNotFound(resource='nuage-redirect-target',
+                                          resource_id=resource_id)
         return [self._make_redirect_target_dict(rtarget)
                 for rtarget in rtargets]
 
@@ -3518,8 +3530,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def get_nuage_redirect_target_rule(self, context, rtarget_rule_id,
                                        fields=None):
-        rtarget_rule_resp = self.nuageclient.get_nuage_redirect_target_rule(
-            rtarget_rule_id)
+        try:
+            rtarget_rule_resp = (
+                self.nuageclient.get_nuage_redirect_target_rule(
+                    rtarget_rule_id))
+        except Exception:
+            raise nuage_exc.NuageNotFound(
+                resource='nuage-redirect-target-rule',
+                resource_id=rtarget_rule_id)
         return self._make_redirect_target_rule_dict(rtarget_rule_resp)
 
     @nuage_utils.handle_nuage_api_error
@@ -3532,6 +3550,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_nuage_redirect_target_rules(self, context, filters=None,
                                         fields=None):
         params = {}
+        resource_id = None
         if filters.get('subnet'):
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, filters['subnet'][0])
@@ -3549,8 +3568,15 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             params['router'] = filters.get('router')[0]
         elif filters.get('id'):
             params['id'] = filters.get('id')[0]
-        rtarget_rules = self.nuageclient.get_nuage_redirect_target_rules(
-            params)
+            resource_id = params['id']
+
+        try:
+            rtarget_rules = self.nuageclient.get_nuage_redirect_target_rules(
+                params)
+        except Exception:
+            raise nuage_exc.NuageNotFound(
+                resource='nuage-redirect-target-rule',
+                resource_id=resource_id)
 
         return [self._make_redirect_target_rule_dict(rtarget_rule) for
                 rtarget_rule in rtarget_rules]
