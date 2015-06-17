@@ -730,6 +730,34 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 self.nuageclient.delete_nuage_vport(
                     nuage_vport.get('nuage_vport_id'))
 
+    @log.log
+    def _delete_nuage_fip(self, context, fip_dict):
+        if fip_dict:
+            fip_id = fip_dict['fip_id']
+            port_id = fip_dict['fip_fixed_port_id']
+            if port_id:
+                router_id = fip_dict['fip_router_id']
+            else:
+                router_id = fip_dict['fip_last_known_rtr_id']
+            if router_id:
+                ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+                    context.session,
+                    router_id)
+                if not ent_rtr_mapping:
+                    msg = _('router %s is not associated with '
+                            'any net-partition') % router_id
+                    raise n_exc.BadRequest(resource='floatingip', msg=msg)
+                params = {
+                    'router_id': ent_rtr_mapping['nuage_router_id'],
+                    'fip_id': fip_id
+                }
+
+                nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                if nuage_fip:
+                    self.nuageclient.delete_nuage_floatingip(
+                        nuage_fip['nuage_fip_id'])
+                    LOG.debug('Floating-ip %s deleted from VSD', fip_id)
+
     @lockutils.synchronized('delete-port', 'nuage-del', external=True)
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -737,8 +765,23 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         if l3_port_check:
             self.prevent_l3_port_deletion(context, id)
         port = self._get_port(context, id)
+        fip = nuagedb.get_fip_by_floating_port_id(context.session,
+                                                  id)
+        # disassociate_floatingips() will change the row of
+        # floatingips neutron table. Store the reqd. values
+        # in fip_dict that will be used to delete nuage fip
+        # that is associated with the port getting deleted.
+        fip_dict = dict()
+        if fip:
+            fip_dict = {
+                'fip_id': fip['id'],
+                'fip_fixed_port_id': fip['fixed_port_id'],
+                'fip_router_id': fip['router_id'],
+                'fip_last_known_rtr_id': fip['last_known_router_id']
+            }
         # This is required for to pass ut test_floatingip_port_delete
         self.disassociate_floatingips(context, id)
+        self._delete_nuage_fip(context, fip_dict)
         if not port['fixed_ips']:
             return super(NuagePlugin, self).delete_port(context, id)
 

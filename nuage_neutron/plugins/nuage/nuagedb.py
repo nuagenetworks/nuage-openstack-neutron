@@ -126,6 +126,11 @@ def get_fip_with_lock(session, fip_id):
     return fip_db
 
 
+def get_fip_by_floating_port_id(session, fixed_port_id):
+    query = session.query(l3_db.FloatingIP)
+    return query.filter_by(fixed_port_id=fixed_port_id).first()
+
+
 def add_entrouter_mapping(session, np_id,
                           router_id,
                           n_l3id, rt, rd):
