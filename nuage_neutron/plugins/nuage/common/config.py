@@ -42,7 +42,10 @@ restproxy_opts = [
     cfg.StrOpt('default_isolated_zone', default=''),
     cfg.StrOpt('default_shared_zone', default=''),
     cfg.StrOpt('nuage_pat', default='defaultdisabled'),
-    cfg.BoolOpt('nuage_fip_underlay', default=False)
+    cfg.BoolOpt('nuage_fip_underlay', default=False),
+    cfg.StrOpt('cms_id', default=None,
+               help=_("ID of a Cloud Management System on the VSD which "
+                      "identifies this OpenStack instance"))
 ]
 
 syncmanager_opts = [

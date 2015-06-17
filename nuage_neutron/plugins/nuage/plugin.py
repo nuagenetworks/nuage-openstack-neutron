@@ -100,11 +100,15 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         base_uri = cfg.CONF.RESTPROXY.base_uri
         auth_resource = cfg.CONF.RESTPROXY.auth_resource
         organization = cfg.CONF.RESTPROXY.organization
+        cms_id = cfg.CONF.RESTPROXY.cms_id
         nuageclient = importutils.import_module('nuagenetlib.nuageclient')
-        self.nuageclient = nuageclient.NuageClient(server, base_uri,
-                                                   serverssl, serverauth,
-                                                   auth_resource,
-                                                   organization)
+        self.nuageclient = nuageclient.NuageClient(cms_id=cms_id,
+                                                   server=server,
+                                                   base_uri=base_uri,
+                                                   serverssl=serverssl,
+                                                   serverauth=serverauth,
+                                                   auth_resource=auth_resource,
+                                                   organization=organization)
 
     def init_fip_rate_log(self):
         self.def_fip_rate = cfg.CONF.FIPRATE.default_fip_rate
