@@ -3393,6 +3393,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def _make_redirect_target_rule_dict(self, redirect_target_rule,
                                  context=None, fields=None):
+        port_range_min = None
+        port_range_max = None
         remote_ip_prefix = None
         remote_group_id = None
         if redirect_target_rule['networkType'] == 'ENTERPRISE_NETWORK':
@@ -3403,14 +3405,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         elif redirect_target_rule['networkType'] == 'POLICYGROUP':
             remote_group_id = redirect_target_rule['networkID']
 
-        port_range_min = '*'
-        port_range_max = '*'
-
-        if redirect_target_rule['destinationPort'] != port_range_max:
-            destination_port = redirect_target_rule['destinationPort']
-            port_range = destination_port.split('-')
-            port_range_min = port_range[0]
-            port_range_max = port_range[1]
+        if redirect_target_rule['destinationPort']:
+            port_range_min = '*'
+            port_range_max = '*'
+            if redirect_target_rule['destinationPort'] != port_range_max:
+                destination_port = redirect_target_rule['destinationPort']
+                port_range = destination_port.split('-')
+                port_range_min = port_range[0]
+                port_range_max = port_range[1]
 
         res = {
             'id': redirect_target_rule['ID'],
