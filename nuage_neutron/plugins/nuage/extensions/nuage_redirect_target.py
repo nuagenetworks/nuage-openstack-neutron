@@ -12,7 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import abc
 import netaddr
 
 from neutron.api import extensions
@@ -20,7 +19,6 @@ from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
 from neutron.common import constants as const
 from neutron.common import exceptions as nexception
-from neutron.openstack.common import uuidutils
 from neutron import manager
 from neutron import quota
 
@@ -31,6 +29,7 @@ PROTO_NAME_TO_NUM = {
     'udp': 17,
     'icmp': 1
 }
+
 
 class RedirectTargetRuleInvalidPortRange(nexception.InvalidInput):
     message = _("For TCP/UDP protocols, port_range_min must be "
@@ -60,8 +59,10 @@ class RedirectTargetRuleInvalidProtocol(nexception.InvalidInput):
                 "Only protocol values %(values)s and their integer "
                 "representation (0 to 142) are supported.")
 
+
 class RedirectTargetRuleProtocolRequiredWithPorts(nexception.InvalidInput):
     message = _("Must also specifiy protocol if port range is given.")
+
 
 class RedirectTargetRuleRemoteGroupAndRemoteIpPrefix(nexception.InvalidInput):
     message = _("Only remote_ip_prefix or remote_group_id may "
@@ -74,6 +75,7 @@ def convert_to_list_or_none(value_list):
     if value_list:
         values = value_list.split(',')
         return values
+
 
 def convert_protocol(value):
     if value is None:
@@ -96,6 +98,7 @@ def convert_protocol(value):
         raise RedirectTargetRuleInvalidProtocol(
             protocol=value, values=supported_protocols)
 
+
 def convert_validate_port_value(port):
     if port is None:
         return port
@@ -104,11 +107,12 @@ def convert_validate_port_value(port):
     except (ValueError, TypeError):
         raise RedirectTargetRuleInvalidPortValue(port=port)
 
-    #VSD requires port number 0 not valid
+    # VSD requires port number 0 not valid
     if val >= 1 and val <= 65535:
         return val
     else:
         raise RedirectTargetRuleInvalidPortValue(port=port)
+
 
 def convert_ip_prefix_to_cidr(ip_prefix):
     if not ip_prefix:
@@ -134,17 +138,17 @@ RESOURCE_ATTRIBUTE_MAP = {
                         'is_visible': True, 'default': '',
                         'validate': {'type:string_or_none': None}},
         'virtual_ip_address': {'allow_post': True, 'allow_put': False,
-                        'is_visible': True, 'default': None,
-                        'validate': {'type:ip_address_or_none': None}},
+                               'is_visible': True, 'default': None,
+                               'validate': {'type:ip_address_or_none': None}},
         'redundancy_enabled': {'allow_post': True, 'allow_put': False,
-                        'is_visible': True, 'default': '',
-                        'validate': {'type:boolean': None}},
+                               'is_visible': True, 'default': '',
+                               'validate': {'type:boolean': None}},
         'insertion_mode': {'allow_post': True, 'allow_put': False,
-                        'is_visible': True, 'default': None,
-                        'validate': {'type:string': None}},
+                           'is_visible': True, 'default': None,
+                           'validate': {'type:string': None}},
         'subnet_id': {'allow_post': True, 'allow_put': False,
-                        'is_visible': True, 'default': None,
-                        'validate': {'type:uuid': None}},
+                      'is_visible': True, 'default': None,
+                      'validate': {'type:uuid': None}},
         'tenant_id': {'allow_post': True, 'allow_put': False,
                       'required_by_policy': True,
                       'is_visible': True},
@@ -155,8 +159,8 @@ RESOURCE_ATTRIBUTE_MAP = {
                'is_visible': True,
                'primary_key': True},
         'redirect_target_id': {'allow_post': True, 'allow_put': False,
-                              'is_visible': True, 'default': None,
-                              'validate': {'type:uuid': None}},
+                               'is_visible': True, 'default': None,
+                               'validate': {'type:uuid': None}},
         'remote_group_id': {'allow_post': True, 'allow_put': False,
                             'default': None, 'is_visible': True},
         'origin_group_id': {'allow_post': True, 'allow_put': False,
@@ -167,7 +171,7 @@ RESOURCE_ATTRIBUTE_MAP = {
         'priority': {'allow_post': True, 'allow_put': False,
                      'is_visible': True, 'default': None},
         'action': {'allow_post': True, 'allow_put': False,
-                     'is_visible': True, 'default': None},
+                   'is_visible': True, 'default': None},
         'port_range_min': {'allow_post': True, 'allow_put': False,
                            'convert_to': convert_validate_port_value,
                            'default': None, 'is_visible': True},
@@ -183,19 +187,24 @@ RESOURCE_ATTRIBUTE_MAP = {
     }
 }
 
+
 REDIRECTTARGETS = 'nuage_redirect_targets'
 NOREDIRECTTARGETS = 'no_nuage_redirect_targets'
 EXTENDED_ATTRIBUTES_2_0 = {
-    'ports': {REDIRECTTARGETS: {'allow_post': True,
-                               'allow_put': True,
-                               'is_visible': True,
-                               'convert_to': convert_to_list_or_none,
-                               'default': attr.ATTR_NOT_SPECIFIED}}
-            }
+    'ports': {
+        REDIRECTTARGETS: {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'convert_to': convert_to_list_or_none,
+            'default': attr.ATTR_NOT_SPECIFIED
+        }
+    }
+}
+
 
 class Nuage_redirect_target(object):
-    """Extension class supporting Redirect Target.
-    """
+    """Extension class supporting Redirect Target."""
 
     @classmethod
     def get_name(cls):
@@ -222,7 +231,8 @@ class Nuage_redirect_target(object):
         """Returns Ext Resources."""
         exts = []
         plugin = manager.NeutronManager.get_plugin()
-        for resource_name in ['nuage_redirect_target', 'nuage_redirect_target_rule']:
+        for resource_name in ['nuage_redirect_target',
+                              'nuage_redirect_target_rule']:
             collection_name = resource_name.replace('_', '-') + "s"
             params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
             quota.QUOTAS.register_resource_by_name(resource_name)

@@ -40,8 +40,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 
 
 class Netpartition(object):
-    """Extension class supporting net_partition.
-    """
+    """Extension class supporting net_partition."""
 
     @classmethod
     def get_name(cls):

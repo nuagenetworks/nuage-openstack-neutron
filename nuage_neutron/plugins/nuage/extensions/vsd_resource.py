@@ -66,8 +66,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 
 
 class Vsd_resource(object):
-    """Extension class supporting Vsd_resources.
-    """
+    """Extension class supporting Vsd_resources."""
 
     @classmethod
     def get_name(cls):

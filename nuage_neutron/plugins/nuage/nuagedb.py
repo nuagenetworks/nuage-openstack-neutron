@@ -18,10 +18,9 @@ from neutron.db import external_net_db
 from neutron.db import extraroute_db
 from neutron.db import l3_db
 from neutron.db import models_v2
-from neutron.db import securitygroups_db
 from neutron.db.models_v2 import Subnet
+from neutron.db import securitygroups_db
 from neutron.plugins.nuage import nuage_models
-from neutron.db import db_base_plugin_v2 as db_base
 
 
 def add_net_partition(session, netpart_id,
@@ -256,10 +255,8 @@ def get_ent_rtr_mapping_by_rtrid(session, rtrid):
 def add_network_binding(session, network_id, network_type, physical_network,
                         vlan_id):
     binding = nuage_models.ProviderNetBinding(
-                            network_id=network_id,
-                            network_type=network_type,
-                            physical_network=physical_network,
-                            vlan_id=vlan_id)
+        network_id=network_id, network_type=network_type,
+        physical_network=physical_network, vlan_id=vlan_id)
     session.add(binding)
     return binding
 
@@ -379,10 +376,3 @@ def make_entrtr_dict(entrtr):
     return {'net_partition_id': entrtr['net_partition_id'],
             'router_id': entrtr['router_id'],
             'nuage_router_id': entrtr['nuage_router_id']}
-
-
-def make_provider_net_dict(provider_net):
-    return {'network_id': provider_net['network_id'],
-            'network_type': provider_net['network_type'],
-            'physical_network': provider_net['physical_network'],
-            'vlan_id': provider_net['vlan_id']}
