@@ -14,18 +14,16 @@
 
 import contextlib
 import copy
-import logging as py_logging
+import functools
 import netaddr
 import re
-import sys
-import functools
 
 from logging import handlers
 from oslo.db import exception as db_exc
 from oslo_concurrency import lockutils
 from oslo_config import cfg
-from oslo_log import log as logging
 from oslo_log.formatters import ContextFormatter
+from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import importutils
 from sqlalchemy import exc as sql_exc
@@ -51,18 +49,18 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.openstack.common import loopingcall
 from neutron import policy
+
 from nuage_neutron.plugins.nuage.common import config
 from nuage_neutron.plugins.nuage.common import constants
 from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
 from nuage_neutron.plugins.nuage.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import extensions
-from nuage_neutron.plugins.nuage.extensions import netpartition
-from nuage_neutron.plugins.nuage import gateway
 from nuage_neutron.plugins.nuage.extensions import (
     nuage_redirect_target as ext_rtarget)
+from nuage_neutron.plugins.nuage.extensions import netpartition
+from nuage_neutron.plugins.nuage import gateway
 from nuage_neutron.plugins.nuage import nuagedb
 from nuagenetlib.restproxy import RESTProxyError
-from neutron import policy
 
 LOG = logging.getLogger(__name__)
 
@@ -77,7 +75,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
-                         "appdesigner", "nuage-redirect-target", "vsd-resource"]
+                         "appdesigner", "nuage-redirect-target",
+                         "vsd-resource"]
 
     binding_view = "extension:port_binding:view"
 
@@ -117,7 +116,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                              '-1'))
         if self.def_fip_rate > constants.MAX_VSD_INTEGER:
             raise cfg.ConfigFileValueError(_('default_fip_rate can not be > '
-                                             '%s' % constants.MAX_VSD_INTEGER))
+                                             '%s') % constants.MAX_VSD_INTEGER)
 
         self.fip_rate_log = None
         if cfg.CONF.FIPRATE.fip_rate_change_log:
@@ -147,7 +146,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def _resource_finder(self, context, for_resource, resource_type,
-                             resource):
+                         resource):
         match = re.match(attributes.UUID_PATTERN, resource)
         if match:
             obj_lister = getattr(self, "get_%s" % resource_type)
@@ -182,7 +181,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         # Set the description to owner:compute for ports created by nova,
         # so that, vports created for these ports can be deleted on nova vm
         # delete
-        vport_desc = ("device_owner:"+constants.NOVA_PORT_OWNER_PREF +
+        vport_desc = ("device_owner:" + constants.NOVA_PORT_OWNER_PREF +
                       "(please donot edit)")
         nuage_vport_dict = self._create_nuage_port(context, port,
                                                    np_name, subnet_mapping,
@@ -264,18 +263,18 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             uuid_match = re.match(attributes.UUID_PATTERN, rtarget)
             if not uuid_match:
                 nuage_rtarget = self._resource_finder(
-                            context, 'port', 'nuage_redirect_target', rtarget)
+                    context, 'port', 'nuage_redirect_target', rtarget)
                 nuage_rtarget_id = nuage_rtarget['id']
                 nuage_rtargets_ids.append(nuage_rtarget_id)
             else:
                 nuage_rtarget_id = rtarget
                 nuage_rtargets_ids.append(rtarget)
-            #validate rtarget is in the same subnet as port
+            # validate rtarget is in the same subnet as port
             rtarget_resp = self.nuageclient.get_nuage_redirect_target(
                 nuage_rtarget_id)
             if not rtarget_resp:
-                msg = (_("Redirect target %s does not exist on VSD " %
-                         nuage_rtarget_id))
+                msg = (_("Redirect target %s does not exist on VSD ") %
+                       nuage_rtarget_id)
                 raise nuage_exc.NuageBadRequest(msg=msg)
             parent_type = rtarget_resp['parentType']
             parent = rtarget_resp['parentID']
@@ -289,7 +288,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             }
             if subnet_mapping and (
                     not self.nuageclient.validate_port_create_redirect_target(
-                            validate_params)):
+                        validate_params)):
                 msg = ("Redirect Target belongs to subnet %s that is "
                        "different from port subnet %s" %
                        (subnet_mapping['subnet_id'],
@@ -345,8 +344,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             port[ext_sg.SECURITYGROUPS] = []
             return
         if len(sec_group) > 6:
-            msg = (_("Exceeds maximum num of security groups on a port supported "
-                     "on nuage VSP"))
+            msg = (_("Exceeds maximum num of security groups on a port "
+                     "supported on nuage VSP"))
             raise nuage_exc.NuageBadRequest(msg=msg)
         port_id = port['id']
         with context.session.begin(subtransactions=True):
@@ -357,7 +356,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                                 sg_id)
         l2dom_id = None
         l3dom_id = None
-        #Get l2dom or l3dom_id
+        # Get l2dom or l3dom_id
         if not port.get('fixed_ips'):
             return self._make_port_dict(port)
         subnet_id = port['fixed_ips'][0]['subnet_id']
@@ -459,7 +458,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                               subnet_id)
 
                     if port['device_owner'].startswith(port_prefix):
-                        #This request is coming from nova
+                        # This request is coming from nova
                         try:
                             net_partition = nuagedb.get_net_partition_by_id(
                                 session,
@@ -475,7 +474,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                     context,
                                     port['id'])
                     else:
-                        #This request is port-create no special ports
+                        # This request is port-create no special ports
                         try:
                             net_partition = nuagedb.get_net_partition_by_id(
                                 session,
@@ -492,7 +491,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                     port['id'])
                     try:
                         if (subnet_mapping['nuage_managed_subnet'] is False
-                            and ext_sg.SECURITYGROUPS in p):
+                                and ext_sg.SECURITYGROUPS in p):
                             self._process_port_create_security_group(
                                 context,
                                 port,
@@ -500,13 +499,13 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                             LOG.debug("Created security group for port %s",
                                       port['id'])
                         if (subnet_mapping['nuage_managed_subnet'] is False
-                              and ext_rtarget.REDIRECTTARGETS in p):
+                                and ext_rtarget.REDIRECTTARGETS in p):
                             self.process_port_redirect_target(
                                 context, port, p[ext_rtarget.REDIRECTTARGETS])
                         elif (subnet_mapping['nuage_managed_subnet'] and
-                          ext_sg.SECURITYGROUPS in p):
-                            LOG.warning(_("Security Groups is ignored for ports on"
-                                      " VSD Managed Subnet"))
+                              ext_sg.SECURITYGROUPS in p):
+                            LOG.warning(_("Security Groups is ignored for "
+                                          "ports on VSD Managed Subnet"))
                     except Exception:
                         with excutils.save_and_reraise_exception():
                             self._delete_nuage_vport(context, port,
@@ -517,14 +516,13 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         # VM is getting spawned on a subnet type which
                         # is not supported by VSD. LOG error.
                         LOG.error(_('VM with uuid %s will not be resolved '
-                                  'in VSD because its created on unsupported'
-                                  'subnet type'), port['device_id'])
+                                    'in VSD because its created on unsupported'
+                                    'subnet type'), port['device_id'])
         return self._extend_port_dict_binding(context, port)
-
 
     def _validate_update_port(self, context, port, original_port):
         if (original_port['device_owner'] == constants.DEVICE_OWNER_VIP_NUAGE
-            and 'device_owner' in port.keys()):
+                and 'device_owner' in port.keys()):
             msg = _("device_owner of port with device_owner set to %s "
                     "can not be modified") % original_port['device_owner']
             raise nuage_exc.OperationNotSupported(msg=msg)
@@ -532,7 +530,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def _process_update_nuage_vport(self, context, port_id, updated_port,
-                                   subnet_mapping, current_owner):
+                                    subnet_mapping, current_owner):
         l2dom_id = None
         l3dom_id = None
         if subnet_mapping['nuage_managed_subnet']:
@@ -542,8 +540,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             l2dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
             l3dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
         else:
-            #ToDO: if nuage_l2dom_tmplt but current_owner != APPD_PORT
-            #goes in to else, is that the intended behavior?
+            # ToDO: if nuage_l2dom_tmplt but current_owner != APPD_PORT
+            # goes in to else, is that the intended behavior?
             if (subnet_mapping['nuage_l2dom_tmplt_id'] and
                     current_owner != constants.APPD_PORT):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
@@ -563,7 +561,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                     net_partition['name'],
                                     subnet_mapping, nuage_port)
         else:
-            #should not come here, log debug message
+            # should not come here, log debug message
             LOG.debug("Nuage vport does not exist for port %s ", id)
 
     @nuage_utils.handle_nuage_api_error
@@ -575,7 +573,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         ports = self.get_ports(context, filters)
         no_of_ports = len(ports)
         device_id_removed = ('device_id' in p and
-                                     (not p.get('device_id')))
+                             (not p.get('device_id')))
         nova_device_owner_removed = (
             'device_owner' in p and (not p.get('device_owner')) and
             current_owner.startswith(constants.NOVA_PORT_OWNER_PREF))
@@ -584,12 +582,13 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             and current_owner == constants.APPD_PORT)
 
         if ((nova_device_owner_removed or appd_device_owner_removed)
-            and device_id_removed):
+                and device_id_removed):
             LOG.debug("nova:compute onwership removed for port %s ",
-                       id)
+                      id)
             if subnet_mapping:
                 net_partition = nuagedb.get_net_partition_by_id(
-                        context.session, subnet_mapping['net_partition_id'])
+                    context.session,
+                    subnet_mapping['net_partition_id'])
                 # delete nuage_vm
                 self._delete_nuage_vport(context, original_port,
                                          net_partition['name'],
@@ -619,7 +618,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     return updated_port
             subnet_id = updated_port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
-                                                                subnet_id)
+                                                            subnet_id)
             if p.get('device_owner', '').startswith(
                     constants.NOVA_PORT_OWNER_PREF):
                 LOG.debug("Port %s is owned by nova:compute", id)
@@ -629,19 +628,19 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         current_owner)
                 else:
                     LOG.error(_('VM with uuid %s will not be resolved '
-                              'in VSD because its created on unsupported'
-                              'subnet type'), port['device_id'])
+                                'in VSD because its created on unsupported'
+                                ' subnet type'), port['device_id'])
 
                 self._check_floatingip_update(context, updated_port)
             else:
-                #nova removes device_owner and device_id fields, in this
-                #update_port, hence before update_port, get_ports for
-                #device_id and pass the no_of_ports to delete_nuage_vport
+                # nova removes device_owner and device_id fields, in this
+                # update_port, hence before update_port, get_ports for
+                # device_id and pass the no_of_ports to delete_nuage_vport
                 self._process_update_port(context, p, original_port,
                                           subnet_mapping)
 
         if (subnet_mapping
-            and subnet_mapping['nuage_managed_subnet'] is False):
+                and subnet_mapping['nuage_managed_subnet'] is False):
             if (delete_security_groups or has_security_groups):
                 # delete the port binding and process new sg binding
                 self._delete_port_security_group_bindings(context, id)
@@ -662,7 +661,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                               "VSD Managed Subnet"))
         return updated_port
 
-
     @log.log
     def _delete_nuage_vport(self, context, port, np_name, subnet_mapping,
                             no_of_ports=None):
@@ -680,7 +678,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             l3dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
         else:
             if (subnet_mapping['nuage_l2dom_tmplt_id'] and
-                        port['device_owner'] != constants.APPD_PORT):
+                    port['device_owner'] != constants.APPD_PORT):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3dom_id = subnet_mapping['nuage_subnet_id']
@@ -693,7 +691,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
         nuage_port = self.nuageclient.get_nuage_port_by_id(port_params)
         if (constants.NOVA_PORT_OWNER_PREF in port['device_owner']
-            or port['device_owner'] == constants.APPD_PORT):
+                or port['device_owner'] == constants.APPD_PORT):
             LOG.debug("Deleting VM port %s", port['id'])
             # This was a VM Port
             if nuage_port:
@@ -716,9 +714,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             # Delete the vports that nova created on nova boot
             nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
-            if nuage_vport and (nuage_vport.get('description') and
-                constants.NOVA_PORT_OWNER_PREF in
-                                        nuage_vport.get('description')):
+            if (nuage_vport and
+                    (nuage_vport.get('description') and
+                     constants.NOVA_PORT_OWNER_PREF in
+                     nuage_vport.get('description'))):
                 self.nuageclient.delete_nuage_vport(
                     nuage_vport.get('nuage_vport_id'))
 
@@ -754,7 +753,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         if port['device_owner'] not in constants.AUTO_CREATE_PORT_OWNERS:
             # Need to call this explicitly to delete vport to vporttag binding
             if (ext_sg.SECURITYGROUPS in port and
-                subnet_mapping['nuage_managed_subnet'] is False):
+                    subnet_mapping['nuage_managed_subnet'] is False):
                 self._delete_port_security_group_bindings(context, id)
 
             netpart_id = subnet_mapping['net_partition_id']
@@ -863,9 +862,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self._process_l3_create(context, net, network['network'])
             if network_type == 'vlan':
                 binding = nuagedb.add_network_binding(context.session,
-                                            net['id'],
-                                            network_type,
-                                            physical_network, vlan_id)
+                                                      net['id'],
+                                                      network_type,
+                                                      physical_network,
+                                                      vlan_id)
             self._extend_network_dict_provider_nuage(net, None, binding)
         return net
 
@@ -874,7 +874,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         subnets = self._get_subnets_by_network(context, id)
         for subn in subnets:
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
-                    context.session, subn['id'])
+                context.session, subn['id'])
             if subnet_l2dom and subnet_l2dom.get('nuage_managed_subnet'):
                 msg = _('Network %s has a VSD-Managed subnet associated'
                         ' with it') % id
@@ -923,8 +923,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     LOG.debug("Found subnet %(subn_id)s to l2 domain mapping"
                               " %(nuage_subn_id)s",
                               {'subn_id': subn['id'],
-                               'nuage_subn_id': (subnet_l2dom[
-                                                       'nuage_subnet_id'])})
+                               'nuage_subn_id':
+                                   subnet_l2dom['nuage_subnet_id']})
                     self.nuageclient.delete_subnet(subn['id'])
                     nuagedb.delete_subnetl2dom_mapping(context.session,
                                                        subnet_l2dom)
@@ -985,10 +985,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         subnet_nuagenet = subnet.get('nuagenet')
         # do not allow os_managed subnets if the network already has
         # vsd_managed subnets. and not allow vsd_managed subnets if the
-        #network already has os_managed subnets
+        # network already has os_managed subnets
         for subn in subnets:
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
-                    context.session, subn['id'])
+                context.session, subn['id'])
             if subnet_l2dom:
                 # vsd managed subnet
                 if subnet_l2dom.get('nuage_managed_subnet'):
@@ -1005,13 +1005,13 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         raise nuage_exc.NuageBadRequest(msg=msg)
 
         if (attributes.is_attr_set(subnet['gateway_ip'])
-            and netaddr.IPAddress(subnet['gateway_ip'])
-            not in netaddr.IPNetwork(subnet['cidr'])):
+                and netaddr.IPAddress(subnet['gateway_ip'])
+                not in netaddr.IPNetwork(subnet['cidr'])):
             msg = "Gateway IP outside of the subnet CIDR "
             raise nuage_exc.NuageBadRequest(msg=msg)
 
         if (not network_external and
-            subnet['underlay'] != attributes.ATTR_NOT_SPECIFIED):
+                subnet['underlay'] != attributes.ATTR_NOT_SPECIFIED):
             msg = _("underlay attribute can not be set for internal subnets")
             raise nuage_exc.NuageBadRequest(msg=msg)
 
@@ -1062,7 +1062,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             neutron_subnet = super(NuagePlugin, self).create_subnet(context,
                                                                     subnet)
             self._add_nuage_sharedresource(neutron_subnet,
-                                           net_id, type,req_subnet=req_subnet)
+                                           net_id, type,
+                                           req_subnet=req_subnet)
             return neutron_subnet
 
     @log.log
@@ -1151,12 +1152,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         if pnet_binding:
             msg = (_("VSD-Managed Subnet create not allowed on provider "
-                         "network"))
+                     "network"))
             raise nuage_exc.NuageBadRequest(msg=msg)
 
         if network_external:
             msg = (_("VSD-Managed Subnet create not allowed on external "
-                         "network"))
+                     "network"))
             raise nuage_exc.NuageBadRequest(msg=msg)
 
         if nuage_netpart is None:
@@ -1190,12 +1191,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     raise n_exc.BadRequest(resource='subnet', msg=msg)
                 cidr = netaddr.IPNetwork(subn['cidr'])
                 if (nuage_ip != str(cidr.ip) or
-                    nuage_netmask != str(cidr.netmask)):
+                        nuage_netmask != str(cidr.netmask)):
                     msg = ("Provided IP configuration does not match VSD "
                            "configuration")
                     raise n_exc.BadRequest(resource='subnet', msg=msg)
             else:
-            # this is the case for VSD-Managed unmanaged subnet
+                # this is the case for VSD-Managed unmanaged subnet
                 if subn['enable_dhcp']:
                     msg = "DHCP must be disabled for this subnet"
                     raise n_exc.BadRequest(resource='subnet', msg=msg)
@@ -1209,8 +1210,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         # return the gw_ip with which the dhcp port is created
         # in case of adv. managed subnets
         (gw_ip_via_dhcp_options,
-        gw_ip, is_l3) = self.nuageclient.get_gateway_ip_for_advsub(
-                        nuage_subn_id)
+         gw_ip, is_l3) = self.nuageclient.get_gateway_ip_for_advsub(
+            nuage_subn_id)
 
         if is_l3:
             subn['gateway_ip'] = gw_ip
@@ -1266,7 +1267,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                               "for VSD-Managed unmanaged subnet "))
 
         try:
-            with contextlib.nested(lockutils.lock('db-access'),
+            with contextlib.nested(
+                lockutils.lock('db-access'),
                 context.session.begin(subtransactions=True)):
                 neutron_subnet = super(NuagePlugin, self).create_subnet(
                     context, subnet)
@@ -1323,7 +1325,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return self._fields(subnet, fields)
 
-
     @log.log
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
                     limit=None, marker=None, page_reverse=False):
@@ -1371,7 +1372,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                       id)
         if subnet_l2dom['nuage_managed_subnet']:
             msg = ("Subnet %s is a VSD-Managed subnet."
-                    " Update is not supported." % subnet_l2dom['subnet_id'])
+                   " Update is not supported." % subnet_l2dom['subnet_id'])
             raise n_exc.BadRequest(resource='subnet', msg=msg)
         params = {
             'parent_id': subnet_l2dom['nuage_subnet_id'],
@@ -1496,7 +1497,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 raise n_exc.BadRequest(resource='subnet', msg=msg)
 
             if (subnet_l2dom['net_partition_id'] !=
-                ent_rtr_mapping['net_partition_id']):
+                    ent_rtr_mapping['net_partition_id']):
                 super(NuagePlugin,
                       self).remove_router_interface(context,
                                                     router_id,
@@ -1542,7 +1543,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             try:
                 nuage_subnet = self.nuageclient.create_domain_subnet(subn,
-                                                                   params)
+                                                                     params)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     super(NuagePlugin,
@@ -1695,7 +1696,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         net_partition = self._get_net_partition_for_router(context,
                                                            router['router'])
         if (cfg.CONF.RESTPROXY.nuage_pat == 'notavailable' and
-            req_router.get('external_gateway_info')):
+                req_router.get('external_gateway_info')):
             msg = _("nuage_pat config is set to 'notavailable'. "
                     "Can't set ext-gw-info")
             raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
@@ -1754,7 +1755,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         # call.
         r = router['router']
         if (cfg.CONF.RESTPROXY.nuage_pat == 'notavailable' and
-            r.get('external_gateway_info')):
+                r.get('external_gateway_info')):
             msg = _("nuage_pat config is set to 'notavailable'. "
                     "Can't update ext-gw-info")
             raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
@@ -2005,7 +2006,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         }
         (np_id, l3dom_tid,
          l2dom_tid) = self.nuageclient.link_default_netpartition(params)
-        #verify that the provided zones have been created already
+        # verify that the provided zones have been created already
         shared_match, isolated_match = self.nuageclient.validate_zone_create(
             l3dom_tid, l3isolated, l3shared)
         if not shared_match or not isolated_match:
@@ -2061,7 +2062,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
-        return self._validate_create_net_partition(ent["name"], context.session)
+        return self._validate_create_net_partition(ent["name"],
+                                                   context.session)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -2182,8 +2184,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             }
             self.nuageclient.update_nuage_vm_vport(params)
             self.fip_rate_log.info(
-                _('FIP %s (owned by tenant %s) associated to port %s'
-                  % (neutron_fip['id'], neutron_fip['tenant_id'], port_id)))
+                'FIP %s (owned by tenant %s) associated to port %s'
+                % (neutron_fip['id'], neutron_fip['tenant_id'], port_id))
 
         # Add QOS to port for rate limiting
         if neutron_fip.get('nuage_fip_rate') and not nuage_vport:
@@ -2197,11 +2199,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 neutron_fip['nuage_fip_rate'], nuage_vport['nuage_vport_id'],
                 neutron_fip['id'])
             self.fip_rate_log.info(
-                _('FIP %s (owned by tenant %s) rate limit updated to %s Mb/s' %
-                  (neutron_fip['id'], neutron_fip['tenant_id'],
-                   (neutron_fip['nuage_fip_rate']
-                    if neutron_fip['nuage_fip_rate']
-                    else "unlimited"))))
+                'FIP %s (owned by tenant %s) rate limit updated to %s Mb/s' %
+                (neutron_fip['id'], neutron_fip['tenant_id'],
+                 (neutron_fip['nuage_fip_rate']
+                  if neutron_fip['nuage_fip_rate'] else "unlimited")))
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -2216,8 +2217,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         nuage_vport['nuage_vport_id'], fip['id'])
                     fip['nuage_fip_rate'] = rate_limit
             except Exception as e:
-                msg = (_('Got exception while retrieving fip rate from vsd: %s')
-                       % e.message)
+                msg = (_('Got exception while retrieving fip rate from vsd: '
+                         '%s') % e.message)
                 LOG.error(msg)
 
         return self._fields(fip, fields)
@@ -2326,7 +2327,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                            'disassociated from port %s'
                                            % (id, fip['tenant_id'], port_id))
 
-        #purely rate limit update. Use existing port data.
+        # purely rate limit update. Use existing port data.
         if 'port_id' not in fip and 'nuage_fip_rate' in fip:
             if not port_id:
                 msg = _('nuage-fip-rate can only be applied to floatingips '
@@ -2344,12 +2345,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 orig_fip['nuage_fip_rate'], nuage_vport['nuage_vport_id'],
                 orig_fip['id'])
             self.fip_rate_log.info(
-                _('FIP %s (owned by tenant %s) rate limit updated to %s Mb/s'
-                  % (orig_fip['id'], orig_fip['tenant_id'],
-                     (orig_fip['nuage_fip_rate']
-                      if (orig_fip['nuage_fip_rate']
-                          and orig_fip['nuage_fip_rate'] != -1)
-                      else "unlimited"))))
+                'FIP %s (owned by tenant %s) rate limit updated to %s Mb/s'
+                % (orig_fip['id'], orig_fip['tenant_id'],
+                   (orig_fip['nuage_fip_rate']
+                    if (orig_fip['nuage_fip_rate']
+                        and orig_fip['nuage_fip_rate'] != -1)
+                    else "unlimited")))
             neutron_fip = self._make_floatingip_dict(orig_fip)
             neutron_fip['nuage_fip_rate'] = orig_fip['nuage_fip_rate']
 
@@ -2367,7 +2368,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             if port_id:
                 nuage_vport = self._get_vport_for_fip(context, port_id)
                 if (nuage_vport and
-                    nuage_vport['nuage_vport_id'] is not None):
+                        nuage_vport['nuage_vport_id'] is not None):
                     params = {
                         'nuage_vport_id': nuage_vport['nuage_vport_id'],
                         'nuage_fip_id': None
@@ -2396,7 +2397,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     msg = _('router %s is not associated with '
                             'any net-partition') % router_id
                     raise n_exc.BadRequest(resource='floatingip',
-                                       msg=msg)
+                                           msg=msg)
                 params = {
                     'router_id': ent_rtr_mapping['nuage_router_id'],
                     'fip_id': fip_id
@@ -2468,9 +2469,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         self.nuageclient.validate_nuage_sg_rule_definition(sg_rule)
         sg_id = sg_rule['security_group_id']
 
-        local_sg_rule = super(NuagePlugin,
-                              self).create_security_group_rule(
-                                        context, security_group_rule)
+        local_sg_rule = super(
+            NuagePlugin, self).create_security_group_rule(
+                context, security_group_rule)
 
         try:
             nuage_vptag = self.nuageclient.get_sg_vptag_mapping(sg_id)
@@ -2483,9 +2484,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 self.nuageclient.create_nuage_sgrule(sg_params)
         except Exception:
             with excutils.save_and_reraise_exception():
-                super(NuagePlugin,
-                      self).delete_security_group_rule(context,
-                                                   local_sg_rule['id'])
+                super(NuagePlugin, self).delete_security_group_rule(
+                    context, local_sg_rule['id'])
 
         return local_sg_rule
 
@@ -2534,9 +2534,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self._calc_cidr: 'cidr',
             'subnet_gateway': 'gateway',
             'subnet_iptype': 'ip_version',
-            functools.partial(self._is_subnet_linked,context.session): 'linked',
             functools.partial(
-                self._return_val,filters['vsd_zone_id'][0]): 'vsd_zone_id'
+                self._is_subnet_linked, context.session): 'linked',
+            functools.partial(
+                self._return_val, filters['vsd_zone_id'][0]): 'vsd_zone_id'
         }
         return self._trans_vsd_to_os(l3subs, vsd_to_os, filters, fields)
 
@@ -2712,9 +2713,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         self._validate_adv_subnet(context, subn, nuage_netpart)
 
         try:
-            with contextlib.nested(lockutils.lock('db-access'),
-                                   context.session.begin(
-                                           subtransactions=True)):
+            with contextlib.nested(
+                    lockutils.lock('db-access'),
+                    context.session.begin(subtransactions=True)):
                 neutron_subnet = super(NuagePlugin, self).create_subnet(
                     context, subnet)
                 if subn['enable_dhcp']:
@@ -2802,7 +2803,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             context, tier['name'], net_id)
         if not neutron_subnet:
             msg = (_("Underlying neutron subnet for tier %s not found."
-                     " APPD Port-create failed" % params['tier_id']))
+                     " APPD Port-create failed") % params['tier_id'])
             raise nuage_exc.NuageBadRequest(msg=msg)
         port = {
             'port': {
@@ -2853,7 +2854,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             'tenant_id': app_domain['tenant_id'],
             'name': app_domain['name'],
             'nuage_domain_template': app_domain.get('nuage_domain_template'),
-            'template_id':  appdomain_def_templID,
+            'template_id': appdomain_def_templID,
             'externalID': net['id'],
             'description': app_domain.get('description', '')
         }
@@ -2875,19 +2876,17 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_application_domains(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
         if 'id' in filters:
-            application_domains = (self.nuageclient.
-                                   get_nuage_application_domains(
-                                   net_partition['id'],
-                                   filters['id'][0]))
+            application_domains = (
+                self.nuageclient.get_nuage_application_domains(
+                    net_partition['id'], filters['id'][0]))
         elif 'name' in filters:
-            application_domains = (self.nuageclient.
-                                   get_nuage_application_domains(
-                                   net_partition['id'],
-                                   filters['name'][0]))
+            application_domains = (
+                self.nuageclient.get_nuage_application_domains(
+                    net_partition['id'], filters['name'][0]))
         else:
-            application_domains = (self.nuageclient.
-                                   get_nuage_application_domains(
-                                   net_partition['id']))
+            application_domains = (
+                self.nuageclient.get_nuage_application_domains(
+                    net_partition['id']))
 
         return [self._make_nuage_application_domain_dict(application_domain,
                                                          context, fields)
@@ -2908,7 +2907,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             pass
         app_domain = self.nuageclient.get_nuage_application_domain(id)
         if app_domain.get('applicationDeploymentPolicy') != 'ZONE':
-            msg = (_("%s is not an application domain " % app_domain['name']))
+            msg = (_("%s is not an application domain ") % app_domain['name'])
             raise nuage_exc.NuageBadRequest(msg=msg)
         self.nuageclient.delete_nuage_application_domain(id)
         net_partition = self._get_default_net_partition(context)
@@ -3029,7 +3028,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 context, orig_tier['name'], net_id)
             if not neutron_subnet:
                 msg = (_("Underlying neutron subnet for tier %s not found."
-                         " Update failed " % nuage_tier['name']))
+                         " Update failed ") % nuage_tier['name'])
                 raise nuage_exc.NuageBadRequest(msg=msg)
             subnet = {'subnet': {}}
             subnet['subnet'].update(nuage_tier)
@@ -3134,8 +3133,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         match = re.match(attributes.UUID_PATTERN, port['device_id'])
         if match:
-            msg = (_("port with ID %s has a VM with ID %s attached to it")
-                     % (port['id'], port['device_id']))
+            msg = ("port with ID %s has a VM with ID %s attached to it"
+                   % (port['id'], port['device_id']))
             raise nuage_exc.NuageBadRequest(msg=msg)
         else:
             port_params = {
@@ -3269,14 +3268,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     def _validate_create_redirect_target(self, context, redirect_target,
                                          subnet_mapping):
-        #VIP not allowed if redudancyEnabled is False
+        # VIP not allowed if redudancyEnabled is False
         if not subnet_mapping['nuage_l2dom_tmplt_id']:
             if redirect_target.get('redundancy_enabled') == "False":
                 if redirect_target.get('virtual_ip_address'):
                     msg = (_("VIP can be addded to a redirect target only "
                              "when redundancyEnabled is True"))
                     raise nuage_exc.NuageBadRequest(msg=msg)
-        #VIP should be in the same subnet as redirect_target['subnet_id']
+        # VIP should be in the same subnet as redirect_target['subnet_id']
         if redirect_target['virtual_ip_address']:
             subnet = self.get_subnet(context, subnet_mapping['subnet_id'])
             if not self._check_subnet_ip(subnet['cidr'], redirect_target[
@@ -3332,14 +3331,18 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         'virtual_ip_address')}
                     vip_port = self.create_port(
                         context, {
-                        'port': {'tenant_id': redirect_target['tenant_id'],
-                        'network_id': network_id,
-                        'mac_address': attributes.ATTR_NOT_SPECIFIED,
-                        'fixed_ips': [fixed_ips],
-                        'device_id': '',
-                        'device_owner': constants.DEVICE_OWNER_VIP_NUAGE,
-                        'admin_state_up': True,
-                        'name': ''}})
+                            'port': {
+                                'tenant_id': redirect_target['tenant_id'],
+                                'network_id': network_id,
+                                'mac_address': attributes.ATTR_NOT_SPECIFIED,
+                                'fixed_ips': [fixed_ips],
+                                'device_id': '',
+                                'device_owner':
+                                    constants.DEVICE_OWNER_VIP_NUAGE,
+                                'admin_state_up': True,
+                                'name': ''
+                            }
+                        })
                     if not vip_port['fixed_ips']:
                         self.delete_port(context, vip_port['id'])
                         msg = ('No IPs available for VIP %s') % network_id
@@ -3347,11 +3350,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                             resource='nuage-redirect-tagert', msg=msg)
 
                 rtarget_resp = self.nuageclient.create_nuage_redirect_target(
-                        params, vip_create)
+                    params, vip_create)
                 if vip_create:
-                    updated_port = super(NuagePlugin, self).update_port(
+                    super(NuagePlugin, self).update_port(
                         context, vip_port['id'],
-                        { 'port': {'device_id': rtarget_resp[3][0]['ID']} })
+                        {'port': {'device_id': rtarget_resp[3][0]['ID']}})
                 return self._make_redirect_target_dict(rtarget_resp[3][0])
 
     @log.log
@@ -3361,7 +3364,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def get_nuage_redirect_targets(self, context, filters=None, fields=None):
-        #get all redirect targets
+        # get all redirect targets
         params = {}
         if filters.get('subnet'):
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
@@ -3374,7 +3377,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 params['subnet'] = filters.get('subnet')[0]
             else:
                 message = ("Subnet %s doesn't have mapping l2domain on "
-                               "VSD " % filters['subnet'][0])
+                           "VSD " % filters['subnet'][0])
                 raise nuage_exc.NuageBadRequest(msg=message)
         elif filters.get('router'):
             params['router'] = filters.get('router')[0]
@@ -3402,7 +3405,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def _make_redirect_target_rule_dict(self, redirect_target_rule,
-                                 context=None, fields=None):
+                                        context=None, fields=None):
         port_range_min = None
         port_range_max = None
         remote_ip_prefix = None
@@ -3410,8 +3413,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         if redirect_target_rule['networkType'] == 'ENTERPRISE_NETWORK':
             nuage_net_macro = self.nuageclient.get_nuage_prefix_macro(
                 redirect_target_rule['networkID'])
-            remote_ip_prefix=netaddr.IPNetwork(nuage_net_macro['address']+'/'+
-                                 nuage_net_macro['netmask'])
+            remote_ip_prefix = netaddr.IPNetwork(nuage_net_macro['address'] +
+                                                 '/' +
+                                                 nuage_net_macro['netmask'])
         elif redirect_target_rule['networkType'] == 'POLICYGROUP':
             remote_group_id = redirect_target_rule['remote_group_id']
 
@@ -3454,7 +3458,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             message = _("Invalid value for priority.")
             raise nuage_exc.NuageAPIException(msg=message)
 
-        #VSD requires port number 0 not valid
+        # VSD requires port number 0 not valid
         if val >= 0 and val <= 999999999:
             return
         else:
@@ -3465,7 +3469,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def _validate_redirect_target_port_range(self, rule):
         # Check that port_range is valid.
         if (rule['port_range_min'] is None and
-            rule['port_range_max'] is None):
+                rule['port_range_max'] is None):
             return
         if not rule['protocol']:
             raise ext_rtarget.RedirectTargetRuleProtocolRequiredWithPorts()
@@ -3473,14 +3477,16 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             port_min = int(rule['port_range_min'])
             port_max = int(rule['port_range_max'])
         except (ValueError, TypeError):
-            message = _("Invalid value for port_min, port_max.")
+            message = (_("Invalid value for port_min %(port_min)s or "
+                         "port_max %(port_max)s")
+                       % {port_min: port_min, port_max: port_max})
             raise n_exc.InvalidInput(error_message=message)
 
         ip_proto = self._get_ip_proto_number(rule['protocol'])
         if ip_proto in [os_constants.PROTO_NUM_TCP,
                         os_constants.PROTO_NUM_UDP]:
             if (rule['port_range_min'] is not None and
-                rule['port_range_min'] <= rule['port_range_max']):
+                    rule['port_range_min'] <= rule['port_range_max']):
                 pass
             else:
                 raise ext_rtarget.RedirectTargetRuleInvalidPortRange()
@@ -3525,7 +3531,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 params['subnet'] = filters.get('subnet')[0]
             else:
                 message = ("Subnet %s doesn't have mapping l2domain on "
-                               "VSD " % filters['subnet'][0])
+                           "VSD " % filters['subnet'][0])
                 raise nuage_exc.NuageBadRequest(msg=message)
         elif filters.get('router'):
             params['router'] = filters.get('router')[0]
@@ -3535,7 +3541,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             params)
 
         return [self._make_redirect_target_rule_dict(rtarget_rule) for
-            rtarget_rule in rtarget_rules]
+                rtarget_rule in rtarget_rules]
 
     @log.log
     def get_nuage_redirect_target_rules_count(self, context, filters=None):
@@ -3645,7 +3651,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def _passes_filters(self, obj, filters):
         for filter in filters:
             if (filter in obj
-                and not str(obj[filter]).lower() in filters[filter]):
+                    and str(obj[filter]).lower() not in filters[filter]):
                 return False
         return True
 
@@ -3654,8 +3660,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     def _filter_fields(self, subnet, fields):
         for key in subnet:
-            if not key in fields:
+            if key not in fields:
                 del subnet[key]
         return subnet
-
-

@@ -58,8 +58,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 
 
 class Nuage_router(object):
-    """Extension class supporting nuage router.
-    """
+    """Extension class supporting nuage router."""
 
     @classmethod
     def get_name(cls):

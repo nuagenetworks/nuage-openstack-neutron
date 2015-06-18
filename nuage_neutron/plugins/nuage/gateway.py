@@ -14,6 +14,7 @@
 
 from oslo_config import cfg
 from oslo_log import log as logging
+
 from neutron.common import log
 from neutron.extensions import securitygroup as ext_sg
 from nuage_neutron.plugins.nuage.common import constants
@@ -193,7 +194,6 @@ class NuagegatewayMixin(object):
         else:
             raise nuage_exc.NuageNotFound(resource='nuage_vlan',
                                           resource_id=id)
-
 
     @utils.handle_nuage_api_error
     @log.log

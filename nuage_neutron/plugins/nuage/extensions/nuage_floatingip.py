@@ -52,8 +52,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 
 
 class Nuage_floatingip(object):
-    """Extension class supporting nuage floatingip.
-    """
+    """Extension class supporting nuage floatingip."""
 
     @classmethod
     def get_name(cls):

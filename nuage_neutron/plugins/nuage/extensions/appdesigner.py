@@ -12,11 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
+from neutron.api.v2 import base
 from neutron.common import constants as const
 from neutron.common import exceptions
-from neutron.api import extensions
-from neutron.api.v2 import base
 from neutron import manager
 from neutron import quota
 
@@ -200,9 +200,12 @@ RESOURCE_ATTRIBUTE_MAP = {
         'name': {'allow_post': True, 'allow_put': True,
                  'is_visible': True, 'default': '',
                  'validate': {'type:name_not_default': None}},
-        'applicationDeploymentPolicy': {'allow_post': False, 'allow_put': False,
+        'applicationDeploymentPolicy': {'allow_post': False,
+                                        'allow_put': False,
                                         'is_visible': True, 'default': '',
-                                        'validate': {'type:name_not_default': None}},
+                                        'validate': {
+                                            'type:name_not_default': None
+                                        }},
         'nuage_domain_template': {'allow_post': True, 'allow_put': False,
                                   'is_visible': True, 'default': None,
                                   'validate': {'type:uuid_or_none': None}},
@@ -226,7 +229,7 @@ RESOURCE_ATTRIBUTE_MAP = {
         'dest_tier': {'allow_post': True, 'allow_put': False,
                       'validate': {'type:uuid': None},
                       'is_visible': True},
-        'application_id': {'allow_post': False , 'allow_put': False,
+        'application_id': {'allow_post': False, 'allow_put': False,
                            'validate': {'type:uuid': None},
                            'is_visible': True},
         'src_addr_overwrite': {'allow_post': True, 'allow_put': False,
@@ -308,8 +311,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 
 
 class Appdesigner(object):
-    """Extension class supporting nuage_app_partition.
-    """
+    """Extension class supporting nuage_app_partition."""
 
     @classmethod
     def get_name(cls):

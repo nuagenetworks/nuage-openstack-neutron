@@ -164,8 +164,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 
 
 class Nuagegateway(object):
-    """Extension class supporting gateway.
-    """
+    """Extension class supporting gateway."""
 
     @classmethod
     def get_name(cls):

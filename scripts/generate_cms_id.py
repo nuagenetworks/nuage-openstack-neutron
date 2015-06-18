@@ -27,14 +27,14 @@ from nuagenetlib import nuageclient
 
 def get_mac():
     mac = getnode()
-    return ':'.join(("%012X" % mac)[i:i+2] for i in range(0, 12, 2))
+    return ':'.join(("%012X" % mac)[i:i + 2] for i in range(0, 12, 2))
 
 DEFAULT_CFG_LOCATION = '/etc/neutron/plugins/nuage/nuage_plugin.ini'
 DEFAULT_CMS_NAME = 'OpenStack_' + get_mac()
 LOG = logging.getLogger('generate_cms_id')
 
 
-class NuagePluginConfig:
+class NuagePluginConfig(object):
     def __init__(self, cfg_file_location):
         self.config = ConfigObj(cfg_file_location)
         self.config.filename = cfg_file_location

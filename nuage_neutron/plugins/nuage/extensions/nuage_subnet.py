@@ -49,8 +49,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 
 
 class Nuage_subnet(object):
-    """Extension class supporting Nuage subnet.
-    """
+    """Extension class supporting Nuage subnet."""
 
     @classmethod
     def get_name(cls):
