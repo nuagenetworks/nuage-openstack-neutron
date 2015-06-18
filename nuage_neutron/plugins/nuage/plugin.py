@@ -3413,7 +3413,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             remote_ip_prefix=netaddr.IPNetwork(nuage_net_macro['address']+'/'+
                                  nuage_net_macro['netmask'])
         elif redirect_target_rule['networkType'] == 'POLICYGROUP':
-            remote_group_id = redirect_target_rule['networkID']
+            remote_group_id = redirect_target_rule['remote_group_id']
 
         if redirect_target_rule['destinationPort']:
             port_range_min = '*'
