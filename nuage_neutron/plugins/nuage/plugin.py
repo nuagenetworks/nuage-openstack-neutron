@@ -1850,7 +1850,13 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     self.nuageclient.update_router_tunnel_type(
                         curr_router, router['router'], net_partition,
                         nuage_domain_id)
-
+                    if r['tunnel_type'] == 'DEFAULT':
+                        # router_updated does not contain tunnel_type yet
+                        # because it only just updated. 'DEFAULT' becomes GRE
+                        # or VXLAN on VSD. Must retrieve router to get data.
+                        router_updated = self.get_router(context, id)
+                    else:
+                        router_updated['tunnel_type'] = r['tunnel_type']
         return router_updated
 
     @nuage_utils.handle_nuage_api_error
