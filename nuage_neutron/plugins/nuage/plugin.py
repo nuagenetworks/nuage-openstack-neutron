@@ -967,9 +967,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def _get_net_partition_for_subnet(self, context, subnet):
         ent = subnet.get('net_partition', None)
         if not ent:
-            def_net_part = cfg.CONF.RESTPROXY.default_net_partition_name
-            net_partition = nuagedb.get_net_partition_by_name(context.session,
-                                                              def_net_part)
+            net_partition = nuagedb.get_net_partition_by_id(context.session,
+                                                            self.default_np_id)
         else:
             net_partition = self._resource_finder(
                 context, 'subnet', 'net_partition', subnet['net_partition'])
@@ -1455,102 +1454,109 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def add_router_interface(self, context, router_id, interface_info):
         session = context.session
-        with session.begin(subtransactions=True):
-            rtr_if_info = super(NuagePlugin,
-                                self).add_router_interface(context,
-                                                           router_id,
-                                                           interface_info)
-            subnet_id = rtr_if_info['subnet_id']
-            subn = self.get_subnet(context, subnet_id)
-            ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(session,
-                                                                   router_id)
-            nuage_zone = self.nuageclient.get_zone_by_routerid(router_id,
-                                                               subn['shared'])
-            if not nuage_zone or not ent_rtr_mapping:
-                super(NuagePlugin,
-                      self).remove_router_interface(context,
-                                                    router_id,
-                                                    interface_info)
-                msg = (_("Router %s does not hold default zone OR "
-                         "domain in VSD. Router-IF add failed")
-                       % router_id)
-                raise n_exc.BadRequest(resource='router', msg=msg)
+        rtr_if_info = super(NuagePlugin,
+                            self).add_router_interface(context,
+                                                       router_id,
+                                                       interface_info)
+        subnet_id = rtr_if_info['subnet_id']
+        subn = self.get_subnet(context, subnet_id)
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(session,
+                                                               router_id)
+        nuage_zone = self.nuageclient.get_zone_by_routerid(router_id,
+                                                           subn['shared'])
+        if not nuage_zone or not ent_rtr_mapping:
+            super(NuagePlugin,
+                  self).remove_router_interface(context,
+                                                router_id,
+                                                interface_info)
+            msg = (_("Router %s does not hold default zone OR "
+                     "domain in VSD. Router-IF add failed")
+                   % router_id)
+            raise n_exc.BadRequest(resource='router', msg=msg)
 
-            subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
-                                                          subnet_id)
-            if not subnet_l2dom:
-                super(NuagePlugin,
-                      self).remove_router_interface(context,
-                                                    router_id,
-                                                    interface_info)
-                msg = (_("Subnet %s does not hold Nuage VSD reference. "
-                         "Router-IF add failed") % subnet_id)
-                raise n_exc.BadRequest(resource='subnet', msg=msg)
+        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
+                                                      subnet_id)
+        if not subnet_l2dom:
+            super(NuagePlugin,
+                  self).remove_router_interface(context,
+                                                router_id,
+                                                interface_info)
+            msg = (_("Subnet %s does not hold Nuage VSD reference. "
+                     "Router-IF add failed") % subnet_id)
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-            if subnet_l2dom['nuage_managed_subnet']:
-                super(NuagePlugin,
-                      self).remove_router_interface(context,
-                                                    router_id,
-                                                    interface_info)
-                msg = ("Subnet %s is a VSD-Managed subnet."
-                       "Router-IF add failed" % rtr_if_info['subnet_id'])
-                raise n_exc.BadRequest(resource='subnet', msg=msg)
+        if subnet_l2dom['nuage_managed_subnet']:
+            super(NuagePlugin,
+                  self).remove_router_interface(context,
+                                                router_id,
+                                                interface_info)
+            msg = ("Subnet %s is a VSD-Managed subnet."
+                   "Router-IF add failed" % rtr_if_info['subnet_id'])
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-            if (subnet_l2dom['net_partition_id'] !=
-                    ent_rtr_mapping['net_partition_id']):
-                super(NuagePlugin,
-                      self).remove_router_interface(context,
-                                                    router_id,
-                                                    interface_info)
-                msg = (_("Subnet %(subnet)s and Router %(router)s belong to "
-                         "different net_partition Router-IF add "
-                         "not permitted") % {'subnet': subnet_id,
-                                             'router': router_id})
-                raise n_exc.BadRequest(resource='subnet', msg=msg)
-            nuage_subnet_id = subnet_l2dom['nuage_subnet_id']
-            if self.nuageclient.vms_on_l2domain(nuage_subnet_id):
-                super(NuagePlugin,
-                      self).remove_router_interface(context,
-                                                    router_id,
-                                                    interface_info)
-                msg = (_("Subnet %s has one or more active VMs "
-                       "Router-IF add not permitted") % subnet_id)
-                raise n_exc.BadRequest(resource='subnet', msg=msg)
+        if (subnet_l2dom['net_partition_id'] !=
+                ent_rtr_mapping['net_partition_id']):
+            super(NuagePlugin,
+                  self).remove_router_interface(context,
+                                                router_id,
+                                                interface_info)
+            msg = (_("Subnet %(subnet)s and Router %(router)s belong to "
+                     "different net_partition Router-IF add "
+                     "not permitted") % {'subnet': subnet_id,
+                                         'router': router_id})
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
+        nuage_subnet_id = subnet_l2dom['nuage_subnet_id']
+        if self.nuageclient.vms_on_l2domain(nuage_subnet_id):
+            super(NuagePlugin,
+                  self).remove_router_interface(context,
+                                                router_id,
+                                                interface_info)
+            msg = (_("Subnet %s has one or more active VMs "
+                   "Router-IF add not permitted") % subnet_id)
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-            nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
-            if self.nuageclient.validate_create_domain_subnet(
-                subn, nuage_subnet_id, nuage_rtr_id):
+        nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
+
+        if self.nuageclient.validate_create_domain_subnet(
+            subn, nuage_subnet_id, nuage_rtr_id):
+            try:
                 self.nuageclient.delete_subnet(subnet_id)
                 LOG.debug("Deleted l2 domain %s", nuage_subnet_id)
-
-            filters = {
-                'fixed_ips': {'subnet_id': [subnet_id]},
-                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-            }
-            gw_ports = self.get_ports(context, filters=filters)
-            self._delete_port_gateway(context, gw_ports)
-            net = netaddr.IPNetwork(subn['cidr'])
-            pnet_binding = nuagedb.get_network_binding(context.session,
-                                                       subn['network_id'])
-            params = {
-                'net': net,
-                'zone_id': nuage_zone['nuage_zone_id'],
-                'neutron_subnet_id': subnet_id,
-                'pnet_binding': pnet_binding
-            }
-            if not attributes.is_attr_set(subn['gateway_ip']):
-                subn['gateway_ip'] = str(netaddr.IPAddress(net.first + 1))
-
-            try:
-                nuage_subnet = self.nuageclient.create_domain_subnet(subn,
-                                                                     params)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     super(NuagePlugin,
                           self).remove_router_interface(context,
                                                         router_id,
                                                         interface_info)
+        filters = {
+            'fixed_ips': {'subnet_id': [subnet_id]},
+            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+        }
+        gw_ports = self.get_ports(context, filters=filters)
+        self._delete_port_gateway(context, gw_ports)
+        net = netaddr.IPNetwork(subn['cidr'])
+        pnet_binding = nuagedb.get_network_binding(context.session,
+                                                   subn['network_id'])
+        params = {
+            'net': net,
+            'zone_id': nuage_zone['nuage_zone_id'],
+            'neutron_subnet_id': subnet_id,
+            'pnet_binding': pnet_binding
+        }
+        if not attributes.is_attr_set(subn['gateway_ip']):
+            subn['gateway_ip'] = str(netaddr.IPAddress(net.first + 1))
 
+        try:
+            nuage_subnet = self.nuageclient.create_domain_subnet(subn,
+                                                                 params)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                super(NuagePlugin,
+                      self).remove_router_interface(context,
+                                                    router_id,
+                                                    interface_info)
+
+        with session.begin(subtransactions=True):
             if nuage_subnet:
                 LOG.debug("Created nuage domain %s",
                           nuage_subnet['nuage_subnetid'])
@@ -1559,7 +1565,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 ns_dict['nuage_l2dom_tmplt_id'] = None
                 nuagedb.update_subnetl2dom_mapping(subnet_l2dom,
                                                    ns_dict)
-
         return rtr_if_info
 
     @nuage_utils.handle_nuage_api_error
@@ -1598,58 +1603,58 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             subnet_id = port_db['fixed_ips'][0]['subnet_id']
 
         session = context.session
+        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
+                                                      subnet_id)
+        if not subnet_l2dom:
+            return super(NuagePlugin,
+                         self).remove_router_interface(context,
+                                                       router_id,
+                                                       interface_info)
+        nuage_subn_id = subnet_l2dom['nuage_subnet_id']
+        if self.nuageclient.vms_on_subnet(nuage_subn_id):
+            msg = (_("Subnet %s has one or more active VMs "
+                     "Router-IF delete not permitted") % subnet_id)
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
+
+        neutron_subnet = self.get_subnet(context, subnet_id)
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+            context.session,
+            router_id)
+        if not ent_rtr_mapping:
+            msg = (_("Router %s does not hold net_partition "
+                     "assoc on Nuage VSD. Router-IF delete failed")
+                   % router_id)
+            raise n_exc.BadRequest(resource='router', msg=msg)
+
+        last_address = neutron_subnet['allocation_pools'][-1]['end']
+        gw_port = self._create_port_gateway(context, neutron_subnet,
+                                            last_address)
+        net = netaddr.IPNetwork(neutron_subnet['cidr'])
+        netpart_id = ent_rtr_mapping['net_partition_id']
+        pnet_binding = nuagedb.get_network_binding(
+            context.session, neutron_subnet['network_id'])
+
+        neutron_net = self.get_network(context,
+                                       neutron_subnet['network_id'])
+
+        params = {
+            'tenant_id': neutron_subnet['tenant_id'],
+            'net': net,
+            'netpart_id': netpart_id,
+            'nuage_subn_id': nuage_subn_id,
+            'neutron_subnet': neutron_subnet,
+            'pnet_binding': pnet_binding,
+            'dhcp_ip': gw_port['fixed_ips'][0]['ip_address'],
+            'neutron_router_id': router_id,
+            'shared': neutron_net['shared']
+        }
+        nuage_subnet = self.nuageclient.remove_router_interface(params)
+        LOG.debug("Deleted nuage domain subnet %s", nuage_subn_id)
+
         with session.begin(subtransactions=True):
-            subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
-                                                          subnet_id)
-            if not subnet_l2dom:
-                return super(NuagePlugin,
-                             self).remove_router_interface(context,
-                                                           router_id,
-                                                           interface_info)
-            nuage_subn_id = subnet_l2dom['nuage_subnet_id']
-            if self.nuageclient.vms_on_subnet(nuage_subn_id):
-                msg = (_("Subnet %s has one or more active VMs "
-                         "Router-IF delete not permitted") % subnet_id)
-                raise n_exc.BadRequest(resource='subnet', msg=msg)
-
-            neutron_subnet = self.get_subnet(context, subnet_id)
-            ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
-                context.session,
-                router_id)
-            if not ent_rtr_mapping:
-                msg = (_("Router %s does not hold net_partition "
-                         "assoc on Nuage VSD. Router-IF delete failed")
-                       % router_id)
-                raise n_exc.BadRequest(resource='router', msg=msg)
-
-            last_address = neutron_subnet['allocation_pools'][-1]['end']
-            gw_port = self._create_port_gateway(context, neutron_subnet,
-                                                last_address)
-            net = netaddr.IPNetwork(neutron_subnet['cidr'])
-            netpart_id = ent_rtr_mapping['net_partition_id']
-            pnet_binding = nuagedb.get_network_binding(
-                context.session, neutron_subnet['network_id'])
-
-            neutron_net = self.get_network(context,
-                                           neutron_subnet['network_id'])
-
-            params = {
-                'tenant_id': neutron_subnet['tenant_id'],
-                'net': net,
-                'netpart_id': netpart_id,
-                'nuage_subn_id': nuage_subn_id,
-                'neutron_subnet': neutron_subnet,
-                'pnet_binding': pnet_binding,
-                'dhcp_ip': gw_port['fixed_ips'][0]['ip_address'],
-                'neutron_router_id': router_id,
-                'shared': neutron_net['shared']
-            }
-            nuage_subnet = self.nuageclient.remove_router_interface(params)
-            LOG.debug("Deleted nuage domain subnet %s", nuage_subn_id)
             info = super(NuagePlugin,
                          self).remove_router_interface(context, router_id,
                                                        interface_info)
-
             if nuage_subnet:
                 tmplt_id = str(nuage_subnet['nuage_l2template_id'])
                 ns_dict = {}
@@ -1663,9 +1668,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def _get_net_partition_for_router(self, context, rtr):
         ent = rtr.get('net_partition', None)
         if not ent:
-            def_net_part = cfg.CONF.RESTPROXY.default_net_partition_name
-            net_partition = nuagedb.get_net_partition_by_name(context.session,
-                                                              def_net_part)
+            net_partition = nuagedb.get_net_partition_by_id(context.session,
+                                                            self.default_np_id)
         else:
             net_partition = self._resource_finder(
                 context, 'router', 'net_partition', rtr['net_partition'])
@@ -2029,6 +2033,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                           netpart_name,
                                                           l3isolated,
                                                           l3shared)
+        self.default_np_id = np_id
         return net_partitioninst
 
     @log.log
@@ -2047,7 +2052,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 raise n_exc.BadRequest(resource='net_partition',
                                        msg=msg)
         else:
-            return self._validate_create_net_partition(netpart_name)
+            default_netpart = self._validate_create_net_partition(
+                netpart_name)
+            self.default_np_id = default_netpart['id']
+            return default_netpart
 
         '''NetPartition and templates already created. Just sync the
         neutron DB. They must all be in VSD. If not, its an error
