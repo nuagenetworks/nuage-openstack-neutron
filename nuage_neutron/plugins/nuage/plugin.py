@@ -1558,6 +1558,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             msg = (_("Subnet %s has one or more active VMs "
                    "Router-IF add not permitted") % subnet_id)
             raise n_exc.BadRequest(resource='subnet', msg=msg)
+        if self.nuageclient.nuage_vports_on_l2domain(nuage_subnet_id):
+            super(NuagePlugin,
+                  self).remove_router_interface(context,
+                                                router_id,
+                                                interface_info)
+            msg = (_("Subnet %s has one or more nuage VPORTS "
+                   "Router-IF add not permitted") % subnet_id)
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
 
         nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
 
@@ -1657,6 +1665,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         nuage_subn_id = subnet_l2dom['nuage_subnet_id']
         if self.nuageclient.vms_on_subnet(nuage_subn_id):
             msg = (_("Subnet %s has one or more active VMs "
+                     "Router-IF delete not permitted") % subnet_id)
+            raise n_exc.BadRequest(resource='subnet', msg=msg)
+        if self.nuageclient.nuage_vports_on_subnet(nuage_subn_id):
+            msg = (_("Subnet %s has one or more nuage VPORTS "
                      "Router-IF delete not permitted") % subnet_id)
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
