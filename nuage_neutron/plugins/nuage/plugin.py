@@ -2191,6 +2191,22 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 'nuage_vport_id': nuage_vport['nuage_vport_id'],
                 'nuage_fip_id': nuage_fip_id
             }
+            nuage_fip = self.nuageclient.get_nuage_fip(nuage_fip_id)
+            if nuage_fip['assigned']:
+                # check if there are any interfaces attached to the
+                # vport (n_vport) where the fip is as of now associated.
+                # if no interfaces attached to this vport, we will
+                # disassociate the fip assoc with the vport it is
+                # currently associated and associate this fip
+                # with the new vport. (nuage_vport)
+                n_vport = self.nuageclient.get_vport_assoc_with_fip(
+                    nuage_fip_id)
+                if n_vport and not n_vport['hasAttachedInterfaces']:
+                    disassoc_params = {
+                        'nuage_vport_id': n_vport['ID'],
+                        'nuage_fip_id': None
+                    }
+                self.nuageclient.update_nuage_vm_vport(disassoc_params)
             self.nuageclient.update_nuage_vm_vport(params)
             self.fip_rate_log.info(
                 'FIP %s (owned by tenant %s) associated to port %s'
