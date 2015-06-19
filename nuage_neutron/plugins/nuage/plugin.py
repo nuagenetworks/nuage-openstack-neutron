@@ -1700,10 +1700,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_router(context,
                                                            router['router'])
-        if (cfg.CONF.RESTPROXY.nuage_pat == 'notavailable' and
-                req_router.get('external_gateway_info')):
-            msg = _("nuage_pat config is set to 'notavailable'. "
-                    "Can't set ext-gw-info")
+        if (cfg.CONF.RESTPROXY.nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE
+                and req_router.get('external_gateway_info')):
+            msg = _("nuage_pat config is set to 'not_available'. "
+                    "Can't set external_gateway_info")
             raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
 
         neutron_router = super(NuagePlugin, self).create_router(context,
@@ -1759,8 +1759,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         # Fix-me(sayajirp) : Optimize update_router calls to VSD into a single
         # call.
         r = router['router']
-        if (cfg.CONF.RESTPROXY.nuage_pat == 'notavailable' and
-                r.get('external_gateway_info')):
+        if (cfg.CONF.RESTPROXY.nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE
+                and r.get('external_gateway_info')):
             msg = _("nuage_pat config is set to 'notavailable'. "
                     "Can't update ext-gw-info")
             raise nuage_exc.OperationNotSupported(resource='router', msg=msg)

@@ -14,6 +14,13 @@
 
 from oslo.config import cfg
 
+from nuage_neutron.plugins.nuage.common import constants
+
+
+nuage_pat_choices = [constants.NUAGE_PAT_NOT_AVAILABLE,
+                     constants.NUAGE_PAT_DEF_ENABLED,
+                     constants.NUAGE_PAT_DEF_DISABLED]
+
 restproxy_opts = [
     cfg.StrOpt('server', default='localhost:8800',
                help=_("IP Address and Port of Nuage's VSD server")),
@@ -41,7 +48,9 @@ restproxy_opts = [
     cfg.StrOpt('default_l2domain_template', default=''),
     cfg.StrOpt('default_isolated_zone', default=''),
     cfg.StrOpt('default_shared_zone', default=''),
-    cfg.StrOpt('nuage_pat', default='defaultdisabled'),
+    cfg.StrOpt('nuage_pat',
+               choices=nuage_pat_choices,
+               default=constants.NUAGE_PAT_DEF_DISABLED),
     cfg.BoolOpt('nuage_fip_underlay', default=False),
     cfg.StrOpt('cms_id', default=None,
                help=_("ID of a Cloud Management System on the VSD which "
