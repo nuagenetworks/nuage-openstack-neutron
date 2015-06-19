@@ -594,6 +594,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                          net_partition['name'],
                                          subnet_mapping, no_of_ports)
 
+    @lockutils.synchronized('update_port', 'nuage-port', external=True)
     @nuage_utils.handle_nuage_api_error
     @log.log
     def update_port(self, context, id, port):
@@ -2258,8 +2259,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         if not fips:
             return
+        # Disassociate only if nuage_port has a FIP associated with it.
+        # Calling disassociate on a port with no FIP causes no issue in Neutron
+        # but VSD throws an exception
         nuage_vport = self._get_vport_for_fip(context, port_id)
-        if nuage_vport:
+        if nuage_vport and nuage_vport['nuage_floating_ip']:
             for fip in fips:
                 self.nuageclient.delete_rate_limiting(
                     nuage_vport['nuage_vport_id'], fip['id'])
@@ -2452,11 +2456,6 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                        filters)
         if ports:
             raise ext_sg.SecurityGroupInUse(id=id)
-        sg_rules = self.get_security_group_rules(context,
-                                                 {'security_group_id': [id]})
-
-        if sg_rules:
-            self.nuageclient.delete_nuage_sgrule(sg_rules)
         self.nuageclient.delete_nuage_secgroup(id)
         LOG.debug("Deleted security group %s", id)
 
@@ -2465,6 +2464,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def create_security_group_rule(self, context, security_group_rule):
+        remote_sg = None
         sg_rule = security_group_rule['security_group_rule']
         self.nuageclient.validate_nuage_sg_rule_definition(sg_rule)
         sg_id = sg_rule['security_group_id']
@@ -2472,7 +2472,9 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         local_sg_rule = super(
             NuagePlugin, self).create_security_group_rule(
                 context, security_group_rule)
-
+        if local_sg_rule.get('remote_group_id'):
+            remote_sg = self.get_security_group(
+                context, local_sg_rule.get('remote_group_id'))
         try:
             nuage_vptag = self.nuageclient.get_sg_vptag_mapping(sg_id)
             if nuage_vptag:
@@ -2481,6 +2483,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     'neutron_sg_rule': local_sg_rule,
                     'vptag': nuage_vptag
                 }
+                if remote_sg:
+                    sg_params['remote_group_name'] = remote_sg['name']
                 self.nuageclient.create_nuage_sgrule(sg_params)
         except Exception:
             with excutils.save_and_reraise_exception():
