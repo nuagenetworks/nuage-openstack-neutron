@@ -2440,8 +2440,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
         # purely rate limit update. Use existing port data.
         if 'port_id' not in fip and 'nuage_fip_rate' in fip:
             if not port_id:
-                msg = _('nuage-fip-rate can only be applied to floatingips '
-                        'associated to a port')
+                msg = _('Rate limiting requires the floating ip to be '
+                        'associated to a port.')
                 raise n_exc.BadRequest(resource='floatingip', msg=msg)
             # Add QOS to port for rate limiting
             nuage_vport = self._get_vport_for_fip(context, port_id)
