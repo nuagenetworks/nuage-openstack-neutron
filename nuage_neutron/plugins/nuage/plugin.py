@@ -617,7 +617,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             updated_port = super(NuagePlugin,
                                  self).update_port(context, id, port)
             if not updated_port.get('fixed_ips'):
-                    return updated_port
+                return updated_port
             subnet_id = updated_port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
                                                             subnet_id)
@@ -2288,7 +2288,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         'nuage_vport_id': n_vport['ID'],
                         'nuage_fip_id': None
                     }
-                self.nuageclient.update_nuage_vm_vport(disassoc_params)
+                    self.nuageclient.update_nuage_vm_vport(disassoc_params)
             self.nuageclient.update_nuage_vm_vport(params)
             self.fip_rate_log.info(
                 'FIP %s (owned by tenant %s) associated to port %s'
