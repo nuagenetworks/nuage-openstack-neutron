@@ -2424,6 +2424,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             elif 'port_id' in fip:
                 # This happens when {'port_id': null} is in request.
                 # Disassociate
+                if 'nuage_fip_rate' in fip:
+                    ret_msg = _('Rate limiting requires the floating ip to be '
+                                'associated to a port.')
+                    raise n_exc.BadRequest(resource='floatingip', msg=ret_msg)
+
                 nuage_vport = self._get_vport_for_fip(context, port_id)
                 if nuage_vport:
                     params = {
