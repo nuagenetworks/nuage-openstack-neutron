@@ -3667,8 +3667,14 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @log.log
     def create_nuage_redirect_target_rule(self, context,
                                           nuage_redirect_target_rule):
+        remote_sg = None
         rtarget_rule = nuage_redirect_target_rule['nuage_redirect_target_rule']
+        if rtarget_rule.get('remote_group_id'):
+            remote_sg = self.get_security_group(
+                context, rtarget_rule.get('remote_group_id'))
         self._validate_nuage_redirect_target_rule(rtarget_rule)
+        if remote_sg:
+            rtarget_rule['remote_group_name'] = remote_sg['name']
         rtarget_rule_resp = self.nuageclient.create_nuage_redirect_target_rule(
             rtarget_rule)
 
