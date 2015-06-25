@@ -1369,6 +1369,10 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_subnet(self, context, id, fields=None):
         subnet = super(NuagePlugin, self).get_subnet(context, id, None)
         subnet = nuagedb.get_nuage_subnet_info(context.session, subnet, fields)
+        network = self._get_network(context, subnet['network_id'])
+        if network.get('external'):
+            underlay = self.nuageclient.get_sharedresource_underlay(id)
+            subnet['underlay'] = underlay
 
         return self._fields(subnet, fields)
 
