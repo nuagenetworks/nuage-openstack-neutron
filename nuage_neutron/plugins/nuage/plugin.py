@@ -580,7 +580,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             'device_owner' in p and (not p.get('device_owner')) and
             current_owner.startswith(constants.NOVA_PORT_OWNER_PREF))
         appd_device_owner_removed = (
-            'device_owner' in p and (not p.get('device_owner'))
+            'device_owner' in p and
+            (p.get('device_owner') == constants.APPD_PORT)
             and current_owner == constants.APPD_PORT)
 
         if ((nova_device_owner_removed or appd_device_owner_removed)
@@ -600,6 +601,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def update_port(self, context, id, port):
+        create_vm = False
         p = port['port']
         delete_security_groups = self._check_update_deletes_security_groups(
             port)
@@ -612,8 +614,16 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             self._validate_update_port(context, p,
                                        original_port)
-            if current_owner == constants.APPD_PORT:
-                    p['device_owner'] = constants.APPD_PORT
+            if (current_owner == constants.APPD_PORT and
+                    p.get('device_owner', '').startswith(
+                    constants.NOVA_PORT_OWNER_PREF)
+                    and p.get('device_id')):
+                create_vm = True
+                p['device_owner'] = constants.APPD_PORT
+
+            if (current_owner == constants.APPD_PORT and
+                    not p.get('device_id')):
+                p['device_owner'] = constants.APPD_PORT
 
             updated_port = super(NuagePlugin,
                                  self).update_port(context, id, port)
@@ -623,7 +633,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
                                                             subnet_id)
             if p.get('device_owner', '').startswith(
-                    constants.NOVA_PORT_OWNER_PREF):
+                    constants.NOVA_PORT_OWNER_PREF) or create_vm:
                 LOG.debug("Port %s is owned by nova:compute", id)
                 if subnet_mapping:
                     self._process_update_nuage_vport(
