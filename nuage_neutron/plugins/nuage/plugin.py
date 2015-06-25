@@ -511,7 +511,8 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                         with excutils.save_and_reraise_exception():
                             self._delete_nuage_vport(context, port,
                                                      net_partition['name'],
-                                                     subnet_mapping)
+                                                     subnet_mapping,
+                                                     port_delete=True)
                 else:
                     if port['device_owner'].startswith(port_prefix):
                         # VM is getting spawned on a subnet type which
@@ -665,7 +666,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log.log
     def _delete_nuage_vport(self, context, port, np_name, subnet_mapping,
-                            no_of_ports=None):
+                            no_of_ports=None, port_delete=False):
         nuage_vif_id = None
         l2dom_id = None
         l3dom_id = None
@@ -714,14 +715,16 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
             }
             self.nuageclient.delete_vms(params)
 
-            # Delete the vports that nova created on nova boot
+            # Delete the vports that nova created on nova boot or when the
+            # port is being deleted in neutron
             nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
-            if (nuage_vport and
-                    (nuage_vport.get('description') and
-                     constants.NOVA_PORT_OWNER_PREF in
-                     nuage_vport.get('description'))):
-                self.nuageclient.delete_nuage_vport(
-                    nuage_vport.get('nuage_vport_id'))
+            if nuage_vport:
+                vport_desc = nuage_vport.get('description')
+                nova_created = (constants.NOVA_PORT_OWNER_PREF in vport_desc
+                                if vport_desc else False)
+                if port_delete or nova_created:
+                    self.nuageclient.delete_nuage_vport(
+                        nuage_vport.get('nuage_vport_id'))
 
         # delete nuage vport created explicitly
         if not nuage_port and (port.get('device_owner')
@@ -806,7 +809,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                                             netpart_id)
 
             self._delete_nuage_vport(context, port, net_partition['name'],
-                                     subnet_mapping)
+                                     subnet_mapping, port_delete=True)
         super(NuagePlugin, self).delete_port(context, id)
 
     @log.log
