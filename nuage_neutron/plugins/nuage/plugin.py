@@ -2999,7 +2999,12 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_application_domain(self, context, id, fields=None):
-        application_domain = self.nuageclient.get_nuage_application_domain(id)
+        try:
+            application_domain = self.nuageclient.\
+                get_nuage_application_domain(id)
+        except Exception:
+                raise nuage_exc.NuageNotFound(resource='application-domain',
+                                              resource_id=id)
         return self._make_nuage_application_domain_dict(
             application_domain, context=context)
 
@@ -3008,13 +3013,21 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_application_domains(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
         if 'id' in filters:
-            application_domains = (
-                self.nuageclient.get_nuage_application_domains(
-                    net_partition['id'], filters['id'][0]))
+            try:
+                application_domains = (
+                    self.nuageclient.get_nuage_application_domains(
+                        net_partition['id'], filters['id'][0]))
+            except Exception:
+                raise nuage_exc.NuageNotFound(resource='application-domain',
+                                              resource_id=filters['id'][0])
         elif 'name' in filters:
-            application_domains = (
-                self.nuageclient.get_nuage_application_domains(
-                    net_partition['id'], filters['name'][0]))
+            try:
+                application_domains = (
+                    self.nuageclient.get_nuage_application_domains(
+                        net_partition['id'], filters['name'][0]))
+            except Exception:
+                raise nuage_exc.NuageNotFound(resource='application-domain',
+                                              resource_id=filters['name'][0])
         else:
             application_domains = (
                 self.nuageclient.get_nuage_application_domains(
@@ -3064,7 +3077,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_application(self, context, id, fields=None):
-        application = self.nuageclient.get_nuage_application(id)
+        try:
+            application = self.nuageclient.get_nuage_application(id)
+        except Exception:
+            raise nuage_exc.NuageNotFound(resource='application',
+                                          resource_id=id)
         return self._make_nuage_application_dict(application, context=context)
 
     @nuage_utils.handle_nuage_api_error
@@ -3072,11 +3089,19 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_applications(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
         if 'id' in filters:
-            applications = self.nuageclient.get_nuage_applications(
-                net_partition['id'], filters['id'][0])
+            try:
+                applications = self.nuageclient.get_nuage_applications(
+                    net_partition['id'], filters['id'][0])
+            except Exception:
+                raise nuage_exc.NuageNotFound(resource='application',
+                                              resource_id=filters['id'][0])
         elif 'name' in filters:
-            applications = self.nuageclient.get_nuage_applications(
-                net_partition['id'], filters['name'][0])
+            try:
+                applications = self.nuageclient.get_nuage_applications(
+                    net_partition['id'], filters['name'][0])
+            except Exception:
+                raise nuage_exc.NuageNotFound(resource='application',
+                                              resource_id=filters['name'][0])
         else:
             applications = self.nuageclient.get_nuage_applications(
                 net_partition['id'])
@@ -3171,15 +3196,23 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_tier(self, context, id, fields=None):
-        tier = self.nuageclient.get_nuage_tier(id)
+        try:
+            tier = self.nuageclient.get_nuage_tier(id)
+        except Exception:
+            raise nuage_exc.NuageNotFound(resource='tier',
+                                          resource_id=id)
         return self._make_nuage_tier_dict(tier, context=context)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_tiers(self, context, filters=None, fields=None):
         if 'id' in filters:
-            tiers = self.nuageclient.get_nuage_tiers(
-                None, id=filters['id'][0])
+            try:
+                tiers = self.nuageclient.get_nuage_tiers(
+                    None, id=filters['id'][0])
+            except Exception:
+                raise nuage_exc.NuageNotFound(resource='tier',
+                                              resource_id=filters['id'][0])
         elif 'tenant_id' in filters:
             tiers = []
         else:
@@ -3317,7 +3350,11 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_service(self, context, id, fields=None):
-        service = self.nuageclient.get_nuage_service(id)
+        try:
+            service = self.nuageclient.get_nuage_service(id)
+        except Exception:
+            raise nuage_exc.NuageNotFound(resource='service',
+                                          resource_id=id)
         return self._make_nuage_service_dict(service, context=context)
 
     @nuage_utils.handle_nuage_api_error
@@ -3325,11 +3362,19 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_services(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
         if 'id' in filters:
-            services = self.nuageclient.get_nuage_services(
-                net_partition['id'], filters['id'][0])
+            try:
+                services = self.nuageclient.get_nuage_services(
+                    net_partition['id'], filters['id'][0])
+            except Exception:
+                raise nuage_exc.NuageNotFound(resource='service',
+                                              resource_id=filters['id'][0])
         elif 'name' in filters:
-            services = self.nuageclient.get_nuage_services(
-                net_partition['id'], filters['name'][0])
+            try:
+                services = self.nuageclient.get_nuage_services(
+                    net_partition['id'], filters['name'][0])
+            except Exception:
+                raise nuage_exc.NuageNotFound(resource='service',
+                                              resource_id=filters['name'][0])
         else:
             services = self.nuageclient.get_nuage_services(net_partition['id'])
 
@@ -3371,15 +3416,23 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_flow(self, context, id, fields=None):
-        flow, nuage_svc = self.nuageclient.get_nuage_flow(id)
+        try:
+            flow, nuage_svc = self.nuageclient.get_nuage_flow(id)
+        except Exception:
+            raise nuage_exc.NuageNotFound(resource='flow',
+                                          resource_id=id)
         return self._make_nuage_flow_dict(flow, nuage_svc, context=context)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_flows(self, context, filters=None, fields=None):
         if 'id' in filters:
-            flows = self.nuageclient.get_nuage_flows(
-                None, id=filters['id'][0])
+            try:
+                flows = self.nuageclient.get_nuage_flows(
+                    None, id=filters['id'][0])
+            except Exception:
+                raise nuage_exc.NuageNotFound(resource='flow',
+                                              resource_id=filters['id'][0])
         elif 'tenant_id' in filters:
             flows = []
         else:
