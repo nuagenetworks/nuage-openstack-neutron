@@ -13,6 +13,11 @@
 #    under the License.
 
 
+def convert_to_uppercase(data):
+    if data and isinstance(data, str):
+        return data.upper()
+
+
 EXTENDED_ATTRIBUTES_2_0 = {
     'routers': {
         'net_partition': {
@@ -50,9 +55,11 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': True,
             'is_visible': True,
             'default': 'DEFAULT',
-            'validate': {'type:values': ['VXLAN', 'GRE', 'DEFAULT']},
+            'validate': {'type:values': ['VXLAN', 'vxlan', 'GRE', 'gre',
+                                         'DEFAULT', 'default']},
+            'convert_to': convert_to_uppercase,
             'enforce_policy': True,
-            },
+        },
     },
 }
 
