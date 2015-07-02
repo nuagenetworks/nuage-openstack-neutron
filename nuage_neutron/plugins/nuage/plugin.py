@@ -439,7 +439,6 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 }
                 self.nuageclient.delete_port_security_group_bindings(params)
 
-    @lockutils.synchronized('create_port', 'nuage-port', external=True)
     @nuage_utils.handle_nuage_api_error
     @log.log
     def create_port(self, context, port):
@@ -447,84 +446,86 @@ class NuagePlugin(addresspair.NuageAddressPair,
         subnet_mapping = None
         net_partition = None
         p = port['port']
-        with session.begin(subtransactions=True):
-            self._ensure_default_security_group_on_port(context, port)
-            port = super(NuagePlugin, self).create_port(context, port)
-            device_owner = port.get('device_owner', None)
-            if device_owner not in constants.AUTO_CREATE_PORT_OWNERS:
-                if 'fixed_ips' not in port or len(port['fixed_ips']) == 0:
-                    return self._extend_port_dict_binding(context, port)
-                subnet_id = port['fixed_ips'][0]['subnet_id']
-                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
-                                                                subnet_id)
-                port_prefix = constants.NOVA_PORT_OWNER_PREF
-                if subnet_mapping:
-                    LOG.debug("Found subnet mapping for neutron subnet %s",
-                              subnet_id)
+        self._ensure_default_security_group_on_port(context, port)
+        port = super(NuagePlugin, self).create_port(context, port)
+        device_owner = port.get('device_owner', None)
+        if device_owner not in constants.AUTO_CREATE_PORT_OWNERS:
+            if 'fixed_ips' not in port or len(port['fixed_ips']) == 0:
+                return self._extend_port_dict_binding(context, port)
+            subnet_id = port['fixed_ips'][0]['subnet_id']
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
+                                                            subnet_id)
+            port_prefix = constants.NOVA_PORT_OWNER_PREF
+            if subnet_mapping:
+                LOG.debug("Found subnet mapping for neutron subnet %s",
+                          subnet_id)
 
-                    if port['device_owner'].startswith(port_prefix):
-                        # This request is coming from nova
-                        try:
-                            net_partition = nuagedb.get_net_partition_by_id(
-                                session,
-                                subnet_mapping['net_partition_id'])
-                            self._create_update_port(
-                                context,
-                                port,
-                                net_partition['name'],
-                                subnet_mapping)
-                        except Exception:
-                            with excutils.save_and_reraise_exception():
-                                super(NuagePlugin, self).delete_port(
-                                    context,
-                                    port['id'])
-                    else:
-                        # This request is port-create no special ports
-                        try:
-                            net_partition = nuagedb.get_net_partition_by_id(
-                                session,
-                                subnet_mapping['net_partition_id'])
-                            self._create_nuage_port(
-                                context,
-                                port,
-                                net_partition['name'],
-                                subnet_mapping)
-                        except Exception:
-                            with excutils.save_and_reraise_exception():
-                                super(NuagePlugin, self).delete_port(
-                                    context,
-                                    port['id'])
+                if port['device_owner'].startswith(port_prefix):
+                    # This request is coming from nova
                     try:
-                        if (subnet_mapping['nuage_managed_subnet'] is False
-                                and ext_sg.SECURITYGROUPS in p):
-                            self._process_port_create_security_group(
-                                context,
-                                port,
-                                p[ext_sg.SECURITYGROUPS])
-                            LOG.debug("Created security group for port %s",
-                                      port['id'])
-                        if (subnet_mapping['nuage_managed_subnet'] is False
-                                and ext_rtarget.REDIRECTTARGETS in p):
-                            self.process_port_redirect_target(
-                                context, port, p[ext_rtarget.REDIRECTTARGETS])
-                        elif (subnet_mapping['nuage_managed_subnet'] and
-                              ext_sg.SECURITYGROUPS in p):
-                            LOG.warning(_("Security Groups is ignored for "
-                                          "ports on VSD Managed Subnet"))
+                        net_partition = nuagedb.get_net_partition_by_id(
+                            session,
+                            subnet_mapping['net_partition_id'])
+                        self._create_update_port(
+                            context,
+                            port,
+                            net_partition['name'],
+                            subnet_mapping)
                     except Exception:
                         with excutils.save_and_reraise_exception():
-                            self._delete_nuage_vport(context, port,
-                                                     net_partition['name'],
-                                                     subnet_mapping,
-                                                     port_delete=True)
+                            super(NuagePlugin, self).delete_port(
+                                context,
+                                port['id'])
                 else:
-                    if port['device_owner'].startswith(port_prefix):
-                        # VM is getting spawned on a subnet type which
-                        # is not supported by VSD. LOG error.
-                        LOG.error(_('VM with uuid %s will not be resolved '
-                                    'in VSD because its created on unsupported'
-                                    'subnet type'), port['device_id'])
+                    # This request is port-create no special ports
+                    try:
+                        net_partition = nuagedb.get_net_partition_by_id(
+                            session,
+                            subnet_mapping['net_partition_id'])
+                        self._create_nuage_port(
+                            context,
+                            port,
+                            net_partition['name'],
+                            subnet_mapping)
+                    except Exception:
+                        with excutils.save_and_reraise_exception():
+                            super(NuagePlugin, self).delete_port(
+                                context,
+                                port['id'])
+                try:
+                    if (subnet_mapping['nuage_managed_subnet'] is False
+                            and ext_sg.SECURITYGROUPS in p):
+                        self._process_port_create_security_group(
+                            context,
+                            port,
+                            p[ext_sg.SECURITYGROUPS])
+                        LOG.debug("Created security group for port %s",
+                                  port['id'])
+                    if (subnet_mapping['nuage_managed_subnet'] is False
+                            and ext_rtarget.REDIRECTTARGETS in p):
+                        self.process_port_redirect_target(
+                            context, port, p[ext_rtarget.REDIRECTTARGETS])
+                    elif (subnet_mapping['nuage_managed_subnet'] and
+                          ext_sg.SECURITYGROUPS in p):
+                        LOG.warning(_("Security Groups is ignored for "
+                                      "ports on VSD Managed Subnet"))
+                except Exception:
+                    with excutils.save_and_reraise_exception():
+                        self._delete_nuage_vport(context, port,
+                                                 net_partition['name'],
+                                                 subnet_mapping,
+                                                 port_delete=True)
+                        super(NuagePlugin, self).delete_port(
+                            context,
+                            port['id'])
 
+            else:
+                if port['device_owner'].startswith(port_prefix):
+                    # VM is getting spawned on a subnet type which
+                    # is not supported by VSD. LOG error.
+                    LOG.error(_('VM with uuid %s will not be resolved '
+                                'in VSD because its created on unsupported'
+                                'subnet type'), port['device_id'])
         if subnet_mapping:
             try:
                 self.create_allowed_address_pairs(context, port, p)
@@ -614,7 +615,6 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                          net_partition['name'],
                                          subnet_mapping, no_of_ports)
 
-    @lockutils.synchronized('update_port', 'nuage-port', external=True)
     @nuage_utils.handle_nuage_api_error
     @log.log
     def update_port(self, context, id, port):
@@ -811,7 +811,6 @@ class NuagePlugin(addresspair.NuageAddressPair,
                         nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
-    @lockutils.synchronized('delete-port', 'nuage-del', external=True)
     @nuage_utils.handle_nuage_api_error
     @log.log
     def delete_port(self, context, id, l3_port_check=True):
