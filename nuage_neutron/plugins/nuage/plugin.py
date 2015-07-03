@@ -1693,6 +1693,7 @@ class NuagePlugin(db_base_plugin_v2.NeutronDbPluginV2,
                          "Router-IF delete failed") % router_id)
                 raise n_exc.BadRequest(resource='router', msg=msg)
             subnet_id = port_db['fixed_ips'][0]['subnet_id']
+            subnet = self.get_subnet(context, subnet_id)
 
         session = context.session
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
