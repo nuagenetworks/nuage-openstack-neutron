@@ -1078,25 +1078,23 @@ class NuagePlugin(addresspair.NuageAddressPair,
     def _validate_create_subnet(self, context, subnet, network_external):
         subnets = self._get_subnets_by_network(context, subnet['network_id'])
         subnet_nuagenet = subnet.get('nuagenet')
-        # do not allow os_managed subnets if the network already has
+        # Do not allow os_managed subnets if the network already has
         # vsd_managed subnets. and not allow vsd_managed subnets if the
         # network already has os_managed subnets
-        for subn in subnets:
-            subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
-                context.session, subn['id'])
+        if subnets:
+            subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                          subnets[0]['id'])
             if subnet_l2dom:
                 # vsd managed subnet
                 if subnet_l2dom.get('nuage_managed_subnet'):
                     if not subnet_nuagenet:
-                        msg = _('Network has vsd managed subnets,'
-                                ' cannot create '
-                                'os managed subnets')
+                        msg = _('Network has vsd managed subnets, cannot '
+                                'create os managed subnets')
                         raise nuage_exc.NuageBadRequest(msg=msg)
                 else:
                     if subnet_nuagenet:
-                        msg = _('Network has os managed subnets,'
-                                ' cannot create '
-                                'vsd managed subnets')
+                        msg = _('Network has os managed subnets, cannot '
+                                'create vsd managed subnets')
                         raise nuage_exc.NuageBadRequest(msg=msg)
 
         if (attributes.is_attr_set(subnet['gateway_ip'])
