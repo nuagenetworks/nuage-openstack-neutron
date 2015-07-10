@@ -59,6 +59,7 @@ from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage.extensions import (
     nuage_redirect_target as ext_rtarget)
 from nuage_neutron.plugins.nuage.extensions import netpartition
+from nuage_neutron.plugins.nuage import externalsg
 from nuage_neutron.plugins.nuage import gateway
 from nuage_neutron.plugins.nuage import nuagedb
 from nuagenetlib.restproxy import RESTProxyError
@@ -72,13 +73,15 @@ class NuagePlugin(addresspair.NuageAddressPair,
                   extraroute_db.ExtraRoute_db_mixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
                   gateway.NuagegatewayMixin,
+                  externalsg.NuageexternalsgMixin,
                   netpartition.NetPartitionPluginBase,
                   sg_db.SecurityGroupDbMixin):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
                          "appdesigner", "nuage-redirect-target",
-                         "vsd-resource", "allowed-address-pairs"]
+                         "vsd-resource", "allowed-address-pairs",
+                         "nuage-external-security-group"]
 
     binding_view = "extension:port_binding:view"
 
