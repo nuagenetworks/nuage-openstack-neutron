@@ -1468,18 +1468,25 @@ class NuagePlugin(addresspair.NuageAddressPair,
     @log.log
     def update_subnet(self, context, id, subnet):
         subn = copy.deepcopy(subnet['subnet'])
-        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session,
-                                                      id)
+        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session, id)
+        original_subnet = self.get_subnet(context, id)
+        net_id = original_subnet['network_id']
+
         if subnet_l2dom['nuage_managed_subnet']:
             msg = ("Subnet %s is a VSD-Managed subnet."
                    " Update is not supported." % subnet_l2dom['subnet_id'])
             raise n_exc.BadRequest(resource='subnet', msg=msg)
+
+        network_external = self._network_is_external(context, net_id)
+        if not network_external and subn.get('underlay') is not None:
+            msg = _("underlay attribute can not be set for internal subnets")
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
         params = {
             'parent_id': subnet_l2dom['nuage_subnet_id'],
             'type': subnet_l2dom['nuage_l2dom_tmplt_id']
         }
         with context.session.begin(subtransactions=True):
-            original_subnet = self.get_subnet(context, id)
             updated_subnet = super(NuagePlugin, self).update_subnet(
                 context, id, subnet)
 
