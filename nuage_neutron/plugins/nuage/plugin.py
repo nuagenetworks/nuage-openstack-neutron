@@ -2362,12 +2362,15 @@ class NuagePlugin(addresspair.NuageAddressPair,
         self._process_fip_to_vip(context, port_id, nuage_fip_id)
 
         # Add QOS to port for rate limiting
-        if neutron_fip.get('nuage_fip_rate') and not nuage_vport:
+        fip_rate = neutron_fip.get('nuage_fip_rate',
+                                   attributes.ATTR_NOT_SPECIFIED)
+        fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
+        if fip_rate_configured and not nuage_vport:
             msg = _('Rate limiting requires the floating ip to be '
                     'associated to a port.')
             raise nuage_exc.NuageBadRequest(msg=msg)
         if nuage_vport:
-            if not neutron_fip.get('nuage_fip_rate'):
+            if not fip_rate_configured:
                 neutron_fip['nuage_fip_rate'] = self.def_fip_rate
             self.nuageclient.create_update_rate_limiting(
                 neutron_fip['nuage_fip_rate'], nuage_vport['nuage_vport_id'],
@@ -2376,7 +2379,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 'FIP %s (owned by tenant %s) rate limit updated to %s Mb/s' %
                 (neutron_fip['id'], neutron_fip['tenant_id'],
                  (neutron_fip['nuage_fip_rate']
-                  if neutron_fip['nuage_fip_rate'] else "unlimited")))
+                  if neutron_fip['nuage_fip_rate'] is not None
+                  else "unlimited")))
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -2404,12 +2408,14 @@ class NuagePlugin(addresspair.NuageAddressPair,
         with context.session.begin(subtransactions=True):
             neutron_fip = super(NuagePlugin, self).create_floatingip(
                 context, floatingip)
-            if fip.get('nuage_fip_rate'):
+            fip_rate = fip.get('nuage_fip_rate')
+            fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
+            if fip_rate_configured:
                 if not fip.get('port_id'):
                     msg = _('Rate limiting requires the floating ip to be '
                             'associated to a port.')
                     raise nuage_exc.NuageBadRequest(msg=msg)
-                neutron_fip['nuage_fip_rate'] = fip['nuage_fip_rate']
+            neutron_fip['nuage_fip_rate'] = fip_rate
 
             if not neutron_fip['router_id']:
                 return neutron_fip
@@ -2463,6 +2469,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
         port_id = orig_fip['fixed_port_id']
         last_known_router_id = orig_fip['last_known_router_id']
         router_ids = []
+        fip_rate = fip.get('nuage_fip_rate', attributes.ATTR_NOT_SPECIFIED)
+        fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
+        neutron_fip = self._make_floatingip_dict(orig_fip)
+
         with context.session.begin(subtransactions=True):
             if 'port_id' in fip:
                 neutron_fip = super(NuagePlugin, self).update_floatingip(
@@ -2472,8 +2482,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     ret_msg = 'floating-ip is not associated yet'
                     raise n_exc.BadRequest(resource='floatingip',
                                            msg=ret_msg)
-                if fip.get('nuage_fip_rate'):
-                    neutron_fip['nuage_fip_rate'] = fip['nuage_fip_rate']
+                if fip_rate_configured:
+                    neutron_fip['nuage_fip_rate'] = fip_rate
 
                 try:
                     self._create_update_floatingip(context,
@@ -2492,7 +2502,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             elif 'port_id' in fip:
                 # This happens when {'port_id': null} is in request.
                 # Disassociate
-                if 'nuage_fip_rate' in fip:
+                if fip_rate_configured:
                     ret_msg = _('Rate limiting requires the floating ip to be '
                                 'associated to a port.')
                     raise n_exc.BadRequest(resource='floatingip', msg=ret_msg)
@@ -2516,7 +2526,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                            % (id, fip['tenant_id'], port_id))
 
         # purely rate limit update. Use existing port data.
-        if 'port_id' not in fip and 'nuage_fip_rate' in fip:
+        if 'port_id' not in fip and fip_rate_configured:
             if not port_id:
                 msg = _('Rate limiting requires the floating ip to be '
                         'associated to a port.')
@@ -2524,10 +2534,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             # Add QOS to port for rate limiting
             nuage_vport = self._get_vport_for_fip(context, port_id)
 
-            if fip['nuage_fip_rate'] is None:
-                orig_fip['nuage_fip_rate'] = self.def_fip_rate
-            else:
-                orig_fip['nuage_fip_rate'] = fip['nuage_fip_rate']
+            orig_fip['nuage_fip_rate'] = fip_rate
 
             self.nuageclient.create_update_rate_limiting(
                 orig_fip['nuage_fip_rate'], nuage_vport['nuage_vport_id'],
@@ -2536,11 +2543,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 'FIP %s (owned by tenant %s) rate limit updated to %s Mb/s'
                 % (orig_fip['id'], orig_fip['tenant_id'],
                    (orig_fip['nuage_fip_rate']
-                    if (orig_fip['nuage_fip_rate']
+                    if (orig_fip['nuage_fip_rate'] is not None
                         and orig_fip['nuage_fip_rate'] != -1)
                     else "unlimited")))
-            neutron_fip = self._make_floatingip_dict(orig_fip)
             neutron_fip['nuage_fip_rate'] = orig_fip['nuage_fip_rate']
+        elif not fip_rate_configured:
+            neutron_fip = self.get_floatingip(context, id)
 
         # now that we've left db transaction, we are safe to notify
         self.notify_routers_updated(context, router_ids)

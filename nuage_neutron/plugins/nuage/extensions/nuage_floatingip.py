@@ -11,27 +11,48 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+from oslo_config import cfg
+
 from neutron.api.v2 import attributes as attr
+from neutron.common import exceptions as n_exc
+
+from nuage_neutron.plugins.nuage.common import constants
 
 
-def convert_to_int_if_not_none(data):
-    if data:
-        return attr.convert_to_int(data)
-    return data
+def convert_default_to_default_value(data):
+    if not isinstance(data, bool):
+        try:
+            return int(data)
+        except (ValueError, TypeError):
+            pass
+    if data in ['default', 'DEFAULT']:
+        return cfg.CONF.FIPRATE.default_fip_rate
+    raise n_exc.InvalidInput(error_message=send_fip_rate_limit_info())
+
+
+def send_fip_rate_limit_info():
+    msg = (_("'nuage_fip_rate' should be a number between 0 and %s, "
+             "-1 for unlimited or 'default' for the configured default value.")
+           % constants.MAX_VSD_INTEGER)
+    return msg
 
 
 def fip_rate_limit_validation(data, valid_values=None):
-    if not data:
-        return
+    if data is None:
+        msg = _("Missing value for nuage_fip_rate")
+        return msg
+
+    if isinstance(data, bool):
+        return send_fip_rate_limit_info()
+
     try:
         data = int(data)
     except (ValueError, TypeError):
-        msg = _("'%s' is not an integer") % data
-        return msg
+        return send_fip_rate_limit_info()
 
-    if data < -1:
-        msg = _("'%s' should be non-negative") % data
-        return msg
+    if data < -1 or data > constants.MAX_VSD_INTEGER:
+        return send_fip_rate_limit_info()
 
 attr.validators['type:fip_rate_valid'] = fip_rate_limit_validation
 
@@ -42,9 +63,9 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
-            'default': None,
+            'default': attr.ATTR_NOT_SPECIFIED,
             'validate': {'type:fip_rate_valid': None},
-            'convert_to': convert_to_int_if_not_none,
+            'convert_to': convert_default_to_default_value,
             'enforce_policy': True
         }
     }
