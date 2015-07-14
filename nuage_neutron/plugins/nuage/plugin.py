@@ -589,12 +589,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
     @nuage_utils.handle_nuage_api_error
     @log.log
-    def _process_update_port(self, context, p, original_port, subnet_mapping):
+    def _process_update_port(self, context, p, original_port, subnet_mapping,
+                             no_of_ports):
         current_owner = original_port['device_owner']
-        # Need no of ports with device_id in delete_nuage_vm
-        filters = {'device_id': [original_port['device_id']]}
-        ports = self.get_ports(context, filters)
-        no_of_ports = len(ports)
         device_id_removed = ('device_id' in p and
                              (not p.get('device_id')))
         nova_device_owner_removed = (
@@ -648,6 +645,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     not p.get('device_id')):
                 p['device_owner'] = constants.APPD_PORT
 
+            filters = {'device_id': [original_port['device_id']]}
+            ports = self.get_ports(context, filters)
+            no_of_ports = len(ports)
+
             updated_port = super(NuagePlugin,
                                  self).update_port(context, id, port)
             if not updated_port.get('fixed_ips'):
@@ -672,7 +673,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 # update_port, hence before update_port, get_ports for
                 # device_id and pass the no_of_ports to delete_nuage_vport
                 self._process_update_port(context, p, original_port,
-                                          subnet_mapping)
+                                          subnet_mapping, no_of_ports)
 
         try:
             self.update_allowed_address_pairs(context, id, old_port, p,
