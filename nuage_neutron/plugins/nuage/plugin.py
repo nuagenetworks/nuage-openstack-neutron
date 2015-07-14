@@ -1464,6 +1464,20 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                   pnet_binding)
         return neutron_subnet
 
+    def _update_ext_network_subnet(self, context, id, net_id, subn, subnet):
+        with context.session.begin(subtransactions=True):
+            updated_subnet = super(NuagePlugin, self).update_subnet(
+                context, id, subnet)
+            nuage_params = {
+                'subnet_name': subn.get('name'),
+                'net_id': net_id,
+                'gateway_ip': subn.get('gateway_ip')
+            }
+            self.nuageclient.update_nuage_sharedresource(id, nuage_params)
+            underlay = self.nuageclient.get_sharedresource_underlay(id)
+            updated_subnet['underlay'] = underlay
+            return updated_subnet
+
     @nuage_utils.handle_nuage_api_error
     @log.log
     def update_subnet(self, context, id, subnet):
@@ -1471,13 +1485,15 @@ class NuagePlugin(addresspair.NuageAddressPair,
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session, id)
         original_subnet = self.get_subnet(context, id)
         net_id = original_subnet['network_id']
+        network_external = self._network_is_external(context, net_id)
 
+        if network_external:
+            return self._update_ext_network_subnet(context, id, net_id, subn,
+                                                   subnet)
         if subnet_l2dom['nuage_managed_subnet']:
             msg = ("Subnet %s is a VSD-Managed subnet."
                    " Update is not supported." % subnet_l2dom['subnet_id'])
             raise n_exc.BadRequest(resource='subnet', msg=msg)
-
-        network_external = self._network_is_external(context, net_id)
         if not network_external and subn.get('underlay') is not None:
             msg = _("underlay attribute can not be set for internal subnets")
             raise nuage_exc.NuageBadRequest(msg=msg)
