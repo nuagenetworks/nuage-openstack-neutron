@@ -2437,8 +2437,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         # Calling disassociate on a port with no FIP causes no issue in Neutron
         # but VSD throws an exception
         nuage_vport = self._get_vport_for_fip(context, port_id)
-        if nuage_vport and (nuage_vport.get('nuage_floating_ip') or
-                            nuage_vport.get('nuage_fip_address')):
+        if nuage_vport and nuage_vport.get('nuage_floating_ip'):
             for fip in fips:
                 self.nuageclient.delete_rate_limiting(
                     nuage_vport['nuage_vport_id'], fip['id'])
