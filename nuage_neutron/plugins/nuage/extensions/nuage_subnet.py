@@ -33,7 +33,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
         },
         'underlay': {
             'allow_post': True,
-            'allow_put': True,
+            'allow_put': False,
             'is_visible': True,
             'default': attributes.ATTR_NOT_SPECIFIED,
             'convert_to': attributes.convert_to_boolean_if_not_none,
