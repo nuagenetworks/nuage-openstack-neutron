@@ -182,6 +182,23 @@ class NuagePlugin(addresspair.NuageAddressPair,
             found_resource = found_resource[0]
         return found_resource
 
+    @staticmethod
+    @log.log
+    def _validate_create_nuage_port(session, ports, np_name,
+                                    cur_port_id):
+        for port in ports:
+            if port['id'] != cur_port_id:
+                subnet_id = port['fixed_ips'][0]['subnet_id']
+                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+                    session, subnet_id)
+                if subnet_mapping:
+                    net_partition = nuagedb.get_net_partition_by_id(
+                        session, subnet_mapping['net_partition_id'])
+                    if net_partition['name'] != np_name:
+                        msg = ("VM with ports belonging to subnets across "
+                               "enterprises is not allowed in VSP")
+                        raise nuage_exc.NuageBadRequest(msg=msg)
+
     @log.log
     def _create_update_port(self, context, port, np_name,
                             subnet_mapping):
@@ -190,6 +207,11 @@ class NuagePlugin(addresspair.NuageAddressPair,
         # delete
         vport_desc = ("device_owner:" + constants.NOVA_PORT_OWNER_PREF +
                       "(please donot edit)")
+        filters = {'device_id': [port['device_id']]}
+        ports = self.get_ports(context, filters)
+        if len(ports) > 1:
+            NuagePlugin._validate_create_nuage_port(context.session, ports,
+                                                    np_name, port['id'])
         nuage_vport_dict = self._create_nuage_port(context, port,
                                                    np_name, subnet_mapping,
                                                    description=vport_desc)
@@ -222,9 +244,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
     @log.log
     def _update_nuage_port(self, context, port, np_name,
                            subnet_mapping, nuage_port):
-        filters = {'device_id': [port['device_id']]}
+        filters = {'device_id': [port.get('device_id')]}
         ports = self.get_ports(context, filters)
         subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
+        if len(ports) > 1:
+            self._validate_create_nuage_port(context.session, ports, np_name,
+                                             port['id'])
         params = {
             'port_id': port['id'],
             'id': port['device_id'],
