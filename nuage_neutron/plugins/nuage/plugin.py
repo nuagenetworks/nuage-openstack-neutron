@@ -27,6 +27,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import importutils
 from sqlalchemy import exc as sql_exc
+from sqlalchemy import func
 from sqlalchemy.orm import exc
 
 from neutron.api import extensions as neutron_extensions
@@ -40,6 +41,7 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
+from neutron.db import models_v2
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import allowedaddresspairs as addr_pair
@@ -876,6 +878,15 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 portbindings.CAP_PORT_FILTER: False
             }
         return port
+
+    @log.log
+    def get_ports_count(self, context, filters=None):
+        if filters.get('tenant_id', None):
+            query = context.session.query(func.count(models_v2.Port.id))
+            query = query.filter_by(tenant_id=str(filters['tenant_id']))
+            return query.scalar()
+        else:
+            return super(NuagePlugin, self).get_ports_count(context, filters)
 
     @log.log
     def get_port(self, context, id, fields=None):
