@@ -198,13 +198,13 @@ def get_subnet_l2dom_by_id(session, id):
 
 
 def get_nuage_subnet_info(session, subnet, fields):
-    if not fields or 'vsd_managed' in fields:
-        result = session \
-            .query(Subnet.id, nuage_models.SubnetL2Domain.nuage_managed_subnet) \
-            .outerjoin(nuage_models.SubnetL2Domain) \
-            .filter(Subnet.id == subnet['id']) \
-            .group_by(Subnet.id).all()
-
+    if fields and 'vsd_managed' in fields:
+        result = (
+            session.query(
+                Subnet.id, nuage_models.SubnetL2Domain.nuage_managed_subnet)
+            .outerjoin(nuage_models.SubnetL2Domain)
+            .filter(Subnet.id == subnet['id'])
+            .group_by(Subnet.id).all())
         result = dict(result)
         subnet['vsd_managed'] = True if result[subnet['id']] else False
     return subnet

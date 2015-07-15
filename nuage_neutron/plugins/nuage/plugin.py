@@ -251,17 +251,29 @@ class NuagePlugin(addresspair.NuageAddressPair,
                            subnet_mapping, nuage_port):
         filters = {'device_id': [port.get('device_id')]}
         ports = self.get_ports(context, filters)
+        no_of_ports = len(ports)
         subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
-        if len(ports) > 1:
+        vm_id = port['device_id']
+        # upstream neutron_lbaas assigns a constant device_id to all the
+        # lbaas_ports (which is a bug), hence we use port ID as vm_id
+        # instead of device_id for lbaas dummy VM
+        # as get_ports by device_id would return multiple vip_ports,
+        # as workaround set no_of_ports = 1
+        if (port.get('device_owner') == os_constants.DEVICE_OWNER_LOADBALANCER
+                + 'V2'):
+            vm_id = port['id']
+            no_of_ports = 1
+
+        if no_of_ports > 1:
             self._validate_create_nuage_port(context.session, ports, np_name,
                                              port['id'])
         params = {
             'port_id': port['id'],
-            'id': port['device_id'],
+            'id': vm_id,
             'mac': port['mac_address'],
             'netpart_name': np_name,
             'ip': port['fixed_ips'][0]['ip_address'],
-            'no_of_ports': len(ports),
+            'no_of_ports': no_of_ports,
             'tenant': subn['tenant_id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'vport_id': nuage_port.get('nuage_vport_id')
@@ -640,9 +652,18 @@ class NuagePlugin(addresspair.NuageAddressPair,
             'device_owner' in p and
             (p.get('device_owner') == constants.APPD_PORT)
             and current_owner == constants.APPD_PORT)
+        lbaas_device_owner_removed = (
+            'device_owner' in p and (not p.get('device_owner')) and
+            current_owner == os_constants.DEVICE_OWNER_LOADBALANCER + 'V2')
+        # upstream neutron lbaas assigns a constant device_id to the lbaas
+        # VIP port even when the VIP belongs to different loadbalancer
+        # as get_ports by device_id would return multiple vip_ports,
+        # as workaround set no_of_ports = 1
+        if lbaas_device_owner_removed:
+            no_of_ports = 1
 
-        if ((nova_device_owner_removed or appd_device_owner_removed)
-                and device_id_removed):
+        if ((nova_device_owner_removed or appd_device_owner_removed or
+                lbaas_device_owner_removed) and device_id_removed):
             LOG.debug("nova:compute onwership removed for port %s ",
                       id)
             if subnet_mapping:
@@ -670,6 +691,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
         with session.begin(subtransactions=True):
             original_port = self.get_port(context, id)
             current_owner = original_port['device_owner']
+            lbaas_device_owner_added = (
+                p.get('device_owner') == os_constants.DEVICE_OWNER_LOADBALANCER
+                + 'V2' and not current_owner)
 
             self._validate_update_port(p, original_port, has_security_groups)
             if (current_owner == constants.APPD_PORT and
@@ -693,8 +717,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 return updated_port
             subnet_id = updated_port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
-            if p.get('device_owner', '').startswith(
-                    constants.NOVA_PORT_OWNER_PREF) or create_vm:
+            if (p.get('device_owner', '').startswith(
+                    constants.NOVA_PORT_OWNER_PREF) or create_vm or
+                    lbaas_device_owner_added):
                 LOG.debug("Port %s is owned by nova:compute", id)
                 if subnet_mapping:
                     self._process_update_nuage_vport(
@@ -784,8 +809,17 @@ class NuagePlugin(addresspair.NuageAddressPair,
         }
         subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
         nuage_port = self.nuageclient.get_nuage_port_by_id(port_params)
+        vm_id = port['device_id']
+        # upstream neutron_lbaas assigns a constant device_id to all the
+        # lbaas_ports (which is a bug), hence we use port ID as vm_id
+        # instead of device_id for lbaas dummy VM
+        if os_constants.DEVICE_OWNER_LOADBALANCER + 'V2' in port.get(
+                'device_owner'):
+            vm_id = port['id']
         if (constants.NOVA_PORT_OWNER_PREF in port['device_owner']
-                or port['device_owner'] == constants.APPD_PORT):
+                or port['device_owner'] == constants.APPD_PORT or
+                os_constants.DEVICE_OWNER_LOADBALANCER + 'V2' in port.get(
+                'device_owner')):
             LOG.debug("Deleting VM port %s", port['id'])
             # This was a VM Port
             if nuage_port:
@@ -802,7 +836,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 'tenant': subn['tenant_id'],
                 'mac': port['mac_address'],
                 'nuage_vif_id': nuage_vif_id,
-                'id': port['device_id']
+                'id': vm_id
             }
             self.nuageclient.delete_vms(params)
 
