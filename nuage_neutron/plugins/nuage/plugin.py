@@ -2475,6 +2475,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             neutron_fip['nuage_fip_rate'] = fip_rate
 
             if not neutron_fip['router_id']:
+                neutron_fip['nuage_fip_rate'] = None
                 return neutron_fip
 
             try:
