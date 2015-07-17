@@ -107,6 +107,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
         auth_resource = cfg.CONF.RESTPROXY.auth_resource
         organization = cfg.CONF.RESTPROXY.organization
         cms_id = cfg.CONF.RESTPROXY.cms_id
+        nuage_pat = cfg.CONF.RESTPROXY.nuage_pat
+        capabilities = []
+        if nuage_pat != constants.NUAGE_PAT_NOT_AVAILABLE:
+            capabilities += ['PAT']
         nuageclient = importutils.import_module('nuagenetlib.nuageclient')
         self.nuageclient = nuageclient.NuageClient(cms_id=cms_id,
                                                    server=server,
@@ -114,7 +118,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                    serverssl=serverssl,
                                                    serverauth=serverauth,
                                                    auth_resource=auth_resource,
-                                                   organization=organization)
+                                                   organization=organization,
+                                                   capabilities=capabilities)
 
     def init_fip_rate_log(self):
         self.def_fip_rate = cfg.CONF.FIPRATE.default_fip_rate
@@ -1903,27 +1908,27 @@ class NuagePlugin(addresspair.NuageAddressPair,
         req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_router(context,
                                                            router['router'])
-        if (cfg.CONF.RESTPROXY.nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE
-                and req_router.get('external_gateway_info')):
-            msg = _("nuage_pat config is set to 'not_available'. "
-                    "Can't set external_gateway_info")
-            raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
+        gw_info = req_router.get('external_gateway_info')
+        if gw_info:
+            self._set_snat_if_none(router)
 
         neutron_router = super(NuagePlugin, self).create_router(context,
                                                                 router)
         params = {
             'net_partition': net_partition,
-            'tenant_id': neutron_router['tenant_id'],
-            'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
+            'tenant_id': neutron_router['tenant_id']
         }
         try:
             nuage_router = self.nuageclient.create_router(neutron_router,
                                                           req_router,
                                                           params)
-        except Exception:
-            with excutils.save_and_reraise_exception():
+        except Exception as e:
+            with excutils.save_and_reraise_exception() as ctxt:
                 super(NuagePlugin, self).delete_router(context,
                                                        neutron_router['id'])
+                if "nuage_pat config is set to 'not_available'" in e.message:
+                    ctxt.reraise = False
+                    raise n_exc.BadRequest(resource='router', msg=e.message)
 
         if nuage_router:
             LOG.debug("Created nuage domain %s", nuage_router[
@@ -1962,11 +1967,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
         # Fix-me(sayajirp) : Optimize update_router calls to VSD into a single
         # call.
         r = router['router']
-        if (cfg.CONF.RESTPROXY.nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE
-                and r.get('external_gateway_info')):
-            msg = _("nuage_pat config is set to 'notavailable'. "
-                    "Can't update ext-gw-info")
-            raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
+        gw_info = r.get('external_gateway_info')
+        if gw_info:
+            self._set_snat_if_none(router)
 
         with context.session.begin(subtransactions=True):
             curr_router = self.get_router(context, id)
@@ -2024,9 +2027,15 @@ class NuagePlugin(addresspair.NuageAddressPair,
                       new_ext_gw_info['enable_snat']):
                     send_update = True
                 if send_update:
-                    self.nuageclient.update_router_gw(
-                        router_updated, params={
-                            'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat})
+                    try:
+                        self.nuageclient.update_router_gw(router_updated)
+                    except Exception as e:
+                        if ("nuage_pat config is set to 'not_available'"
+                                in e.message):
+                            raise n_exc.BadRequest(resource='router',
+                                                   msg=e.message)
+                        else:
+                            raise
 
             router_rd = r.get('rd')
             router_rt = r.get('rt')
@@ -2102,6 +2111,18 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 ent_rtr_mapping['net_partition_id'])
             self.nuageclient.delete_user(user_id)
             self.nuageclient.delete_group(group_id)
+
+    @log.log
+    def _set_snat_if_none(self, router):
+        gw_info = router['router']['external_gateway_info']
+        if gw_info.get('enable_snat') is not None:
+            return
+
+        cfg_pat = cfg.CONF.RESTPROXY.nuage_pat
+        if cfg_pat == constants.NUAGE_PAT_DEF_DISABLED:
+            gw_info['enable_snat'] = False
+        elif cfg_pat == constants.NUAGE_PAT_DEF_ENABLED:
+            gw_info['enable_snat'] = True
 
     @log.log
     def _make_net_partition_dict(self, net_partition,
