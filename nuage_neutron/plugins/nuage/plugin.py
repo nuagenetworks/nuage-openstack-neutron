@@ -575,11 +575,18 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         return self._extend_port_dict_binding(context, port)
 
-    def _validate_update_port(self, context, port, original_port):
-        if (original_port['device_owner'] == constants.DEVICE_OWNER_VIP_NUAGE
+    def _validate_update_port(self, port, original_port, has_security_groups):
+        original_device_owner = original_port.get('device_owner')
+        if has_security_groups and (original_device_owner in
+                                    constants.AUTO_CREATE_PORT_OWNERS):
+            msg = _("device_owner of port with device_owner set to %s "
+                    "can not have security groups") % original_device_owner
+            raise nuage_exc.OperationNotSupported(msg=msg)
+
+        if (original_device_owner == constants.DEVICE_OWNER_VIP_NUAGE
                 and 'device_owner' in port.keys()):
             msg = _("device_owner of port with device_owner set to %s "
-                    "can not be modified") % original_port['device_owner']
+                    "can not be modified") % original_device_owner
             raise nuage_exc.OperationNotSupported(msg=msg)
 
     @nuage_utils.handle_nuage_api_error
@@ -664,8 +671,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             original_port = self.get_port(context, id)
             current_owner = original_port['device_owner']
 
-            self._validate_update_port(context, p,
-                                       original_port)
+            self._validate_update_port(p, original_port, has_security_groups)
             if (current_owner == constants.APPD_PORT and
                     p.get('device_owner', '').startswith(
                     constants.NOVA_PORT_OWNER_PREF)
