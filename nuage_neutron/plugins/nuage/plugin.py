@@ -1199,6 +1199,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
         params['underlay_config'] = cfg.CONF.RESTPROXY.nuage_fip_underlay
         if (req_subnet and req_subnet.get('underlay') in [True, False]):
             params['underlay'] = req_subnet.get('underlay')
+            subnet['underlay'] = req_subnet.get('underlay')
+        else:
+            subnet['underlay'] = params['underlay_config']
+
         self.nuageclient.create_nuage_sharedresource(params)
 
     @log.log
