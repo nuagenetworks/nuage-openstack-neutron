@@ -14,7 +14,7 @@
 
 
 def convert_to_uppercase(data):
-    if data and isinstance(data, str):
+    if data:
         return data.upper()
 
 
