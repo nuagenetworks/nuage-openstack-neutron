@@ -3174,7 +3174,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
             'nuage_domain_template': app_domain.get('nuage_domain_template'),
             'template_id': appdomain_def_templID,
             'externalID': net['id'],
-            'description': app_domain.get('description', '')
+            'description': app_domain.get('description', ''),
+            'rt': app_domain.get('rt'),
+            'rd': app_domain.get('rd'),
+            'tunnel_type': app_domain.get('tunnel_type')
         }
         try:
             return self.nuageclient.create_nuage_application_domain(params)
