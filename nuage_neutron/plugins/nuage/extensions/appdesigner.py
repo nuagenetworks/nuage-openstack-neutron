@@ -55,6 +55,11 @@ nuage_svc_supported_ethertypes_map = {
 }
 
 
+def convert_to_uppercase(data):
+    if data:
+        return str(data).upper()
+
+
 class NuageServiceInvalidProtocol(exceptions.InvalidInput):
     message = _("Nuage Service protocol %(protocol)s not supported. "
                 "Only protocol values %(values)s and their integer "
@@ -206,6 +211,19 @@ RESOURCE_ATTRIBUTE_MAP = {
                                         'validate': {
                                             'type:name_not_default': None
                                         }},
+        'rd': {'allow_post': True, 'allow_put': False,
+               'is_visible': True, 'default': None,
+               'validate': {'type:string_or_none': None}, },
+        'rt': {'allow_post': True, 'allow_put': False,
+               'is_visible': True, 'default': None,
+               'validate': {'type:string_or_none': None}, },
+        'tunnel_type': {'allow_post': True, 'allow_put': False,
+                        'is_visible': True, 'default': 'DEFAULT',
+                        'validate': {'type:values': ['VXLAN', 'vxlan',
+                                                     'GRE', 'gre',
+                                                     'DEFAULT',
+                                                     'default']},
+                        'convert_to': convert_to_uppercase, },
         'nuage_domain_template': {'allow_post': True, 'allow_put': False,
                                   'is_visible': True, 'default': None,
                                   'validate': {'type:uuid_or_none': None}},
