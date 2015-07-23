@@ -15,7 +15,7 @@
 
 def convert_to_uppercase(data):
     if data:
-        return data.upper()
+        return str(data).upper()
 
 
 EXTENDED_ATTRIBUTES_2_0 = {
