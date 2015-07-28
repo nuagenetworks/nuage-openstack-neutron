@@ -92,16 +92,31 @@ class NuageAddressPair(addr_pair_db.AllowedAddressPairsMixin):
                 os_vip_dict[allowed_addr_pair['ip_address']] = (
                     allowed_addr_pair['mac_address'])
 
-        vips_add_set = set(os_vip_dict.keys()) - set(nuage_vip_dict.keys())
-        vips_delete_set = set(nuage_vip_dict.keys()) - set(os_vip_dict.keys())
-
         vips_add_list = []
-        for vip in vips_add_set:
-            vip_dict = {
-                'ip_address': vip,
-                'mac_address': os_vip_dict[vip]
-            }
-            vips_add_list.append(vip_dict)
+        vips_delete_set = set()
+        for vip, mac in os_vip_dict.iteritems():
+            if vip in nuage_vip_dict:
+                # Check if mac is same
+                if mac != nuage_vip_dict.get(vip):
+                    vips_add_dict = {
+                        'ip_address': vip,
+                        'mac_address': mac
+                    }
+                    vips_add_list.append(vips_add_dict)
+            else:
+                vips_add_dict = {
+                    'ip_address': vip,
+                    'mac_address': mac
+                }
+                vips_add_list.append(vips_add_dict)
+
+        for vip, mac in nuage_vip_dict.iteritems():
+            if vip in os_vip_dict:
+                # Check if mac is same
+                if mac != os_vip_dict.get(vip):
+                    vips_delete_set.add(vip)
+            else:
+                vips_delete_set.add(vip)
 
         if vips_delete_set:
             try:
@@ -114,7 +129,7 @@ class NuageAddressPair(addr_pair_db.AllowedAddressPairsMixin):
                               "err)s", {'port': nuage_vport['nuage_vport_id'],
                                         'err': e})
 
-        if vips_add_set:
+        if vips_add_list:
             port_dict = {
                 addr_pair.ADDRESS_PAIRS: vips_add_list,
                 'fixed_ips': port['fixed_ips'],
@@ -210,13 +225,18 @@ class NuageAddressPair(addr_pair_db.AllowedAddressPairsMixin):
                                             delete_addr_pairs)
 
     def _get_deleted_addr_pairs(self, old_addr_pairs, new_addr_pairs):
-        addr_pair_set = set()
+        addr_pair_dict = dict()
         deleted_addr_pairs = []
         for addrpair in new_addr_pairs:
-            addr_pair_set.add(addrpair['ip_address'])
+            addr_pair_dict[addrpair['ip_address']] = addrpair['mac_address']
 
         for addrpair in old_addr_pairs:
-            if addrpair['ip_address'] not in addr_pair_set:
+            if addrpair['ip_address'] in addr_pair_dict:
+                # check if mac is also same, if not add it to deleted list
+                if (addr_pair_dict[addrpair['ip_address']] !=
+                        addrpair['mac_address']):
+                    deleted_addr_pairs.append(addrpair)
+            else:
                 deleted_addr_pairs.append(addrpair)
 
         return deleted_addr_pairs
