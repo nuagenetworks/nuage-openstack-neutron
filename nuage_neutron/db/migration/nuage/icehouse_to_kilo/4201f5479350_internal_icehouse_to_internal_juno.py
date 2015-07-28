@@ -26,7 +26,6 @@ revision = '4201f5479350'
 down_revision = '36f580568441'
 
 from alembic import op
-import sqlalchemy as sa
 
 
 def upgrade():
@@ -36,4 +35,3 @@ def upgrade():
     op.drop_table('router_acl_mapping')
     op.drop_table('floatingip_pool_mapping')
     op.drop_table('floatingip_mapping')
-

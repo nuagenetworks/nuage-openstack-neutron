@@ -35,4 +35,3 @@ def upgrade():
     op.create_unique_constraint(
         None, 'nuage_subnet_l2dom_mapping',
         ['nuage_subnet_id'])
-

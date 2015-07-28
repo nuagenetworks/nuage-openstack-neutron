@@ -36,4 +36,3 @@ def upgrade():
     op.add_column('nuage_net_partition_router_mapping',
                   sa.Column('nuage_rtr_rt',
                             sa.String(length=36), nullable=True))
-
