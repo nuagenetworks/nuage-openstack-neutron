@@ -1,0 +1,2 @@
+#need this for nuage-interface driver
+ovs-appctl: CommandFilter, ovs-appctl, root
