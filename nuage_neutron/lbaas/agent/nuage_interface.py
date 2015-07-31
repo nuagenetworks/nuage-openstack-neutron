@@ -63,7 +63,7 @@ class NuageVMDriver(object):
             sock.connect(server_address)
             LOG.debug(_("Connected to the vrs..."))
         except socket.error:
-            LOG.debug(_("Couldn't open a socket to the VRS"))
+            raise Exception('NuageError: Could not open a socket to VRS')
 
         return sock
 
@@ -195,7 +195,7 @@ class NuageVMDriver(object):
             sock = cls.get_connected_socket()
             cls.send_undefine(vm_name=id, nuage_uuid=id, sock=sock)
         except Exception:
-            LOG.debug(_('Failed to delete port %s'), id)
+            raise Exception('NuageError: failed to delete port')
 
 
 class NuageInterfaceDriver(OVSInterfaceDriver):
