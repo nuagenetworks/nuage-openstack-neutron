@@ -2991,9 +2991,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
             'name': flow['name'],
             'origin_tier': flow['originTierID'],
             'dest_tier': flow['destinationTierID'],
-            'application_id': flow['parentID'],
-            'nuage_services': nuage_svc
+            'application_id': flow['parentID']
         }
+        if nuage_svc:
+            res['nuage_services'] = nuage_svc
         if context:
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
@@ -3627,7 +3628,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         else:
             flows = self.nuageclient.get_nuage_flows(filters['app_id'][0])
 
-        return [self._make_nuage_flow_dict(flow, context, fields)
+        return [self._make_nuage_flow_dict(flow, None, context, fields)
                 for flow in flows]
 
     @nuage_utils.handle_nuage_api_error
