@@ -1,4 +1,4 @@
-neutron-plugin-nuage (0:0.0.0-0) unstable; urgency=low
+nuage-neutron (0:0.0.0-0) unstable; urgency=low
 
   changelog stub verison, git-dch will generate the changelog from git log
 

@@ -26,10 +26,10 @@ then
     exit 1
 fi
 
-mv ../neutron-plugin-nuage* .
+mv ../nuage-neutron* .
 if [ -n "$BUILD_NAME" ]
 then
-    dpkg-sig -k 83496517 -s builder neutron-plugin-nuage_*.changes
+    dpkg-sig -k 83496517 -s builder nuage-neutron_*.changes
 fi
 
 exit 0
