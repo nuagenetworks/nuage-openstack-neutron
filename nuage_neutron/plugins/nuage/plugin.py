@@ -513,32 +513,32 @@ class NuagePlugin(addresspair.NuageAddressPair,
                         net_partition = nuagedb.get_net_partition_by_id(
                             session,
                             subnet_mapping['net_partition_id'])
-                        self._create_update_port(
-                            context,
-                            port,
-                            net_partition['name'],
-                            subnet_mapping)
+                        self._create_update_port(context,
+                                                 port,
+                                                 net_partition['name'],
+                                                 subnet_mapping)
                     except Exception:
                         with excutils.save_and_reraise_exception():
-                            super(NuagePlugin, self).delete_port(
-                                context,
-                                port['id'])
+                            self._delete_nuage_vport(context, port,
+                                                     net_partition['name'],
+                                                     subnet_mapping,
+                                                     port_delete=True)
+                            super(NuagePlugin, self).delete_port(context,
+                                                                 port['id'])
                 else:
                     # This request is port-create no special ports
                     try:
                         net_partition = nuagedb.get_net_partition_by_id(
                             session,
                             subnet_mapping['net_partition_id'])
-                        self._create_nuage_port(
-                            context,
-                            port,
-                            net_partition['name'],
-                            subnet_mapping)
+                        self._create_nuage_port(context,
+                                                port,
+                                                net_partition['name'],
+                                                subnet_mapping)
                     except Exception:
                         with excutils.save_and_reraise_exception():
-                            super(NuagePlugin, self).delete_port(
-                                context,
-                                port['id'])
+                            super(NuagePlugin, self).delete_port(context,
+                                                                 port['id'])
                 try:
                     if (subnet_mapping['nuage_managed_subnet'] is False
                             and ext_sg.SECURITYGROUPS in p):
@@ -562,10 +562,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                  net_partition['name'],
                                                  subnet_mapping,
                                                  port_delete=True)
-                        super(NuagePlugin, self).delete_port(
-                            context,
-                            port['id'])
-
+                        super(NuagePlugin, self).delete_port(context,
+                                                             port['id'])
             else:
                 if port['device_owner'].startswith(port_prefix):
                     # VM is getting spawned on a subnet type which
