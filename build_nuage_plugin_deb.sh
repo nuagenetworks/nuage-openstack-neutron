@@ -27,6 +27,7 @@ then
 fi
 
 mv ../nuage-neutron*.deb .
+mv ../nuage-neutron*.changes .
 if [ -n "$BUILD_NAME" ]
 then
     dpkg-sig -k 83496517 -s builder nuage-neutron_*.changes
