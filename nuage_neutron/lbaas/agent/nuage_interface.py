@@ -205,7 +205,7 @@ class NuageInterfaceDriver(OVSInterfaceDriver):
                                                device_name, mac_address,
                                                bridge, namespace, prefix)
         # Plug port into nuage overlay, simulate VM power on event
-        LOG.debug(_("Nuage plugging port %(id)s:(name)%s on bridge %(bridge)s "
+        LOG.debug(_("Nuage plugging port %(id)s:%(name)s on bridge %(bridge)s "
                   "in namespace %(namespace)s"),
                   {'id': port_id,
                    'name': device_name,
