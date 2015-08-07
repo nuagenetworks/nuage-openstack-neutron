@@ -3699,7 +3699,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
             }
             rtarget_resp = self.nuageclient.create_nuage_redirect_target(
                 params)
-            return self._make_redirect_target_dict(rtarget_resp[3][0])
+            return self._make_redirect_target_dict(rtarget_resp[3][0],
+                                                   context=context)
 
     @log.log
     def get_nuage_redirect_target(self, context, rtarget_id, fields=None):
@@ -3709,7 +3710,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
         except Exception:
             raise nuage_exc.NuageNotFound(resource='nuage-redirect-target',
                                           resource_id=rtarget_id)
-        return self._make_redirect_target_dict(rtarget_resp)
+        return self._make_redirect_target_dict(rtarget_resp, context=context,
+                                               fields=fields)
 
     @log.log
     def get_nuage_redirect_targets(self, context, filters=None, fields=None):
@@ -3743,7 +3745,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         except Exception:
             raise nuage_exc.NuageNotFound(resource='nuage-redirect-target',
                                           resource_id=resource_id)
-        return [self._make_redirect_target_dict(rtarget)
+        return [self._make_redirect_target_dict(rtarget, context, fields)
                 for rtarget in rtargets]
 
     @nuage_utils.handle_nuage_api_error
@@ -3817,7 +3819,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 context, vip_port['id'],
                 {'port':
                     {'device_id': redirect_target['redirect_target_id']}})
-            return self._make_redirect_target_vip_dict(vip_resp[3][0])
+            return self._make_redirect_target_vip_dict(vip_resp[3][0],
+                                                       context=context)
 
     @log.log
     def get_nuage_redirect_target_vips_count(self, context, filters=None):
@@ -3929,7 +3932,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
         rtarget_rule_resp = self.nuageclient.create_nuage_redirect_target_rule(
             rtarget_rule)
 
-        return self._make_redirect_target_rule_dict(rtarget_rule_resp)
+        return self._make_redirect_target_rule_dict(rtarget_rule_resp,
+                                                    context=context)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -3943,7 +3947,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
             raise nuage_exc.NuageNotFound(
                 resource='nuage-redirect-target-rule',
                 resource_id=rtarget_rule_id)
-        return self._make_redirect_target_rule_dict(rtarget_rule_resp)
+        return self._make_redirect_target_rule_dict(rtarget_rule_resp,
+                                                    context=context,
+                                                    fields=fields)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -3983,7 +3989,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 resource='nuage-redirect-target-rule',
                 resource_id=resource_id)
 
-        return [self._make_redirect_target_rule_dict(rtarget_rule) for
+        return [self._make_redirect_target_rule_dict(rtarget_rule, context,
+                                                     fields
+                                                     ) for
                 rtarget_rule in rtarget_rules]
 
     @log.log
