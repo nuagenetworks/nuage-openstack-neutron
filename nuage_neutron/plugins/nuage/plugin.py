@@ -2947,6 +2947,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
             'id': application_router['ID'],
             'name': application_router['name'],
             'applicationDeploymentPolicy': 'ZONE',
+            'rd': application_router['routeDistinguisher'],
+            'rt': application_router['routeTarget'],
+            'tunnel_type': application_router['tunnelType']
         }
         if context:
             res['tenant_id'] = context.tenant_id
