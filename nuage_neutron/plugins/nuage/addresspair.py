@@ -166,8 +166,13 @@ class NuageAddressPair(addr_pair_db.AllowedAddressPairsMixin):
                                       nuage_vport, delete_addr_pairs)
 
     def _verify_allowed_address_pairs(self, context, port, port_data):
+        empty_allowed_address_pairs = (
+            addr_pair.ADDRESS_PAIRS in port_data and (
+                not (port_data[addr_pair.ADDRESS_PAIRS] or
+                     port[addr_pair.ADDRESS_PAIRS])))
         if ((addr_pair.ADDRESS_PAIRS not in port_data) or (
-                not attr.is_attr_set(port_data[addr_pair.ADDRESS_PAIRS]))):
+                not attr.is_attr_set(port_data[addr_pair.ADDRESS_PAIRS])) or
+                empty_allowed_address_pairs):
             # No change is required if port_data doesn't have addr pairs
             LOG.info('No allowed address pairs update required for port %s',
                      port['id'])
