@@ -29,3 +29,19 @@ def handle_nuage_api_error(fn):
             raise nuage_exc.NuageAPIException, \
                 nuage_exc.NuageAPIException(msg=ex), tb
     return wrapped
+
+
+def convert_to_cidr(address, mask):
+    ipaddr = address.split('.')
+    netmask = mask.split('.')
+    # calculate network start
+    net_start = [str(int(ipaddr[x]) & int(netmask[x]))
+                 for x in range(0, 4)]
+
+    def get_net_size(netmask):
+        binary_str = ''
+        for octet in netmask:
+            binary_str += bin(int(octet))[2:].zfill(8)
+        return str(len(binary_str.rstrip('0')))
+
+    return '.'.join(net_start) + '/' + get_net_size(netmask)

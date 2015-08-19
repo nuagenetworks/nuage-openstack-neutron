@@ -3009,6 +3009,15 @@ class NuagePlugin(addresspair.NuageAddressPair,
             'associatedappid': tier['parentID'],
             'type': tier['type'],
         }
+
+        if tier['type'] == constants.TIER_STANDARD:
+            res['cidr'] = nuage_utils.convert_to_cidr(tier['address'],
+                                                      tier['netmask'])
+        elif tier['type'] == constants.TIER_NETWORK_MACRO:
+            nuage_net_macro = self.nuageclient.get_nuage_prefix_macro(
+                tier['associatedNetworkMacroID'])
+            res['cidr'] = nuage_utils.convert_to_cidr(
+                nuage_net_macro['address'], nuage_net_macro['netmask'])
         if context:
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
