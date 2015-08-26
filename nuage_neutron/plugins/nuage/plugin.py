@@ -111,6 +111,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
         capabilities = []
         if nuage_pat != constants.NUAGE_PAT_NOT_AVAILABLE:
             capabilities += ['PAT']
+        if cms_id:
+            LOG.warning(_("cms_id not supported in this release. Value '%s' "
+                          "ignored.") % cms_id)
+        cms_id = None
         nuageclient = importutils.import_module('nuagenetlib.nuageclient')
         self.nuageclient = nuageclient.NuageClient(cms_id=cms_id,
                                                    server=server,
@@ -1452,8 +1456,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         try:
             with contextlib.nested(
-                lockutils.lock('db-access'),
-                context.session.begin(subtransactions=True)):
+                    lockutils.lock('db-access'),
+                    context.session.begin(subtransactions=True)):
                 neutron_subnet = super(NuagePlugin, self).create_subnet(
                     context, subnet)
                 if subn['enable_dhcp']:
@@ -1656,7 +1660,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     subnet_l2dom['nuage_subnet_id'], subnet['shared'])
 
             if not self._check_router_subnet_for_tenant(
-                context, subnet['tenant_id']):
+                    context, subnet['tenant_id']):
                 LOG.debug("No router/subnet found for tenant %s", subnet[
                     'tenant_id'])
                 self.nuageclient.delete_user(subnet_l2dom['nuage_user_id'])
@@ -1760,7 +1764,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
 
         if self.nuageclient.validate_create_domain_subnet(
-            subn, nuage_subnet_id, nuage_rtr_id):
+                subn, nuage_subnet_id, nuage_rtr_id):
             try:
                 self.nuageclient.delete_subnet(subnet_id)
                 LOG.debug("Deleted l2 domain %s", nuage_subnet_id)
@@ -3117,7 +3121,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     subnet_l2dom['nuage_subnet_id'], subnet['shared'], True)
 
             if not self._check_router_subnet_for_tenant(
-                context, subnet['tenant_id']):
+                    context, subnet['tenant_id']):
                 LOG.debug("No router/subnet found for tenant %s", subnet[
                     'tenant_id'])
                 self.nuageclient.delete_user(subnet_l2dom['nuage_user_id'])
