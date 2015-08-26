@@ -1445,10 +1445,14 @@ class NuagePlugin(addresspair.NuageAddressPair,
             LOG.warning(_("CIDR parameter ignored for unmanaged subnet "))
             LOG.warning(_("Allocation Pool parameter ignored for"
                           " unmanaged subnet "))
-            if attributes.is_attr_set(subn['gateway_ip']):
-                subn['gateway_ip'] = None
+            # Setting the gateway_ip value to None when
+            # a VSD Managed subnet is created with DHCP disabled.
+            # LOG when we ignored the gateway_ip value is set,either
+            # implicitly (or) explicitly by the user.
+            if subn['gateway_ip'] is not None:
                 LOG.warning(_("Gateway IP parameter ignored for "
                               "VSD-Managed unmanaged subnet "))
+                subn['gateway_ip'] = None
             if attributes.is_attr_set(subn['dns_nameservers']):
                 subn['dns_nameservers'] = None
                 LOG.warning(_("DNS Nameservers parameter ignored "
