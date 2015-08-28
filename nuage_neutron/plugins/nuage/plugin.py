@@ -302,16 +302,14 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
     @nuage_utils.handle_nuage_api_error
     @log.log
-    def process_port_redirect_target(self, context, port, rtargets):
-        l2dom_id = None
-        l3dom_id = None
+    def _validate_port_redirect_target(self, context, port, rtargets):
         if not attributes.is_attr_set(rtargets):
-            port[ext_rtarget.REDIRECTTARGETS] = []
             return
         if len(rtargets) > 1:
             msg = (_("Multiple redirect targets on a port not supported "))
             raise nuage_exc.NuageBadRequest(msg=msg)
-
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+            context.session, port['fixed_ips'][0]['subnet_id'])
         nuage_rtargets_ids = []
         for rtarget in rtargets:
             uuid_match = re.match(attributes.UUID_PATTERN, rtarget)
@@ -332,9 +330,6 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 raise nuage_exc.NuageBadRequest(msg=msg)
             parent_type = rtarget_resp['parentType']
             parent = rtarget_resp['parentID']
-
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-                context.session, port['fixed_ips'][0]['subnet_id'])
             validate_params = {
                 'parent': parent,
                 'parent_type': parent_type,
@@ -349,6 +344,20 @@ class NuagePlugin(addresspair.NuageAddressPair,
                         port['fixed_ips'][0]['subnet_id']))
                 raise nuage_exc.NuageBadRequest(msg=msg)
 
+        return nuage_rtargets_ids
+
+    @nuage_utils.handle_nuage_api_error
+    @log.log
+    def process_port_redirect_target(self, context, port, rtargets,
+                                     n_rtargets_ids):
+        l2dom_id = None
+        l3dom_id = None
+        if not attributes.is_attr_set(rtargets):
+            port[ext_rtarget.REDIRECTTARGETS] = []
+            return
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+            context.session, port['fixed_ips'][0]['subnet_id'])
+        for n_rtarget_id in n_rtargets_ids:
             if subnet_mapping['nuage_l2dom_tmplt_id']:
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
@@ -365,12 +374,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 nuage_port['l3dom_id'] = l3dom_id
                 if nuage_port and nuage_port.get('nuage_vport_id'):
                     self.nuageclient.update_nuage_vport_redirect_target(
-                        nuage_rtarget_id, nuage_port.get('nuage_vport_id'))
+                        n_rtarget_id, nuage_port.get('nuage_vport_id'))
             except Exception:
                 raise
 
-        port[ext_rtarget.REDIRECTTARGETS] = (list(nuage_rtargets_ids)
-                                             if nuage_rtargets_ids else [])
+        port[ext_rtarget.REDIRECTTARGETS] = (list(n_rtargets_ids)
+                                             if n_rtargets_ids else [])
 
     @log.log
     def _delete_port_redirect_target_bindings(self, context, port_id):
@@ -554,8 +563,14 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                   port['id'])
                     if (subnet_mapping['nuage_managed_subnet'] is False
                             and ext_rtarget.REDIRECTTARGETS in p):
+                        n_rtarget_ids = self._validate_port_redirect_target(
+                            context,
+                            port,
+                            p[ext_rtarget.REDIRECTTARGETS]
+                        )
                         self.process_port_redirect_target(
-                            context, port, p[ext_rtarget.REDIRECTTARGETS])
+                            context, port, p[ext_rtarget.REDIRECTTARGETS],
+                            n_rtarget_ids)
                     elif (subnet_mapping['nuage_managed_subnet'] and
                           ext_sg.SECURITYGROUPS in p):
                         LOG.warning(_("Security Groups is ignored for "
@@ -769,12 +784,18 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 self._process_port_create_security_group(context, updated_port,
                                                          sgids)
             if ext_rtarget.REDIRECTTARGETS in p:
+                nuage_rtargets_ids = self._validate_port_redirect_target(
+                    context,
+                    updated_port,
+                    p[ext_rtarget.REDIRECTTARGETS]
+                )
                 self._delete_port_redirect_target_bindings(
                     context, id)
                 self.process_port_redirect_target(
                     context,
                     updated_port,
-                    p[ext_rtarget.REDIRECTTARGETS]
+                    p[ext_rtarget.REDIRECTTARGETS],
+                    nuage_rtargets_ids
                 )
         elif (subnet_mapping and subnet_mapping['nuage_managed_subnet']):
             if ext_sg.SECURITYGROUPS in p:
