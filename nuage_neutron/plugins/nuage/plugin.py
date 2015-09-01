@@ -1373,6 +1373,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
                    "configuration. ")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
         else:
+            nuage_subnet_details, domain_name = (
+                self.nuageclient.get_subnet_or_domain_subnet_by_id(
+                    nuage_subn_id))
             if nuage_ip:
                 if not subn['enable_dhcp']:
                     msg = "DHCP must be enabled for this subnet"
@@ -1383,8 +1386,40 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     msg = ("Provided IP configuration does not match VSD "
                            "configuration")
                     raise n_exc.BadRequest(resource='subnet', msg=msg)
+
+            # Determine if the VSD-owned unmanaged Subnet
+            # is associated with a shared resource or not.
+
+            elif nuage_subnet_details['subnet_shared_net_id']:
+                shared_nuage_subnet_details = (
+                    self.nuageclient.get_nuage_sharedresource(
+                        nuage_subnet_details['subnet_shared_net_id']))
+                shared_nuage_ip = (
+                    shared_nuage_subnet_details['subnet_address'])
+
+                if shared_nuage_ip:
+                    if not subn['enable_dhcp']:
+                        msg = ("DHCP must be enabled for this Subnet since "
+                               "its associated with a Shared Managed Subnet")
+                        raise n_exc.BadRequest(resource='subnet', msg=msg)
+                    # Validating if the provided CIDR is similar to
+                    # the shared L2Subnet CIDR Value.
+                    shared_nuage_netmask = (
+                        shared_nuage_subnet_details['subnet_netmask'])
+                    cidr = netaddr.IPNetwork(subn['cidr'])
+                    if (shared_nuage_ip != str(cidr.ip) or
+                            shared_nuage_netmask != str(cidr.netmask)):
+                        msg = ("Provided IP configuration does not match"
+                               " Associated Shared VSD Subnet configuration")
+                        raise n_exc.BadRequest(resource='subnet', msg=msg)
+                elif subn['enable_dhcp']:
+                    # Case of VSDUnManaged subnet with shared-Unmanaged subnet.
+                    msg = ("DHCP must be disabled for this subnet since its "
+                           "associated with a shared UnManaged subnet")
+                    raise n_exc.BadRequest(resource='subnet', msg=msg)
+
             else:
-                # this is the case for VSD-Managed unmanaged subnet
+                # this is the case for VSD-owned unmanaged subnet.
                 if subn['enable_dhcp']:
                     msg = "DHCP must be disabled for this subnet"
                     raise n_exc.BadRequest(resource='subnet', msg=msg)
@@ -1396,10 +1431,20 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         # case for adv. managed subnet
         # return the gw_ip with which the dhcp port is created
-        # in case of adv. managed subnets
-        (gw_ip_via_dhcp_options,
-         gw_ip, is_l3) = self.nuageclient.get_gateway_ip_for_advsub(
-            nuage_subn_id)
+        # in case of adv. managed subnets.
+        # Also get gateway_ip based upon, if the subnet
+        # is associated with a shared subnet or not.
+        nuage_subnet_details, domain_name = (
+            self.nuageclient.get_subnet_or_domain_subnet_by_id(
+                nuage_subn_id))
+        if nuage_subnet_details['subnet_shared_net_id']:
+            (gw_ip_via_dhcp_options,
+                gw_ip, is_l3) = self.nuageclient.get_gateway_ip_for_advsub(
+                nuage_subnet_details['subnet_shared_net_id'])
+        else:
+            (gw_ip_via_dhcp_options,
+                gw_ip, is_l3) = self.nuageclient.get_gateway_ip_for_advsub(
+                nuage_subn_id)
 
         if is_l3:
             subn['gateway_ip'] = gw_ip
