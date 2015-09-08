@@ -3338,7 +3338,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
     @log.log
     def delete_application(self, context, id):
         net_partition = self._get_default_net_partition(context)
-        std_tiers_in_app = self.nuageclient.get_std_tiers_in_application(id)
+        std_tiers_in_app = self.nuageclient.get_tiers_by_type_from_application(
+            id, constants.TIER_STANDARD)
+        nw_mac_in_app = self.nuageclient.get_tiers_by_type_from_application(
+            id, constants.TIER_NETWORK_MACRO)
         nuage_app = self.nuageclient.get_nuage_application(id)
         net_id = self._get_appd_network_id(nuage_app['associatedDomainID'])
         with context.session.begin(subtransactions=True):
@@ -3349,6 +3352,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     self._delete_underlying_neutron_subnet(
                         context, neutron_subnet['id'])
         self.nuageclient.delete_nuage_application(net_partition['id'], id)
+        # after a successful delete of an application, delete the nw_macros
+        # if there existed tiers of type nw_macro in the deleted application
+        for tier in nw_mac_in_app:
+            macro_name = tier['name'] + '_' + tier['ID']
+            self.nuageclient.delete_nwmacro_assoc_with_tier(
+                macro_name, net_partition['id'])
 
     @nuage_utils.handle_nuage_api_error
     @log.log
