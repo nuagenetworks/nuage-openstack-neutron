@@ -111,10 +111,6 @@ class NuagePlugin(addresspair.NuageAddressPair,
         capabilities = []
         if nuage_pat != constants.NUAGE_PAT_NOT_AVAILABLE:
             capabilities += ['PAT']
-        if cms_id:
-            LOG.warning(_("cms_id not supported in this release. Value '%s' "
-                          "ignored.") % cms_id)
-        cms_id = None
         nuageclient = importutils.import_module('nuagenetlib.nuageclient')
         self.nuageclient = nuageclient.NuageClient(cms_id=cms_id,
                                                    server=server,
