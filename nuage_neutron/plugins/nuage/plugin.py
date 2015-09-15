@@ -2068,7 +2068,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
                 for route in added:
                     params = {
-                        'parent_id': ent_rtr_mapping['nuage_router_id'],
+                        'nuage_domain_id': ent_rtr_mapping['nuage_router_id'],
+                        'neutron_rtr_id': ent_rtr_mapping['router_id'],
                         'net': netaddr.IPNetwork(route['destination']),
                         'nexthop': route['nexthop']
                     }
