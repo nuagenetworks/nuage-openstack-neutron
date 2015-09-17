@@ -967,6 +967,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
     def _extend_port_dict_binding(self, context, port):
         if self._check_view_auth(context, port, self.binding_view):
             port[portbindings.VIF_TYPE] = portbindings.VIF_TYPE_OVS
+            port[portbindings.VNIC_TYPE] = portbindings.VNIC_NORMAL
             port[portbindings.VIF_DETAILS] = {
                 portbindings.CAP_PORT_FILTER: False
             }
