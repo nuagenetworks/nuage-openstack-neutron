@@ -107,6 +107,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
         auth_resource = cfg.CONF.RESTPROXY.auth_resource
         organization = cfg.CONF.RESTPROXY.organization
         cms_id = cfg.CONF.RESTPROXY.cms_id
+        if not cms_id:
+            raise cfg.ConfigFileValueError(
+                _('Missing cms_id in configuration.'))
         nuage_pat = cfg.CONF.RESTPROXY.nuage_pat
         capabilities = []
         if nuage_pat != constants.NUAGE_PAT_NOT_AVAILABLE:
