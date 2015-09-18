@@ -1430,9 +1430,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 subn['gateway_ip'] = gw_ip_via_dhcp_options
             else:
                 subn['gateway_ip'] = None
-
-        if attributes.is_attr_set(gw_ip_from_cli):
-            if gw_ip_from_cli != subn['gateway_ip']:
+        # The _is_attr_set() is incomplete to use here, since the method
+        # ignores the case if the user sets the attribute value to None.
+        if ((gw_ip_from_cli is not attributes.ATTR_NOT_SPECIFIED) and
+                (gw_ip_from_cli != subn['gateway_ip'])):
                 msg = ("Provided gateway-ip does not match VSD "
                        "configuration. ")
                 raise n_exc.BadRequest(resource='subnet', msg=msg)
