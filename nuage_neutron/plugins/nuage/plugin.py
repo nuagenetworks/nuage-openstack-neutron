@@ -42,6 +42,7 @@ from neutron.db import external_net_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
 from neutron.db import models_v2
+from neutron.db import portbindings_db
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import allowedaddresspairs as addr_pair
@@ -51,7 +52,6 @@ from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.openstack.common import loopingcall
-from neutron import policy
 from nuage_neutron.plugins.nuage import addresspair
 from nuage_neutron.plugins.nuage.common import config
 from nuage_neutron.plugins.nuage.common import constants
@@ -77,7 +77,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                   gateway.NuagegatewayMixin,
                   externalsg.NuageexternalsgMixin,
                   netpartition.NetPartitionPluginBase,
-                  sg_db.SecurityGroupDbMixin):
+                  sg_db.SecurityGroupDbMixin,
+                  portbindings_db.PortBindingMixin):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
@@ -95,6 +96,13 @@ class NuagePlugin(addresspair.NuageAddressPair,
         self._prepare_default_netpartition()
         self.init_fip_rate_log()
         LOG.debug("NuagePlugin initialization done")
+        self.base_binding_dict = {
+            portbindings.VIF_TYPE: portbindings.VIF_TYPE_OVS,
+            portbindings.VNIC_TYPE: portbindings.VNIC_NORMAL,
+            portbindings.VIF_DETAILS: {
+                portbindings.CAP_PORT_FILTER: False
+            }
+        }
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
         attributes.NETWORKS, ['_extend_network_dict_provider_nuage'])
@@ -507,10 +515,11 @@ class NuagePlugin(addresspair.NuageAddressPair,
         p = port['port']
         self._ensure_default_security_group_on_port(context, port)
         port = super(NuagePlugin, self).create_port(context, port)
+        self._process_portbindings_create_and_update(context, p, port)
         device_owner = port.get('device_owner', None)
         if device_owner not in constants.AUTO_CREATE_PORT_OWNERS:
             if 'fixed_ips' not in port or len(port['fixed_ips']) == 0:
-                return self._extend_port_dict_binding(context, port)
+                return port
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
                                                             subnet_id)
@@ -601,7 +610,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                              subnet_mapping)
                     super(NuagePlugin, self).delete_port(context, port['id'])
 
-        return self._extend_port_dict_binding(context, port)
+        return port
 
     def _validate_update_port(self, port, original_port, has_security_groups):
         original_device_owner = original_port.get('device_owner')
@@ -729,6 +738,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
             updated_port = super(NuagePlugin,
                                  self).update_port(context, id, port)
+            self._process_portbindings_create_and_update(context,
+                                                         port['port'],
+                                                         updated_port)
             if not updated_port.get('fixed_ips'):
                 return updated_port
             subnet_id = updated_port['fixed_ips'][0]['subnet_id']
@@ -963,20 +975,6 @@ class NuagePlugin(addresspair.NuageAddressPair,
         super(NuagePlugin, self).delete_port(context, id)
 
     @log.log
-    def _check_view_auth(self, context, resource, action):
-        return policy.check(context, action, resource)
-
-    @log.log
-    def _extend_port_dict_binding(self, context, port):
-        if self._check_view_auth(context, port, self.binding_view):
-            port[portbindings.VIF_TYPE] = portbindings.VIF_TYPE_OVS
-            port[portbindings.VNIC_TYPE] = portbindings.VNIC_NORMAL
-            port[portbindings.VIF_DETAILS] = {
-                portbindings.CAP_PORT_FILTER: False
-            }
-        return port
-
-    @log.log
     def get_ports_count(self, context, filters=None):
         if filters.get('tenant_id', None):
             query = context.session.query(func.count(models_v2.Port.id))
@@ -984,19 +982,6 @@ class NuagePlugin(addresspair.NuageAddressPair,
             return query.scalar()
         else:
             return super(NuagePlugin, self).get_ports_count(context, filters)
-
-    @log.log
-    def get_port(self, context, id, fields=None):
-        port = super(NuagePlugin, self).get_port(context, id, fields)
-        return self._fields(self._extend_port_dict_binding(context, port),
-                            fields)
-
-    @log.log
-    def get_ports(self, context, filters=None, fields=None):
-        ports = super(NuagePlugin, self).get_ports(context,
-                                                   filters, fields)
-        return [self._fields(self._extend_port_dict_binding(context, port),
-                             fields) for port in ports]
 
     @log.log
     def _check_router_subnet_for_tenant(self, context, tenant_id):
@@ -3241,7 +3226,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             with excutils.save_and_reraise_exception():
                 super(NuagePlugin, self).delete_port(context, port['id'])
 
-        return self._extend_port_dict_binding(context, port)
+        return port
 
     @nuage_utils.handle_nuage_api_error
     @log.log
