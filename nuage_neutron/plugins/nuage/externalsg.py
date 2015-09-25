@@ -69,7 +69,8 @@ class NuageexternalsgMixin(object):
         ext_sg_resp = (
             self.nuageclient.create_nuage_external_security_group(
                 params))
-        return self._make_external_security_group_dict(ext_sg_resp[3][0])
+        return self._make_external_security_group_dict(ext_sg_resp[3][0],
+                                                       context=context)
 
     @log.log
     def get_nuage_external_security_group(self, context, ext_sg_id,
@@ -81,7 +82,9 @@ class NuageexternalsgMixin(object):
             raise nuage_exc.NuageNotFound(
                 resource='nuage-external-security-group',
                 resource_id=ext_sg_id)
-        return self._make_external_security_group_dict(ext_sg_resp)
+        return self._make_external_security_group_dict(ext_sg_resp,
+                                                       context=context,
+                                                       fields=fields)
 
     @log.log
     def get_nuage_external_security_groups(self, context, filters=None,
@@ -118,7 +121,7 @@ class NuageexternalsgMixin(object):
             raise nuage_exc.NuageNotFound(
                 resource='nuage-external-security-group',
                 resource_id=resource_id)
-        return [self._make_external_security_group_dict(sg)
+        return [self._make_external_security_group_dict(sg, context, fields)
                 for sg in ext_sgs]
 
     @nuage_utils.handle_nuage_api_error
@@ -172,7 +175,8 @@ class NuageexternalsgMixin(object):
         rule_resp = self.nuageclient.create_nuage_external_sg_rule(
             external_sg_rule)
         rule_resp['direction'] = external_sg_rule['direction']
-        return self._make_external_security_group_rule_dict(rule_resp)
+        return self._make_external_security_group_rule_dict(rule_resp,
+                                                            context=context)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -185,7 +189,9 @@ class NuageexternalsgMixin(object):
             raise nuage_exc.NuageNotFound(
                 resource='nuage-external-security-group-rule',
                 resource_id=external_rule_id)
-        return self._make_external_security_group_rule_dict(ext_rule_resp)
+        return self._make_external_security_group_rule_dict(ext_rule_resp,
+                                                            context=context,
+                                                            fields=fields)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -225,7 +231,8 @@ class NuageexternalsgMixin(object):
                 resource='nuage-external-security-group-rule',
                 resource_id=resource_id)
 
-        return [self._make_external_security_group_rule_dict(ext_rule) for
+        return [self._make_external_security_group_rule_dict(ext_rule, context,
+                                                             fields) for
                 ext_rule in ext_rules]
 
     @log.log
