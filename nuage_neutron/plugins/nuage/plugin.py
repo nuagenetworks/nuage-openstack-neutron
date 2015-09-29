@@ -2009,7 +2009,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 and req_router.get('external_gateway_info')):
             msg = _("nuage_pat config is set to 'not_available'. "
                     "Can't set external_gateway_info")
-            raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
+            raise nuage_exc.NuageBadRequest(resource='router', msg=msg)
 
         neutron_router = super(NuagePlugin, self).create_router(context,
                                                                 router)
