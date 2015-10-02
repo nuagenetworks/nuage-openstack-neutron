@@ -1,5 +1,0 @@
-nuage-neutron (0:0.0.0-0) unstable; urgency=low
-
-  changelog stub verison, git-dch will generate the changelog from git log
-
- -- Alcatel-Lucent USA Inc <info@nuagenetworks.com>  Wed, 14 Jan 2015 15:21:43 -0800
