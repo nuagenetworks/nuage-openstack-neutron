@@ -16,4 +16,4 @@ import pbr.version
 
 
 __version__ = pbr.version.VersionInfo(
-    'nuage_neutron').version_string()
+    'nuage_openstack_neutron').version_string()
