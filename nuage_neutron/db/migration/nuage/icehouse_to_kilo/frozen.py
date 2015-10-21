@@ -30,7 +30,7 @@ from sqlalchemy import orm
 from sqlalchemy import schema
 
 from neutron.db import model_base
-from neutron.openstack.common import uuidutils
+from oslo_utils import uuidutils
 
 
 # Dictionary of all tables that was renamed:

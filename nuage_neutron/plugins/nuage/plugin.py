@@ -19,11 +19,14 @@ import netaddr
 import re
 
 from logging import handlers
-from oslo.db import exception as db_exc
+
 from oslo_concurrency import lockutils
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_log.formatters import ContextFormatter
+from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
+from oslo_service import loopingcall
 from oslo_utils import excutils
 from oslo_utils import importutils
 from sqlalchemy import exc as sql_exc
@@ -34,7 +37,6 @@ from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes
 from neutron.common import constants as os_constants
 from neutron.common import exceptions as n_exc
-from neutron.common import log
 from neutron.common import utils
 from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
@@ -51,7 +53,6 @@ from neutron.extensions import l3
 from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
-from neutron.openstack.common import loopingcall
 from nuage_neutron.plugins.nuage import addresspair
 from nuage_neutron.plugins.nuage.common import config
 from nuage_neutron.plugins.nuage.common import constants
@@ -149,7 +150,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         else:
             self.fip_rate_log = LOG
 
-    @log.log
+    @log_helpers.log_method_call
     def _synchronization_thread(self):
         sync_interval = cfg.CONF.SYNCMANAGER.sync_interval
         fip_quota = str(cfg.CONF.RESTPROXY.default_floatingip_quota)
@@ -162,7 +163,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             self.syncmanager.synchronize(fip_quota,
                                          cfg.CONF.SYNCMANAGER.enable_sync)
 
-    @log.log
+    @log_helpers.log_method_call
     def _resource_finder(self, context, for_resource, resource_type,
                          resource):
         match = re.match(attributes.UUID_PATTERN, resource)
@@ -194,7 +195,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return found_resource
 
     @staticmethod
-    @log.log
+    @log_helpers.log_method_call
     def _validate_create_nuage_port(session, ports, np_name,
                                     cur_port_id):
         for port in ports:
@@ -210,7 +211,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                "enterprises is not allowed in VSP")
                         raise nuage_exc.NuageBadRequest(msg=msg)
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_update_port(self, context, port, np_name,
                             subnet_mapping):
         # Set the description to owner:compute for ports created by nova,
@@ -229,7 +230,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         self._update_nuage_port(context, port, np_name, subnet_mapping,
                                 nuage_vport_dict)
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_nuage_port(self, context, port, np_name,
                            subnet_mapping, description=None):
         filters = {'device_id': [port['device_id']]}
@@ -252,7 +253,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         return self.nuageclient.create_vport(params)
 
-    @log.log
+    @log_helpers.log_method_call
     def _update_nuage_port(self, context, port, np_name,
                            subnet_mapping, nuage_port):
         filters = {'device_id': [port.get('device_id')]}
@@ -290,7 +291,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         self.nuageclient.create_vms(params)
 
-    @log.log
+    @log_helpers.log_method_call
     def _get_router_by_subnet(self, context, subnet_id):
         filters = {
             'fixed_ips': {'subnet_id': [subnet_id]},
@@ -303,7 +304,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return router_port[0]['device_id']
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def _validate_port_redirect_target(self, context, port, rtargets):
         if not attributes.is_attr_set(rtargets):
             return
@@ -349,7 +350,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return nuage_rtargets_ids
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def process_port_redirect_target(self, context, port, rtargets,
                                      n_rtargets_ids):
         l2dom_id = None
@@ -383,7 +384,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         port[ext_rtarget.REDIRECTTARGETS] = (list(n_rtargets_ids)
                                              if n_rtargets_ids else [])
 
-    @log.log
+    @log_helpers.log_method_call
     def _delete_port_redirect_target_bindings(self, context, port_id):
         port = self.get_port(context, port_id)
         subnet_id = port['fixed_ips'][0]['subnet_id']
@@ -403,7 +404,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             }
             self.nuageclient.delete_port_redirect_target_bindings(params)
 
-    @log.log
+    @log_helpers.log_method_call
     def _process_port_create_security_group(self, context, port, sec_group):
         if not attributes.is_attr_set(sec_group):
             port[ext_sg.SECURITYGROUPS] = []
@@ -478,7 +479,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         # this has to be serialized
         port[ext_sg.SECURITYGROUPS] = (list(sec_group) if sec_group else [])
 
-    @log.log
+    @log_helpers.log_method_call
     def _delete_port_security_group_bindings(self, context, port_id):
         super(NuagePlugin,
               self)._delete_port_security_group_bindings(context, port_id)
@@ -502,7 +503,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 self.nuageclient.delete_port_security_group_bindings(params)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_port(self, context, port):
         session = context.session
         subnet_mapping = None
@@ -622,7 +623,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             raise nuage_exc.OperationNotSupported(msg=msg)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def _process_update_nuage_vport(self, context, port_id, updated_port,
                                     subnet_mapping, current_owner):
         l2dom_id = None
@@ -659,7 +660,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             LOG.debug("Nuage vport does not exist for port %s ", id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def _process_update_port(self, context, p, original_port, subnet_mapping,
                              no_of_ports):
         current_owner = original_port['device_owner']
@@ -696,7 +697,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                          subnet_mapping, no_of_ports)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_port(self, context, id, port):
         create_vm = False
         updated_port_dict = port
@@ -809,7 +810,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                               "VSD Managed Subnet"))
         return updated_port
 
-    @log.log
+    @log_helpers.log_method_call
     def _delete_nuage_vport(self, context, port, np_name, subnet_mapping,
                             no_of_ports=None, port_delete=False):
         nuage_vif_id = None
@@ -888,7 +889,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 self.nuageclient.delete_nuage_vport(
                     nuage_vport.get('nuage_vport_id'))
 
-    @log.log
+    @log_helpers.log_method_call
     def _delete_nuage_fip(self, context, fip_dict):
         if fip_dict:
             fip_id = fip_dict['fip_id']
@@ -917,7 +918,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_port(self, context, id, l3_port_check=True):
         if l3_port_check:
             self.prevent_l3_port_deletion(context, id)
@@ -969,7 +970,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         super(NuagePlugin, self).delete_port(context, id)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_ports_count(self, context, filters=None):
         if filters.get('tenant_id', None):
             query = context.session.query(func.count(models_v2.Port.id))
@@ -978,7 +979,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         else:
             return super(NuagePlugin, self).get_ports_count(context, filters)
 
-    @log.log
+    @log_helpers.log_method_call
     def _check_router_subnet_for_tenant(self, context, tenant_id):
         # Search router and subnet tables.
         # If no entry left delete user and group from VSD
@@ -987,7 +988,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         subnets = self.get_subnets(context, filters=filters)
         return bool(routers or subnets)
 
-    @log.log
+    @log_helpers.log_method_call
     def _extend_network_dict_provider_nuage(self, network, net_db,
                                             net_binding=None):
         binding = net_db.pnetbinding if net_db else net_binding
@@ -996,7 +997,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             network[pnet.PHYSICAL_NETWORK] = binding.physical_network
             network[pnet.SEGMENTATION_ID] = binding.vlan_id
 
-    @log.log
+    @log_helpers.log_method_call
     def _process_provider_create(self, context, attrs):
         network_type = attrs.get(pnet.NETWORK_TYPE)
         physical_network = attrs.get(pnet.PHYSICAL_NETWORK)
@@ -1034,7 +1035,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return network_type, physical_network, segmentation_id
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_network(self, context, network):
         binding = None
         (network_type, physical_network,
@@ -1057,7 +1058,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             self._extend_network_dict_provider_nuage(net, None, binding)
         return net
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_update_network(self, context, id, network):
         subnets = self._get_subnets_by_network(context, id)
         for subn in subnets:
@@ -1091,7 +1092,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return (is_external_set, subnet)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_network(self, context, id, network):
         pnet._raise_if_updates_provider_attributes(network['network'])
         with context.session.begin(subtransactions=True):
@@ -1139,7 +1140,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return net
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_network(self, context, id):
         with context.session.begin(subtransactions=True):
             self._process_l3_delete(context, id)
@@ -1151,7 +1152,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             LOG.debug('Deleting network %s', id)
             super(NuagePlugin, self).delete_network(context, id)
 
-    @log.log
+    @log_helpers.log_method_call
     def _get_net_partition_for_subnet(self, context, subnet):
         ent = subnet.get('net_partition', None)
         if not ent:
@@ -1166,7 +1167,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             raise n_exc.BadRequest(resource='subnet', msg=msg)
         return net_partition
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_create_subnet(self, context, subnet, network_external):
         subnets = self._get_subnets_by_network(context, subnet['network_id'])
         subnet_nuagenet = subnet.get('nuagenet')
@@ -1200,7 +1201,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             msg = _("underlay attribute can not be set for internal subnets")
             raise nuage_exc.NuageBadRequest(msg=msg)
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_create_provider_subnet(self, context, net_id):
         net_filter = {'network_id': [net_id]}
         existing_subn = self.get_subnets(context, filters=net_filter)
@@ -1209,11 +1210,11 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     'Provider network %s') % net_id
             raise nuage_exc.OperationNotSupported(msg=msg)
 
-    @log.log
+    @log_helpers.log_method_call
     def _delete_nuage_sharedresource(self, net_id):
         self.nuageclient.delete_nuage_sharedresource(net_id)
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_nuage_sharedresource(self, context, resource, net_id):
         filter = {'network_id': [net_id]}
         existing_subn = self.get_subnets(context, filters=filter)
@@ -1223,7 +1224,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             raise nuage_exc.OperationNotSupported(msg=msg)
         return existing_subn
 
-    @log.log
+    @log_helpers.log_method_call
     def _add_nuage_sharedresource(self, subnet, net_id, type,
                                   req_subnet=None):
         net = netaddr.IPNetwork(subnet['cidr'])
@@ -1242,7 +1243,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         self.nuageclient.create_nuage_sharedresource(params)
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_nuage_sharedresource(self, context, subnet, type):
         req_subnet = copy.deepcopy(subnet['subnet'])
         net_id = req_subnet['network_id']
@@ -1255,7 +1256,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                            req_subnet=req_subnet)
             return neutron_subnet
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_port_gateway(self, context, subnet, gw_ip=None):
         if gw_ip is not None:
             fixed_ip = [{'ip_address': gw_ip, 'subnet_id': subnet['id']}]
@@ -1274,12 +1275,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
         port = super(NuagePlugin, self).create_port(context, port_dict)
         return port
 
-    @log.log
+    @log_helpers.log_method_call
     def _delete_port_gateway(self, context, ports):
         for port in ports:
             super(NuagePlugin, self).delete_port(context, port['id'])
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_nuage_subnet(self, context, neutron_subnet, netpart_id,
                              pnet_binding):
         gw_port = None
@@ -1332,7 +1333,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                 nuage_user_id=user_id,
                                                 nuage_group_id=group_id)
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_adv_subnet(self, context, subn, nuage_netpart):
         net_id = subn['network_id']
         nuage_subn_id = subn['nuagenet']
@@ -1425,7 +1426,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     msg = "DHCP must be disabled for this subnet"
                     raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-    @log.log
+    @log_helpers.log_method_call
     def _get_gwip_for_adv_managed_subn(self, subn):
         gw_ip_from_cli = subn['gateway_ip']
         nuage_subn_id = subn['nuagenet']
@@ -1468,7 +1469,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         # creating a dhcp_port with this gatewayIP
         return gw_ip
 
-    @log.log
+    @log_helpers.log_method_call
     def _link_nuage_adv_subnet(self, context, subnet):
         subn = subnet['subnet']
         nuage_subn_id = subn['nuagenet']
@@ -1557,7 +1558,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                ns_dict)
         return neutron_subnet
 
-    @log.log
+    @log_helpers.log_method_call
     def get_subnet(self, context, id, fields=None):
         subnet = super(NuagePlugin, self).get_subnet(context, id, None)
         subnet = nuagedb.get_nuage_subnet_info(context.session, subnet, fields)
@@ -1568,7 +1569,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         return self._fields(subnet, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
                     limit=None, marker=None, page_reverse=False):
         subnets = super(NuagePlugin, self).get_subnets(context, filters, None,
@@ -1581,7 +1582,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return subnets
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_subnet(self, context, subnet):
         subn = subnet['subnet']
         net_id = subn['network_id']
@@ -1622,7 +1623,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             return updated_subnet
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_subnet(self, context, id, subnet):
         subn = copy.deepcopy(subnet['subnet'])
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session, id)
@@ -1673,7 +1674,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             return updated_subnet
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_subnet(self, context, id):
         subnet = self.get_subnet(context, id)
 
@@ -1731,7 +1732,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return vip_found
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def add_router_interface(self, context, router_id, interface_info):
         session = context.session
         rtr_if_info = super(NuagePlugin,
@@ -1865,7 +1866,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return rtr_if_info
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def remove_router_interface(self, context, router_id, interface_info):
         if 'subnet_id' in interface_info:
             subnet_id = interface_info['subnet_id']
@@ -1970,7 +1971,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                    ns_dict)
         return info
 
-    @log.log
+    @log_helpers.log_method_call
     def _get_net_partition_for_router(self, context, rtr):
         ent = rtr.get('net_partition', None)
         if not ent:
@@ -1986,7 +1987,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return net_partition
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):
         router = super(NuagePlugin, self).get_router(context, id, fields)
         nuage_router = self.nuageclient.get_router_by_external(id)
@@ -2000,7 +2001,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return router
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_router(self, context, router):
         req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_router(context,
@@ -2043,7 +2044,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
         return neutron_router
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_nuage_staticroutes(self, old_routes, added, removed):
         cidrs = []
         for old in old_routes:
@@ -2059,7 +2060,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             cidrs.append(ip)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_router(self, context, id, router):
         # Fix-me(sayajirp) : Optimize update_router calls to VSD into a single
         # call.
@@ -2176,7 +2177,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return router_updated
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_router(self, context, id):
         neutron_router = self.get_router(context, id)
         session = context.session
@@ -2206,7 +2207,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             self.nuageclient.delete_user(user_id)
             self.nuageclient.delete_group(group_id)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_net_partition_dict(self, net_partition,
                                  context=None, fields=None):
         res = {
@@ -2221,7 +2222,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_net_partition(self, session, net_part_name):
         params = {
             "name": net_part_name,
@@ -2239,7 +2240,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             return {}
         return self._make_net_partition_dict(net_partitioninst)
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_create_net_partition(self,
                                        net_part_name,
                                        session=db.get_session()):
@@ -2293,7 +2294,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             return self._create_net_partition(session, net_part_name)
 
     @staticmethod
-    @log.log
+    @log_helpers.log_method_call
     def _add_net_partition(session, netpart, netpart_name):
         l3dom_id = netpart['l3dom_tid']
         l3isolated = constants.DEF_NUAGE_ZONE_PREFIX + '-' + l3dom_id
@@ -2306,7 +2307,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                          l3isolated,
                                          l3shared)
 
-    @log.log
+    @log_helpers.log_method_call
     def _link_default_netpartition(self, netpart_name,
                                    l2template, l3template,
                                    l3isolated, l3shared):
@@ -2343,7 +2344,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         self.default_np_id = np_id
         return net_partitioninst
 
-    @log.log
+    @log_helpers.log_method_call
     def _prepare_default_netpartition(self):
         netpart_name = cfg.CONF.RESTPROXY.default_net_partition_name
         l3template = cfg.CONF.RESTPROXY.default_l3domain_template
@@ -2374,14 +2375,14 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                l3shared)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
         return self._validate_create_net_partition(ent["name"],
                                                    context.session)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_net_partition(self, context, id):
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_entid(
             context.session, id)
@@ -2402,7 +2403,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             nuagedb.delete_net_partition(context.session,
                                          net_partition)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_net_partition(self, context, id, fields=None):
         net_partition = nuagedb.get_net_partition_by_id(context.session,
                                                         id)
@@ -2411,7 +2412,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                           resource_id=id)
         return self._make_net_partition_dict(net_partition, context=context)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_net_partitions(self, context, filters=None, fields=None):
         net_partitions = nuagedb.get_net_partitions(context.session,
                                                     filters=filters,
@@ -2419,7 +2420,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return [self._make_net_partition_dict(net_partition, context, fields)
                 for net_partition in net_partitions]
 
-    @log.log
+    @log_helpers.log_method_call
     def _check_floatingip_update(self, context, port,
                                  vport_type=constants.VM_VPORT,
                                  vport_id=None):
@@ -2433,7 +2434,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                            vport_type=vport_type,
                                            vport_id=vport_id)
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_update_floatingip(self, context,
                                   neutron_fip, port_id,
                                   last_known_router_id=None,
@@ -2543,7 +2544,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                   else "unlimited")))
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuagePlugin, self).get_floatingip(context, id)
 
@@ -2562,7 +2563,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._fields(fip, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_floatingip(self, context, floatingip):
         fip = floatingip['floatingip']
         with context.session.begin(subtransactions=True):
@@ -2591,7 +2592,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             return neutron_fip
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def disassociate_floatingips(self, context, port_id, do_notify=True):
         fips = self.get_floatingips(context, filters={'port_id': [port_id]})
         router_ids = super(NuagePlugin, self).disassociate_floatingips(
@@ -2622,7 +2623,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return router_ids
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_floatingip(self, context, id, floatingip):
         fip = floatingip['floatingip']
         orig_fip = self._get_floatingip(context, id)
@@ -2716,7 +2717,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return neutron_fip
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_floatingip(self, context, fip_id):
         fip = self._get_floatingip(context, fip_id)
         port_id = fip['fixed_port_id']
@@ -2801,7 +2802,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self.nuageclient.get_nuage_vport_by_id(params)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_security_group(self, context, id):
         filters = {'security_group_id': [id]}
         ports = self._get_port_security_group_bindings(context,
@@ -2814,7 +2815,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         super(NuagePlugin, self).delete_security_group(context, id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_security_group_rule(self, context, security_group_rule):
         remote_sg = None
         sg_rule = security_group_rule['security_group_rule']
@@ -2846,7 +2847,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return local_sg_rule
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_security_group_rule(self, context, id):
         local_sg_rule = self.get_security_group_rule(context, id)
         super(NuagePlugin, self).delete_security_group_rule(context, id)
@@ -2854,7 +2855,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         LOG.debug("Deleted security group rule %s", id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_vsd_subnet(self, context, id, fields=None):
         subnet, type = self.nuageclient.get_subnet_or_domain_subnet_by_id(id)
         vsd_subnet = {'id': subnet['subnet_id'],
@@ -2877,7 +2878,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._fields(vsd_subnet, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_vsd_subnets(self, context, filters=None, fields=None):
         if 'vsd_zone_id' not in filters:
             msg = _('vsd_zone_id is a required filter parameter for this API.')
@@ -2917,7 +2918,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             session, subnet['subnet_id'])
         return l2dom_mapping is not None
 
-    @log.log
+    @log_helpers.log_method_call
     def _get_default_net_partition(self, context):
         def_net_part = cfg.CONF.RESTPROXY.default_net_partition_name
         net_partition = nuagedb.get_net_partition_by_name(context.session,
@@ -2927,7 +2928,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             raise n_exc.BadRequest(resource='netpartition', msg=msg)
         return net_partition
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_appd_network(self, context, name):
         network = {
             'network': {
@@ -2967,7 +2968,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             appdomain_id)
         return application_domain['externalID']
 
-    @log.log
+    @log_helpers.log_method_call
     def _delete_appd_network(self, context, appdomain_id):
         with context.session.begin(subtransactions=True):
             id = self._get_appd_network_id(appdomain_id)
@@ -2980,7 +2981,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             LOG.debug('Deleting network %s', id)
             super(NuagePlugin, self).delete_network(context, id)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_nuage_application_domain_dict(self, application_router,
                                             context=None, fields=None):
         res = {
@@ -2995,7 +2996,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_nuage_application_dict(self, application, context=None,
                                      fields=None):
         res = {
@@ -3007,7 +3008,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_nuage_service_dict(self, service, context=None,
                                  fields=None):
         res = {
@@ -3024,7 +3025,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_nuage_flow_dict(self, flow, nuage_svc, context=None,
                               fields=None):
         res = {
@@ -3040,7 +3041,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_nuage_tier_dict(self, tier, context=None,
                               fields=None):
         res = {
@@ -3070,7 +3071,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             if subn['network_id'] == asppdnet_id:
                 return subn
 
-    @log.log
+    @log_helpers.log_method_call
     def _link_nuage_tier(self, context, subnet):
         subn = subnet['subnet']
         nuage_subn_id = subn['nuagenet']
@@ -3125,7 +3126,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             nuagedb.update_subnetl2dom_mapping(subnet_l2dom,
                                                ns_dict)
 
-    @log.log
+    @log_helpers.log_method_call
     def _delete_underlying_neutron_subnet(self, context, id):
         subnet = self.get_subnet(context, id)
         filters = {
@@ -3163,7 +3164,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 self.nuageclient.delete_user(subnet_l2dom['nuage_user_id'])
                 self.nuageclient.delete_group(subnet_l2dom['nuage_group_id'])
 
-    @log.log
+    @log_helpers.log_method_call
     def _create_appdport(self, context, params):
         tier = self.nuageclient.get_nuage_tier(params['tier_id'])
         nuage_app = self.nuageclient.get_nuage_application(tier['parentID'])
@@ -3208,7 +3209,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return port
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_application_domain(self, context, application_domain):
         app_domain = application_domain['application_domain']
         net = self._create_appd_network(context, app_domain['name'])
@@ -3237,7 +3238,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             raise
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_application_domain(self, context, id, fields=None):
         try:
             application_domain = self.nuageclient.\
@@ -3249,7 +3250,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             application_domain, context=context)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_application_domains(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
         if 'id' in filters:
@@ -3278,13 +3279,13 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 for application_domain in application_domains]
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_application_domain(self, context, id, application_domain):
         app_domain = application_domain['application_domain']
         return self.nuageclient.update_nuage_application_domain(id, app_domain)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_application_domain(self, context, id):
         try:
             self._delete_appd_network(context, id)
@@ -3302,7 +3303,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             self.nuageclient.delete_default_appdomain_template(net_partition)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_application(self, context, application):
         net_partition = self._get_default_net_partition(context)
         app = application['application']
@@ -3315,7 +3316,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self.nuageclient.create_nuage_application(params)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_application(self, context, id, fields=None):
         try:
             application = self.nuageclient.get_nuage_application(id)
@@ -3325,7 +3326,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._make_nuage_application_dict(application, context=context)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_applications(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
         if 'id' in filters:
@@ -3350,7 +3351,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 for application in applications]
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_application(self, context, id):
         net_partition = self._get_default_net_partition(context)
         std_tiers_in_app = self.nuageclient.get_tiers_by_type_from_application(
@@ -3375,13 +3376,13 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 macro_name, net_partition['id'])
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_application(self, context, id, application):
         app = application['application']
         return self.nuageclient.update_nuage_application(id, app)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_tier(self, context, tier):
         net_partition = self._get_default_net_partition(context)
         subn = tier['tier']
@@ -3422,7 +3423,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return nuage_tier
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_tier(self, context, id, tier):
         nuage_tier = tier['tier']
         orig_tier = self.nuageclient.get_nuage_tier(id)
@@ -3443,7 +3444,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self.nuageclient.update_nuage_tier(id, nuage_tier)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_tier(self, context, id, fields=None):
         try:
             tier = self.nuageclient.get_nuage_tier(id)
@@ -3453,7 +3454,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._make_nuage_tier_dict(tier, context=context)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_tiers(self, context, filters=None, fields=None):
         if 'id' in filters:
             try:
@@ -3471,7 +3472,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 for tier in tiers]
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_tier(self, context, id):
         macro_name = None
         tier = self.nuageclient.get_nuage_tier(id)
@@ -3494,7 +3495,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 macro_name, net_partition['id'])
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_appdport(self, context, appdport):
         p = appdport['appdport']
         params = {
@@ -3505,7 +3506,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         }
         return self._create_appdport(context, params)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_appdports(self, context, filters=None, fields=None):
         if 'id' in filters:
             return self.get_port(context, id)
@@ -3526,11 +3527,11 @@ class NuagePlugin(addresspair.NuageAddressPair,
             }
         return self.get_ports(context, filters=filters)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_appdport(self, context, id, fields=None):
         return self.get_port(context, id)
 
-    @log.log
+    @log_helpers.log_method_call
     def delete_appdport(self, context, id):
         port = self._get_port(context, id)
         self.disassociate_floatingips(context, id)
@@ -3563,7 +3564,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             super(NuagePlugin, self).delete_port(context, id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_appdport(self, context, id, appdport):
         original_nport = self.get_port(context, id)
         port = {'port': appdport['appdport']}
@@ -3578,7 +3579,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return updated_port
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_service(self, context, service):
         net_partition = self._get_default_net_partition(context)
         svc = service['service']
@@ -3597,7 +3598,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return nuage_service
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_service(self, context, id, fields=None):
         try:
             service = self.nuageclient.get_nuage_service(id)
@@ -3607,7 +3608,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._make_nuage_service_dict(service, context=context)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_services(self, context, filters=None, fields=None):
         net_partition = self._get_default_net_partition(context)
         if 'id' in filters:
@@ -3631,19 +3632,19 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 for service in services]
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_service(self, context, id):
         net_partition = self._get_default_net_partition(context)
         self.nuageclient.delete_nuage_service(net_partition['id'], id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_service(self, context, id, service):
         svc = service['service']
         return self.nuageclient.update_nuage_service(id, svc)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_flow(self, context, flow):
         nuage_flow = flow['flow']
         net_partition = self._get_default_net_partition(context)
@@ -3663,7 +3664,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self.nuageclient.create_nuage_flow(params)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_flow(self, context, id, fields=None):
         try:
             flow, nuage_svc = self.nuageclient.get_nuage_flow(id)
@@ -3673,7 +3674,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._make_nuage_flow_dict(flow, nuage_svc, context=context)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_flows(self, context, filters=None, fields=None):
         if 'id' in filters:
             try:
@@ -3691,12 +3692,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 for flow in flows]
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_flow(self, context, id):
         self.nuageclient.delete_nuage_flow(id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_flow(self, context, id, flow):
         return self.nuageclient.update_nuage_flow(id, flow['flow'])
 
@@ -3717,7 +3718,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                        subnet_mapping['subnet_id'])
                 raise nuage_exc.NuageBadRequest(msg=msg)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_redirect_target_dict(self, redirect_target,
                                    context=None, fields=None):
         res = {
@@ -3732,7 +3733,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._fields(res, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_nuage_redirect_target(self, context, nuage_redirect_target):
         redirect_target = nuage_redirect_target['nuage_redirect_target']
         subnet_id = redirect_target.get('subnet_id')
@@ -3763,7 +3764,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             return self._make_redirect_target_dict(rtarget_resp[3][0],
                                                    context=context)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_redirect_target(self, context, rtarget_id, fields=None):
         try:
             rtarget_resp = self.nuageclient.get_nuage_redirect_target(
@@ -3774,7 +3775,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._make_redirect_target_dict(rtarget_resp, context=context,
                                                fields=fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_redirect_targets(self, context, filters=None, fields=None):
         # get all redirect targets
         resource_id = None
@@ -3810,7 +3811,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 for rtarget in rtargets]
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_nuage_redirect_target(self, context, rtarget_id):
         filters = {'device_id': [rtarget_id]}
         ports = self.get_ports(context, filters=filters)
@@ -3818,11 +3819,11 @@ class NuagePlugin(addresspair.NuageAddressPair,
             self.delete_port(context, vip_port['id'])
         self.nuageclient.delete_nuage_redirect_target(rtarget_id)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_redirect_targets_count(self, context, filters=None):
         return 0
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_redirect_target_vip_dict(self, rtarget_vip,
                                        context=None, fields=None):
         res = {
@@ -3834,7 +3835,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._fields(res, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_nuage_redirect_target_vip(self, context,
                                          nuage_redirect_target_vip):
         redirect_target = nuage_redirect_target_vip[
@@ -3883,14 +3884,14 @@ class NuagePlugin(addresspair.NuageAddressPair,
             return self._make_redirect_target_vip_dict(vip_resp[3][0],
                                                        context=context)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_redirect_target_vips_count(self, context, filters=None):
         # neutron call this count function when creating a resource, to see
         # if it is within the quota limit, as this is VSD specific resource
         # and VSD doesn't have any quota limit, returning zero here
         return 0
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_redirect_target_rule_dict(self, redirect_target_rule,
                                         context=None, fields=None):
         port_range_min = None
@@ -3931,13 +3932,13 @@ class NuagePlugin(addresspair.NuageAddressPair,
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_nuage_redirect_target_rule(self, rule):
         NuagePlugin._validate_redirect_target_rule_priority(rule['priority'])
         self._validate_redirect_target_port_range(rule)
 
     @staticmethod
-    @log.log
+    @log_helpers.log_method_call
     def _validate_redirect_target_rule_priority(priority):
         try:
             val = int(priority)
@@ -3952,7 +3953,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
             message = _("Priority should be >=0 and <= 999999999")
             raise nuage_exc.NuageAPIException(msg=message)
 
-    @log.log
+    @log_helpers.log_method_call
     def _validate_redirect_target_port_range(self, rule):
         # Check that port_range is valid.
         if (rule['port_range_min'] is None and
@@ -3979,7 +3980,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                 raise ext_rtarget.RedirectTargetRuleInvalidPortRange()
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_nuage_redirect_target_rule(self, context,
                                           nuage_redirect_target_rule):
         remote_sg = None
@@ -3997,7 +3998,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                     context=context)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_redirect_target_rule(self, context, rtarget_rule_id,
                                        fields=None):
         try:
@@ -4013,12 +4014,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                     fields=fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_nuage_redirect_target_rule(self, context, rtarget_rule_id):
         self.nuageclient.delete_nuage_redirect_target_rule(rtarget_rule_id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_redirect_target_rules(self, context, filters=None,
                                         fields=None):
         params = {}
@@ -4055,12 +4056,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                      ) for
                 rtarget_rule in rtarget_rules]
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_redirect_target_rules_count(self, context, filters=None):
         return 0
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_vsd_zones(self, context, filters=None, fields=None):
         if 'vsd_domain_id' not in filters:
             msg = _('vsd_domain_id is a required filter parameter for this '
@@ -4086,7 +4087,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return self._trans_vsd_to_os(vsd_zones, vsd_to_os, filters, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_vsd_domains(self, context, filters=None, fields=None):
         if 'vsd_organisation_id' not in filters:
             msg = _('vsd_organisation_id is a required filter parameter for '
@@ -4130,7 +4131,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         return dict
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_vsd_organisations(self, context, filters=None, fields=None):
         netpartitions = self.nuageclient.get_net_partitions()
         vsd_to_os = {
