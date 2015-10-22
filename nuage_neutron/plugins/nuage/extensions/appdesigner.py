@@ -18,7 +18,7 @@ from neutron.api.v2 import base
 from neutron.common import constants as const
 from neutron.common import exceptions
 from neutron import manager
-from neutron import quota
+from neutron.quota import resource_registry
 
 
 def convert_nuage_services(value):
@@ -361,7 +361,7 @@ class Appdesigner(object):
                               'flow', 'service', 'tier']:
             collection_name = resource_name.replace('_', '-') + "s"
             params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-            quota.QUOTAS.register_resource_by_name(resource_name)
+            resource_registry.register_resource_by_name(resource_name)
             controller = base.create_resource(collection_name,
                                               resource_name,
                                               plugin, params,

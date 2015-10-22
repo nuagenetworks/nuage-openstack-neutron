@@ -17,7 +17,7 @@ import abc
 from neutron.api import extensions
 from neutron.api.v2 import base
 from neutron import manager
-from neutron import quota
+from neutron.quota import resource_registry
 
 
 # Attribute Map
@@ -70,7 +70,7 @@ class Netpartition(object):
         resource_name = 'net_partition'
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-        quota.QUOTAS.register_resource_by_name(resource_name)
+        resource_registry.register_resource_by_name(resource_name)
         controller = base.create_resource(collection_name,
                                           resource_name,
                                           plugin, params, allow_bulk=True)

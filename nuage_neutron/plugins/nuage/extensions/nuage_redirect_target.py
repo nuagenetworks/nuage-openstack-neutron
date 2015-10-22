@@ -20,7 +20,7 @@ from neutron.api.v2 import base
 from neutron.common import constants as const
 from neutron.common import exceptions as nexception
 from neutron import manager
-from neutron import quota
+from neutron.quota import resource_registry
 
 supported_protocols = [const.PROTO_NAME_TCP,
                        const.PROTO_NAME_UDP, const.PROTO_NAME_ICMP]
@@ -254,7 +254,7 @@ class Nuage_redirect_target(object):
                               'nuage_redirect_target_vip']:
             collection_name = resource_name.replace('_', '-') + "s"
             params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-            quota.QUOTAS.register_resource_by_name(resource_name)
+            resource_registry.register_resource_by_name(resource_name)
             controller = base.create_resource(collection_name,
                                               resource_name,
                                               plugin, params, allow_bulk=True)

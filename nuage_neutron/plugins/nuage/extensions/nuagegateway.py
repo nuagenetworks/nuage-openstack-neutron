@@ -18,7 +18,7 @@ from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
 from neutron.common import exceptions as nexception
 from neutron import manager
-from neutron import quota
+from neutron.quota import resource_registry
 
 
 class GatewayInvalidVlanValue(nexception.InvalidInput):
@@ -198,7 +198,7 @@ class Nuagegateway(object):
                               'nuage_gateway_vport']:
             collection_name = resource_name.replace('_', '-') + "s"
             params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-            quota.QUOTAS.register_resource_by_name(resource_name)
+            resource_registry.register_resource_by_name(resource_name)
             controller = base.create_resource(collection_name,
                                               resource_name,
                                               plugin, params, allow_bulk=True)
