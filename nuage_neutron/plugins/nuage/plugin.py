@@ -1370,6 +1370,12 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             msg = _("underlay attribute can not be set for internal subnets")
             raise nuage_exc.NuageBadRequest(msg=msg)
 
+        if (not network_external and
+                subnet['nuage_uplink']):
+            msg = _("nuage-uplink attribute can not be set for subnets under "
+                    "external networks ")
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
     @log_helpers.log_method_call
     def _validate_create_provider_subnet(self, context, net_id):
         net_filter = {'network_id': [net_id]}
@@ -1409,6 +1415,13 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             subnet['underlay'] = req_subnet.get('underlay')
         else:
             subnet['underlay'] = params['underlay_config']
+
+        if req_subnet and req_subnet.get('nuage_uplink'):
+            params['nuage_uplink'] = req_subnet.get('nuage_uplink')
+            subnet['nuage_uplink'] = req_subnet.get('nuage_uplink')
+        elif cfg.CONF.RESTPROXY.nuage_uplink:
+            subnet['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
+            params['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
 
         self.nuageclient.create_nuage_sharedresource(params)
 
@@ -2119,6 +2132,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         router['rd'] = nuage_router.get('routeDistinguisher')
         router['rt'] = nuage_router.get('routeTarget')
         router['ecmp_count'] = nuage_router.get('ECMPCount')
+        router['nuage_backhaul_vnid'] = nuage_router.get('backHaulVNID')
         for route in router.get('routes', []):
             params = {
                 'address': route['destination'].split("/")[0],
@@ -2174,6 +2188,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             neutron_router['rd'] = nuage_router['rd']
             neutron_router['rt'] = nuage_router['rt']
             neutron_router['ecmp_count'] = nuage_router['ecmp_count']
+            neutron_router['nuage_backhaul_vnid'] = \
+                nuage_router['nuage_backhaul_vnid']
 
         return neutron_router
 
@@ -2200,6 +2216,22 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             self._update_nuage_router(nuage_domain_id, curr_router, updates,
                                       ent_rtr_mapping)
         nuage_router = self.nuageclient.get_router_by_external(id)
+        router_backhaul_vnid = updates.get('nuage_backhaul_vnid')
+        if (router_backhaul_vnid and router_backhaul_vnid !=
+                str(curr_router['nuage_backhaul_vnid'])):
+            net_partition = self._get_net_partition_for_router(
+                context, router['router'])
+            params = {
+                'net_partition': net_partition,
+                'tenant_id': curr_router['tenant_id']
+            }
+            nuage_domain_id = ent_rtr_mapping['nuage_router_id']
+            updated_dict = dict(updates)
+            updated_dict['nauge_backhaul_vnid'] = router_backhaul_vnid
+
+            self.nuageclient.update_router_backhaul_vnid(
+                curr_router, updated_dict, nuage_domain_id, params)
+
         self._add_nuage_router_attributes(router_updated, nuage_router)
         return router_updated
 

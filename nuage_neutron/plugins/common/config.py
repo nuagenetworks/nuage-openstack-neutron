@@ -53,7 +53,8 @@ restproxy_opts = [
     cfg.BoolOpt('nuage_fip_underlay', default=False),
     cfg.StrOpt('cms_id', default=None,
                help=_("ID of a Cloud Management System on the VSD which "
-                      "identifies this OpenStack instance"))
+                      "identifies this OpenStack instance")),
+    cfg.StrOpt('nuage_uplink', default=None)
 ]
 
 syncmanager_opts = [
