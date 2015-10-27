@@ -483,7 +483,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
         super(NuagePlugin,
               self)._delete_port_security_group_bindings(context, port_id)
         port = self.get_port(context, port_id)
-        if port.get('device_owner') not in constants.AUTO_CREATE_PORT_OWNERS:
+        if nuage_utils.check_vport_creation(
+                port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                             subnet_id)
@@ -512,7 +513,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
         port = super(NuagePlugin, self).create_port(context, port)
         self._process_portbindings_create_and_update(context, p, port)
         device_owner = port.get('device_owner', None)
-        if device_owner not in constants.AUTO_CREATE_PORT_OWNERS:
+        if nuage_utils.check_vport_creation(
+                device_owner, cfg.CONF.PLUGIN.device_owner_prefix):
             if 'fixed_ips' not in port or len(port['fixed_ips']) == 0:
                 return port
             subnet_id = port['fixed_ips'][0]['subnet_id']
@@ -609,8 +611,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
     def _validate_update_port(self, port, original_port, has_security_groups):
         original_device_owner = original_port.get('device_owner')
-        if has_security_groups and (original_device_owner in
-                                    constants.AUTO_CREATE_PORT_OWNERS):
+        if has_security_groups and not nuage_utils.check_vport_creation(
+                original_device_owner, cfg.CONF.PLUGIN.device_owner_prefix):
             msg = _("device_owner of port with device_owner set to %s "
                     "can not have security groups") % original_device_owner
             raise nuage_exc.OperationNotSupported(msg=msg)
@@ -881,8 +883,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                         nuage_vport.get('nuage_vport_id'))
 
         # delete nuage vport created explicitly
-        if not nuage_port and (port.get('device_owner')
-                               not in constants.AUTO_CREATE_PORT_OWNERS):
+        if not nuage_port and nuage_utils.check_vport_creation(
+                port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
             nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
             if nuage_vport:
                 self.nuageclient.delete_nuage_vport(
@@ -951,7 +953,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                       sub_id)
             return super(NuagePlugin, self).delete_port(context, id)
 
-        if port['device_owner'] not in constants.AUTO_CREATE_PORT_OWNERS:
+        if nuage_utils.check_vport_creation(
+                port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
             # Need to call this explicitly to delete vport to vporttag binding
             if (ext_sg.SECURITYGROUPS in port and
                     subnet_mapping['nuage_managed_subnet'] is False):
