@@ -77,8 +77,15 @@ fiprate_opts = [
     cfg.IntOpt('default_fip_rate', default=-1),
 ]
 
+plugin_opts = [
+    cfg.ListOpt('device_owner_prefix', default=[],
+                help=_("List of device_owners prefix for which vports are "
+                       "not created in VSD.")),
+]
+
 
 def nuage_register_cfg_opts():
     cfg.CONF.register_opts(restproxy_opts, "RESTPROXY")
     cfg.CONF.register_opts(syncmanager_opts, "SYNCMANAGER")
     cfg.CONF.register_opts(fiprate_opts, "FIPRATE")
+    cfg.CONF.register_opts(plugin_opts, "PLUGIN")
