@@ -1136,6 +1136,18 @@ class NuagePlugin(addresspair.NuageAddressPair,
                     self._add_nuage_sharedresource(subnet[0],
                                                    id,
                                                    constants.SR_TYPE_FLOATING)
+            if network['network'].get('shared') in [True, False]:
+                subnets = self._get_subnets_by_network(context, id)
+                for subn in subnets:
+                    subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
+                        context.session, subn['id'])
+                    if subnet_l2dom['nuage_l2dom_tmplt_id']:
+                        # change of perm only reqd in l2dom case
+                        self.nuageclient.change_perm_of_subns(
+                            subnet_l2dom['net_partition_id'],
+                            subnet_l2dom['nuage_subnet_id'],
+                            network['network']['shared'],
+                            subn['tenant_id'])
         return net
 
     @nuage_utils.handle_nuage_api_error
