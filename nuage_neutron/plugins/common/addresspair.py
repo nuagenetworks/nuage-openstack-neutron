@@ -47,7 +47,8 @@ class NuageAddressPair(BaseNuagePlugin):
                 'subnet_id': nuage_subnet_id,
                 'vport_id': nuage_vport['nuage_vport_id'],
                 'port_ip': port['fixed_ips'][0]['ip_address'],
-                'port_mac': port['mac_address']
+                'port_mac': port['mac_address'],
+                'externalID': port['id']
             }
 
             try:
@@ -142,7 +143,8 @@ class NuageAddressPair(BaseNuagePlugin):
             port_dict = {
                 addr_pair.ADDRESS_PAIRS: vips_add_list,
                 'fixed_ips': port['fixed_ips'],
-                'mac_address': port['mac_address']
+                'mac_address': port['mac_address'],
+                'id': port['id']
             }
             self._create_vips(nuage_subnet_id, port_dict, nuage_vport)
 

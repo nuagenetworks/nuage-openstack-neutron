@@ -319,7 +319,8 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
         # use the vsd API to claim a FIP from the FIP n/w
         # to which router_1 (VPN g/w) is attached.
         nuage_fip = l3_plugin.claim_fip_for_domain_from_shared_resource(
-            context, vpn_ext_subn['id'], dummy_rtr['id'])
+            context, vpn_ext_subn['id'], dummy_rtr['id'],
+            vpnservice_dict['id'])
 
         # use neutron API to create a dummy port on
         # dummy subnet with the nuage_fip['address']

@@ -421,8 +421,12 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
 
     def _cleanup_group(self, db_context, nuage_npid, nuage_subnet_id, subnet):
         try:
+            if db_context.tenant == subnet['tenant_id']:
+                tenants = [db_context.tenant]
+            else:
+                tenants = [db_context.tenant, subnet['tenant_id']]
             self.nuageclient.detach_nuage_group_to_nuagenet(
-                db_context.tenant, nuage_npid, nuage_subnet_id,
+                tenants, nuage_subnet_id,
                 subnet.get('shared'))
         except Exception as e:
             LOG.error("Failed to detach group from vsd subnet {tenant: %s,"
