@@ -216,7 +216,8 @@ class NuageRedirectTarget(BaseNuagePlugin):
 
             vip_resp = self.nuageclient.create_virtual_ip(
                 redirect_target['redirect_target_id'],
-                redirect_target['virtual_ip_address'])
+                redirect_target['virtual_ip_address'],
+                vip_port['id'])
 
             self.core_plugin.update_port(
                 context, vip_port['id'],

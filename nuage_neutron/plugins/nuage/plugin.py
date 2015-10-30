@@ -1746,7 +1746,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 }
                 gw_ports = self.get_ports(context, filters=filters)
                 self._delete_port_gateway(context, gw_ports)
-
+            subn['id'] = subnet['subnet']['id']
             self.nuageclient.update_subnet(subn, params)
 
             return updated_subnet
@@ -1784,9 +1784,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         if subnet_l2dom:
             if subnet_l2dom['nuage_managed_subnet']:
+                if context.tenant == subnet['tenant_id']:
+                    tenants = [context.tenant]
+                else:
+                    tenants = [context.tenant, subnet['tenant_id']]
                 self.nuageclient.detach_nuage_group_to_nuagenet(
-                    context.tenant, subnet_l2dom['net_partition_id'],
-                    subnet_l2dom['nuage_subnet_id'], subnet['shared'])
+                    tenants,
+                    subnet_l2dom['nuage_subnet_id'],
+                    subnet['shared'])
 
             if not self._check_router_subnet_for_tenant(
                     context, subnet['tenant_id']):
@@ -2293,6 +2298,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         net_partitioninst = None
         if nuage_net_partition:
             with session.begin(subtransactions=True):
+                self.nuageclient.set_external_id_for_netpart_rel_elems(
+                    nuage_net_partition)
                 net_partitioninst = NuagePlugin._add_net_partition(
                     session,
                     nuage_net_partition,
@@ -2444,22 +2451,29 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    def delete_net_partition(self, context, id):
+    def _validate_delete_net_partition(self, context, id, net_partition_name):
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_entid(
+            context.session, id)
+        ent_l2dom_mapping = nuagedb.get_ent_l2dom_mapping_by_entid(
             context.session, id)
         if ent_rtr_mapping:
             msg = (_("One or more router still attached to "
-                     "net_partition %s.") % id)
+                     "net_partition %s.") % net_partition_name)
             raise n_exc.BadRequest(resource='net_partition', msg=msg)
+        if ent_l2dom_mapping:
+            msg = (_("One or more L2 Domain Subnet present in the "
+                     "net_partition %s.") % net_partition_name)
+            raise n_exc.BadRequest(resource='net_partition', msg=msg)
+
+    @nuage_utils.handle_nuage_api_error
+    @log_helpers.log_method_call
+    def delete_net_partition(self, context, id):
         net_partition = nuagedb.get_net_partition_by_id(context.session, id)
         if not net_partition:
             raise nuage_exc.NuageNotFound(resource='net_partition',
                                           resource_id=id)
-        l3dom_tmplt_id = net_partition['l3dom_tmplt_id']
-        l2dom_tmplt_id = net_partition['l2dom_tmplt_id']
-        self.nuageclient.delete_net_partition(net_partition['id'],
-                                              l3dom_id=l3dom_tmplt_id,
-                                              l2dom_id=l2dom_tmplt_id)
+        self._validate_delete_net_partition(context, id, net_partition['name'])
+        self.nuageclient.delete_net_partition(net_partition['id'])
         with context.session.begin(subtransactions=True):
             nuagedb.delete_net_partition(context.session,
                                          net_partition)
@@ -3144,7 +3158,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 del subnet[key]
         return subnet
 
-    def claim_fip_for_domain_from_shared_resource(self, context, id, rtr_id):
+    def claim_fip_for_domain_from_shared_resource(self, context, id,
+                                                  rtr_id, vpn_id):
         fip_pool = self.nuageclient.get_nuage_fip_pool_by_id(id)
         if not fip_pool:
             msg = _('sharedresource %s not found on VSD') % id
@@ -3160,6 +3175,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         params = {
             'nuage_rtr_id': ent_rtr_mapping['nuage_router_id'],
             'nuage_fippool_id': fip_pool['nuage_fip_pool_id'],
+            'vpn_id': vpn_id
         }
         nuage_fip = self.nuageclient.create_nuage_fip_for_vpnaas(params)
         return nuage_fip
