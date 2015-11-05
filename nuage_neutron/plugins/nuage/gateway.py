@@ -13,9 +13,9 @@
 #    under the License.
 
 from oslo_config import cfg
+from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from neutron.common import log
 from neutron.extensions import securitygroup as ext_sg
 from nuage_neutron.plugins.nuage.common import constants
 from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
@@ -30,7 +30,7 @@ class NuagegatewayMixin(object):
     def __init__(self, *args, **kwargs):
         super(NuagegatewayMixin, self).__init__(*args, **kwargs)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_gw_port_dict(self, port, fields=None, context=None):
         res = {
             'id': port['gw_port_id'],
@@ -45,7 +45,7 @@ class NuagegatewayMixin(object):
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_gateway_dict(self, gateway, fields=None, context=None):
         res = {
             'id': gateway['gw_id'],
@@ -60,7 +60,7 @@ class NuagegatewayMixin(object):
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_vlan_dict(self, vlan, fields=None, context=None):
         res = {
             'id': vlan['gw_vlan_id'],
@@ -78,7 +78,7 @@ class NuagegatewayMixin(object):
         return self._fields(res, fields)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def _make_vport_dict(self, vport, fields=None, context=None):
         res = {
             'id': vport['vport_id'],
@@ -105,7 +105,7 @@ class NuagegatewayMixin(object):
         return self._fields(res, fields)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_nuage_gateway_vport(self, context, nuage_gateway_vport):
         vport = nuage_gateway_vport['nuage_gateway_vport']
         subnet_id = vport.get('subnet')
@@ -147,7 +147,7 @@ class NuagegatewayMixin(object):
         return self._make_vport_dict(resp, context=context)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_nuage_gateway_vlan(self, context, nuage_gateway_vlan):
         vlan = nuage_gateway_vlan['nuage_gateway_vlan']
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
@@ -158,19 +158,19 @@ class NuagegatewayMixin(object):
         return self._make_vlan_dict(resp, context=context)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_nuage_gateway_vlan(self, context, id):
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
         netpart = nuagedb.get_default_net_partition(context, def_netpart)
         self.nuageclient.delete_gateway_port_vlan(id, netpart['id'])
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_nuage_gateway_vport(self, context, id):
         self.nuageclient.delete_nuage_gateway_vport(context.tenant_id, id)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def update_nuage_gateway_vlan(self, context, id, nuage_gateway_vlan):
         vlan = nuage_gateway_vlan['nuage_gateway_vlan']
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
@@ -185,7 +185,7 @@ class NuagegatewayMixin(object):
         return self._make_vlan_dict(resp, context=context)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway_vlan(self, context, id, fields=None):
         resp = self.nuageclient.get_gateway_port_vlan(context.tenant_id,
                                                       id)
@@ -196,7 +196,7 @@ class NuagegatewayMixin(object):
                                           resource_id=id)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway_vport(self, context, id, fields=None):
         fetch_tenant = self._check_for_permissions(context, None)
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
@@ -212,7 +212,7 @@ class NuagegatewayMixin(object):
                                           resource_id=id)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway_vports(self, context, filters=None, fields=None):
         user_tenant = filters.get('tenant')
         fetch_tenant = self._check_for_permissions(context, user_tenant)
@@ -230,17 +230,17 @@ class NuagegatewayMixin(object):
             return []
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway_vlans_count(self, context, filters=None):
         return 0
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway_vports_count(self, context, filters=None):
         return 0
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def _check_for_permissions(self, context, user_tenant):
         fetch_tenant = None
         if context.is_admin:
@@ -279,7 +279,7 @@ class NuagegatewayMixin(object):
         return fetch_tenant
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway_vlans(self, context, filters=None, fields=None):
         if not filters:
             # No gateway or gatewayport specified by user
@@ -316,7 +316,7 @@ class NuagegatewayMixin(object):
             return []
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway_port(self, context, id, fields=None):
         resp = self.nuageclient.get_gateway_port(context.tenant_id, id)
 
@@ -328,7 +328,7 @@ class NuagegatewayMixin(object):
                                           resource_id=id)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway_ports(self, context, filters=None, fields=None):
         resp = self.nuageclient.get_gateway_ports(context.tenant_id,
                                                   filters=filters)
@@ -336,7 +336,7 @@ class NuagegatewayMixin(object):
                 for gw in resp]
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateway(self, context, id, fields=None):
         resp = self.nuageclient.get_gateway(context.tenant_id, id)
         if resp:
@@ -347,14 +347,14 @@ class NuagegatewayMixin(object):
                                           resource_id=id)
 
     @utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_gateways(self, context, filters=None, fields=None):
         resp = self.nuageclient.get_gateways(context.tenant_id,
                                              filters=filters)
         return [self._make_gateway_dict(gw, fields=fields, context=context)
                 for gw in resp]
 
-    @log.log
+    @log_helpers.log_method_call
     def delete_gw_host_vport(self, context, port, subnet_mapping):
         port_params = {
             'neutron_port_id': port['id']

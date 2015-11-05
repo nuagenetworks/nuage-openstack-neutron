@@ -12,9 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from neutron.common import log
 from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
 from nuage_neutron.plugins.nuage.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import nuagedb
@@ -24,7 +24,7 @@ LOG = logging.getLogger(__name__)
 
 class NuageexternalsgMixin(object):
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_external_security_group_dict(self, redirect_target,
                                            context=None, fields=None):
         res = {
@@ -38,7 +38,7 @@ class NuageexternalsgMixin(object):
         return self._fields(res, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_nuage_external_security_group(self, context,
                                              nuage_external_security_group):
         external_sg = nuage_external_security_group[
@@ -72,7 +72,7 @@ class NuageexternalsgMixin(object):
         return self._make_external_security_group_dict(ext_sg_resp[3][0],
                                                        context=context)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_external_security_group(self, context, ext_sg_id,
                                           fields=None):
         try:
@@ -86,7 +86,7 @@ class NuageexternalsgMixin(object):
                                                        context=context,
                                                        fields=fields)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_external_security_groups(self, context, filters=None,
                                            fields=None):
         # get all redirect targets
@@ -125,15 +125,15 @@ class NuageexternalsgMixin(object):
                 for sg in ext_sgs]
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_nuage_external_security_group(self, context, ext_sg_id):
         self.nuageclient.delete_nuage_external_security_group(ext_sg_id)
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_external_security_groups_count(self, context, filters=None):
         return 0
 
-    @log.log
+    @log_helpers.log_method_call
     def _make_external_security_group_rule_dict(self, ext_sg_rule,
                                                 context=None, fields=None):
         port_range_min = None
@@ -165,7 +165,7 @@ class NuageexternalsgMixin(object):
         return self._fields(res, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def create_nuage_external_security_group_rule(
             self, context, nuage_external_security_group_rule):
         external_sg_rule = (
@@ -179,7 +179,7 @@ class NuageexternalsgMixin(object):
                                                             context=context)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_external_security_group_rule(self, context, external_rule_id,
                                                fields=None):
         try:
@@ -194,13 +194,13 @@ class NuageexternalsgMixin(object):
                                                             fields=fields)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def delete_nuage_external_security_group_rule(self, context,
                                                   external_rule_id):
         self.nuageclient.delete_nuage_external_sg_rule(external_rule_id)
 
     @nuage_utils.handle_nuage_api_error
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_external_security_group_rules(self, context, filters=None,
                                                 fields=None):
         params = {}
@@ -235,7 +235,7 @@ class NuageexternalsgMixin(object):
                                                              fields) for
                 ext_rule in ext_rules]
 
-    @log.log
+    @log_helpers.log_method_call
     def get_nuage_external_security_group_rules_count(self, context,
                                                       filters=None):
         return 0
