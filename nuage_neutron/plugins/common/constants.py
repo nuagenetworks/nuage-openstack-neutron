@@ -55,3 +55,5 @@ NUAGE_PAT_DEF_ENABLED = 'default_enabled'
 NUAGE_PAT_DEF_DISABLED = 'default_disabled'
 
 RES_NOT_FOUND = 404
+
+L2DOMAIN = 'L2Domain'

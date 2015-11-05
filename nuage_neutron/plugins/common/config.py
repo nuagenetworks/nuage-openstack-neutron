@@ -14,8 +14,7 @@
 
 from oslo_config import cfg
 
-from nuage_neutron.plugins.nuage.common import constants
-
+from nuage_neutron.plugins.common import constants
 
 nuage_pat_choices = [constants.NUAGE_PAT_NOT_AVAILABLE,
                      constants.NUAGE_PAT_DEF_ENABLED,
