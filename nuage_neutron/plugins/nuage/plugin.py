@@ -2544,6 +2544,9 @@ class NuagePlugin(addresspair.NuageAddressPair,
             msg = _('Rate limiting requires the floating ip to be '
                     'associated to a port.')
             raise nuage_exc.NuageBadRequest(msg=msg)
+        if not fip_rate_configured and not nuage_vport:
+            del neutron_fip['nuage_fip_rate']
+
         if nuage_vport:
             if not fip_rate_configured:
                 neutron_fip['nuage_fip_rate'] = self.def_fip_rate
