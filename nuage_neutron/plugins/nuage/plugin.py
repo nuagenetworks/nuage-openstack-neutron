@@ -25,7 +25,6 @@ from oslo_config import cfg
 from oslo_log.formatters import ContextFormatter
 from oslo_log import log as logging
 from oslo_utils import excutils
-from oslo_utils import importutils
 from sqlalchemy import exc as sql_exc
 from sqlalchemy import func
 from sqlalchemy.orm import exc
@@ -52,24 +51,27 @@ from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.openstack.common import loopingcall
-from nuage_neutron.plugins.nuage import addresspair
-from nuage_neutron.plugins.nuage.common import config
-from nuage_neutron.plugins.nuage.common import constants
-from nuage_neutron.plugins.nuage.common import exceptions as nuage_exc
-from nuage_neutron.plugins.nuage.common import utils as nuage_utils
-from nuage_neutron.plugins.nuage import extensions
-from nuage_neutron.plugins.nuage.extensions import (
+from nuage_neutron.plugins.common import base_plugin
+from nuage_neutron.plugins.common import config
+from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import exceptions as nuage_exc
+from nuage_neutron.plugins.common import extensions as common_extensions
+from nuage_neutron.plugins.common.extensions import (
     nuage_redirect_target as ext_rtarget)
+from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import utils as nuage_utils
+from nuage_neutron.plugins.nuage import addresspair
+from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage.extensions import netpartition
 from nuage_neutron.plugins.nuage import externalsg
 from nuage_neutron.plugins.nuage import gateway
-from nuage_neutron.plugins.nuage import nuagedb
 from nuagenetlib.restproxy import RESTProxyError
 
 LOG = logging.getLogger(__name__)
 
 
-class NuagePlugin(addresspair.NuageAddressPair,
+class NuagePlugin(base_plugin.BaseNuagePlugin,
+                  addresspair.NuageAddressPair,
                   db_base_plugin_v2.NeutronDbPluginV2,
                   external_net_db.External_net_db_mixin,
                   extraroute_db.ExtraRoute_db_mixin,
@@ -91,8 +93,10 @@ class NuagePlugin(addresspair.NuageAddressPair,
     def __init__(self):
         super(NuagePlugin, self).__init__()
         neutron_extensions.append_api_extensions_path(extensions.__path__)
+        neutron_extensions.append_api_extensions_path(
+            common_extensions.__path__)
         config.nuage_register_cfg_opts()
-        self.nuageclient_init()
+        self._nuageclient_init()
         self._prepare_default_netpartition()
         self.init_fip_rate_log()
         LOG.debug("NuagePlugin initialization done")
@@ -106,26 +110,6 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
         attributes.NETWORKS, ['_extend_network_dict_provider_nuage'])
-
-    def nuageclient_init(self):
-        server = cfg.CONF.RESTPROXY.server
-        serverauth = cfg.CONF.RESTPROXY.serverauth
-        serverssl = cfg.CONF.RESTPROXY.serverssl
-        base_uri = cfg.CONF.RESTPROXY.base_uri
-        auth_resource = cfg.CONF.RESTPROXY.auth_resource
-        organization = cfg.CONF.RESTPROXY.organization
-        cms_id = cfg.CONF.RESTPROXY.cms_id
-        if not cms_id:
-            raise cfg.ConfigFileValueError(
-                _('Missing cms_id in configuration.'))
-        nuageclient = importutils.import_module('nuagenetlib.nuageclient')
-        self.nuageclient = nuageclient.NuageClient(cms_id=cms_id,
-                                                   server=server,
-                                                   base_uri=base_uri,
-                                                   serverssl=serverssl,
-                                                   serverauth=serverauth,
-                                                   auth_resource=auth_resource,
-                                                   organization=organization)
 
     def init_fip_rate_log(self):
         self.def_fip_rate = cfg.CONF.FIPRATE.default_fip_rate
@@ -195,8 +179,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
 
     @staticmethod
     @log.log
-    def _validate_create_nuage_port(session, ports, np_name,
-                                    cur_port_id):
+    def _validate_create_nuage_vport(session, ports, np_name, cur_port_id):
         for port in ports:
             if port['id'] != cur_port_id:
                 subnet_id = port['fixed_ips'][0]['subnet_id']
@@ -211,8 +194,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                         raise nuage_exc.NuageBadRequest(msg=msg)
 
     @log.log
-    def _create_update_port(self, context, port, np_name,
-                            subnet_mapping):
+    def _create_update_port(self, context, port, np_name, subnet_mapping):
         # Set the description to owner:compute for ports created by nova,
         # so that, vports created for these ports can be deleted on nova vm
         # delete
@@ -221,36 +203,12 @@ class NuagePlugin(addresspair.NuageAddressPair,
         filters = {'device_id': [port['device_id']]}
         ports = self.get_ports(context, filters)
         if len(ports) > 1:
-            NuagePlugin._validate_create_nuage_port(context.session, ports,
-                                                    np_name, port['id'])
-        nuage_vport_dict = self._create_nuage_port(context, port,
-                                                   np_name, subnet_mapping,
-                                                   description=vport_desc)
+            self._validate_vmports_same_netpartition(self, ports, np_name,
+                                                     port['id'])
+        nuage_vport_dict = self._create_nuage_vport(port, subnet_mapping,
+                                                    description=vport_desc)
         self._update_nuage_port(context, port, np_name, subnet_mapping,
                                 nuage_vport_dict)
-
-    @log.log
-    def _create_nuage_port(self, context, port, np_name,
-                           subnet_mapping, description=None):
-        filters = {'device_id': [port['device_id']]}
-        ports = self.get_ports(context, filters)
-        params = {
-            'port_id': port['id'],
-            'id': port['device_id'],
-            'mac': port['mac_address'],
-            'netpart_name': np_name,
-            'ip': port['fixed_ips'][0]['ip_address'],
-            'no_of_ports': len(ports),
-            'tenant': port['tenant_id'],
-            'neutron_id': port['fixed_ips'][0]['subnet_id'],
-            'description': description
-        }
-        if port['device_owner'] == constants.APPD_PORT:
-            params['name'] = port['name']
-        if subnet_mapping['nuage_managed_subnet']:
-            params['parent_id'] = subnet_mapping['nuage_l2dom_tmplt_id']
-
-        return self.nuageclient.create_vport(params)
 
     @log.log
     def _update_nuage_port(self, context, port, np_name,
@@ -271,8 +229,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
             no_of_ports = 1
 
         if no_of_ports > 1:
-            self._validate_create_nuage_port(context.session, ports, np_name,
-                                             port['id'])
+            self._validate_create_nuage_vport(context.session, ports, np_name,
+                                              port['id'])
         params = {
             'port_id': port['id'],
             'id': vm_id,
@@ -549,10 +507,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                         net_partition = nuagedb.get_net_partition_by_id(
                             session,
                             subnet_mapping['net_partition_id'])
-                        self._create_nuage_port(context,
-                                                port,
-                                                net_partition['name'],
-                                                subnet_mapping)
+                        self._create_nuage_vport(port, subnet_mapping)
                     except Exception:
                         with excutils.save_and_reraise_exception():
                             super(NuagePlugin, self).delete_port(context,
@@ -1381,64 +1336,13 @@ class NuagePlugin(addresspair.NuageAddressPair,
                    "same VSD network")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-        try:
-            nuage_ip, nuage_netmask = self.nuageclient.get_nuage_cidr(
-                nuage_subn_id)
-        except Exception:
-            msg = ("Provided nuagenet ID does not match VSD "
-                   "configuration. ")
-            raise n_exc.BadRequest(resource='subnet', msg=msg)
-        else:
-            nuage_subnet_details, domain_name = (
-                self.nuageclient.get_subnet_or_domain_subnet_by_id(
-                    nuage_subn_id))
-            if nuage_ip:
-                if not subn['enable_dhcp']:
-                    msg = "DHCP must be enabled for this subnet"
-                    raise n_exc.BadRequest(resource='subnet', msg=msg)
-                cidr = netaddr.IPNetwork(subn['cidr'])
-                if (nuage_ip != str(cidr.ip) or
-                        nuage_netmask != str(cidr.netmask)):
-                    msg = ("Provided IP configuration does not match VSD "
-                           "configuration")
-                    raise n_exc.BadRequest(resource='subnet', msg=msg)
-
-            # Determine if the VSD-owned unmanaged Subnet
-            # is associated with a shared resource or not.
-
-            elif nuage_subnet_details['subnet_shared_net_id']:
-                shared_nuage_subnet_details = (
-                    self.nuageclient.get_nuage_sharedresource(
-                        nuage_subnet_details['subnet_shared_net_id']))
-                shared_nuage_ip = (
-                    shared_nuage_subnet_details['subnet_address'])
-
-                if shared_nuage_ip:
-                    if not subn['enable_dhcp']:
-                        msg = ("DHCP must be enabled for this Subnet since "
-                               "its associated with a Shared Managed Subnet")
-                        raise n_exc.BadRequest(resource='subnet', msg=msg)
-                    # Validating if the provided CIDR is similar to
-                    # the shared L2Subnet CIDR Value.
-                    shared_nuage_netmask = (
-                        shared_nuage_subnet_details['subnet_netmask'])
-                    cidr = netaddr.IPNetwork(subn['cidr'])
-                    if (shared_nuage_ip != str(cidr.ip) or
-                            shared_nuage_netmask != str(cidr.netmask)):
-                        msg = ("Provided IP configuration does not match"
-                               " Associated Shared VSD Subnet configuration")
-                        raise n_exc.BadRequest(resource='subnet', msg=msg)
-                elif subn['enable_dhcp']:
-                    # Case of VSDUnManaged subnet with shared-Unmanaged subnet.
-                    msg = ("DHCP must be disabled for this subnet since its "
-                           "associated with a shared UnManaged subnet")
-                    raise n_exc.BadRequest(resource='subnet', msg=msg)
-
-            else:
-                # this is the case for VSD-owned unmanaged subnet.
-                if subn['enable_dhcp']:
-                    msg = "DHCP must be disabled for this subnet"
-                    raise n_exc.BadRequest(resource='subnet', msg=msg)
+        nuage_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+            nuage_subn_id)
+        shared_nuage_subnet = None
+        if nuage_subnet['subnet_shared_net_id']:
+            shared_nuage_subnet = self.nuageclient.get_nuage_sharedresource(
+                nuage_subnet['subnet_shared_net_id'])
+        self._validate_cidr(subn, nuage_subnet, shared_nuage_subnet)
 
     @log.log
     def _get_gwip_for_adv_managed_subn(self, subn):
@@ -1450,7 +1354,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
         # in case of adv. managed subnets.
         # Also get gateway_ip based upon, if the subnet
         # is associated with a shared subnet or not.
-        nuage_subnet_details, domain_name = (
+        nuage_subnet_details = (
             self.nuageclient.get_subnet_or_domain_subnet_by_id(
                 nuage_subn_id))
         if nuage_subnet_details['subnet_shared_net_id']:
@@ -2874,7 +2778,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_vsd_subnet(self, context, id, fields=None):
-        subnet, type = self.nuageclient.get_subnet_or_domain_subnet_by_id(id)
+        subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(id)
         vsd_subnet = {'id': subnet['subnet_id'],
                       'name': subnet['subnet_name'],
                       'cidr': self._calc_cidr(subnet),
@@ -2882,7 +2786,7 @@ class NuagePlugin(addresspair.NuageAddressPair,
                       'ip_version': subnet['subnet_iptype'],
                       'linked': self._is_subnet_linked(context.session,
                                                        subnet)}
-        if type == 'Subnet':
+        if subnet['type'] == 'Subnet':
             domain_id = self.nuageclient.get_router_by_domain_subnet_id(
                 vsd_subnet['id'])
             netpart_id = self.nuageclient.get_router_np_id(domain_id)
@@ -3215,10 +3119,8 @@ class NuagePlugin(addresspair.NuageAddressPair,
                                                         subnet_id)
 
         try:
-            net_partition = nuagedb.get_net_partition_by_id(
-                context.session, subnet_mapping['net_partition_id'])
-            self._create_nuage_port(context, port, net_partition['name'],
-                                    subnet_mapping, params['description'])
+            self._create_nuage_vport(port, subnet_mapping,
+                                     description=params['description'])
         except Exception:
             with excutils.save_and_reraise_exception():
                 super(NuagePlugin, self).delete_port(context, port['id'])

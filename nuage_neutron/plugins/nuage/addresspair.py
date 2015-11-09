@@ -19,7 +19,7 @@ from neutron.api.v2 import attributes as attr
 from neutron.common import exceptions as n_exc
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.extensions import allowedaddresspairs as addr_pair
-from nuage_neutron.plugins.nuage import nuagedb
+from nuage_neutron.plugins.common import nuagedb
 
 LOG = logging.getLogger(__name__)
 
