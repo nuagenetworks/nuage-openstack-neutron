@@ -397,9 +397,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         dhcp_ip = (shared_subnet['subnet_gateway']
                    if shared_subnet
                    else nuage_subnet['subnet_gateway'])
-        core_plugin._store_ip_allocation(db_context, dhcp_ip,
-                                         subnet['network_id'], subnet['id'],
-                                         None)
+        core_plugin._allocate_specific_ip(db_context, subnet['id'], dhcp_ip)
 
     def _set_allocation_pools(self, core_plugin, db_context, subnet):
         args = {'cidr': subnet['cidr'],
