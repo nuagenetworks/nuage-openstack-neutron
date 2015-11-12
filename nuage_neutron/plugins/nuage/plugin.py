@@ -1989,109 +1989,108 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                     "Can't update ext-gw-info")
             raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
 
-        with context.session.begin(subtransactions=True):
-            curr_router = self.get_router(context, id)
-            ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
-                context.session, id)
-            if not ent_rtr_mapping:
-                msg = (_("Router %s does not hold net-partition "
-                         "assoc on VSD. extra-route failed") % id)
-                raise n_exc.BadRequest(resource='router', msg=msg)
+        curr_router = self.get_router(context, id)
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+            context.session, id)
+        if not ent_rtr_mapping:
+            msg = (_("Router %s does not hold net-partition "
+                     "assoc on VSD. extra-route failed") % id)
+            raise n_exc.BadRequest(resource='router', msg=msg)
 
-            old_routes = []
-            if 'routes' in r:
-                old_routes = self._get_extra_routes_by_router_id(context, id)
+        old_routes = []
+        if 'routes' in r:
+            old_routes = self._get_extra_routes_by_router_id(context, id)
 
-            router_updated = super(NuagePlugin, self).update_router(
-                context,
-                id,
-                copy.deepcopy(router))
-            if 'routes' in r:
-                added, removed = utils.diff_list_of_dict(old_routes,
-                                                         r['routes'])
-                self._validate_nuage_staticroutes(old_routes, added, removed)
+        router_updated = super(NuagePlugin, self).update_router(
+            context,
+            id,
+            copy.deepcopy(router))
+        if 'routes' in r:
+            added, removed = utils.diff_list_of_dict(old_routes,
+                                                     r['routes'])
+            self._validate_nuage_staticroutes(old_routes, added, removed)
 
-                for route in removed:
-                    destaddr = route['destination']
-                    cidr = destaddr.split('/')
-                    params = {
-                        "address": cidr[0],
-                        "nexthop": route['nexthop'],
-                        "nuage_domain_id": ent_rtr_mapping['nuage_router_id']
-                    }
-                    self.nuageclient.delete_nuage_staticroute(params)
+            for route in removed:
+                destaddr = route['destination']
+                cidr = destaddr.split('/')
+                params = {
+                    "address": cidr[0],
+                    "nexthop": route['nexthop'],
+                    "nuage_domain_id": ent_rtr_mapping['nuage_router_id']
+                }
+                self.nuageclient.delete_nuage_staticroute(params)
 
-                for route in added:
-                    params = {
-                        'nuage_domain_id': ent_rtr_mapping['nuage_router_id'],
-                        'neutron_rtr_id': ent_rtr_mapping['router_id'],
-                        'net': netaddr.IPNetwork(route['destination']),
-                        'nexthop': route['nexthop']
-                    }
-                    self.nuageclient.create_nuage_staticroute(params)
+            for route in added:
+                params = {
+                    'nuage_domain_id': ent_rtr_mapping['nuage_router_id'],
+                    'neutron_rtr_id': ent_rtr_mapping['router_id'],
+                    'net': netaddr.IPNetwork(route['destination']),
+                    'nexthop': route['nexthop']
+                }
+                self.nuageclient.create_nuage_staticroute(params)
 
-            if 'external_gateway_info' in r:
-                curr_ext_gw_info = curr_router['external_gateway_info']
-                new_ext_gw_info = router_updated['external_gateway_info']
-                send_update = False
-                if curr_ext_gw_info and not new_ext_gw_info:
-                    if curr_ext_gw_info['enable_snat']:
-                        send_update = True
-                elif not curr_ext_gw_info and new_ext_gw_info:
-                    if new_ext_gw_info['enable_snat']:
-                        send_update = True
-                elif (curr_ext_gw_info and
-                      new_ext_gw_info and
-                      curr_ext_gw_info['enable_snat'] !=
-                      new_ext_gw_info['enable_snat']):
+        if 'external_gateway_info' in r:
+            curr_ext_gw_info = curr_router['external_gateway_info']
+            new_ext_gw_info = router_updated['external_gateway_info']
+            send_update = False
+            if curr_ext_gw_info and not new_ext_gw_info:
+                if curr_ext_gw_info['enable_snat']:
                     send_update = True
-                if send_update:
-                    self.nuageclient.update_router_gw(
-                        router_updated, params={
-                            'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat})
+            elif not curr_ext_gw_info and new_ext_gw_info:
+                if new_ext_gw_info['enable_snat']:
+                    send_update = True
+            elif (curr_ext_gw_info and
+                  new_ext_gw_info and
+                  curr_ext_gw_info['enable_snat'] !=
+                  new_ext_gw_info['enable_snat']):
+                send_update = True
+            if send_update:
+                self.nuageclient.update_router_gw(
+                    router_updated, params={
+                        'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat})
 
-            router_rd = r.get('rd')
-            router_rt = r.get('rt')
-            # Check if rt/rd is being updated
-            if (router_rd and router_rd != curr_router['rd']) or (
-               router_rt and router_rt != curr_router['rt']):
+        router_rd = r.get('rd')
+        router_rt = r.get('rt')
+        # Check if rt/rd is being updated
+        if (router_rd and router_rd != curr_router['rd']) or (
+           router_rt and router_rt != curr_router['rt']):
+            net_partition = self._get_net_partition_for_router(
+                context, router)
+            params = {
+                'net_partition': net_partition,
+                'tenant_id': curr_router['tenant_id']
+            }
+            nuage_domain_id = ent_rtr_mapping['nuage_router_id']
+            updated_dict = dict(r)
+            updated_dict['rt'] = router_rt
+            updated_dict['rd'] = router_rd
+
+            self.nuageclient.update_router_rt_rd(curr_router,
+                                                 updated_dict,
+                                                 nuage_domain_id,
+                                                 params)
+            ns_dict = {}
+            ns_dict['nuage_rtr_rt'] = updated_dict['rt']
+            ns_dict['nuage_rtr_rd'] = updated_dict['rd']
+            nuagedb.update_entrouter_mapping(ent_rtr_mapping,
+                                             ns_dict)
+
+        if r.get('tunnel_type'):
+            if curr_router['tunnel_type'] != r['tunnel_type']:
                 net_partition = self._get_net_partition_for_router(
                     context, router)
-                params = {
-                    'net_partition': net_partition,
-                    'tenant_id': curr_router['tenant_id']
-                }
+
                 nuage_domain_id = ent_rtr_mapping['nuage_router_id']
-                updated_dict = dict(r)
-                updated_dict['rt'] = router_rt
-                updated_dict['rd'] = router_rd
-
-                self.nuageclient.update_router_rt_rd(curr_router,
-                                                     updated_dict,
-                                                     nuage_domain_id,
-                                                     params)
-                ns_dict = {}
-                ns_dict['nuage_rtr_rt'] = updated_dict['rt']
-                ns_dict['nuage_rtr_rd'] = updated_dict['rd']
-                nuagedb.update_entrouter_mapping(ent_rtr_mapping,
-                                                 ns_dict)
-
-            if r.get('tunnel_type'):
-                if curr_router['tunnel_type'] != r['tunnel_type']:
-                    net_partition = self._get_net_partition_for_router(
-                        context, router)
-
-                    nuage_domain_id = ent_rtr_mapping['nuage_router_id']
-                    self.nuageclient.update_router_tunnel_type(
-                        curr_router, router['router'], net_partition,
-                        nuage_domain_id)
-                    if r['tunnel_type'] == 'DEFAULT':
-                        # router_updated does not contain tunnel_type yet
-                        # because it only just updated. 'DEFAULT' becomes GRE
-                        # or VXLAN on VSD. Must retrieve router to get data.
-                        router_updated = self.get_router(context, id)
-                    else:
-                        router_updated['tunnel_type'] = r['tunnel_type']
+                self.nuageclient.update_router_tunnel_type(
+                    curr_router, router['router'], net_partition,
+                    nuage_domain_id)
+                if r['tunnel_type'] == 'DEFAULT':
+                    # router_updated does not contain tunnel_type yet
+                    # because it only just updated. 'DEFAULT' becomes GRE
+                    # or VXLAN on VSD. Must retrieve router to get data.
+                    router_updated = self.get_router(context, id)
+                else:
+                    router_updated['tunnel_type'] = r['tunnel_type']
         return router_updated
 
     @nuage_utils.handle_nuage_api_error
@@ -2487,30 +2486,29 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     @log.log
     def create_floatingip(self, context, floatingip):
         fip = floatingip['floatingip']
-        with context.session.begin(subtransactions=True):
-            neutron_fip = super(NuagePlugin, self).create_floatingip(
-                context, floatingip)
-            fip_rate = fip.get('nuage_fip_rate')
-            fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
-            if fip_rate_configured:
-                if not fip.get('port_id'):
-                    msg = _('Rate limiting requires the floating ip to be '
-                            'associated to a port.')
-                    raise nuage_exc.NuageBadRequest(msg=msg)
-            neutron_fip['nuage_fip_rate'] = fip_rate
+        neutron_fip = super(NuagePlugin, self).create_floatingip(
+            context, floatingip)
+        fip_rate = fip.get('nuage_fip_rate')
+        fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
+        if fip_rate_configured:
+            if not fip.get('port_id'):
+                msg = _('Rate limiting requires the floating ip to be '
+                        'associated to a port.')
+                raise nuage_exc.NuageBadRequest(msg=msg)
+        neutron_fip['nuage_fip_rate'] = fip_rate
 
-            if not neutron_fip['router_id']:
-                neutron_fip['nuage_fip_rate'] = None
-                return neutron_fip
-
-            try:
-                self._create_update_floatingip(context, neutron_fip,
-                                               fip['port_id'])
-            except (nuage_exc.OperationNotSupported, n_exc.BadRequest):
-                with excutils.save_and_reraise_exception():
-                    super(NuagePlugin, self).delete_floatingip(
-                        context, neutron_fip['id'])
+        if not neutron_fip['router_id']:
+            neutron_fip['nuage_fip_rate'] = None
             return neutron_fip
+
+        try:
+            self._create_update_floatingip(context, neutron_fip,
+                                           fip['port_id'])
+        except (nuage_exc.OperationNotSupported, n_exc.BadRequest):
+            with excutils.save_and_reraise_exception():
+                super(NuagePlugin, self).delete_floatingip(
+                    context, neutron_fip['id'])
+        return neutron_fip
 
     @nuage_utils.handle_nuage_api_error
     @log.log
