@@ -22,8 +22,8 @@ function neutron_plugin_install_agent_packages {
 function neutron_plugin_configure_common {
     Q_PLUGIN_CONF_PATH=etc/neutron/plugins/nuage
     Q_PLUGIN_CONF_FILENAME=nuage_plugin.ini
-    Q_PLUGIN_CLASS="neutron.plugins.nuage.plugin.NuagePlugin"
-    Q_PLUGIN_EXTENSIONS_PATH=neutron/plugins/nuage/extensions
+    Q_PLUGIN_CLASS="nuage_neutron.plugins.nuage.plugin.NuagePlugin"
+
     #Nuage specific Neutron defaults. Actual value must be set and sourced
     NUAGE_VSD_SERVERS=${NUAGE_VSD_SERVERS:-'localhost:8443'}
     NUAGE_VSD_SERVER_AUTH=${NUAGE_VSD_SERVER_AUTH:-'username:password'}
@@ -51,60 +51,13 @@ function neutron_plugin_configure_plugin_agent {
     :
 }
 
-function create_or_retrieve_cms {
-    # If NUAGE_VSD_CMS_ID is not set, find or create a cms on VSD.
-    if [[ -z "$NUAGE_VSD_CMS_ID" ]]; then
-        username=$( echo "${NUAGE_VSD_SERVER_AUTH}" | cut -d ':' -f 1)
-
-        upper_ssl=${NUAGE_VSD_SERVER_SSL^^}
-        if [[ "$upper_ssl" = "TRUE" ]]; then
-            base_url="https://"
-        else
-            base_url="http://"
-        fi
-        base_url+="$NUAGE_VSD_SERVERS"
-        base_url+="$NUAGE_VSD_BASE_URI"
-        url="$base_url$NUAGE_VSD_AUTH_RESOURCE"
-
-        echo "Connecting to VSD"
-        result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$NUAGE_VSD_SERVER_AUTH" "$url")
-        regex='"APIKey":.?"([^"]*)"'
-        [[ ${result} =~ $regex ]]
-        apikey="${BASH_REMATCH[1]}"
-        echo "Connected"
-
-        mac=`cat /sys/class/net/eth0/address`
-        name="OPENSTACK_$mac"
-        url="$base_url/cms"
-
-        echo "Trying to find CMS with name: $name"
-        result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url")
-        regex=".*(\{[^\}]*\"name\":.?\"$name\"[^\}]*\}).*"
-        if [[ ${result} =~ $regex ]]; then
-            cms="${BASH_REMATCH[1]}"
-            regex='"ID":.?"([^"]*)"'
-            if [[ ${cms} =~ $regex ]]; then
-                NUAGE_VSD_CMS_ID="${BASH_REMATCH[1]}"
-            fi
-        fi
-
-        if [[ ${NUAGE_VSD_CMS_ID} ]]; then
-            echo "Found CMS: $NUAGE_VSD_CMS_ID"
-        else
-            echo "Could not find existing CMS with name: $name"
-            echo "Creating CMS"
-            result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\"}")
-            regex='"ID":.?"([^"]*)"'
-            [[ ${result} =~ $regex ]]
-            NUAGE_VSD_CMS_ID="${BASH_REMATCH[1]}"
-            echo "Created CMS with id: $NUAGE_VSD_CMS_ID"
-        fi
-    fi
-    eval "$1=${NUAGE_VSD_CMS_ID}"
+function has_neutron_plugin_security_group {
+    # 1 means False here
+    return 1
 }
 
 function neutron_plugin_configure_service {
-    iniset $NEUTRON_CONF DEFAULT api_extensions_path neutron/plugins/nuage/extensions/
+    iniset $NEUTRON_CONF DEFAULT core_plugin $Q_PLUGIN_CLASS
     iniset /$Q_PLUGIN_CONF_FILE restproxy base_uri $NUAGE_VSD_BASE_URI
     iniset /$Q_PLUGIN_CONF_FILE restproxy serverssl $NUAGE_VSD_SERVER_SSL
     iniset /$Q_PLUGIN_CONF_FILE restproxy serverauth $NUAGE_VSD_SERVER_AUTH
@@ -112,13 +65,11 @@ function neutron_plugin_configure_service {
     iniset /$Q_PLUGIN_CONF_FILE restproxy server $NUAGE_VSD_SERVERS
     iniset /$Q_PLUGIN_CONF_FILE restproxy auth_resource $NUAGE_VSD_AUTH_RESOURCE
     iniset /$Q_PLUGIN_CONF_FILE restproxy default_net_partition_name $NUAGE_VSD_DEF_NETPART_NAME
-    create_or_retrieve_cms cms_id
-    iniset /$Q_PLUGIN_CONF_FILE restproxy cms_id $cms_id
 }
 
-function has_neutron_plugin_security_group {
-    # 1 means False here
-    return 1
+function configure_neutron_nuage {
+    create_or_retrieve_cms cms_id
+    iniset /$Q_PLUGIN_CONF_FILE restproxy cms_id $cms_id
 }
 
 # Restore xtrace

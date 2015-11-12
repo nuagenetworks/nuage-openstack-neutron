@@ -5,9 +5,20 @@ Devstack external plugin
 Add and set the following in your local.conf/localrc file:
 
 
-enable_plugin nuage https://github.com/nuage-networks/nuage-openstack-neutron.git
+enable_plugin nuage-openstack-neutron https://github.com/nuage-networks/nuage-openstack-neutron.git
+
+Core plugin
+-----------
 
 Q_PLUGIN=nuage
+
+ML2 mechanism driver
+--------------------
+Q_PLUGIN=ml2
+
+Q_ML2_PLUGIN_MECHANISM_DRIVERS=nuage
+
+Q_ML2_PLUGIN_EXT_DRIVERS=nuage_subnet,nuage_port
 
 Required settings
 -----------------

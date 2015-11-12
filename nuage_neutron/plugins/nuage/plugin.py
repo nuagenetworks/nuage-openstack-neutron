@@ -92,6 +92,10 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                          "vsd-resource", "allowed-address-pairs",
                          "nuage-external-security-group", "extra_dhcp_opt"]
 
+    supported_extension_aliases = ["router", "binding", "external-net",
+                                   "quotas", "provider", "extraroute",
+                                   "security-group"] + vendor_extensions
+
     binding_view = "extension:port_binding:view"
 
     def __init__(self):

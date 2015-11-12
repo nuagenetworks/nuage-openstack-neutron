@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# Nuage ml2 mechanism driver
+# -----------------------------------------
+
+# Save trace setting
+NU_XTRACE=$(set +o | grep xtrace)
+set +o xtrace
+
+Q_ML2_PLUGIN_MECHANISM_DRIVERS=${Q_ML2_PLUGIN_MECHANISM_DRIVERS:-nuage}
+Q_ML2_PLUGIN_TYPE_DRIVERS=${Q_ML2_PLUGIN_TYPE_DRIVERS:-vxlan}
+Q_ML2_PLUGIN_EXT_DRIVERS=${Q_ML2_PLUGIN_EXT_DRIVERS-nuage_subnet,nuage_port}
+
+
+function configure_neutron_nuage {
+    echo "Configuring ML2 for Nuage"
+    NUAGE_PLUGIN_CONF_DIR=$NEUTRON_CONF_DIR/plugins/nuage
+    NUAGE_PLUGIN_CONF_FILE=$NUAGE_PLUGIN_CONF_DIR/nuage_plugin.ini
+
+    mkdir -p $NUAGE_PLUGIN_CONF_DIR
+    cp $DIR_NUAGE/etc/neutron/plugins/nuage/nuage_plugin.ini $NUAGE_PLUGIN_CONF_FILE
+
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy base_uri $NUAGE_VSD_BASE_URI
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy serverssl $NUAGE_VSD_SERVER_SSL
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy serverauth $NUAGE_VSD_SERVER_AUTH
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy organization $NUAGE_VSD_ORGANIZATION
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy server $NUAGE_VSD_SERVERS
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy auth_resource $NUAGE_VSD_AUTH_RESOURCE
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy default_net_partition_name $NUAGE_VSD_DEF_NETPART_NAME
+    create_or_retrieve_cms cms_id
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
+    Q_PLUGIN_EXTRA_CONF_FILES=(${Q_PLUGIN_EXTRA_CONF_FILES[@]} $NUAGE_PLUGIN_CONF_FILE)
+}
+
+# Restore xtrace
+$NU_XTRACE
+

@@ -20,7 +20,7 @@ from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db.models_v2 import Subnet
 from neutron.db import securitygroups_db
-from neutron.plugins.nuage import nuage_models
+from nuage_neutron.plugins.common import nuage_models
 
 
 def add_net_partition(session, netpart_id,

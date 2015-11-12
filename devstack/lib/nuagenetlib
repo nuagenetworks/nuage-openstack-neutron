@@ -32,6 +32,7 @@ function install_nuagenetlib {
     cd $NUAGENETLIB_DIR
     sudo python setup.py develop
     export PYTHONPATH=$NUAGENETLIB_DIR/src:$PYTHONPATH
+    cd -
 }
 
 function start_nuagenetlib {
