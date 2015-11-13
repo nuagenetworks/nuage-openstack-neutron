@@ -3311,7 +3311,16 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             'fip_pool_id': subn['fip_pool_id'],
             'cidr': subn['cidr']
         }
-        nuage_tier = self.nuageclient.create_nuage_tier(params)
+
+        try:
+            nuage_tier = self.nuageclient.create_nuage_tier(params)
+        except Exception as e:
+            if e.code == constants.RES_NOT_FOUND:
+                raise nuage_exc.NuageNotFound(resource='application',
+                                              resource_id=subn['app_id'])
+            else:
+                raise nuage_exc.NuageBadRequest(msg=e.msg)
+
         if subn['type'] == constants.TIER_STANDARD:
             nuage_app = self.nuageclient.get_nuage_application(
                 nuage_tier['associatedappid'])
@@ -3565,8 +3574,18 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     def create_flow(self, context, flow):
         nuage_flow = flow['flow']
         net_partition = self._get_default_net_partition(context)
-        nuage_app_id = self.nuageclient.get_app_id_of_tier(
-            nuage_flow['origin_tier'])
+
+        try:
+            nuage_app_id = self.nuageclient.get_app_id_of_tier(
+                nuage_flow['origin_tier'])
+        except Exception as e:
+            if e.code == constants.RES_NOT_FOUND:
+                raise nuage_exc.NuageNotFound(
+                    resource='tier',
+                    resource_id=nuage_flow['origin_tier'])
+            else:
+                raise nuage_exc.NuageBadRequest(msg=e.msg)
+
         params = {
             'net_partition': net_partition,
             'name': nuage_flow['name'],
