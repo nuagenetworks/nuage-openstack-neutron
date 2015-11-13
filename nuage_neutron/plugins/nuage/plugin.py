@@ -1658,11 +1658,19 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                                                        router_id,
                                                        interface_info)
         subnet_id = rtr_if_info['subnet_id']
-        subn = self.get_subnet(context, subnet_id)
-        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(session,
-                                                               router_id)
-        nuage_zone = self.nuageclient.get_zone_by_routerid(router_id,
-                                                           subn['shared'])
+        try:
+            subn = self.get_subnet(context, subnet_id)
+            ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(session,
+                                                                   router_id)
+            nuage_zone = self.nuageclient.get_zone_by_routerid(router_id,
+                                                               subn['shared'])
+        except Exception:
+                with excutils.save_and_reraise_exception():
+                    super(NuagePlugin, self).remove_router_interface(
+                        context,
+                        router_id,
+                        interface_info)
+
         if not nuage_zone or not ent_rtr_mapping:
             super(NuagePlugin,
                   self).remove_router_interface(context,
