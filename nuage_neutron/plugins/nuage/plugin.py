@@ -201,11 +201,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         # delete
         vport_desc = ("device_owner:" + constants.NOVA_PORT_OWNER_PREF +
                       "(please donot edit)")
-        filters = {'device_id': [port['device_id']]}
-        ports = self.get_ports(context, filters)
-        if len(ports) > 1:
-            self._validate_vmports_same_netpartition(self, ports, np_name,
-                                                     port['id'])
+        self._validate_vmports_same_netpartition(
+            self, context, port, subnet_mapping['net_partition_id'])
         nuage_vport_dict = self._create_nuage_vport(port, subnet_mapping,
                                                     description=vport_desc)
         self._update_nuage_port(context, port, np_name, subnet_mapping,

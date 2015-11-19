@@ -65,7 +65,7 @@ class BaseNuagePlugin(object):
             if port['id'] == current_port['id']:
                 continue
             subnet_id = port['fixed_ips'][0]['subnet_id']
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context,
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
                                                             subnet_id)
             if subnet_mapping and subnet_mapping['net_partition_id'] != np_id:
                 msg = ("VM with ports belonging to subnets across "
