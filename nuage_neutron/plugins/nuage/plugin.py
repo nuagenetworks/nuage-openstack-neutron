@@ -313,33 +313,22 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     @log.log
     def process_port_redirect_target(self, context, port, rtargets,
                                      n_rtargets_ids):
-        l2dom_id = None
-        l3dom_id = None
         if not attributes.is_attr_set(rtargets):
             port[ext_rtarget.REDIRECTTARGETS] = []
             return
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
             context.session, port['fixed_ips'][0]['subnet_id'])
         for n_rtarget_id in n_rtargets_ids:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                l2dom_id = subnet_mapping['nuage_subnet_id']
-            else:
-                l3dom_id = subnet_mapping['nuage_subnet_id']
-            try:
-                params = {
-                    'neutron_port_id': port['id'],
-                    'l2dom_id': l2dom_id,
-                    'l3dom_id': l3dom_id
-                }
+            params = {
+                'neutron_port_id': port['id'],
+                'l2dom_id': subnet_mapping['nuage_subnet_id'],
+                'l3dom_id': subnet_mapping['nuage_subnet_id']
+            }
 
-                nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
-                nuage_port['l2dom_id'] = l2dom_id
-                nuage_port['l3dom_id'] = l3dom_id
-                if nuage_port and nuage_port.get('nuage_vport_id'):
-                    self.nuageclient.update_nuage_vport_redirect_target(
-                        n_rtarget_id, nuage_port.get('nuage_vport_id'))
-            except Exception:
-                raise
+            nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
+            if nuage_port and nuage_port.get('nuage_vport_id'):
+                self.nuageclient.update_nuage_vport_redirect_target(
+                    n_rtarget_id, nuage_port.get('nuage_vport_id'))
 
         port[ext_rtarget.REDIRECTTARGETS] = (list(n_rtargets_ids)
                                              if n_rtargets_ids else [])
@@ -351,16 +340,10 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
         if subnet_mapping:
-            l2dom_id = None
-            l3dom_id = None
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                l2dom_id = subnet_mapping['nuage_subnet_id']
-            else:
-                l3dom_id = subnet_mapping['nuage_subnet_id']
             params = {
                 'neutron_port_id': port_id,
-                'l2dom_id': l2dom_id,
-                'l3dom_id': l3dom_id
+                'l2dom_id': subnet_mapping['nuage_subnet_id'],
+                'l3dom_id': subnet_mapping['nuage_subnet_id']
             }
             self.nuageclient.delete_port_redirect_target_bindings(params)
 
@@ -947,24 +930,24 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 sgids = self._get_security_groups_on_port(context, port)
                 self._process_port_create_security_group(context, updated_port,
                                                          sgids)
-            if ext_rtarget.REDIRECTTARGETS in p:
-                nuage_rtargets_ids = self._validate_port_redirect_target(
-                    context,
-                    updated_port,
-                    p[ext_rtarget.REDIRECTTARGETS]
-                )
-                self._delete_port_redirect_target_bindings(
-                    context, id)
-                self.process_port_redirect_target(
-                    context,
-                    updated_port,
-                    p[ext_rtarget.REDIRECTTARGETS],
-                    nuage_rtargets_ids
-                )
         elif (subnet_mapping and subnet_mapping['nuage_managed_subnet']):
             if ext_sg.SECURITYGROUPS in p:
                 LOG.warning(_("Security Groups is ignored for ports on "
                               "VSD Managed Subnet"))
+        if ext_rtarget.REDIRECTTARGETS in p:
+            nuage_rtargets_ids = self._validate_port_redirect_target(
+                context,
+                updated_port,
+                p[ext_rtarget.REDIRECTTARGETS]
+            )
+            self._delete_port_redirect_target_bindings(
+                context, id)
+            self.process_port_redirect_target(
+                context,
+                updated_port,
+                p[ext_rtarget.REDIRECTTARGETS],
+                nuage_rtargets_ids
+            )
         return updated_port
 
     @log.log
