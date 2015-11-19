@@ -12,11 +12,35 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.api.v2 import attributes as attr
+
+
+def _ecmp_count_info():
+    return _("ecmp count must be a number between 1 and 8 (inclusive)")
+
+
+def ecmp_count_validation(data, valid_values=None):
+    if data is None:
+        return
+
+    if isinstance(data, bool):
+        return _ecmp_count_info()
+
+    try:
+        data = int(data)
+    except (ValueError, TypeError):
+        return _ecmp_count_info()
+
+    if data < 1 or data > 8:
+        return _ecmp_count_info()
+
 
 def convert_to_uppercase(data):
     if data:
         return str(data).upper()
 
+
+attr.validators['type:ecmp_count'] = ecmp_count_validation
 
 EXTENDED_ATTRIBUTES_2_0 = {
     'routers': {
@@ -59,6 +83,14 @@ EXTENDED_ATTRIBUTES_2_0 = {
                                          'DEFAULT', 'default']},
             'convert_to': convert_to_uppercase,
             'enforce_policy': True,
+        },
+        'ecmp_count': {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:ecmp_count': None},
+            'enforce_policy': True
         },
     },
 }
