@@ -15,6 +15,7 @@
 import contextlib
 import copy
 import functools
+import itertools
 import netaddr
 import re
 
@@ -40,6 +41,7 @@ from neutron.common import utils
 from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
+from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
 from neutron.db import models_v2
@@ -81,13 +83,14 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                   externalsg.NuageexternalsgMixin,
                   netpartition.NetPartitionPluginBase,
                   sg_db.SecurityGroupDbMixin,
-                  portbindings_db.PortBindingMixin):
+                  portbindings_db.PortBindingMixin,
+                  extradhcpopt_db.ExtraDhcpOptMixin):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
                          "appdesigner", "nuage-redirect-target",
                          "vsd-resource", "allowed-address-pairs",
-                         "nuage-external-security-group"]
+                         "nuage-external-security-group", "extra_dhcp_opt"]
 
     binding_view = "extension:port_binding:view"
 
@@ -464,7 +467,17 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         session = context.session
         subnet_mapping = None
         net_partition = None
+        has_dhcp_options = False
+        dhcp_options = []
         p = port['port']
+
+        if p.get('extra_dhcp_opts'):
+            has_dhcp_options = True
+            dhcp_options = copy.deepcopy(p['extra_dhcp_opts'])
+            for dhcp_option in dhcp_options:
+                self._validate_extra_dhcp_option_ip_version(dhcp_option)
+                self._translate_dhcp_option(dhcp_option)
+            self._validate_extra_dhcp_opt_for_neutron(dhcp_options)
         self._ensure_default_security_group_on_port(context, port)
         port = super(NuagePlugin, self).create_port(context, port)
         self._process_portbindings_create_and_update(context, p, port)
@@ -501,13 +514,30 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                                                                  port['id'])
                 else:
                     # This request is port-create no special ports
+                    vport_dict = None
                     try:
                         net_partition = nuagedb.get_net_partition_by_id(
                             session,
                             subnet_mapping['net_partition_id'])
-                        self._create_nuage_vport(port, subnet_mapping)
+                        vport_dict = self._create_nuage_vport(port,
+                                                              subnet_mapping)
                     except Exception:
                         with excutils.save_and_reraise_exception():
+                            super(NuagePlugin, self).delete_port(context,
+                                                                 port['id'])
+                    try:
+                        if has_dhcp_options:
+                            self._create_update_extra_dhcp_options(
+                                dhcp_options, vport_dict, port['id'], True)
+                            (super(NuagePlugin, self).
+                             _process_port_create_extra_dhcp_opts(
+                                context, port, p['extra_dhcp_opts']))
+                    except Exception:
+                        with excutils.save_and_reraise_exception():
+                            self._delete_nuage_vport(context, port,
+                                                     net_partition['name'],
+                                                     subnet_mapping,
+                                                     port_delete=True)
                             super(NuagePlugin, self).delete_port(context,
                                                                  port['id'])
                 try:
@@ -559,8 +589,149 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                                              net_partition['name'],
                                              subnet_mapping)
                     super(NuagePlugin, self).delete_port(context, port['id'])
+        elif has_dhcp_options:
+            super(NuagePlugin, self).delete_port(context, port['id'])
+            msg = ("Cannot create a port with DHCP options on a subnet that "
+                   "does not have mapping to a L2Domain (OR) "
+                   "a L3 Subnet on Nuage.")
+            raise nuage_exc.NuageBadRequest(msg=msg)
 
         return port
+
+    def _validate_extra_dhcp_option_ip_version(self, dhcp_option):
+        if dhcp_option.get('ip_version') == os_constants.IP_VERSION_6:
+            msg = _("DHCP options for IPV6 are not yet supported")
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
+    def _translate_dhcp_option(self, dhcp_option):
+        if (dhcp_option['opt_name'] in constants.DHCP_OPTION_NAME_TO_NUMBER):
+            dhcp_option['opt_name'] = (constants.DHCP_OPTION_NAME_TO_NUMBER
+                                       [dhcp_option['opt_name']])
+            dhcp_option['opt_value'] = dhcp_option['opt_value'].split(";")
+        else:
+            msg = _("There is no DHCP option available with the "
+                    "opt_ name: %s ") % dhcp_option['opt_name']
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
+    def _build_dhcp_option_error_message(self, dhcpoption, e):
+        for name, number in constants.DHCP_OPTION_NAME_TO_NUMBER.iteritems():
+            if number == dhcpoption:
+                if isinstance(e, n_exc.InvalidInput):
+                    error = ("Neutron Error: DHCP Option %s that is being set"
+                             " for the first time cannot be mentioned more"
+                             " than once") % name
+                    e.message = error
+                    e.msg = error
+                    return e
+                elif hasattr(e, 'msg'):
+                    error = "For DHCP option " + name + ", " + e.msg
+                    return nuage_exc.NuageBadRequest(msg=error)
+                else:
+                    error = ("Error encountered while processing option value"
+                             " of " + name + " due to: " + e.message)
+                    return nuage_exc.NuageBadRequest(msg=error)
+
+    def _create_update_extra_dhcp_options(self, dhcp_options, vport_dict,
+                                          port_id, on_port_create=False,
+                                          on_opts_update=False):
+        response = []
+        for dhcp_option in dhcp_options:
+            try:
+                resp = self.nuageclient.crt_or_updt_vport_dhcp_option(
+                    dhcp_option, vport_dict['nuage_vport_id'], port_id)
+            except Exception as e:
+                e = self._build_dhcp_option_error_message(
+                    dhcp_option['opt_name'], e)
+                if on_opts_update:
+                    response.append(e)
+                    response.append("error")
+                    return response
+                for del_resp in response:
+                    if del_resp[1] == 'Created':
+                        self.nuageclient.delete_vport_dhcp_option(
+                            del_resp[3][0]['ID'], True)
+                if on_port_create:
+                    self.nuageclient.delete_nuage_vport(
+                        vport_dict['nuage_vport_id'])
+                    LOG.error(_("Port create failed due to: %s") % e.msg)
+                raise e
+            response.append(resp)
+        return response
+
+    def _validate_extra_dhcp_opt_for_neutron(self, new_dhcp_opts):
+        # validating for neutron internal error, checking for the
+        #  neutron failure case
+        for key, group in itertools.groupby(
+                sorted(new_dhcp_opts, key=lambda opt: opt['opt_name']),
+                lambda opt: opt['opt_name']):
+            options = list(group)
+            if len(options) > 1:
+                e = n_exc.InvalidInput()
+                raise self._build_dhcp_option_error_message(
+                    options[0]['opt_name'], e)
+
+    def _categorise_dhcp_options_for_update(self, old_dhcp_opts,
+                                            new_dhcp_opts):
+        add_dhcp_opts = []
+        update_dhcp_opts = []
+        existing_opts = set()
+        for old_dhcp_opt in old_dhcp_opts:
+            existing_opts.add(old_dhcp_opt['opt_name'])
+        for new_dhcp_opt in new_dhcp_opts:
+            if new_dhcp_opt['opt_name'] in existing_opts:
+                update_dhcp_opts.append(new_dhcp_opt)
+            else:
+                add_dhcp_opts.append(new_dhcp_opt)
+        return {'new': add_dhcp_opts, 'update': update_dhcp_opts}
+
+    def _update_extra_dhcp_options(self, categorised_dhcp_opts, subnet_mapping,
+                                   port_id, current_owner, old_dhcp_opts):
+        if not subnet_mapping:
+            # For preventing updating of a port on External Network
+            msg = ("Cannot Update a port that does not have corresponding"
+                   " Vport on Nuage")
+            raise nuage_exc.NuageBadRequest(msg=msg)
+        params = self._params_to_get_vport(port_id, subnet_mapping,
+                                           current_owner)
+        vport_dict = self.nuageclient.get_nuage_vport_by_id(params)
+        if not vport_dict:
+            if (subnet_mapping['nuage_l2dom_tmplt_id'] and
+                    current_owner == constants.DEVICE_OWNER_DHCP_NUAGE):
+                msg = ("Cannot set DHCP options for a port owned by Nuage, "
+                       "which was created for internal use only.")
+                raise nuage_exc.NuageBadRequest(msg=msg)
+            else:
+                msg = ("Could not find corresponding Vport for the specified"
+                       " Neutron Port-ID: " + params['neutron_port_id'])
+                raise nuage_exc.NuageBadRequest(msg=msg)
+        try:
+            created_rollback_opts = self._create_update_extra_dhcp_options(
+                categorised_dhcp_opts['new'], vport_dict, port_id, False)
+        except Exception as e:
+            LOG.error(_("Port Update failed due to: %s") % e.msg)
+            raise e
+        try:
+            update_rollback = self._create_update_extra_dhcp_options(
+                categorised_dhcp_opts['update'], vport_dict, port_id,
+                False, True)
+            if "error" in update_rollback:
+                update_rollback.remove("error")
+                e = update_rollback.pop(-1)
+                include_rollback_opt = [categorised_dhcp_opts['update'][i]
+                                        ['opt_name'] for i in
+                                        range(len(update_rollback))]
+                for dhcp_opt in old_dhcp_opts:
+                    if dhcp_opt['opt_name'] not in include_rollback_opt:
+                        old_dhcp_opts.remove(dhcp_opt)
+                raise e
+        except Exception as e:
+            for rollback_opt in created_rollback_opts:
+                self.nuageclient.delete_vport_dhcp_option(
+                    rollback_opt[3][0]['ID'], True)
+            self._create_update_extra_dhcp_options(old_dhcp_opts, vport_dict,
+                                                   port_id, False, True)
+            LOG.error(_("Port Update failed due to: %s") % e.msg)
+            raise e
 
     def _validate_update_port(self, port, original_port, has_security_groups):
         original_device_owner = original_port.get('device_owner')
@@ -578,8 +749,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    def _process_update_nuage_vport(self, context, port_id, updated_port,
-                                    subnet_mapping, current_owner):
+    def _params_to_get_vport(self, port_id, subnet_mapping, current_owner):
         l2dom_id = None
         l3dom_id = None
         if subnet_mapping['nuage_managed_subnet']:
@@ -602,6 +772,14 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             'l2dom_id': l2dom_id,
             'l3dom_id': l3dom_id
         }
+        return params
+
+    @nuage_utils.handle_nuage_api_error
+    @log_helpers.log_method_call
+    def _process_update_nuage_vport(self, context, port_id, updated_port,
+                                    subnet_mapping, current_owner):
+        params = self._params_to_get_vport(port_id, subnet_mapping,
+                                           current_owner)
         nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
         if nuage_port:
             net_partition = nuagedb.get_net_partition_by_id(
@@ -609,6 +787,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             self._update_nuage_port(context, updated_port,
                                     net_partition['name'],
                                     subnet_mapping, nuage_port)
+            return nuage_port
         else:
             # should not come here, log debug message
             LOG.debug("Nuage vport does not exist for port %s ", id)
@@ -654,15 +833,28 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def update_port(self, context, id, port):
         create_vm = False
+        has_dhcp_options = False
+        new_dhcp_options = []
         updated_port_dict = port
         p = port['port']
         delete_security_groups = self._check_update_deletes_security_groups(
             port)
         has_security_groups = self._check_update_has_security_groups(port)
-
+        if p.get('extra_dhcp_opts'):
+            has_dhcp_options = True
+            new_dhcp_options = copy.deepcopy(p['extra_dhcp_opts'])
+            for dhcp_option in new_dhcp_options:
+                self._validate_extra_dhcp_option_ip_version(dhcp_option)
+                self._translate_dhcp_option(dhcp_option)
         session = context.session
         original_port = self.get_port(context, id)
         old_port = copy.deepcopy(original_port)
+        old_dhcp_options = copy.deepcopy(old_port['extra_dhcp_opts'])
+        for old_dhcp_option in old_dhcp_options:
+            self._translate_dhcp_option(old_dhcp_option)
+        categorised_dhcp_opts = self._categorise_dhcp_options_for_update(
+            old_dhcp_options, new_dhcp_options)
+        self._validate_extra_dhcp_opt_for_neutron(categorised_dhcp_opts['new'])
         with session.begin(subtransactions=True):
             original_port = self.get_port(context, id)
             current_owner = original_port['device_owner']
@@ -719,6 +911,16 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         try:
             self.update_allowed_address_pairs(context, id, old_port, p,
                                               updated_port, updated_port_dict)
+            if has_dhcp_options:
+                # Update the DHCP options of a port
+                self._update_extra_dhcp_options(
+                    categorised_dhcp_opts,
+                    subnet_mapping,
+                    old_port.get('id'),
+                    current_owner,
+                    old_dhcp_options)
+                (super(NuagePlugin, self)._update_extra_dhcp_opts_on_port(
+                    context, old_port.get('id'), port, updated_port))
         except Exception:
             with excutils.save_and_reraise_exception():
                 # Revert the address pairs and port back to original state
