@@ -1911,21 +1911,21 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         return self._fields(router, fields)
 
     def _add_nuage_router_attributes(self, router, nuage_router):
-        if nuage_router:
-            router['tunnel_type'] = nuage_router.get('tunnelType')
-            router['rd'] = nuage_router.get('routeDistinguisher')
-            router['rt'] = nuage_router.get('routeTarget')
-            router['ecmp_count'] = nuage_router.get('ECMPCount')
-            if router.get('routes'):
-                for route in router['routes']:
-                    params = {
-                        'address': route['destination'].split("/")[0],
-                        'nexthop': route['nexthop'],
-                        'nuage_domain_id': nuage_router['ID']
-                    }
-                    nuage_route = self.nuageclient.get_nuage_static_route(
-                        params)
-                    route['rd'] = nuage_route['rd'] if nuage_route else None
+        if not nuage_router:
+            return
+        router['tunnel_type'] = nuage_router.get('tunnelType')
+        router['rd'] = nuage_router.get('routeDistinguisher')
+        router['rt'] = nuage_router.get('routeTarget')
+        router['ecmp_count'] = nuage_router.get('ECMPCount')
+        for route in router.get('routes', []):
+            params = {
+                'address': route['destination'].split("/")[0],
+                'nexthop': route['nexthop'],
+                'nuage_domain_id': nuage_router['ID']
+            }
+            nuage_route = self.nuageclient.get_nuage_static_route(params)
+            if nuage_route:
+                route['rd'] = nuage_route['rd']
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
