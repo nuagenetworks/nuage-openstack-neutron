@@ -2191,6 +2191,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         nuage_domain_id = ent_rtr_mapping['nuage_router_id']
 
         curr_router = self.get_router(context, id)
+        curr_rtr_bh_vnid = curr_router['nuage_backhaul_vnid']
         old_routes = self._get_extra_routes_by_router_id(context, id)
 
         router_updated = super(NuagePlugin, self).update_router(
@@ -2206,7 +2207,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         nuage_router = self.nuageclient.get_router_by_external(id)
         router_backhaul_vnid = updates.get('nuage_backhaul_vnid')
         if (router_backhaul_vnid and router_backhaul_vnid !=
-                str(curr_router['nuage_backhaul_vnid'])):
+                str(curr_rtr_bh_vnid)):
             net_partition = self._get_net_partition_for_router(
                 context, router['router'])
             params = {
