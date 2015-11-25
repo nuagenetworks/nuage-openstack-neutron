@@ -1372,8 +1372,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
         if (not network_external and
                 subnet['nuage_uplink']):
-            msg = _("nuage-uplink attribute can not be set for subnets under "
-                    "external networks ")
+            msg = _("nuage-uplink attribute can not be set for "
+                    "internal subnets ")
             raise nuage_exc.NuageBadRequest(msg=msg)
 
     @log_helpers.log_method_call
@@ -1695,8 +1695,9 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         subnet = nuagedb.get_nuage_subnet_info(context.session, subnet, fields)
         network = self._get_network(context, subnet['network_id'])
         if network.get('external'):
-            underlay = self.nuageclient.get_sharedresource_underlay(id)
-            subnet['underlay'] = underlay
+            nuage_subnet = self.nuageclient.get_sharedresource(id)
+            subnet['underlay'] = nuage_subnet['underlay']
+            subnet['nuage_uplink'] = nuage_subnet['sharedResourceParentID']
 
         return self._fields(subnet, fields)
 
@@ -1749,8 +1750,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 'gateway_ip': subn.get('gateway_ip')
             }
             self.nuageclient.update_nuage_sharedresource(id, nuage_params)
-            underlay = self.nuageclient.get_sharedresource_underlay(id)
-            updated_subnet['underlay'] = underlay
+            nuage_subnet = self.nuageclient.get_sharedresource(id)
+            updated_subnet['underlay'] = nuage_subnet['underlay']
             return updated_subnet
 
     @nuage_utils.handle_nuage_api_error
