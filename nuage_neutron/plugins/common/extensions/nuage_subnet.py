@@ -46,7 +46,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
         },
         'nuage_uplink': {
             'allow_post': True,
-            'allow_put': True,
+            'allow_put': False,
             'is_visible': True,
             'default': None,
             'validate': {'type:uuid_or_none': None}
