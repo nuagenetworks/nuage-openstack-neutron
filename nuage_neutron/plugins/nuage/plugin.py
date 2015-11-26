@@ -2195,16 +2195,28 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         curr_rtr_bh_vnid = curr_router['nuage_backhaul_vnid']
         old_routes = self._get_extra_routes_by_router_id(context, id)
 
-        router_updated = super(NuagePlugin, self).update_router(
-            context,
-            id,
-            copy.deepcopy(router))
+        cleanups = []
+        try:
+            router_updated = super(NuagePlugin, self).update_router(
+                context,
+                id,
+                copy.deepcopy(router))
+            cleanups.append(functools.partial(
+                super(NuagePlugin, self).update_router, context, id,
+                {'router': copy.deepcopy(curr_router)}))
 
-        new_routes = updates.get('routes', curr_router.get('routes'))
-        self._update_nuage_router_static_routes(id, nuage_domain_id,
-                                                old_routes, new_routes)
-        self._update_nuage_router(nuage_domain_id, curr_router, updates,
-                                  ent_rtr_mapping)
+            new_routes = updates.get('routes', curr_router.get('routes'))
+            self._update_nuage_router_static_routes(id, nuage_domain_id,
+                                                    old_routes, new_routes)
+            cleanups.append(functools.partial(
+                self._update_nuage_router_static_routes, id, nuage_domain_id,
+                new_routes, old_routes))
+            self._update_nuage_router(nuage_domain_id, curr_router, updates,
+                                      ent_rtr_mapping)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                for cleanup in cleanups:
+                    cleanup()
         nuage_router = self.nuageclient.get_router_by_external(id)
         router_backhaul_vnid = updates.get('nuage_backhaul_vnid')
         if (router_backhaul_vnid and router_backhaul_vnid !=
