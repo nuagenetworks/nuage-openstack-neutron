@@ -2563,14 +2563,16 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             self._create_update_floatingip(context,
                                            fip, port['id'],
                                            vport_type=vport_type,
-                                           vport_id=vport_id)
+                                           vport_id=vport_id,
+                                           rate_update=False)
 
     @log_helpers.log_method_call
     def _create_update_floatingip(self, context,
                                   neutron_fip, port_id,
                                   last_known_router_id=None,
                                   vport_type=constants.VM_VPORT,
-                                  vport_id=None):
+                                  vport_id=None,
+                                  rate_update=True):
         if last_known_router_id:
             rtr_id = last_known_router_id
         else:
@@ -2653,6 +2655,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         # Check if we have to associate a FIP to a VIP
         self._process_fip_to_vip(context, port_id, nuage_fip_id)
 
+        if not rate_update:
+            return
         # Add QOS to port for rate limiting
         fip_rate = neutron_fip.get('nuage_fip_rate',
                                    attributes.ATTR_NOT_SPECIFIED)
