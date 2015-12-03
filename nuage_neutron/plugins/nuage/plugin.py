@@ -842,7 +842,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             current_owner = original_port['device_owner']
             lbaas_device_owner_added = (
                 p.get('device_owner') == os_constants.DEVICE_OWNER_LOADBALANCER
-                + 'V2' and not current_owner)
+                + 'V2')
 
             self._validate_update_port(p, original_port, has_security_groups)
             if (current_owner == constants.APPD_PORT and
