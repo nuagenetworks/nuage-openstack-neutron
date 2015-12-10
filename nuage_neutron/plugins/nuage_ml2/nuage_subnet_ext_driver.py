@@ -15,7 +15,6 @@
 
 from oslo_log import log as logging
 
-from neutron.api.v2.attributes import is_attr_set
 from neutron.plugins.ml2 import driver_api as api
 
 LOG = logging.getLogger(__name__)
@@ -34,8 +33,6 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver):
     def process_create_subnet(self, plugin_context, data, result):
         result['net_partition'] = data['net_partition']
         result['nuagenet'] = data['nuagenet']
-        result['custom_pools'] = is_attr_set(data['allocation_pools'])
-        result['custom_gateway'] = is_attr_set(data['gateway_ip'])
 
     def extend_subnet_dict(self, session, db_data, result):
         return result

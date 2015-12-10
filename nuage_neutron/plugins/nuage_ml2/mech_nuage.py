@@ -360,9 +360,6 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             gw_ip = None
             subnet['dns_nameservers'] = []
             LOG.warn("Nuage ml2 plugin will ignore dns_nameservers.")
-        if subnet['custom_gateway']:
-            subnet_validate = {'gateway_ip': Is(gw_ip)}
-            validate("subnet", subnet, subnet_validate)
         subnet['gateway_ip'] = gw_ip
 
     def _update_gw_and_pools(self, core_plugin, db_context, subnet,
@@ -372,13 +369,9 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             return
 
         if original_gateway != subnet['gateway_ip']:
-            # Gateway from vsd is different, we must revalidate (if user
-            # entered custom pool) or recalculate the allocation pools.
-            if subnet['custom_pools']:
-                core_plugin.ipam.validate_gw_out_of_pools(
-                    subnet['gateway_ip'], subnet['allocation_pools'])
-            else:
-                self._set_allocation_pools(core_plugin, db_context, subnet)
+            # Gateway from vsd is different, we must recalculate the allocation
+            # pools.
+            self._set_allocation_pools(core_plugin, subnet)
 
         LOG.warn("Nuage ml2 plugin will overwrite subnet gateway ip "
                  "and allocation pools")
@@ -397,12 +390,13 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         dhcp_ip = (shared_subnet['subnet_gateway']
                    if shared_subnet
                    else nuage_subnet['subnet_gateway'])
-        core_plugin._allocate_specific_ip(db_context, subnet['id'], dhcp_ip)
+        core_plugin.ipam._allocate_specific_ip(db_context,
+                                               subnet['id'],
+                                               dhcp_ip)
 
-    def _set_allocation_pools(self, core_plugin, db_context, subnet):
-        args = {'cidr': subnet['cidr'],
-                'gateway_ip': subnet['gateway_ip']}
-        pools = core_plugin._allocate_pools_for_subnet(db_context, args)
+    def _set_allocation_pools(self, core_plugin, subnet):
+        pools = core_plugin.ipam.generate_pools(subnet['cidr'],
+                                                subnet['gateway_ip'])
         subnet['allocation_pools'] = pools
 
     def _cleanup_group(self, db_context, nuage_npid, nuage_subnet_id, subnet):
