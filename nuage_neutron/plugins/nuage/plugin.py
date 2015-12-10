@@ -849,6 +849,11 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         session = context.session
         original_port = self.get_port(context, id)
         old_port = copy.deepcopy(original_port)
+        new_sg = (set(port['port'].get(ext_sg.SECURITYGROUPS)) if
+                  port['port'].get(ext_sg.SECURITYGROUPS) else set())
+        orig_sg = (set(original_port.get(ext_sg.SECURITYGROUPS)) if
+                   original_port.get(ext_sg.SECURITYGROUPS) else set())
+        sgids_diff = list(new_sg ^ orig_sg)
         old_dhcp_options = copy.deepcopy(old_port['extra_dhcp_opts'])
         for old_dhcp_option in old_dhcp_options:
             self._translate_dhcp_option(old_dhcp_option)
@@ -940,7 +945,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
         if (subnet_mapping
                 and subnet_mapping['nuage_managed_subnet'] is False):
-            if (delete_security_groups or has_security_groups):
+            if (delete_security_groups or (has_security_groups and
+                                           sgids_diff)):
                 # delete the port binding and process new sg binding
                 self._delete_port_security_group_bindings(context, id)
                 sgids = self._get_security_groups_on_port(context, port)
