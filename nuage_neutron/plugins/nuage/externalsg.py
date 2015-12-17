@@ -15,9 +15,12 @@
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
+from neutron.common import exceptions as n_exc
+
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
+
 
 LOG = logging.getLogger(__name__)
 
@@ -46,19 +49,30 @@ class NuageexternalsgMixin(object):
         subnet_id = external_sg.get('subnet_id')
         router_id = external_sg.get('router_id')
 
+        if not subnet_id and not router_id:
+            msg = _("Either router_id or subnet_id must be specified")
+            raise n_exc.BadRequest(resource='nuage_external_security_group',
+                                   msg=msg)
+
         l2dom_id = None
         l3dom_id = None
         if subnet_id:
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, subnet_id)
-            if subnet_mapping:
-                if subnet_mapping['nuage_l2dom_tmplt_id']:
-                    l2dom_id = subnet_mapping['nuage_subnet_id']
+            if subnet_mapping and subnet_mapping['nuage_l2dom_tmplt_id']:
+                l2dom_id = subnet_mapping['nuage_subnet_id']
+            if not l2dom_id:
+                msg = _("No subnet mapping found for subnet %s") % subnet_id
+                raise n_exc.BadRequest(
+                    resource='nuage_external_security_group', msg=msg)
         elif router_id:
-            nuage_router = self.nuageclient.get_router_by_external(
-                router_id)
+            nuage_router = self.nuageclient.get_router_by_external(router_id)
             if nuage_router:
                 l3dom_id = nuage_router['ID']
+            if not l3dom_id:
+                msg = _("VSD domain not found for router %s") % router_id
+                raise n_exc.BadRequest(
+                    resource='nuage_external_security_group', msg=msg)
         params = {
             'l2dom_id': l2dom_id,
             'l3dom_id': l3dom_id,
