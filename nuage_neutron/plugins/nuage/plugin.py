@@ -54,6 +54,7 @@ from neutron.extensions import l3
 from neutron.extensions import portbindings
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.ipam import utils as ipam_utils
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
@@ -3871,7 +3872,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         # VIP should be in the same subnet as redirect_target['subnet_id']
         if vip:
             subnet = self.get_subnet(context, subnet_mapping['subnet_id'])
-            if not self._check_subnet_ip(subnet['cidr'], vip):
+            if not ipam_utils.check_subnet_ip(subnet['cidr'], vip):
                 msg = ("VIP should be in the same subnet as subnet %s " %
                        subnet_mapping['subnet_id'])
                 raise nuage_exc.NuageBadRequest(msg=msg)
