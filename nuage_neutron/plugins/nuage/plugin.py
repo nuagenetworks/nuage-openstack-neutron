@@ -1243,10 +1243,14 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         neutron_net = self.get_network(context, id)
         if neutron_net.get(external_net.EXTERNAL) == is_external_set:
             return (None, None)
-        subnet = self._validate_nuage_sharedresource(context, 'network', id)
+        subnet = self.get_subnets(context, filters={'network_id': [id]})
         if subnet and not is_external_set:
             msg = _('External network with subnets can not be '
                     'changed to non-external network')
+            raise nuage_exc.OperationNotSupported(msg=msg)
+        if len(subnet) > 1 and is_external_set:
+            msg = _('Non-external network with more than one subnet '
+                    'can not be changed to external network')
             raise nuage_exc.OperationNotSupported(msg=msg)
         if is_external_set:
             # Check if there are vm ports attached to this network
@@ -1400,14 +1404,13 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         self.nuageclient.delete_nuage_sharedresource(net_id)
 
     @log_helpers.log_method_call
-    def _validate_nuage_sharedresource(self, context, resource, net_id):
+    def _validate_nuage_sharedresource(self, context, net_id):
         filter = {'network_id': [net_id]}
         existing_subn = self.get_subnets(context, filters=filter)
-        if len(existing_subn) > 1:
+        if len(existing_subn) > 0:
             msg = _('Only one subnet is allowed per '
                     'external network %s') % net_id
             raise nuage_exc.OperationNotSupported(msg=msg)
-        return existing_subn
 
     @log_helpers.log_method_call
     def _add_nuage_sharedresource(self, subnet, net_id, type,
@@ -1439,7 +1442,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     def _create_nuage_sharedresource(self, context, subnet, type):
         req_subnet = copy.deepcopy(subnet['subnet'])
         net_id = req_subnet['network_id']
-        self._validate_nuage_sharedresource(context, 'subnet', net_id)
+        self._validate_nuage_sharedresource(context, net_id)
         with context.session.begin(subtransactions=True):
             neutron_subnet = super(NuagePlugin, self).create_subnet(context,
                                                                     subnet)
