@@ -247,7 +247,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         }
 
         if subnet_mapping['nuage_managed_subnet']:
-            params['parent_id'] = subnet_mapping['nuage_l2dom_tmplt_id']
+            params['parent_id'] = subnet_mapping['nuage_subnet_id']
         # Required to decide if we have to send (or) drop the VM IP to VSD.
         params['dhcp_enabled'] = subn['enable_dhcp']
 
@@ -742,9 +742,9 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         if subnet_mapping['nuage_managed_subnet']:
             # This is because we do not know if this advanced subn
             # is a domain-subn ot not. In both cases, the
-            # l2dom_templ_id is the ID of the l2dom or domSubn.
-            l2dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
-            l3dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
+            # nuage_subnet_id is the ID of the l2dom or domSubn.
+            l2dom_id = subnet_mapping['nuage_subnet_id']
+            l3dom_id = subnet_mapping['nuage_subnet_id']
         else:
             # ToDO: if nuage_l2dom_tmplt but current_owner != APPD_PORT
             # goes in to else, is that the intended behavior?
@@ -964,9 +964,9 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         if subnet_mapping['nuage_managed_subnet']:
             # This is because we do not know if this advanced subn
             # is a domain-subn ot not. In both cases, the
-            # l2dom_templ_id is the ID of the l2dom or domSubn.
-            l2dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
-            l3dom_id = subnet_mapping['nuage_l2dom_tmplt_id']
+            # nuage_subnet_id is the ID of the l2dom or domSubn.
+            l2dom_id = subnet_mapping['nuage_subnet_id']
+            l3dom_id = subnet_mapping['nuage_subnet_id']
         else:
             if (subnet_mapping['nuage_l2dom_tmplt_id'] and
                     port['device_owner'] != constants.APPD_PORT):

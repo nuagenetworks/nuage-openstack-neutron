@@ -129,9 +129,19 @@ class NuagegatewayMixin(object):
                 params['enable_dhcp'] = subnet.get('enable_dhcp')
             params['port'] = p
 
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+            context.session, subnet_id)
+        if subnet_mapping:
+            params['nuage_subnet_id'] = subnet_mapping['nuage_subnet_id']
+            params['nuage_managed_subnet'] = (
+                subnet_mapping['nuage_managed_subnet'])
+        else:
+            msg = 'No neutron subnet to nuage subnet mapping found'
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
         resp = self.nuageclient.create_gateway_vport(context.tenant_id,
                                                      params)
-        if port_id:
+        if port_id and not subnet_mapping['nuage_managed_subnet']:
             port = params['port']
             if resp['vport_gw_type'] == constants.SOFTWARE:
                 self._delete_port_security_group_bindings(context, port['id'])
@@ -206,6 +216,11 @@ class NuagegatewayMixin(object):
                                                   netpart['id'],
                                                   id)
         if resp:
+            if not resp.get('subnet_id'):
+                subnet_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
+                    context.session,
+                    resp['nuage_subnet_id'])
+                resp['subnet_id'] = subnet_mapping['subnet_id']
             return self._make_vport_dict(resp, fields=fields, context=context)
         else:
             raise nuage_exc.NuageNotFound(resource='nuage_vport',
@@ -219,6 +234,15 @@ class NuagegatewayMixin(object):
 
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
         netpart = nuagedb.get_default_net_partition(context, def_netpart)
+
+        subnet_id = filters['subnet'][0]
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                        subnet_id)
+        if subnet_mapping:
+            filters['nuage_subnet_id'] = [subnet_mapping['nuage_subnet_id']]
+        else:
+            msg = 'No neutron subnet to nuage subnet mapping found'
+            raise nuage_exc.NuageBadRequest(msg=msg)
 
         resp = self.nuageclient.get_gateway_vports(fetch_tenant,
                                                    netpart['id'],
@@ -372,10 +396,14 @@ class NuagegatewayMixin(object):
             else:
                 return
 
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
+        if subnet_mapping['nuage_managed_subnet']:
             port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-        else:
             port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        else:
+            if subnet_mapping['nuage_l2dom_tmplt_id']:
+                port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
+            else:
+                port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
         nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
         if nuage_vport and (nuage_vport['nuage_vport_type'] ==
                             constants.HOST_VPORT):
