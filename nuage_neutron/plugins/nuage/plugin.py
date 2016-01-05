@@ -1046,7 +1046,15 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         # delete nuage vport created explicitly
         if not nuage_port and nuage_utils.check_vport_creation(
                 port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
-            nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
+            try:
+                nuage_vport = self.nuageclient.get_nuage_vport_by_id(
+                    port_params)
+            except RESTProxyError as e:
+                if e.code == 404:
+                    nuage_vport = None
+                else:
+                    raise e
+
             if nuage_vport:
                 self.nuageclient.delete_nuage_vport(
                     nuage_vport.get('nuage_vport_id'))
