@@ -17,8 +17,6 @@ from oslo_config import cfg
 from neutron.api.v2 import attributes as attr
 from neutron.common import exceptions as n_exc
 
-from nuage_neutron.plugins.common import constants
-
 
 def convert_default_to_default_value(data):
     if not isinstance(data, bool):
