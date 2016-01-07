@@ -1648,6 +1648,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     def _link_nuage_adv_subnet(self, context, subnet):
         subn = subnet['subnet']
         nuage_subn_id = subn['nuagenet']
+        tenant_id = subn['tenant_id']
         nuage_tmplt_id = nuage_subn_id
         gw_ip = None
 
@@ -1711,7 +1712,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             nuage_npid = nuage_netpart['id']
             (nuage_uid,
              nuage_gid) = self.nuageclient.attach_nuage_group_to_nuagenet(
-                 context.tenant, nuage_npid, nuage_subn_id,
+                 tenant_id, nuage_npid, nuage_subn_id,
                  neutron_subnet.get('shared'))
         except Exception:
             filters = {
