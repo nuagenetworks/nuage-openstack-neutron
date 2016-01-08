@@ -53,7 +53,8 @@ class NuagegatewayMixin(object):
             'type': gateway['gw_type'],
             'status': gateway['gw_status'],
             'template': gateway['gw_template'],
-            'systemid': gateway['gw_system_id']
+            'systemid': gateway['gw_system_id'],
+            'redundant': gateway['gw_redundant']
         }
 
         if context:
