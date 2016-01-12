@@ -65,7 +65,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Vsd_resource(object):
+class Vsd_resource(extensions.ExtensionDescriptor):
     """Extension class supporting Vsd_resources."""
 
     @classmethod

@@ -328,7 +328,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Appdesigner(object):
+class Appdesigner(extensions.ExtensionDescriptor):
     """Extension class supporting nuage_app_partition."""
 
     @classmethod

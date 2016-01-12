@@ -130,7 +130,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Nuage_external_security_group(object):
+class Nuage_external_security_group(extensions.ExtensionDescriptor):
     """Extension class supporting External Security Group."""
 
     @classmethod

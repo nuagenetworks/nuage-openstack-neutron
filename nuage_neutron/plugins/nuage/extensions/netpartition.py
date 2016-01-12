@@ -39,7 +39,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Netpartition(object):
+class Netpartition(extensions.ExtensionDescriptor):
     """Extension class supporting net_partition."""
 
     @classmethod

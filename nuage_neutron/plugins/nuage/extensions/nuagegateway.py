@@ -163,7 +163,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Nuagegateway(object):
+class Nuagegateway(extensions.ExtensionDescriptor):
     """Extension class supporting gateway."""
 
     @classmethod

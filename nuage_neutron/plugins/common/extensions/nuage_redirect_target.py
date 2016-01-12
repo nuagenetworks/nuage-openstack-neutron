@@ -221,7 +221,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Nuage_redirect_target(object):
+class Nuage_redirect_target(extensions.ExtensionDescriptor):
     """Extension class supporting Redirect Target."""
 
     @classmethod
