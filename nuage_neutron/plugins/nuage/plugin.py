@@ -2357,7 +2357,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
         super(NuagePlugin, self).delete_router(context, id)
 
-        if not self._check_router_subnet_for_tenant(
+        if ent_rtr_mapping and not self._check_router_subnet_for_tenant(
                 context, neutron_router['tenant_id']):
             LOG.debug("No router/subnet found for tenant %s",
                       neutron_router['tenant_id'])
