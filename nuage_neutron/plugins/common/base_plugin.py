@@ -73,10 +73,11 @@ class BaseNuagePlugin(object):
                 raise NuageBadRequest(msg=msg)
 
     def _validate_cidr(self, subnet, nuage_subnet, shared_subnet):
-        if not nuage_subnet['subnet_address'] and not shared_subnet:
+        if (not nuage_subnet['subnet_address']) and (
+                not shared_subnet.get('subnet_address')):
             nuage_ip = None
         else:
-            if shared_subnet:
+            if shared_subnet.get('subnet_address'):
                 nuage_subnet = shared_subnet
             nuage_ip = netaddr.IPNetwork(nuage_subnet['subnet_address'] + '/' +
                                          nuage_subnet['subnet_netmask'])
