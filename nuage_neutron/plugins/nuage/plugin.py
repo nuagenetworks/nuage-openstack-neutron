@@ -248,6 +248,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
         if subnet_mapping['nuage_managed_subnet']:
             params['parent_id'] = subnet_mapping['nuage_l2dom_tmplt_id']
+        # Required to decide if we have to send (or) drop the VM IP to VSD.
+        params['dhcp_enabled'] = subn['enable_dhcp']
 
         self.nuageclient.create_vms(params)
 
@@ -1542,10 +1544,23 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
         nuage_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
             nuage_subn_id)
-        shared_nuage_subnet = None
+        shared_nuage_subnet = {}
         if nuage_subnet['subnet_shared_net_id']:
-            shared_nuage_subnet = self.nuageclient.get_nuage_sharedresource(
-                nuage_subnet['subnet_shared_net_id'])
+            try:
+                shared_nuage_subnet = (self.nuageclient.
+                                       get_nuage_sharedresource
+                                       (nuage_subnet['subnet_shared_net_id']))
+            except Exception as e:
+                if e.code == constants.RES_NOT_FOUND:
+                    resp = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+                        nuage_subnet['subnet_shared_net_id'])
+                    if resp.get('type') == constants.L2DOMAIN:
+                        e.message = ("The provided nuagenet ID is linked to a"
+                                     " L2 Domain instance")
+                        e.msg = ("The provided nuagenet ID is linked to a"
+                                 " L2 Domain instance")
+                        raise nuage_exc.NuageBadRequest(msg=e.msg)
+                raise e
         self._validate_cidr(subn, nuage_subnet, shared_nuage_subnet)
 
     @log.log
