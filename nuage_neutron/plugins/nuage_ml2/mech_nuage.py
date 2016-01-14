@@ -444,10 +444,13 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             'netpart_name': np_name,
             'ip': port['fixed_ips'][0]['ip_address'],
             'no_of_ports': no_of_ports,
-            'tenant': subn['tenant_id'],
+            'tenant': port['tenant_id'],
+            'netpart_id': subnet_mapping['net_partition_id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'vport_id': nuage_port.get('nuage_vport_id'),
-            'parent_id': subnet_mapping['nuage_subnet_id']
+            'parent_id': subnet_mapping['nuage_subnet_id'],
+            'subn_tenant': subn['tenant_id'],
+            'portOnSharedSubn': subn['shared']
         }
 
         return self.nuageclient.create_vms(params)
@@ -489,10 +492,16 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         params = {
             'no_of_ports': no_of_ports,
             'netpart_name': np_name,
-            'tenant': subn['tenant_id'],
+            'tenant': port['tenant_id'],
             'nuage_vif_id': nuage_port['nuage_vif_id'],
-            'id': vm_id
+            'id': vm_id,
+            'subn_tenant': subn['tenant_id'],
+            'portOnSharedSubn': subn['shared']
         }
+        if not nuage_port['nuage_domain_id']:
+            params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
+        else:
+            params['l3dom_id'] = subnet_mapping['nuage_subnet_id'],
         try:
             self.nuageclient.delete_vms(params)
         except Exception as e:
