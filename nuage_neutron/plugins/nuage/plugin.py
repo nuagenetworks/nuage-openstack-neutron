@@ -3075,16 +3075,17 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         return self._trans_vsd_to_os(l3subs, vsd_to_os, filters, fields)
 
     def _calc_cidr(self, subnet):
-        if not subnet['subnet_address'] and \
-                not subnet['subnet_shared_net_id']:
+        if (not subnet['subnet_address']) and (
+            not subnet['subnet_shared_net_id']):
             return None
 
         shared_id = subnet['subnet_shared_net_id']
         if shared_id:
             subnet = self.nuageclient.get_nuage_sharedresource(shared_id)
-        ip = netaddr.IPNetwork(subnet['subnet_address'] + '/' +
-                               subnet['subnet_netmask'])
-        return str(ip)
+        if subnet.get('subnet_address'):
+            ip = netaddr.IPNetwork(subnet['subnet_address'] + '/' +
+                                   subnet['subnet_netmask'])
+            return str(ip)
 
     def _is_subnet_linked(self, session, subnet):
         if subnet['subnet_os_id']:
