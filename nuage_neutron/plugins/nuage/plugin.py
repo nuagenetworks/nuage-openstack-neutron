@@ -244,9 +244,12 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             'netpart_name': np_name,
             'ip': port['fixed_ips'][0]['ip_address'],
             'no_of_ports': no_of_ports,
-            'tenant': subn['tenant_id'],
+            'tenant': port['tenant_id'],
+            'netpart_id': subnet_mapping['net_partition_id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
-            'vport_id': nuage_port.get('nuage_vport_id')
+            'vport_id': nuage_port.get('nuage_vport_id'),
+            'subn_tenant': subn['tenant_id'],
+            'portOnSharedSubn': subn['shared']
         }
 
         if subnet_mapping['nuage_managed_subnet']:
@@ -441,7 +444,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                       self)._delete_port_security_group_bindings(context,
                                                                  port_id)
         # Convert to list as a set might be passed here and
-        # this has to be serialized
+        # this has to be serialized.
         port[ext_sg.SECURITYGROUPS] = (list(sec_group) if sec_group else [])
 
     @log_helpers.log_method_call
@@ -1032,10 +1035,14 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             params = {
                 'no_of_ports': no_of_ports,
                 'netpart_name': np_name,
-                'tenant': subn['tenant_id'],
+                'tenant': port['tenant_id'],
                 'mac': port['mac_address'],
                 'nuage_vif_id': nuage_vif_id,
-                'id': vm_id
+                'id': vm_id,
+                'subn_tenant': subn['tenant_id'],
+                'l2dom_id': l2dom_id,
+                'l3dom_id': l3dom_id,
+                'portOnSharedSubn': subn['shared']
             }
             self.nuageclient.delete_vms(params)
 
