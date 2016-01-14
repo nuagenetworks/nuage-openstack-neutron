@@ -17,8 +17,6 @@ from oslo_config import cfg
 from neutron.api.v2 import attributes as attr
 from neutron.common import exceptions as n_exc
 
-from nuage_neutron.plugins.common import constants
-
 
 def convert_default_to_default_value(data):
     if not isinstance(data, bool):
@@ -32,9 +30,8 @@ def convert_default_to_default_value(data):
 
 
 def send_fip_rate_limit_info():
-    msg = (_("'nuage_fip_rate' should be a number between 0 and %s, "
-             "-1 for unlimited or 'default' for the configured default value.")
-           % constants.MAX_VSD_INTEGER)
+    msg = (_("'nuage_fip_rate' should be a number higher than 0, -1 for "
+             "unlimited or 'default' for the configured default value."))
     return msg
 
 
@@ -47,11 +44,11 @@ def fip_rate_limit_validation(data, valid_values=None):
         return send_fip_rate_limit_info()
 
     try:
-        data = int(data)
+        data = float(data)
     except (ValueError, TypeError):
         return send_fip_rate_limit_info()
 
-    if data < -1 or data > constants.MAX_VSD_INTEGER:
+    if data < -1:
         return send_fip_rate_limit_info()
 
 attr.validators['type:fip_rate_valid'] = fip_rate_limit_validation
