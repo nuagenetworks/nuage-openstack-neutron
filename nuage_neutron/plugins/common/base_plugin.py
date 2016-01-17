@@ -14,6 +14,7 @@
 
 import netaddr
 
+from neutron.extensions import portsecurity as psec
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
@@ -50,7 +51,10 @@ class BaseNuagePlugin(object):
             'port_id': port['id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'description': description,
-            'parent_id': subnet_mapping['nuage_subnet_id']
+            'parent_id': subnet_mapping['nuage_subnet_id'],
+            'address_spoof': (constants.INHERITED
+                              if port.get(psec.PORTSECURITY)
+                              else constants.ENABLED)
         }
         if port['device_owner'] == constants.APPD_PORT:
             params['name'] = port['name']
