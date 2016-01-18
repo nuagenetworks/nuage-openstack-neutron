@@ -1582,7 +1582,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
         nuage_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
             nuage_subn_id)
-        shared_nuage_subnet = {}
+        shared_nuage_subnet = None
         if nuage_subnet['subnet_shared_net_id']:
             try:
                 shared_nuage_subnet = (self.nuageclient.
