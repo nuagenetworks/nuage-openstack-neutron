@@ -2728,7 +2728,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         fip = floatingip['floatingip']
         with context.session.begin(subtransactions=True):
             neutron_fip = super(NuagePlugin, self).create_floatingip(
-                context, floatingip)
+                context, floatingip,
+                initial_status=os_constants.FLOATINGIP_STATUS_DOWN)
             fip_rate = fip.get('nuage_fip_rate')
             fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
             if fip_rate_configured:
@@ -2745,6 +2746,10 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             try:
                 self._create_update_floatingip(context, neutron_fip,
                                                fip['port_id'])
+                self.update_floatingip_status(
+                    context, neutron_fip['id'],
+                    os_constants.FLOATINGIP_STATUS_ACTIVE)
+                neutron_fip['status'] = os_constants.FLOATINGIP_STATUS_ACTIVE
             except (nuage_exc.OperationNotSupported, n_exc.BadRequest):
                 with excutils.save_and_reraise_exception():
                     super(NuagePlugin, self).delete_floatingip(
@@ -2760,6 +2765,11 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
         if not fips:
             return
+
+        # we can hav only 1 fip associated with a vPort at a time.fips[0]
+        self.update_floatingip_status(
+            context, fips[0]['id'], os_constants.FLOATINGIP_STATUS_DOWN)
+
         # Disassociate only if nuage_port has a FIP associated with it.
         # Calling disassociate on a port with no FIP causes no issue in Neutron
         # but VSD throws an exception
@@ -2811,6 +2821,11 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                                                    neutron_fip,
                                                    fip['port_id'],
                                                    last_known_router_id)
+                    self.update_floatingip_status(
+                        context, neutron_fip['id'],
+                        os_constants.FLOATINGIP_STATUS_ACTIVE)
+                    neutron_fip['status'] = (
+                        os_constants.FLOATINGIP_STATUS_ACTIVE)
                 except nuage_exc.OperationNotSupported:
                     with excutils.save_and_reraise_exception():
                         router_ids = super(
@@ -2845,6 +2860,11 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                     self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                            'disassociated from port %s'
                                            % (id, fip['tenant_id'], port_id))
+
+                self.update_floatingip_status(
+                    context, neutron_fip['id'],
+                    os_constants.FLOATINGIP_STATUS_DOWN)
+                neutron_fip['status'] = os_constants.FLOATINGIP_STATUS_DOWN
 
         # purely rate limit update. Use existing port data.
         if 'port_id' not in fip and fip_rate_configured:
