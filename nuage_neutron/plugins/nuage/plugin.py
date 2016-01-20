@@ -1889,6 +1889,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         subnet_id = rtr_if_info['subnet_id']
         try:
             subn = self.get_subnet(context, subnet_id)
+            net_id = subn['network_id']
+            pnet_binding = nuagedb.get_network_binding(context.session, net_id)
             ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(session,
                                                                    router_id)
             nuage_zone = self.nuageclient.get_zone_by_routerid(router_id,
@@ -1950,7 +1952,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             msg = (_("Subnet %s has one or more active VMs "
                    "Router-IF add not permitted") % subnet_id)
             raise n_exc.BadRequest(resource='subnet', msg=msg)
-        if self.nuageclient.nuage_vports_on_l2domain(nuage_subnet_id):
+        if self.nuageclient.nuage_vports_on_l2domain(nuage_subnet_id,
+                                                     pnet_binding):
             super(NuagePlugin,
                   self).remove_router_interface(context,
                                                 router_id,
@@ -2059,6 +2062,9 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         session = context.session
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
                                                       subnet_id)
+        net_id = subnet['network_id']
+        pnet_binding = nuagedb.get_network_binding(context.session, net_id)
+
         if not subnet_l2dom:
             return super(NuagePlugin,
                          self).remove_router_interface(context,
@@ -2069,7 +2075,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             msg = (_("Subnet %s has one or more active VMs "
                      "Router-IF delete not permitted") % subnet_id)
             raise n_exc.BadRequest(resource='subnet', msg=msg)
-        if self.nuageclient.nuage_vports_on_subnet(nuage_subn_id):
+        if self.nuageclient.nuage_vports_on_subnet(nuage_subn_id,
+                                                   pnet_binding):
             msg = (_("Subnet %s has one or more nuage VPORTS "
                      "Router-IF delete not permitted") % subnet_id)
             raise n_exc.BadRequest(resource='subnet', msg=msg)
