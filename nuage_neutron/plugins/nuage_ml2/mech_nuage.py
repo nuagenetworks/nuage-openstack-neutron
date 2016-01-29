@@ -450,7 +450,8 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             'vport_id': nuage_port.get('nuage_vport_id'),
             'parent_id': subnet_mapping['nuage_subnet_id'],
             'subn_tenant': subn['tenant_id'],
-            'portOnSharedSubn': subn['shared']
+            'portOnSharedSubn': subn['shared'],
+            'dhcp_enabled': subn['enable_dhcp']
         }
 
         return self.nuageclient.create_vms(params)
