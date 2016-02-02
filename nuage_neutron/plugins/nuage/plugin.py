@@ -2164,6 +2164,10 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         router['rt'] = nuage_router.get('routeTarget')
         router['ecmp_count'] = nuage_router.get('ECMPCount')
         router['nuage_backhaul_vnid'] = nuage_router.get('backHaulVNID')
+        router['nuage_backhaul_rd'] = (nuage_router.get(
+            'backHaulRouteDistinguisher'))
+        router['nuage_backhaul_rt'] = nuage_router.get('backHaulRouteTarget')
+
         for route in router.get('routes', []):
             params = {
                 'address': route['destination'].split("/")[0],
@@ -2221,6 +2225,10 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             neutron_router['ecmp_count'] = nuage_router['ecmp_count']
             neutron_router['nuage_backhaul_vnid'] = \
                 nuage_router['nuage_backhaul_vnid']
+            neutron_router['nuage_backhaul_rd'] = \
+                nuage_router['nuage_backhaul_rd']
+            neutron_router['nuage_backhaul_rt'] = \
+                nuage_router['nuage_backhaul_rt']
 
         return neutron_router
 
