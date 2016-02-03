@@ -405,7 +405,8 @@ class NuagegatewayMixin(object):
                 port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
             else:
                 port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-        nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
+        nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params,
+                                                             required=False)
         if nuage_vport and (nuage_vport['nuage_vport_type'] ==
                             constants.HOST_VPORT):
             self.nuageclient.delete_nuage_gateway_vport(
