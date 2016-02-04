@@ -116,6 +116,7 @@ NUAGE_PAT_DEF_ENABLED = 'default_enabled'
 NUAGE_PAT_DEF_DISABLED = 'default_disabled'
 
 RES_NOT_FOUND = 404
+RES_CONFLICT = 409
 
 L2DOMAIN = 'L2Domain'
 L3SUBNET = 'Subnet'
