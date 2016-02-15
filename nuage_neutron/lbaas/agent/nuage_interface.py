@@ -149,7 +149,7 @@ class NuageVMDriver(object):
             raise NameError('NuageError')
 
     @classmethod
-    def nuage_xml(cls, nuage_uuid, local_mac, port):
+    def nuage_xml(cls, nuage_uuid, local_mac, port, bridge):
         xmlTemplate = ("""<domain type="kvm" id="4">
                <name>%(name)s</name>
                <uuid>%(uuid)s</uuid>
@@ -158,7 +158,7 @@ class NuageVMDriver(object):
                <devices>
                <interface type="bridge">
                <mac address="%(mac)s"></mac>
-               <source bridge="alubr0"></source>
+               <source bridge="%(bridge)s"></source>
                <target dev=\"%(port)s\"></target>
                </interface>
                </devices>
@@ -166,6 +166,7 @@ class NuageVMDriver(object):
         data = {'name': nuage_uuid,
                 'uuid': nuage_uuid,
                 'mac': re.sub(r'\s+', '', local_mac),
+                'bridge': bridge,
                 'port': port}
         xmldata = xmlTemplate % data
         return xmldata
@@ -173,7 +174,8 @@ class NuageVMDriver(object):
     @classmethod
     def plug(cls, network_id, port_id, device_name, mac_address,
              bridge=None, namespace=None, prefix=None, user_helper=None):
-        xml_data = NuageVMDriver.nuage_xml(port_id, mac_address, device_name)
+        xml_data = NuageVMDriver.nuage_xml(port_id, mac_address, device_name,
+                                           bridge)
         define_msg = NuageVMDriver._send_vm_event_to_ovs(
             port_id, 'DEFINED', vm_name=port_id, nuagexml=xml_data)
         start_msg = NuageVMDriver._send_vm_event_to_ovs(
@@ -204,6 +206,8 @@ class NuageInterfaceDriver(OVSInterfaceDriver):
         super(NuageInterfaceDriver, self).plug(network_id, port_id,
                                                device_name, mac_address,
                                                bridge, namespace, prefix)
+        if not bridge:
+            bridge = self.conf.ovs_integration_bridge
         # Plug port into nuage overlay, simulate VM power on event
         LOG.debug(_("Nuage plugging port %(id)s:%(name)s on bridge %(bridge)s "
                   "in namespace %(namespace)s"),
