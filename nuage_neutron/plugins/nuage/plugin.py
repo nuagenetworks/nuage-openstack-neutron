@@ -46,14 +46,12 @@ from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
-from neutron.db import portsecurity_db_common as ps_db_common
 from neutron.db import quota_db  # noqa
 from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import external_net
 from neutron.extensions import l3
 from neutron.extensions import portbindings
-from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.ipam import utils as ipam_utils
@@ -87,15 +85,13 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                   netpartition.NetPartitionPluginBase,
                   sg_db.SecurityGroupDbMixin,
                   portbindings_db.PortBindingMixin,
-                  ps_db_common.PortSecurityDbCommon,
                   extradhcpopt_db.ExtraDhcpOptMixin):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
                          "appdesigner", "nuage-redirect-target",
                          "vsd-resource", "allowed-address-pairs",
-                         "nuage-external-security-group", "extra_dhcp_opt",
-                         "port-security"]
+                         "nuage-external-security-group", "extra_dhcp_opt"]
 
     supported_extension_aliases = ["router", "binding", "external-net",
                                    "quotas", "provider", "extraroute",
@@ -123,22 +119,6 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
         attributes.NETWORKS, ['_extend_network_dict_provider_nuage'])
-
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attributes.NETWORKS, ['_extend_port_security_dict'])
-
-    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-        attributes.PORTS, ['_extend_port_security_dict'])
-
-    def _extend_port_security_dict(self, response_data, db_data):
-        if ('port-security' in getattr(
-                self, 'supported_extension_aliases', [])):
-            if db_data and db_data['port_security']:
-                psec_value = db_data['port_security'][psec.PORTSECURITY]
-                if psec_value:
-                    response_data[psec.PORTSECURITY] = psec_value
-                else:
-                    response_data[psec.PORTSECURITY] = False
 
     def init_fip_rate_log(self):
         self.def_fip_rate = cfg.CONF.FIPRATE.default_fip_rate
@@ -269,11 +249,9 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'vport_id': nuage_port.get('nuage_vport_id'),
             'subn_tenant': subn['tenant_id'],
-            'portOnSharedSubn': subn['shared'],
-            'address_spoof': (constants.INHERITED
-                              if port[psec.PORTSECURITY]
-                              else constants.ENABLED)
+            'portOnSharedSubn': subn['shared']
         }
+
         if subnet_mapping['nuage_managed_subnet']:
             params['parent_id'] = subnet_mapping['nuage_subnet_id']
         # Required to decide if we have to send (OR) drop the VM IP to VSD
@@ -394,58 +372,6 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             }
             self.nuageclient.delete_port_redirect_target_bindings(params)
 
-    def _process_port_create_secgrp_for_port_sec(self, context, port):
-        l2dom_id = None
-        l3dom_id = None
-        rtr_id = None
-        vptag_vport_list = []
-        port_id = port['id']
-
-        if not port.get('fixed_ips'):
-            return self._make_port_dict(port)
-
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-            context.session, port['fixed_ips'][0]['subnet_id'])
-
-        if subnet_mapping:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                l2dom_id = subnet_mapping['nuage_subnet_id']
-            else:
-                l3dom_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = (self.nuageclient.
-                          get_nuage_domain_id_from_subnet(l3dom_id))
-
-            params = {
-                'neutron_port_id': port_id,
-                'l2dom_id': l2dom_id,
-                'l3dom_id': l3dom_id,
-                'rtr_id': rtr_id,
-                'type': constants.VM_VPORT,
-                'sg_type': constants.SOFTWARE
-            }
-            nuage_port = self.nuageclient.get_nuage_vport_for_port_sec(params)
-            if nuage_port:
-                nuage_vport_id = nuage_port.get('nuage_vport_id')
-                if port[psec.PORTSECURITY]:
-                    params = {
-                        'vptag_vport_list': [],
-                        'nuage_vport_id': nuage_vport_id
-                    }
-                    self.nuageclient.update_nuage_vport(params)
-                else:
-                    sg_id = (self.nuageclient.
-                             create_nuage_sec_grp_for_port_sec(params))
-                    if sg_id:
-                        params['sg_id'] = sg_id
-                        (self.nuageclient.
-                         create_nuage_sec_grp_rule_for_port_sec(params))
-                        vptag_vport_list.append({'nuage_vporttag_id': sg_id})
-                        params = {
-                            'vptag_vport_list': vptag_vport_list,
-                            'nuage_vport_id': nuage_vport_id
-                        }
-                        self.nuageclient.update_nuage_vport(params)
-
     @log_helpers.log_method_call
     def _process_port_create_security_group(self, context, port, sec_group):
         if not attributes.is_attr_set(sec_group):
@@ -545,38 +471,6 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 }
                 self.nuageclient.delete_port_security_group_bindings(params)
 
-    def _portsec_ext_port_create_processing(self, context, port_data, port):
-        port_security = ((port_data.get(psec.PORTSECURITY) is None) or
-                         port_data[psec.PORTSECURITY])
-
-        # allowed address pair checks
-        if self._check_update_has_allowed_address_pairs(port):
-            if not port_security:
-                raise addr_pair.AddressPairAndPortSecurityRequired()
-
-        if port_security:
-            self._ensure_default_security_group_on_port(context, port)
-        elif self._check_update_has_security_groups(port):
-            raise psec.PortSecurityAndIPRequiredForSecurityGroups()
-
-    def _determine_port_security(self, context, port):
-        """Returns a boolean (port_security_enabled).
-
-        Port_security is the value associated with the port if one is present
-        otherwise the value associated with the network is returned.
-        """
-        if (port.get('device_owner') and
-                port['device_owner'].startswith('network:')):
-            return False
-
-        if attributes.is_attr_set(port.get(psec.PORTSECURITY)):
-            port_security_enabled = port[psec.PORTSECURITY]
-        else:
-            port_security_enabled = self._get_network_security_binding(
-                context, port['network_id'])
-
-        return port_security_enabled
-
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def create_port(self, context, port):
@@ -585,31 +479,24 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         net_partition = None
         has_dhcp_options = False
         dhcp_options = []
-        p_data = port['port']
+        p = port['port']
 
-        if p_data.get('extra_dhcp_opts'):
+        if p.get('extra_dhcp_opts'):
             has_dhcp_options = True
-            dhcp_options = copy.deepcopy(p_data['extra_dhcp_opts'])
+            dhcp_options = copy.deepcopy(p['extra_dhcp_opts'])
             for dhcp_option in dhcp_options:
                 self._validate_extra_dhcp_option_ip_version(dhcp_option)
                 self._translate_dhcp_option(dhcp_option)
             self._validate_extra_dhcp_opt_for_neutron(dhcp_options)
-
-        result = super(NuagePlugin, self).create_port(context, port)
-
-        # Create the port extension attributes.
-        p_data[psec.PORTSECURITY] = self._determine_port_security(
-            context, p_data)
-        self._process_port_port_security_create(context, p_data, result)
-        self._portsec_ext_port_create_processing(context, result, port)
-
-        self._process_portbindings_create_and_update(context, p_data, result)
-        device_owner = result.get('device_owner', None)
+        self._ensure_default_security_group_on_port(context, port)
+        port = super(NuagePlugin, self).create_port(context, port)
+        self._process_portbindings_create_and_update(context, p, port)
+        device_owner = port.get('device_owner', None)
         if nuage_utils.check_vport_creation(
                 device_owner, cfg.CONF.PLUGIN.device_owner_prefix):
-            if 'fixed_ips' not in result or len(result['fixed_ips']) == 0:
-                return result
-            subnet_id = result['fixed_ips'][0]['subnet_id']
+            if 'fixed_ips' not in port or len(port['fixed_ips']) == 0:
+                return port
+            subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
                                                             subnet_id)
             port_prefix = constants.NOVA_PORT_OWNER_PREF
@@ -617,24 +504,24 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 LOG.debug("Found subnet mapping for neutron subnet %s",
                           subnet_id)
 
-                if result['device_owner'].startswith(port_prefix):
+                if port['device_owner'].startswith(port_prefix):
                     # This request is coming from nova
                     try:
                         net_partition = nuagedb.get_net_partition_by_id(
                             session,
                             subnet_mapping['net_partition_id'])
                         self._create_update_port(context,
-                                                 result,
+                                                 port,
                                                  net_partition['name'],
                                                  subnet_mapping)
                     except Exception:
                         with excutils.save_and_reraise_exception():
-                            self._delete_nuage_vport(context, result,
+                            self._delete_nuage_vport(context, port,
                                                      net_partition['name'],
                                                      subnet_mapping,
                                                      port_delete=True)
                             super(NuagePlugin, self).delete_port(context,
-                                                                 result['id'])
+                                                                 port['id'])
                 else:
                     # This request is port-create no special ports
                     vport_dict = None
@@ -642,88 +529,84 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                         net_partition = nuagedb.get_net_partition_by_id(
                             session,
                             subnet_mapping['net_partition_id'])
-                        vport_dict = self._create_nuage_vport(result,
+                        vport_dict = self._create_nuage_vport(port,
                                                               subnet_mapping)
                     except Exception:
                         with excutils.save_and_reraise_exception():
                             super(NuagePlugin, self).delete_port(context,
-                                                                 result['id'])
+                                                                 port['id'])
                     try:
                         if has_dhcp_options:
                             self._create_update_extra_dhcp_options(
-                                dhcp_options, vport_dict, result['id'], True)
+                                dhcp_options, vport_dict, port['id'], True)
                             (super(NuagePlugin, self).
                              _process_port_create_extra_dhcp_opts(
-                                context, result, p_data['extra_dhcp_opts']))
+                                context, port, p['extra_dhcp_opts']))
                     except Exception:
                         with excutils.save_and_reraise_exception():
-                            self._delete_nuage_vport(context, result,
+                            self._delete_nuage_vport(context, port,
                                                      net_partition['name'],
                                                      subnet_mapping,
                                                      port_delete=True)
                             super(NuagePlugin, self).delete_port(context,
-                                                                 result['id'])
+                                                                 port['id'])
                 try:
                     if (subnet_mapping['nuage_managed_subnet'] is False
-                            and ext_sg.SECURITYGROUPS in p_data):
+                            and ext_sg.SECURITYGROUPS in p):
                         self._process_port_create_security_group(
                             context,
-                            result,
-                            p_data[ext_sg.SECURITYGROUPS])
+                            port,
+                            p[ext_sg.SECURITYGROUPS])
                         LOG.debug("Created security group for port %s",
-                                  result['id'])
-                    if not p_data[psec.PORTSECURITY]:
-                        self._process_port_create_secgrp_for_port_sec(
-                            context, result)
+                                  port['id'])
                     if (subnet_mapping['nuage_managed_subnet'] is False
-                            and ext_rtarget.REDIRECTTARGETS in p_data):
+                            and ext_rtarget.REDIRECTTARGETS in p):
                         n_rtarget_ids = self._validate_port_redirect_target(
                             context,
-                            result,
-                            p_data[ext_rtarget.REDIRECTTARGETS]
+                            port,
+                            p[ext_rtarget.REDIRECTTARGETS]
                         )
                         self.process_port_redirect_target(
-                            context, result,
-                            p_data[ext_rtarget.REDIRECTTARGETS],
+                            context, port, p[ext_rtarget.REDIRECTTARGETS],
                             n_rtarget_ids)
                     elif (subnet_mapping['nuage_managed_subnet'] and
-                          ext_sg.SECURITYGROUPS in p_data):
+                          ext_sg.SECURITYGROUPS in p):
                         LOG.warning(_("Security Groups is ignored for "
                                       "ports on VSD Managed Subnet"))
                 except Exception:
                     with excutils.save_and_reraise_exception():
-                        self._delete_nuage_vport(context, result,
+                        self._delete_nuage_vport(context, port,
                                                  net_partition['name'],
                                                  subnet_mapping,
                                                  port_delete=True)
                         super(NuagePlugin, self).delete_port(context,
-                                                             result['id'])
+                                                             port['id'])
             else:
-                if result['device_owner'].startswith(port_prefix):
+                if port['device_owner'].startswith(port_prefix):
                     # VM is getting spawned on a subnet type which
                     # is not supported by VSD. LOG error.
                     LOG.error(_('VM with uuid %s will not be resolved '
                                 'in VSD because its created on unsupported'
-                                'subnet type'), result['device_id'])
+                                'subnet type'), port['device_id'])
         if subnet_mapping:
             try:
-                self.create_allowed_address_pairs(context, result, p_data)
+                self.create_allowed_address_pairs(context, port, p)
             except Exception:
                 with excutils.save_and_reraise_exception():
                     # Since this is outside the transaction, undo the port
                     # changes
-                    self._delete_nuage_vport(context, result,
+                    self._delete_nuage_vport(context, port,
                                              net_partition['name'],
                                              subnet_mapping)
-                    super(NuagePlugin, self).delete_port(context, result['id'])
+                    super(NuagePlugin, self).delete_port(context, port['id'])
         elif has_dhcp_options:
-            super(NuagePlugin, self).delete_port(context, result['id'])
+            super(NuagePlugin, self).delete_port(context, port['id'])
             msg = ("Cannot create a port with DHCP options on a subnet that "
                    "does not have mapping to a L2Domain (OR) "
                    "a L3 Subnet on Nuage.")
             raise nuage_exc.NuageBadRequest(msg=msg)
 
-        return result
+        return port
 
     def _validate_extra_dhcp_option_ip_version(self, dhcp_option):
         if dhcp_option.get('ip_version') == os_constants.IP_VERSION_6:
@@ -886,8 +769,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             l2dom_id = subnet_mapping['nuage_subnet_id']
             l3dom_id = subnet_mapping['nuage_subnet_id']
         else:
-            # if current_owner == APPD_PORT, the port will always
-            # on a domain-subnet
+            # ToDO: if nuage_l2dom_tmplt but current_owner != APPD_PORT
+            # goes in to else, is that the intended behavior?
             if (subnet_mapping['nuage_l2dom_tmplt_id'] and
                     current_owner != constants.APPD_PORT):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
@@ -921,27 +804,9 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    def _process_update_port(self, context, p, original_port,
-                             subnet_mapping, no_of_ports):
+    def _process_update_port(self, context, p, original_port, subnet_mapping,
+                             no_of_ports):
         current_owner = original_port['device_owner']
-
-        if psec.PORTSECURITY in p:
-            params = self._params_to_get_vport(
-                original_port['id'], subnet_mapping, current_owner)
-            nuage_port = self.nuageclient.get_nuage_vport_by_id(
-                params)
-            if nuage_port:
-                # Only update the VSD flag if the vport exists
-                current_spoof = (constants.DISABLED
-                                 if p[psec.PORTSECURITY]
-                                 else constants.ENABLED)
-                self.nuageclient.update_mac_spoofing_on_vport(
-                    nuage_port['nuage_vport_id'], current_spoof)
-            else:
-                # case where the user has deleted the vPort on VSD
-                raise nuage_exc.NuageNotFound(
-                    resource='port', resource_id=original_port['id'])
-
         device_id_removed = ('device_id' in p and
                              (not p.get('device_id')))
         nova_device_owner_removed = (
@@ -974,55 +839,20 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                                          net_partition['name'],
                                          subnet_mapping, no_of_ports)
 
-    def _portsec_ext_port_update_processing(self, updated_port,
-                                            context, port, id):
-        port_security = ((updated_port.get(psec.PORTSECURITY) is None) or
-                         updated_port[psec.PORTSECURITY])
-
-        if port_security:
-            return
-
-        # check the address-pairs
-        if self._check_update_has_allowed_address_pairs(port):
-            #  has address pairs in request
-            raise addr_pair.AddressPairAndPortSecurityRequired()
-        elif not self._check_update_deletes_allowed_address_pairs(port):
-            # not a request for deleting the address-pairs
-            updated_port[addr_pair.ADDRESS_PAIRS] = (
-                self.get_allowed_address_pairs(context, id))
-
-            # check if address pairs has been in db
-            if updated_port[addr_pair.ADDRESS_PAIRS]:
-                raise addr_pair.AddressPairAndPortSecurityRequired()
-
-        # checks if security groups were updated adding/modifying
-        # security groups, port security is set
-        if self._check_update_has_security_groups(port):
-            raise psec.PortSecurityAndIPRequiredForSecurityGroups()
-        elif not self._check_update_deletes_security_groups(port):
-            # Update did not have security groups passed in. Check
-            # that port does not have any security groups already on it.
-            filters = {'port_id': [id]}
-            security_groups = self._get_port_security_group_bindings(
-                context, filters)
-            if security_groups:
-                raise psec.PortSecurityPortHasSecurityGroup()
-
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def update_port(self, context, id, port):
         create_vm = False
         has_dhcp_options = False
-        p_sec_update_reqd = False
         new_dhcp_options = []
         updated_port_dict = port
-        p_data = port['port']
+        p = port['port']
         delete_security_groups = self._check_update_deletes_security_groups(
             port)
         has_security_groups = self._check_update_has_security_groups(port)
-        if p_data.get('extra_dhcp_opts'):
+        if p.get('extra_dhcp_opts'):
             has_dhcp_options = True
-            new_dhcp_options = copy.deepcopy(p_data['extra_dhcp_opts'])
+            new_dhcp_options = copy.deepcopy(p['extra_dhcp_opts'])
             for dhcp_option in new_dhcp_options:
                 self._validate_extra_dhcp_option_ip_version(dhcp_option)
                 self._translate_dhcp_option(dhcp_option)
@@ -1044,42 +874,35 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             original_port = self.get_port(context, id)
             current_owner = original_port['device_owner']
             lbaas_device_owner_added = (
-                p_data.get('device_owner') ==
-                os_constants.DEVICE_OWNER_LOADBALANCER + 'V2')
+                p.get('device_owner') == os_constants.DEVICE_OWNER_LOADBALANCER
+                + 'V2')
 
-            self._validate_update_port(
-                p_data, original_port, has_security_groups)
+            self._validate_update_port(p, original_port, has_security_groups)
             if (current_owner == constants.APPD_PORT and
-                    p_data.get('device_owner', '').startswith(
+                    p.get('device_owner', '').startswith(
                     constants.NOVA_PORT_OWNER_PREF)
-                    and p_data.get('device_id')):
+                    and p.get('device_id')):
                 create_vm = True
-                p_data['device_owner'] = constants.APPD_PORT
+                p['device_owner'] = constants.APPD_PORT
 
             if (current_owner == constants.APPD_PORT and
-                    not p_data.get('device_id')):
-                p_data['device_owner'] = constants.APPD_PORT
+                    not p.get('device_id')):
+                p['device_owner'] = constants.APPD_PORT
 
             filters = {'device_id': [original_port['device_id']]}
             ports = self.get_ports(context, filters)
             no_of_ports = len(ports)
+
             updated_port = super(NuagePlugin,
                                  self).update_port(context, id, port)
-            if psec.PORTSECURITY in p_data:
-                self._process_port_port_security_update(
-                    context, p_data, updated_port)
-            self._portsec_ext_port_update_processing(
-                updated_port, context, port, id)
-            if (original_port[psec.PORTSECURITY]
-                    != updated_port[psec.PORTSECURITY]):
-                p_sec_update_reqd = True
-            self._process_portbindings_create_and_update(
-                context, p_data, updated_port)
+            self._process_portbindings_create_and_update(context,
+                                                         port['port'],
+                                                         updated_port)
             if not updated_port.get('fixed_ips'):
                 return updated_port
             subnet_id = updated_port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
-            if (p_data.get('device_owner', '').startswith(
+            if (p.get('device_owner', '').startswith(
                     constants.NOVA_PORT_OWNER_PREF) or create_vm or
                     lbaas_device_owner_added):
                 LOG.debug("Port %s is owned by nova:compute", id)
@@ -1097,11 +920,11 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 # nova removes device_owner and device_id fields, in this
                 # update_port, hence before update_port, get_ports for
                 # device_id and pass the no_of_ports to delete_nuage_vport
-                self._process_update_port(context, p_data, original_port,
+                self._process_update_port(context, p, original_port,
                                           subnet_mapping, no_of_ports)
 
         try:
-            self.update_allowed_address_pairs(context, id, old_port, p_data,
+            self.update_allowed_address_pairs(context, id, old_port, p,
                                               updated_port, updated_port_dict)
             if has_dhcp_options:
                 # Update the DHCP options of a port
@@ -1139,25 +962,22 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 sgids = self._get_security_groups_on_port(context, port)
                 self._process_port_create_security_group(context, updated_port,
                                                          sgids)
-            if ext_rtarget.REDIRECTTARGETS in p_data:
+            if ext_rtarget.REDIRECTTARGETS in p:
                 nuage_rtargets_ids = self._validate_port_redirect_target(
                     context,
                     updated_port,
-                    p_data[ext_rtarget.REDIRECTTARGETS]
+                    p[ext_rtarget.REDIRECTTARGETS]
                 )
                 self._delete_port_redirect_target_bindings(
                     context, id)
                 self.process_port_redirect_target(
                     context,
                     updated_port,
-                    p_data[ext_rtarget.REDIRECTTARGETS],
+                    p[ext_rtarget.REDIRECTTARGETS],
                     nuage_rtargets_ids
                 )
-            if p_sec_update_reqd:
-                self._process_port_create_secgrp_for_port_sec(
-                    context, updated_port)
         elif (subnet_mapping and subnet_mapping['nuage_managed_subnet']):
-            if ext_sg.SECURITYGROUPS in p_data:
+            if ext_sg.SECURITYGROUPS in p:
                 LOG.warning(_("Security Groups is ignored for ports on "
                               "VSD Managed Subnet"))
         return updated_port
@@ -1403,9 +1223,9 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def create_network(self, context, network):
         binding = None
-        data = network['network']
         (network_type, physical_network,
-         vlan_id) = self._process_provider_create(context, data)
+         vlan_id) = self._process_provider_create(context,
+                                                  network['network'])
         with context.session.begin(subtransactions=True):
             self._ensure_default_security_group(
                 context,
@@ -1413,13 +1233,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             )
             net = super(NuagePlugin, self).create_network(context,
                                                           network)
-            # Create the network extension attributes.
-            if psec.PORTSECURITY in data:
-                self._process_network_port_security_create(
-                    context, data, net)
-
-            self._process_l3_create(context, net, data)
-
+            self._process_l3_create(context, net, network['network'])
             if network_type == 'vlan':
                 binding = nuagedb.add_network_binding(context.session,
                                                       net['id'],
@@ -1469,20 +1283,14 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def update_network(self, context, id, network):
-        data = network['network']
-        pnet._raise_if_updates_provider_attributes(data)
+        pnet._raise_if_updates_provider_attributes(network['network'])
         with context.session.begin(subtransactions=True):
             is_external_set, subnet = self._validate_update_network(context,
                                                                     id,
                                                                     network)
             net = super(NuagePlugin, self).update_network(context, id,
                                                           network)
-
-            # Update the network extension attributes.
-            if psec.PORTSECURITY in network['network']:
-                self._process_network_port_security_update(context, data,
-                                                           net)
-            self._process_l3_update(context, net, data)
+            self._process_l3_update(context, net, network['network'])
             if subnet and is_external_set:
                 subn = subnet[0]
                 subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session,
