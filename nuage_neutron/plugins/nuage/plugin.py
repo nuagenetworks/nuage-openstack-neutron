@@ -35,6 +35,10 @@ from sqlalchemy.orm import exc
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2 import attributes
+from neutron.callbacks import events
+from neutron.callbacks import exceptions as cb_exc
+from neutron.callbacks import registry
+from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.common import exceptions as n_exc
 from neutron.common import utils
@@ -1097,11 +1101,29 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                         nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
+    def _pre_delete_port(self, context, port_id, port_check):
+        """Do some preliminary operations before deleting the port."""
+        LOG.debug("Deleting port %s", port_id)
+        try:
+            # notify interested parties of imminent port deletion;
+            # a failure here prevents the operation from happening
+            kwargs = {
+                'context': context,
+                'port_id': port_id,
+                'port_check': port_check
+            }
+            registry.notify(
+                resources.PORT, events.BEFORE_DELETE, self, **kwargs)
+        except cb_exc.CallbackFailure as e:
+            # preserve old check's behavior
+            if len(e.errors) == 1:
+                raise e.errors[0].error
+            raise exc.ServicePortInUse(port_id=port_id, reason=e)
+
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def delete_port(self, context, id, l3_port_check=True):
-        if l3_port_check:
-            self.prevent_l3_port_deletion(context, id)
+        self._pre_delete_port(context, id, l3_port_check)
         port = self._get_port(context, id)
         fip = nuagedb.get_fip_by_floating_port_id(context.session,
                                                   id)
