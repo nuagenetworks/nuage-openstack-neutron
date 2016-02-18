@@ -1408,10 +1408,10 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             'neutron_subnet': subnet,
             'net': net,
             'type': type,
-            'net_id': net_id
+            'net_id': net_id,
+            'underlay_config': cfg.CONF.RESTPROXY.nuage_fip_underlay
         }
-        params['underlay_config'] = cfg.CONF.RESTPROXY.nuage_fip_underlay
-        if (req_subnet and req_subnet.get('underlay') in [True, False]):
+        if req_subnet and req_subnet.get('underlay') in [True, False]:
             params['underlay'] = req_subnet.get('underlay')
             subnet['underlay'] = req_subnet.get('underlay')
         else:
@@ -1538,7 +1538,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                    "configuration. ")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-        if not self.nuageclient.ckeck_if_l2Dom_in_correct_ent(nuage_subn_id,
+        if not self.nuageclient.check_if_l2Dom_in_correct_ent(nuage_subn_id,
                                                               nuage_netpart):
             msg = ("Provided Nuage subnet not in the provided"
                    " Nuage net-partition")
@@ -1585,22 +1585,12 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             self.nuageclient.get_subnet_or_domain_subnet_by_id(
                 nuage_subn_id))
         if nuage_subnet_details['subnet_shared_net_id']:
-            (gw_ip_via_dhcp_options,
-                gw_ip, is_l3) = self.nuageclient.get_gateway_ip_for_advsub(
+            subn['gateway_ip'] = self.nuageclient.get_gateway_ip_for_advsub(
                 nuage_subnet_details['subnet_shared_net_id'])
         else:
-            (gw_ip_via_dhcp_options,
-                gw_ip, is_l3) = self.nuageclient.get_gateway_ip_for_advsub(
+            subn['gateway_ip'] = self.nuageclient.get_gateway_ip_for_advsub(
                 nuage_subn_id)
 
-        if is_l3:
-            subn['gateway_ip'] = gw_ip
-        else:
-            # case for l2 only domain VSD-Managed subnets
-            if gw_ip_via_dhcp_options:
-                subn['gateway_ip'] = gw_ip_via_dhcp_options
-            else:
-                subn['gateway_ip'] = None
         # The _is_attr_set() is incomplete to use here, since the method
         # ignores the case if the user sets the attribute value to None.
         if ((gw_ip_from_cli is not attributes.ATTR_NOT_SPECIFIED) and
@@ -1612,7 +1602,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             LOG.warning(_("DNS Nameservers parameter ignored for "
                           "VSD-Managed managed subnet "))
         # creating a dhcp_port with this gatewayIP
-        return gw_ip
+        return subn['gateway_ip']
 
     @log.log
     def _link_nuage_adv_subnet(self, context, subnet):

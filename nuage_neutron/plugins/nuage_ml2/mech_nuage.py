@@ -337,25 +337,18 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         if shared:
             shared_subnet = self.nuageclient.get_nuage_sharedresource(shared)
             require(shared_subnet, 'sharednetworkresource', shared)
+            shared_subnet['subnet_id'] = shared
         return nuage_subnet, shared_subnet
 
     def _set_gateway_from_vsd(self, nuage_subnet, shared_subnet, subnet):
-        if shared_subnet:
-            gw_ip = self.nuageclient.get_gw_from_dhcp_shared_resource(
-                nuage_subnet['subnet_shared_net_id'])
-            gw_ip = gw_ip or (None
-                              if nuage_subnet['type'] == constants.L2DOMAIN
-                              else shared_subnet['subnet_gateway'])
-        elif subnet['enable_dhcp']:
+        gateway_subnet = shared_subnet or nuage_subnet
+        if subnet['enable_dhcp']:
             if nuage_subnet['type'] == constants.L2DOMAIN:
                 gw_ip = self.nuageclient.get_gw_from_dhcp_l2domain(
-                    nuage_subnet['subnet_id'])
+                    gateway_subnet['subnet_id'])
             else:
-                gw_ip = self.nuageclient.get_gw_from_dhcp_domain_subnet(
-                    nuage_subnet['subnet_id'])
-            gw_ip = gw_ip or (None
-                              if nuage_subnet['type'] == constants.L2DOMAIN
-                              else nuage_subnet['subnet_gateway'])
+                gw_ip = gateway_subnet['subnet_gateway']
+            gw_ip = gw_ip or None
         else:
             gw_ip = None
             subnet['dns_nameservers'] = []
