@@ -157,13 +157,12 @@ class NuageAddressPair(addr_pair_db.AllowedAddressPairsMixin):
             }
 
             nuage_vport = self.nuageclient.get_nuage_vport_by_id(params)
-            if nuage_vport:
-                if create:
-                    # Create a VIP
-                    self._create_vips(l2dom_id or l3dom_id, port, nuage_vport)
-                else:
-                    self._update_vips(l2dom_id or l3dom_id, port,
-                                      nuage_vport, delete_addr_pairs)
+            if create:
+                # Create a VIP
+                self._create_vips(l2dom_id or l3dom_id, port, nuage_vport)
+            else:
+                self._update_vips(l2dom_id or l3dom_id, port,
+                                  nuage_vport, delete_addr_pairs)
 
     def _verify_allowed_address_pairs(self, context, port, port_data):
         empty_allowed_address_pairs = (

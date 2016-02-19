@@ -386,28 +386,26 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                     'l2dom_id': l2dom_id,
                     'l3dom_id': l3dom_id
                 }
-
                 nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
-                if nuage_port and nuage_port.get('nuage_vport_id'):
-                    nuage_port['l2dom_id'] = l2dom_id
-                    nuage_port['l3dom_id'] = l3dom_id
-                    nuage_vport_id = nuage_port['nuage_vport_id']
-                    sg = self._get_security_group(context, sg_id)
-                    sg_rules = self.get_security_group_rules(
-                        context,
-                        {'security_group_id': [sg_id]})
-                    sg_params = {
-                        'nuage_port': nuage_port,
-                        'sg': sg,
-                        'sg_rules': sg_rules
-                    }
-                    nuage_vptag_id = (
-                        self.nuageclient.process_port_create_security_group(
-                            sg_params))
-                    vptag_vport = {
-                        'nuage_vporttag_id': nuage_vptag_id
-                    }
-                    vptag_vport_list.append(vptag_vport)
+                nuage_port['l2dom_id'] = l2dom_id
+                nuage_port['l3dom_id'] = l3dom_id
+                nuage_vport_id = nuage_port['nuage_vport_id']
+                sg = self._get_security_group(context, sg_id)
+                sg_rules = self.get_security_group_rules(
+                    context,
+                    {'security_group_id': [sg_id]})
+                sg_params = {
+                    'nuage_port': nuage_port,
+                    'sg': sg,
+                    'sg_rules': sg_rules
+                }
+                nuage_vptag_id = (
+                    self.nuageclient.process_port_create_security_group(
+                        sg_params))
+                vptag_vport = {
+                    'nuage_vporttag_id': nuage_vptag_id
+                }
+                vptag_vport_list.append(vptag_vport)
 
             if vptag_vport_list:
                 params = {
@@ -680,7 +678,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             raise nuage_exc.NuageBadRequest(msg=msg)
         params = self._params_to_get_vport(port_id, subnet_mapping,
                                            current_owner)
-        vport_dict = self.nuageclient.get_nuage_vport_by_id(params)
+        vport_dict = self.nuageclient.get_nuage_vport_by_id(params,
+                                                            required=False)
         if not vport_dict:
             if (subnet_mapping['nuage_l2dom_tmplt_id'] and
                     current_owner == constants.DEVICE_OWNER_DHCP_NUAGE):
@@ -768,16 +767,12 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         params = self._params_to_get_vport(port_id, subnet_mapping,
                                            current_owner)
         nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
-        if nuage_port:
-            net_partition = nuagedb.get_net_partition_by_id(
-                context.session, subnet_mapping['net_partition_id'])
-            self._update_nuage_port(context, updated_port,
-                                    net_partition['name'],
-                                    subnet_mapping, nuage_port)
-            return nuage_port
-        else:
-            # should not come here, log debug message
-            LOG.debug("Nuage vport does not exist for port %s ", id)
+        net_partition = nuagedb.get_net_partition_by_id(
+            context.session, subnet_mapping['net_partition_id'])
+        self._update_nuage_port(context, updated_port,
+                                net_partition['name'],
+                                subnet_mapping, nuage_port)
+        return nuage_port
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -1018,7 +1013,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
             # Delete the vports that nova created on nova boot or when the
             # port is being deleted in neutron
-            nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
+            nuage_vport = self.nuageclient.get_nuage_vport_by_id(
+                port_params, required=False)
             if nuage_vport:
                 vport_desc = nuage_vport.get('description')
                 nova_created = (constants.NOVA_PORT_OWNER_PREF in vport_desc
@@ -1030,15 +1026,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         # delete nuage vport created explicitly
         if not nuage_port and nuage_utils.check_vport_creation(
                 port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
-            try:
-                nuage_vport = self.nuageclient.get_nuage_vport_by_id(
-                    port_params)
-            except RESTProxyError as e:
-                if e.code == 404:
-                    nuage_vport = None
-                else:
-                    raise e
-
+            nuage_vport = self.nuageclient.get_nuage_vport_by_id(
+                port_params, required=False)
             if nuage_vport:
                 self.nuageclient.delete_nuage_vport(
                     nuage_vport.get('nuage_vport_id'))
@@ -2642,7 +2631,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         # Update VM if required
         nuage_vport = self._get_vport_for_fip(context, port_id,
                                               vport_type=vport_type,
-                                              vport_id=vport_id)
+                                              vport_id=vport_id,
+                                              required=False)
         if nuage_vport:
             if (nuage_vport['nuage_domain_id']) != (
                     ent_rtr_mapping['nuage_router_id']):
@@ -2712,10 +2702,9 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         if (not fields or 'nuage_fip_rate' in fields) and fip.get('port_id'):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
-                if nuage_vport:
-                    rate_limit = self.nuageclient.get_rate_limit(
-                        nuage_vport['nuage_vport_id'], fip['id'])
-                    fip['nuage_fip_rate'] = rate_limit
+                rate_limit = self.nuageclient.get_rate_limit(
+                    nuage_vport['nuage_vport_id'], fip['id'])
+                fip['nuage_fip_rate'] = rate_limit
             except Exception as e:
                 msg = (_('Got exception while retrieving fip rate from vsd: '
                          '%s') % e.message)
@@ -2773,7 +2762,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         # Disassociate only if nuage_port has a FIP associated with it.
         # Calling disassociate on a port with no FIP causes no issue in Neutron
         # but VSD throws an exception
-        nuage_vport = self._get_vport_for_fip(context, port_id)
+        nuage_vport = self._get_vport_for_fip(context, port_id, required=False)
         if nuage_vport and nuage_vport.get('nuage_floating_ip'):
             for fip in fips:
                 self.nuageclient.delete_rate_limiting(
@@ -2903,7 +2892,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         port_id = fip['fixed_port_id']
         with context.session.begin(subtransactions=True):
             if port_id:
-                nuage_vport = self._get_vport_for_fip(context, port_id)
+                nuage_vport = self._get_vport_for_fip(context, port_id,
+                                                      required=False)
                 if (nuage_vport and
                         nuage_vport['nuage_vport_id'] is not None):
                     params = {
@@ -2951,7 +2941,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
 
     def _get_vport_for_fip(self, context, port_id,
                            vport_type=constants.VM_VPORT,
-                           vport_id=None):
+                           vport_id=None, required=True):
         port = self.get_port(context, port_id)
         if not port['fixed_ips']:
             return
@@ -2979,7 +2969,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
             params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-        return self.nuageclient.get_nuage_vport_by_id(params)
+        return self.nuageclient.get_nuage_vport_by_id(params,
+                                                      required=required)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
@@ -3745,7 +3736,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 'l2dom_id': None,
                 'l3dom_id': subnet_mapping['nuage_subnet_id']
             }
-            nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params)
+            nuage_vport = self.nuageclient.get_nuage_vport_by_id(
+                port_params, required=False)
             if nuage_vport:
                 self.nuageclient.delete_nuage_vport(
                     nuage_vport.get('nuage_vport_id'))
