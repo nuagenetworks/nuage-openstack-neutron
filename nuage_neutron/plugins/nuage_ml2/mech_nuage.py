@@ -263,7 +263,8 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                     subnet_mapping['net_partition_id'])
             self._delete_nuage_vm(core_plugin, db_context, port, np_name,
                                   subnet_mapping)
-        nuage_vport = self._get_nuage_vport(port, subnet_mapping)
+        nuage_vport = self._get_nuage_vport(port, subnet_mapping,
+                                            required=False)
         if nuage_vport:
             try:
                 self.nuageclient.delete_nuage_vport(
@@ -530,13 +531,14 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
 
         port['nuage_redirect_targets'] = [nuage_rtarget_id]
 
-    def _get_nuage_vport(self, port, subnet_mapping):
+    def _get_nuage_vport(self, port, subnet_mapping, required=True):
         port_params = {
             'neutron_port_id': port['id'],
             'l2dom_id': subnet_mapping['nuage_subnet_id'],
             'l3dom_id': subnet_mapping['nuage_subnet_id']
         }
-        return self.nuageclient.get_nuage_vport_by_id(port_params)
+        return self.nuageclient.get_nuage_vport_by_id(port_params,
+                                                      required=required)
 
     def _check_segment(self, segment):
         network_type = segment[api.NETWORK_TYPE]
