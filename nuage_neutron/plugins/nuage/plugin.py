@@ -1926,73 +1926,52 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         nuage_zone = self.nuageclient.get_zone_by_routerid(router_id,
                                                            subn['shared'])
         if not nuage_zone or not ent_rtr_mapping:
-            super(NuagePlugin,
-                  self).remove_router_interface(context,
-                                                router_id,
-                                                interface_info)
             msg = (_("Router %s does not hold default zone OR "
                      "domain in VSD. Router-IF add failed")
                    % router_id)
-            raise n_exc.BadRequest(resource='router', msg=msg)
+            self.abort_add_router_interface(context, interface_info, router_id,
+                                            msg)
 
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
                                                       subnet_id)
         if not subnet_l2dom:
-            super(NuagePlugin,
-                  self).remove_router_interface(context,
-                                                router_id,
-                                                interface_info)
             msg = (_("Subnet %s does not hold Nuage VSD reference. "
                      "Router-IF add failed") % subnet_id)
-            raise n_exc.BadRequest(resource='subnet', msg=msg)
+            self.abort_add_router_interface(context, interface_info, router_id,
+                                            msg)
 
         if subnet_l2dom['nuage_managed_subnet']:
-            super(NuagePlugin,
-                  self).remove_router_interface(context,
-                                                router_id,
-                                                interface_info)
             msg = ("Subnet %s is a VSD-Managed subnet."
                    "Router-IF add failed" % rtr_if_info['subnet_id'])
-            raise n_exc.BadRequest(resource='subnet', msg=msg)
+            self.abort_add_router_interface(context, interface_info, router_id,
+                                            msg)
 
         if (subnet_l2dom['net_partition_id'] !=
                 ent_rtr_mapping['net_partition_id']):
-            super(NuagePlugin,
-                  self).remove_router_interface(context,
-                                                router_id,
-                                                interface_info)
             msg = (_("Subnet %(subnet)s and Router %(router)s belong to "
                      "different net_partition Router-IF add "
                      "not permitted") % {'subnet': subnet_id,
                                          'router': router_id})
-            raise n_exc.BadRequest(resource='subnet', msg=msg)
+            self.abort_add_router_interface(context, interface_info, router_id,
+                                            msg)
         nuage_subnet_id = subnet_l2dom['nuage_subnet_id']
         if self.nuageclient.vms_on_l2domain(nuage_subnet_id):
-            super(NuagePlugin,
-                  self).remove_router_interface(context,
-                                                router_id,
-                                                interface_info)
             msg = (_("Subnet %s has one or more active VMs "
                    "Router-IF add not permitted") % subnet_id)
-            raise n_exc.BadRequest(resource='subnet', msg=msg)
+            self.abort_add_router_interface(context, interface_info, router_id,
+                                            msg)
         if self.nuageclient.nuage_vports_on_l2domain(nuage_subnet_id,
                                                      pnet_binding):
-            super(NuagePlugin,
-                  self).remove_router_interface(context,
-                                                router_id,
-                                                interface_info)
             msg = (_("Subnet %s has one or more nuage VPORTS "
                    "Router-IF add not permitted") % subnet_id)
-            raise n_exc.BadRequest(resource='subnet', msg=msg)
+            self.abort_add_router_interface(context, interface_info, router_id,
+                                            msg)
         if self.nuageclient.nuage_redirect_targets_on_l2domain(
                 nuage_subnet_id):
-            super(NuagePlugin,
-                  self).remove_router_interface(context,
-                                                router_id,
-                                                interface_info)
             msg = (_("Subnet %s has one or more nuage redirect targets "
                    "Router-IF add not permitted") % subnet_id)
-            raise n_exc.BadRequest(resource='subnet', msg=msg)
+            self.abort_add_router_interface(context, interface_info, router_id,
+                                            msg)
 
         nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
 
@@ -2045,6 +2024,18 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 nuagedb.update_subnetl2dom_mapping(subnet_l2dom,
                                                    ns_dict)
         return rtr_if_info
+
+    def abort_add_router_interface(self, context, interface_info, router_id,
+                                   msg):
+        if 'port_id' in interface_info:
+            with context.session.begin(subtransactions=True):
+                port = self._get_port(context, interface_info['port_id'])
+                port.update({'device_owner': ''})
+        super(NuagePlugin,
+              self).remove_router_interface(context,
+                                            router_id,
+                                            interface_info)
+        raise n_exc.BadRequest(resource='subnet', msg=msg)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
