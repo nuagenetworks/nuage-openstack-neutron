@@ -202,6 +202,14 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                                "enterprises is not allowed in VSP")
                         raise nuage_exc.NuageBadRequest(msg=msg)
 
+    def _resolve_tenant_for_shared_network(self, context, port,
+                                           net_partition_id):
+        network_details = self.get_network(context, port['network_id'])
+        if network_details['shared']:
+            self.nuageclient.create_usergroup(
+                port['tenant_id'],
+                net_partition_id)
+
     @log_helpers.log_method_call
     def _create_update_port(self, context, port, np_name, subnet_mapping):
         # Set the description to owner:compute for ports created by nova,
@@ -211,6 +219,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                       "(please donot edit)")
         self._validate_vmports_same_netpartition(
             self, context, port, subnet_mapping['net_partition_id'])
+        self._resolve_tenant_for_shared_network(
+            context, port, subnet_mapping['net_partition_id'])
         nuage_vport_dict = self._create_nuage_vport(port, subnet_mapping,
                                                     description=vport_desc)
         self._update_nuage_port(context, port, np_name, subnet_mapping,
@@ -256,7 +266,8 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             params['parent_id'] = subnet_mapping['nuage_subnet_id']
         # Required to decide if we have to send (OR) drop the VM IP to the VSD.
         params['dhcp_enabled'] = subn['enable_dhcp']
-
+        self._resolve_tenant_for_shared_network(
+            context, port, subnet_mapping['net_partition_id'])
         self.nuageclient.create_vms(params)
 
     @log_helpers.log_method_call
