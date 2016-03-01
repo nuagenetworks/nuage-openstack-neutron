@@ -69,6 +69,7 @@ from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import addresspair
 from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage.extensions import netpartition
+from nuage_neutron.plugins.nuage.extensions import nuage_router
 from nuage_neutron.plugins.nuage import externalsg
 from nuage_neutron.plugins.nuage import gateway
 from nuagenetlib.restproxy import RESTProxyError
@@ -1883,137 +1884,110 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     @log.log
     def add_router_interface(self, context, router_id, interface_info):
         session = context.session
-        rtr_if_info = super(NuagePlugin,
-                            self).add_router_interface(context,
-                                                       router_id,
-                                                       interface_info)
-        subnet_id = rtr_if_info['subnet_id']
+        rtr_if_info = super(NuagePlugin, self).add_router_interface(
+            context, router_id, interface_info)
         try:
-            subn = self.get_subnet(context, subnet_id)
-            net_id = subn['network_id']
-            pnet_binding = nuagedb.get_network_binding(context.session, net_id)
-            ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(session,
-                                                                   router_id)
-            nuage_zone = self.nuageclient.get_zone_by_routerid(router_id,
-                                                               subn['shared'])
+            return self._nuage_add_router_interface(context, interface_info,
+                                                    router_id, rtr_if_info,
+                                                    session)
         except Exception:
-                with excutils.save_and_reraise_exception():
-                    super(NuagePlugin, self).remove_router_interface(
-                        context,
-                        router_id,
-                        interface_info)
+            with excutils.save_and_reraise_exception():
+                super(NuagePlugin, self).remove_router_interface(
+                    context, router_id, interface_info)
 
-        if not nuage_zone or not ent_rtr_mapping:
-            msg = (_("Router %s does not hold default zone OR "
-                     "domain in VSD. Router-IF add failed")
-                   % router_id)
-            self.abort_add_router_interface(context, interface_info, router_id,
-                                            msg)
+    def _nuage_add_router_interface(self, context, interface_info, router_id,
+                                    rtr_if_info, session):
+        if 'port_id' in interface_info:
+            port_id = interface_info['port_id']
+            port = super(NuagePlugin, self)._get_port(context, port_id)
+            subnet_id = port['fixed_ips'][0]['subnet_id']
+            subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
+            vport = self.nuageclient.get_nuage_vport_by_id(
+                {'neutron_port_id': port['id'],
+                 'l2dom_id': subnet_l2dom['nuage_subnet_id'],
+                 'l3dom_id': subnet_l2dom['nuage_subnet_id']},
+                required=False)
+            if vport:
+                self.nuageclient.delete_nuage_vport(vport['nuage_vport_id'])
+        else:
+            subnet_id = rtr_if_info['subnet_id']
+            subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
 
-        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
-                                                      subnet_id)
-        if not subnet_l2dom:
-            msg = (_("Subnet %s does not hold Nuage VSD reference. "
-                     "Router-IF add failed") % subnet_id)
-            self.abort_add_router_interface(context, interface_info, router_id,
-                                            msg)
+        subn = self.get_subnet(context, subnet_id)
+        nuage_zone = self.nuageclient.get_zone_by_routerid(router_id,
+                                                           subn['shared'])
+        self._nuage_validate_add_rtr_itf(session, router_id,
+                                         subn, subnet_l2dom, nuage_zone)
 
-        if subnet_l2dom['nuage_managed_subnet']:
-            msg = ("Subnet %s is a VSD-Managed subnet."
-                   "Router-IF add failed" % rtr_if_info['subnet_id'])
-            self.abort_add_router_interface(context, interface_info, router_id,
-                                            msg)
-
-        if (subnet_l2dom['net_partition_id'] !=
-                ent_rtr_mapping['net_partition_id']):
-            msg = (_("Subnet %(subnet)s and Router %(router)s belong to "
-                     "different net_partition Router-IF add "
-                     "not permitted") % {'subnet': subnet_id,
-                                         'router': router_id})
-            self.abort_add_router_interface(context, interface_info, router_id,
-                                            msg)
         nuage_subnet_id = subnet_l2dom['nuage_subnet_id']
-        if self.nuageclient.vms_on_l2domain(nuage_subnet_id):
-            msg = (_("Subnet %s has one or more active VMs "
-                   "Router-IF add not permitted") % subnet_id)
-            self.abort_add_router_interface(context, interface_info, router_id,
-                                            msg)
-        if self.nuageclient.nuage_vports_on_l2domain(nuage_subnet_id,
-                                                     pnet_binding):
-            msg = (_("Subnet %s has one or more nuage VPORTS "
-                   "Router-IF add not permitted") % subnet_id)
-            self.abort_add_router_interface(context, interface_info, router_id,
-                                            msg)
-        if self.nuageclient.nuage_redirect_targets_on_l2domain(
-                nuage_subnet_id):
-            msg = (_("Subnet %s has one or more nuage redirect targets "
-                   "Router-IF add not permitted") % subnet_id)
-            self.abort_add_router_interface(context, interface_info, router_id,
-                                            msg)
+        self.nuageclient.delete_subnet(subnet_id)
+        LOG.debug("Deleted l2 domain %s", nuage_subnet_id)
 
-        nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
-
-        if self.nuageclient.validate_create_domain_subnet(
-                subn, nuage_subnet_id, nuage_rtr_id):
-            try:
-                self.nuageclient.delete_subnet(subnet_id)
-                LOG.debug("Deleted l2 domain %s", nuage_subnet_id)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    super(NuagePlugin,
-                          self).remove_router_interface(context,
-                                                        router_id,
-                                                        interface_info)
         filters = {
             'fixed_ips': {'subnet_id': [subnet_id]},
             'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
         }
         gw_ports = self.get_ports(context, filters=filters)
         self._delete_port_gateway(context, gw_ports)
+
         net = netaddr.IPNetwork(subn['cidr'])
-        pnet_binding = nuagedb.get_network_binding(context.session,
-                                                   subn['network_id'])
         params = {
             'net': net,
             'zone_id': nuage_zone['nuage_zone_id'],
             'neutron_subnet_id': subnet_id,
-            'pnet_binding': pnet_binding
+            'pnet_binding': nuagedb.get_network_binding(context.session,
+                                                        subn['network_id'])
         }
-        if not attributes.is_attr_set(subn['gateway_ip']):
+        if 'port_id' in interface_info:
+            subn['gateway_ip'] = port['fixed_ips'][0]['ip_address']
+        elif not attributes.is_attr_set(subn['gateway_ip']):
             subn['gateway_ip'] = str(netaddr.IPAddress(net.first + 1))
-
-        try:
-            nuage_subnet = self.nuageclient.create_domain_subnet(subn,
-                                                                 params)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                super(NuagePlugin,
-                      self).remove_router_interface(context,
-                                                    router_id,
-                                                    interface_info)
+        nuage_subnet = self.nuageclient.create_domain_subnet(subn, params)
 
         with session.begin(subtransactions=True):
             if nuage_subnet:
                 LOG.debug("Created nuage domain %s",
                           nuage_subnet['nuage_subnetid'])
-                ns_dict = {}
-                ns_dict['nuage_subnet_id'] = nuage_subnet['nuage_subnetid']
-                ns_dict['nuage_l2dom_tmplt_id'] = None
-                nuagedb.update_subnetl2dom_mapping(subnet_l2dom,
-                                                   ns_dict)
+                ns_dict = {'nuage_subnet_id': nuage_subnet['nuage_subnetid'],
+                           'nuage_l2dom_tmplt_id': None}
+                nuagedb.update_subnetl2dom_mapping(subnet_l2dom, ns_dict)
         return rtr_if_info
 
-    def abort_add_router_interface(self, context, interface_info, router_id,
-                                   msg):
-        if 'port_id' in interface_info:
-            with context.session.begin(subtransactions=True):
-                port = self._get_port(context, interface_info['port_id'])
-                port.update({'device_owner': ''})
-        super(NuagePlugin,
-              self).remove_router_interface(context,
-                                            router_id,
-                                            interface_info)
-        raise n_exc.BadRequest(resource='subnet', msg=msg)
+    def _nuage_validate_add_rtr_itf(self, session, router_id, subnet,
+                                    subnet_l2dom, nuage_zone):
+        net_id = subnet['network_id']
+        subnet_id = subnet['id']
+        pnet_binding = nuagedb.get_network_binding(session, net_id)
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(session,
+                                                               router_id)
+        if not nuage_zone or not ent_rtr_mapping:
+            raise nuage_router.RtrItfAddIncompleteRouterOnVsd(id=router_id)
+        if not subnet_l2dom:
+            raise nuage_router.RtrItfAddVsdSubnetNotFound(subnet=subnet_id)
+        if subnet_l2dom['nuage_managed_subnet']:
+            raise nuage_router.RtrItfAddSubnetIsVsdManaged(subnet=subnet_id)
+        if (subnet_l2dom['net_partition_id'] !=
+                ent_rtr_mapping['net_partition_id']):
+            raise nuage_router.RtrItfAddDifferentNetpartitions(
+                subnet=subnet_id, router=router_id)
+        nuage_subnet_id = subnet_l2dom['nuage_subnet_id']
+        if self.nuageclient.vms_on_l2domain(nuage_subnet_id):
+            raise nuage_router.RtrItfAddSubnetHasVMs(subnet=subnet_id)
+        if self.nuageclient.nuage_vports_on_l2domain(nuage_subnet_id,
+                                                     pnet_binding):
+            raise nuage_router.RtrItfAddSubnetHasVports(subnet=subnet_id)
+        if self.nuageclient.nuage_redirect_targets_on_l2domain(
+                nuage_subnet_id):
+            raise nuage_router.RtrItfAddSubnetHasRedirectTargets(
+                subnet=subnet_id)
+        nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
+        self.nuageclient.validate_create_domain_subnet(subnet, nuage_subnet_id,
+                                                       nuage_rtr_id)
+
+    def abort_add_router_interface(self, context, interface_info, router_id):
+        super(NuagePlugin, self).remove_router_interface(context,
+                                                         router_id,
+                                                         interface_info)
 
     @nuage_utils.handle_nuage_api_error
     @log.log
