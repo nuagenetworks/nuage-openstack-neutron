@@ -834,6 +834,13 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                 self._translate_dhcp_option(dhcp_option)
         session = context.session
         original_port = self.get_port(context, id)
+        if 'fixed_ips' in p:
+            changed = [ip for ip in p['fixed_ips']
+                       if ip not in original_port['fixed_ips']]
+            if changed:
+                msg = _("Can't update a port's fixed_ips to a different value."
+                        "Incompatible fixed_ips: %s") % changed
+                raise n_exc.BadRequest(resource='floatingip', msg=msg)
         old_port = copy.deepcopy(original_port)
         old_dhcp_options = copy.deepcopy(old_port['extra_dhcp_opts'])
         for old_dhcp_option in old_dhcp_options:
