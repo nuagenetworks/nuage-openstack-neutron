@@ -2812,7 +2812,6 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         fip = floatingip['floatingip']
         orig_fip = self._get_floatingip(context, id)
         port_id = orig_fip['fixed_port_id']
-        last_known_router_id = orig_fip['last_known_router_id']
         router_ids = []
         fip_rate = fip.get('nuage_fip_rate', attributes.ATTR_NOT_SPECIFIED)
         fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
@@ -2822,6 +2821,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             if 'port_id' in fip:
                 neutron_fip = super(NuagePlugin, self).update_floatingip(
                     context, id, floatingip)
+            last_known_router_id = orig_fip['last_known_router_id']
             if fip.get('port_id'):
                 if not neutron_fip['router_id']:
                     ret_msg = 'floating-ip is not associated yet'
