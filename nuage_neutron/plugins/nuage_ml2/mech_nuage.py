@@ -447,7 +447,12 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             'portOnSharedSubn': subn['shared'],
             'dhcp_enabled': subn['enable_dhcp']
         }
-
+        network_details = core_plugin.get_network(db_context,
+                                                  port['network_id'])
+        if network_details['shared']:
+            self.nuageclient.create_usergroup(
+                port['tenant_id'],
+                subnet_mapping['net_partition_id'])
         return self.nuageclient.create_vms(params)
 
     def _get_port_num_and_vm_id_of_device(self, core_plugin, db_context, port):
