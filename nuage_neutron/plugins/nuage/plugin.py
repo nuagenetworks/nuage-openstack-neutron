@@ -508,7 +508,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
         if nuage_utils.check_vport_creation(
                 device_owner, cfg.CONF.PLUGIN.device_owner_prefix):
             if 'fixed_ips' not in port or len(port['fixed_ips']) == 0:
-                return port
+                return self.get_port(context, port['id'])
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
                                                             subnet_id)
