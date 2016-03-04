@@ -15,18 +15,12 @@
 from oslo_config import cfg
 
 from neutron.api.v2 import attributes as attr
-from neutron.common import exceptions as n_exc
 
 
 def convert_default_to_default_value(data):
-    if not isinstance(data, bool):
-        try:
-            return int(data)
-        except (ValueError, TypeError):
-            pass
     if data in ['default', 'DEFAULT']:
         return cfg.CONF.FIPRATE.default_fip_rate
-    raise n_exc.InvalidInput(error_message=send_fip_rate_limit_info())
+    return data
 
 
 def send_fip_rate_limit_info():
