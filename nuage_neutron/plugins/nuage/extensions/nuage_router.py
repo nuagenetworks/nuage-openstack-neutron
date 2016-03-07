@@ -13,6 +13,42 @@
 #    under the License.
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
+from neutron.common import exceptions
+
+
+class RtrItfAddIncompleteRouterOnVsd(exceptions.BadRequest):
+    message = _("Router %(id)s does not hold default zone OR domain in VSD. "
+                "Router-IF add failed")
+
+
+class RtrItfAddVsdSubnetNotFound(exceptions.BadRequest):
+    message = _("Subnet %(subnet)s does not hold Nuage VSD reference. "
+                "Router-IF add failed")
+
+
+class RtrItfAddSubnetIsVsdManaged(exceptions.BadRequest):
+    message = _("Subnet %(subnet)s is a VSD-Managed subnet. "
+                "Router-IF add failed")
+
+
+class RtrItfAddDifferentNetpartitions(exceptions.BadRequest):
+    message = _("Subnet %(subnet)s and Router %(router)s belong to different "
+                "net_partition Router-IF add not permitted")
+
+
+class RtrItfAddSubnetHasVMs(exceptions.BadRequest):
+    message = _("Subnet %(subnet)s has one or more active VMs Router-IF add "
+                "not permitted")
+
+
+class RtrItfAddSubnetHasVports(exceptions.BadRequest):
+    message = _("Subnet %(subnet)s has one or more nuage VPORTS Router-IF add "
+                "not permitted")
+
+
+class RtrItfAddSubnetHasRedirectTargets(exceptions.BadRequest):
+    message = _("Subnet %(subnet)s has one or more nuage redirect targets "
+                "Router-IF add not permitted")
 
 
 def _ecmp_count_info():
