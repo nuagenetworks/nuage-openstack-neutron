@@ -197,7 +197,7 @@ def get_subnet_l2dom_by_id(session, id):
 
 
 def get_nuage_subnet_info(session, subnet, fields):
-    if fields and 'vsd_managed' not in fields:
+    if not fields or 'vsd_managed' not in fields:
         return subnet
     result = (
         session.query(nuage_models.SubnetL2Domain)
