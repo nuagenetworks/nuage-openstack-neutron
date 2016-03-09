@@ -1867,11 +1867,10 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
             LOG.debug("Found l2domain mapping for subnet %s", id)
             try:
                 self.nuageclient.delete_subnet(id)
-            except Exception:
-                msg = (_('Unable to complete operation on subnet %s.'
-                         'One or more ports have an IP allocation '
-                         'from this subnet.') % id)
-                raise n_exc.BadRequest(resource='subnet', msg=msg)
+            except Exception as ex:
+                if ex.code == constants.RES_CONFLICT:
+                    raise n_exc.SubnetInUse(subnet_id=id)
+                raise
         super(NuagePlugin, self).delete_subnet(context, id)
 
         if subnet_l2dom:
