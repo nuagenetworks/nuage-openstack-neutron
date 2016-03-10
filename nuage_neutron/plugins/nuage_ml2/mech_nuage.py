@@ -13,6 +13,7 @@
 #    under the License.
 
 import inspect
+import netaddr
 import re
 
 from oslo_db.exception import DBDuplicateEntry
@@ -391,7 +392,10 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
     def _set_allocation_pools(self, core_plugin, subnet):
         pools = core_plugin.ipam.generate_pools(subnet['cidr'],
                                                 subnet['gateway_ip'])
-        subnet['allocation_pools'] = pools
+        subnet['allocation_pools'] = [
+            {'start': str(netaddr.IPAddress(pool.first, pool.version)),
+             'end': str(netaddr.IPAddress(pool.last, pool.version))}
+            for pool in pools]
 
     def _cleanup_group(self, db_context, nuage_npid, nuage_subnet_id, subnet):
         try:
