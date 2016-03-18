@@ -11,6 +11,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from sqlalchemy.orm import exc as sql_exc
 
 from neutron.common import constants as os_constants
 from neutron.db import common_db_mixin
@@ -20,6 +21,8 @@ from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
 from nuage_neutron.plugins.common import nuage_models
+
+from nuage_neutron.plugins.common import exceptions
 
 
 def add_net_partition(session, netpart_id,
@@ -194,6 +197,21 @@ def delete_subnetl2dom_mapping(session, subnet_l2dom):
 def get_subnet_l2dom_by_id(session, id):
     query = session.query(nuage_models.SubnetL2Domain)
     return query.filter_by(subnet_id=id).first()
+
+
+def get_subnet_l2dom_by_port_id(session, port_id):
+    try:
+        return (
+            session.query(nuage_models.SubnetL2Domain)
+            .join(models_v2.Subnet)
+            .join(models_v2.Network)
+            .join(models_v2.Network.ports)
+            .filter(
+                models_v2.Port.id == port_id
+            ).one()
+        )
+    except sql_exc.NoResultFound:
+        raise exceptions.SubnetMappingNotFound(resource='port', id=port_id)
 
 
 def get_nuage_subnet_info(session, subnet, fields):

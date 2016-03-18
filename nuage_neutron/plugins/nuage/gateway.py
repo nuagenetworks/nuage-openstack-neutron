@@ -391,14 +391,10 @@ class NuagegatewayMixin(object):
         # Check if l2domain/subnet exist. In case of router_interface_delete,
         # subnet is deleted and then call comes to delete_port. In that
         # case, we just return
-        try:
-            self.nuageclient.get_subnet_or_domain_subnet_by_id(
-                subnet_mapping['nuage_subnet_id'])
-        except Exception as e:
-            if e.code != constants.RES_NOT_FOUND:
-                raise
-            else:
-                return
+        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+            subnet_mapping['nuage_subnet_id'])
+        if not vsd_subnet:
+            return
 
         if subnet_mapping['nuage_managed_subnet']:
             port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']

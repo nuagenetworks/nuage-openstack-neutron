@@ -94,7 +94,7 @@ def handle_nuage_api_errorcode(fn):
             return fn(*args, **kwargs)
         except RESTProxyError as e:
             raise nuage_exc.NuageBadRequest(msg=ERROR_DICT.get(
-                str(e.code), e.message))
+                str(e.vsd_code), e.message)), None, sys.exc_info()[2]
     return wrapped
 
 
@@ -105,7 +105,7 @@ def ignore_no_update(fn):
         except RESTProxyError as e:
             # See ERROR_DICT below. This should never go to the user. Neutron
             # does not complain when updating to the same values.
-            if str(e.code) == '2039':
+            if str(e.vsd_code) == '2039':
                 return Ignored(e)
             raise e
     return wrapped
@@ -117,7 +117,7 @@ def ignore_not_found(fn):
             return fn(*args, **kwargs)
         except RESTProxyError as e:
             # We probably want to ignore 404 errors when we're deleting anyway.
-            if str(e.code) == '404':
+            if str(e.vsd_code) == '404':
                 return Ignored(e)
             raise e
     return wrapped
@@ -128,5 +128,34 @@ ERROR_DICT = {
     '2050': _("Netpartition does not match the network."),
     '7022': _("Redirection target belongs to a different subnet."),
     '7027': _("Redirection target already has a port assigned. Can't assign"
-              " more with redundancy disabled.")
+              " more with redundancy disabled."),
+    '7036': _("The port is in an L2Domain, it can't have floating ips"),
+    '7038': _("Nuage floatingip is not available for this port"),
+    '7309': _("Nuage policy group is not available for this port"),
 }
+
+
+def filters_to_vsd_filters(filterables, filters, os_to_vsd):
+    """Translates openstack filters to vsd filters.
+
+    :param filterables: The attributes which are filterable on VSD.
+    :param filters: the neutron filters list from a list request.
+    :param os_to_vsd: a dict where the key is the neutron name, and the key is
+     the vsd attribute name. For example {'rd': 'routeDistinguisher', ...}
+     the key can also be a method which will be called with this method's
+     return dict and the 'filters' parameter.
+    :return: A dict with vsd-friendly keys and values taken from the filters
+     parameter
+    """
+
+    if not filters or not filterables or not os_to_vsd:
+        return {}
+    vsd_filters = {}
+    for filter in filterables:
+        if filter in filters:
+            vsd_key = os_to_vsd[filter]
+            if hasattr(vsd_key, '__call__'):
+                vsd_key(vsd_filters, filters)
+            else:
+                vsd_filters[vsd_key] = filters[filter][0]
+    return vsd_filters
