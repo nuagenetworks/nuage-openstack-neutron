@@ -13,22 +13,25 @@
 #    under the License.
 
 import netaddr
+from oslo_config import cfg
+from oslo_utils import importutils
 
 from neutron.extensions import portsecurity as psec
 from nuage_neutron.plugins.common import callback_manager
+from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import validate
-from oslo_config import cfg
-from oslo_utils import importutils
 
 
 class BaseNuagePlugin(object):
 
-    def __init__(self, *args):
-        super(BaseNuagePlugin, self).__init__(*args)
+    def __init__(self):
+        super(BaseNuagePlugin, self).__init__()
+        config.nuage_register_cfg_opts()
+        self._nuageclient_init()
         self.nuage_callbacks = callback_manager.get_callback_manager()
 
     def _nuageclient_init(self):

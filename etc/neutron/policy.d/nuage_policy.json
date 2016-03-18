@@ -1,0 +1,6 @@
+{
+    "get_nuage_policy_group": "rule:regular_user",
+    "get_nuage_policy_group_all": "rule:admin_only",
+    "get_nuage_floatingip": "rule:regular_user",
+    "get_nuage_floatingip_all": "rule:admin_only"
+}
