@@ -35,3 +35,11 @@ class NuageNotFound(n_exc.NotFound):
 
 class NuageNotAuthorized(n_exc.NotAuthorized):
     message = _("Not authorized for this operation: %(msg)s")
+
+
+class VsdSubnetNotFound(n_exc.BadRequest):
+    message = _("Vsd subnet with id '%(id)s' not found")
+
+
+class SubnetMappingNotFound(n_exc.BadRequest):
+    message = _("Vsd subnet mapping not found for %(resource)s '%(id)s'")

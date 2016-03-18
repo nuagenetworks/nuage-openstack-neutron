@@ -21,6 +21,7 @@ from neutron.common import constants as const
 from neutron.common import exceptions as nexception
 from neutron import manager
 from neutron import quota
+from nuage_neutron.plugins.common import constants as nuage_constants
 
 supported_protocols = [const.PROTO_NAME_TCP,
                        const.PROTO_NAME_UDP, const.PROTO_NAME_ICMP]
@@ -69,12 +70,17 @@ class RedirectTargetRuleRemoteGroupAndRemoteIpPrefix(nexception.InvalidInput):
                 "be provided.")
 
 
+class RedirectTargetNoDomainOrL2Domain(nexception.BadRequest):
+    message = _("No domain or l2domain found on vsd.")
+
+
 def convert_to_list_or_none(value_list):
     if value_list == 'None':
         return []
     if value_list:
         values = value_list.split(',')
         return values
+    return value_list
 
 
 def convert_protocol(value):
@@ -152,6 +158,8 @@ RESOURCE_ATTRIBUTE_MAP = {
         'tenant_id': {'allow_post': True, 'allow_put': False,
                       'required_by_policy': True,
                       'is_visible': True},
+        'ports': {'allow_post': False, 'allow_put': False,
+                  'is_visible': True},
     },
     'nuage_redirect_target_vips': {
         'id': {'allow_post': False, 'allow_put': False,
@@ -248,7 +256,8 @@ class Nuage_redirect_target(object):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = manager.NeutronManager.get_service_plugins()[
+            nuage_constants.NUAGE_PORT_MANAGEMENT_SERVICE_PLUGIN]
         for resource_name in ['nuage_redirect_target',
                               'nuage_redirect_target_rule',
                               'nuage_redirect_target_vip']:

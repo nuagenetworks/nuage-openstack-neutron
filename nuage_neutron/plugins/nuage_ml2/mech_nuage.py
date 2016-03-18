@@ -17,16 +17,17 @@ import re
 
 from oslo_db.exception import DBDuplicateEntry
 from oslo_log import log
+from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
 from neutron.api.v2.attributes import UUID_PATTERN
+from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.extensions import portbindings
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
 
 from nuage_neutron.plugins.common import base_plugin
-from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import extensions
@@ -50,8 +51,6 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
     def initialize(self):
         LOG.debug('Initializing driver')
         neutron_extensions.append_api_extensions_path(extensions.__path__)
-        config.nuage_register_cfg_opts()
-        self._nuageclient_init()
         LOG.debug('Initializing complete')
 
     def _nuageclient_init(self):
@@ -136,8 +135,9 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
                                                         subnet['id'])
         if subnet_mapping and subnet_mapping['nuage_managed_subnet']:
-            raise NuageBadRequest(_("Subnet %s is a VSD-managed subnet. Update"
-                                    " is not supported") % subnet['id'])
+            raise NuageBadRequest(
+                msg=_("Subnet %s is a VSD-managed subnet. Update is not "
+                      "supported") % subnet['id'])
 
     @utils.context_log
     def delete_subnet_precommit(self, context):
@@ -170,6 +170,10 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         db_context = context._plugin_context
         core_plugin = context._plugin
         port = context.current
+        request_port = port['request_port']
+        if 'request_port' not in port:
+            return
+        del port['request_port']
 
         subnet_mapping = self._validate_port(db_context, port)
         if not subnet_mapping:
@@ -194,7 +198,6 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                     nuage_vport)
             else:
                 nuage_vport = self._create_nuage_vport(port, subnet_mapping)
-            self._process_port_redirect_target(port, nuage_vport)
         except Exception:
             if nuage_vm:
                 self._delete_nuage_vm(core_plugin, db_context, port, np_name,
@@ -203,6 +206,16 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                 self.nuageclient.delete_nuage_vport(
                     nuage_vport.get('nuage_vport_id'))
             raise
+        rollbacks = []
+        try:
+            self.nuage_callbacks.notify(resources.PORT, constants.AFTER_CREATE,
+                                        self, context=db_context, port=port,
+                                        vport=nuage_vport, rollbacks=rollbacks,
+                                        request_port=request_port)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                    for rollback in reversed(rollbacks):
+                        rollback[0](*rollback[1], **rollback[2])
 
     @handle_nuage_api_errorcode
     @utils.context_log
@@ -211,40 +224,49 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         core_plugin = context._plugin
         port = context.current
         original = context.original
+        if 'request_port' not in port:
+            return
+        request_port = port['request_port']
+        del port['request_port']
 
         subnet_mapping = self._validate_port(db_context, port)
         if not subnet_mapping:
             return
-        device_added = device_removed = rtargets = False
+        nuage_vport = self._get_nuage_vport(port, subnet_mapping)
+
+        device_added = device_removed = False
         if not original['device_owner'] and port['device_owner']:
             device_added = True
         elif original['device_owner'] and not port['device_owner']:
             device_removed = True
-        if port.get('nuage_redirect_targets') is not None:
-            rtargets = True
 
-        if not (device_added or device_removed or rtargets):
-            return
+        if device_added or device_removed:
+            np_name = self.nuageclient.get_net_partition_name_by_id(
+                subnet_mapping['net_partition_id'])
+            require(np_name, "netpartition",
+                    subnet_mapping['net_partition_id'])
 
-        np_name = self.nuageclient.get_net_partition_name_by_id(
-            subnet_mapping['net_partition_id'])
-        require(np_name, "netpartition", subnet_mapping['net_partition_id'])
-
-        if device_removed:
-            if self._port_should_have_vm(original):
-                self._delete_nuage_vm(core_plugin, db_context, original,
-                                      np_name, subnet_mapping)
-        elif device_added:
-            if port['device_owner'].startswith(constants.NOVA_PORT_OWNER_PREF):
-                nuage_vport = self._get_nuage_vport(port, subnet_mapping)
-                self._create_nuage_vm(core_plugin, db_context, port, np_name,
-                                      subnet_mapping, nuage_vport)
-        if rtargets:
-            nuage_vport = self._get_nuage_vport(port, subnet_mapping)
-            self._process_port_redirect_target({'nuage_redirect_targets': []},
-                                               nuage_vport)
-            if port['nuage_redirect_targets']:
-                self._process_port_redirect_target(port, nuage_vport)
+            if device_removed:
+                if self._port_should_have_vm(original):
+                    self._delete_nuage_vm(core_plugin, db_context, original,
+                                          np_name, subnet_mapping)
+            elif device_added:
+                if port['device_owner'].startswith(
+                        constants.NOVA_PORT_OWNER_PREF):
+                    self._create_nuage_vm(core_plugin, db_context, port,
+                                          np_name, subnet_mapping, nuage_vport)
+        rollbacks = []
+        try:
+            self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
+                                        core_plugin, context=db_context,
+                                        updated_port=port,
+                                        original_port=original,
+                                        request_port=request_port,
+                                        vport=nuage_vport, rollback=rollbacks)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                for rollback in reversed(rollbacks):
+                    rollback[0](*rollback[1], **rollback[2])
 
     @utils.context_log
     def delete_port_postcommit(self, context):
@@ -535,6 +557,9 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             require(nuage_rtarget, "redirect target", rtarget)
             nuage_rtarget_id = nuage_rtarget[0]['ID']
         else:
+            nuage_rtarget = self.nuageclient.get_nuage_redirect_targets(
+                {'id': rtarget})
+            require(nuage_rtarget, "redirect target", rtarget)
             nuage_rtarget_id = rtarget
 
         self.nuageclient.update_nuage_vport_redirect_target(

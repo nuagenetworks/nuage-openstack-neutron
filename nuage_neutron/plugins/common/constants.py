@@ -124,4 +124,10 @@ ENABLED = 'ENABLED'
 DISABLED = 'DISABLED'
 INHERITED = 'INHERITED'
 
+NUAGE_PORT_MANAGEMENT_SERVICE_PLUGIN = 'NUAGE_PORT_MANAGEMENT_SERVICES'
+
+AFTER_CREATE = 'after_create_nuage'
 AFTER_UPDATE = 'after_update_nuage'
+AFTER_SHOW = 'after_show_nuage'
+BEFORE_UPDATE = 'before_update_nuage'
+BEFORE_CREATE = 'before_create_nuage'

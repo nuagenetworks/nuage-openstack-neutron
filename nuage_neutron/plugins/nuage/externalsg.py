@@ -11,12 +11,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from neutron.manager import NeutronManager
 
 from oslo_log import log as logging
 
 from neutron.common import exceptions as n_exc
 from neutron.common import log
 
+from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
@@ -83,7 +85,7 @@ class NuageexternalsgMixin(object):
         ext_sg_resp = (
             self.nuageclient.create_nuage_external_security_group(
                 params))
-        return self._make_external_security_group_dict(ext_sg_resp[3][0],
+        return self._make_external_security_group_dict(ext_sg_resp[0],
                                                        context=context)
 
     @log.log
@@ -185,12 +187,17 @@ class NuageexternalsgMixin(object):
         external_sg_rule = (
             nuage_external_security_group_rule[
                 'nuage_external_security_group_rule'])
-        self._validate_redirect_target_port_range(external_sg_rule)
+        self.get_port_attributes_plugin()._validate_redirect_target_port_range(
+            external_sg_rule)
         rule_resp = self.nuageclient.create_nuage_external_sg_rule(
             external_sg_rule)
         rule_resp['direction'] = external_sg_rule['direction']
         return self._make_external_security_group_rule_dict(rule_resp,
                                                             context=context)
+
+    def get_port_attributes_plugin(self):
+        return NeutronManager.get_service_plugins()[
+            constants.NUAGE_PORT_MANAGEMENT_SERVICE_PLUGIN]
 
     @nuage_utils.handle_nuage_api_error
     @log.log
