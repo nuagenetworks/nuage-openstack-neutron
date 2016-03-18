@@ -15,6 +15,7 @@
 import netaddr
 
 from neutron.extensions import portsecurity as psec
+from nuage_neutron.plugins.common import callback_manager
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
@@ -25,6 +26,10 @@ from oslo_utils import importutils
 
 
 class BaseNuagePlugin(object):
+
+    def __init__(self, *args):
+        super(BaseNuagePlugin, self).__init__(*args)
+        self.nuage_callbacks = callback_manager.get_callback_manager()
 
     def _nuageclient_init(self):
         server = cfg.CONF.RESTPROXY.server

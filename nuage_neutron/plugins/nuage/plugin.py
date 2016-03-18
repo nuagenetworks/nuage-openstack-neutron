@@ -2439,6 +2439,7 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def update_router(self, context, id, router):
         updates = router['router']
+        original_router = self.get_router(context, id)
         self._validate_update_router(context, id, updates)
         ent_rtr_mapping = context.ent_rtr_mapping
         nuage_domain_id = ent_rtr_mapping['nuage_router_id']
@@ -2459,6 +2460,19 @@ class NuagePlugin(base_plugin.BaseNuagePlugin,
                                       ent_rtr_mapping)
         nuage_router = self.nuageclient.get_router_by_external(id)
         self._add_nuage_router_attributes(router_updated, nuage_router)
+
+        rollbacks = []
+        try:
+            self.nuage_callbacks.notify(
+                resources.ROUTER, constants.AFTER_UPDATE, self,
+                context=context, updated_router=router_updated,
+                original_router=original_router,
+                request_router=updates, domain=nuage_router,
+                rollbacks=rollbacks)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                for rollback in reversed(rollbacks):
+                    rollback[0](*rollback[1], **rollback[2])
         return router_updated
 
     def _validate_update_router(self, context, id, router):
