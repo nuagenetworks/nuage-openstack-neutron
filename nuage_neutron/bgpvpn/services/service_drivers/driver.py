@@ -46,8 +46,8 @@ def get_bgpvpns_by_router(context, router_id):
     )
 
 
-class NuageBGPVPNDriver(BaseNuagePlugin,
-                        driver_api.BGPVPNDriver):
+class NuageBGPVPNDriver(driver_api.BGPVPNDriver,
+                        BaseNuagePlugin):
 
     @property
     def l3_plugin(self):
@@ -65,6 +65,7 @@ class NuageBGPVPNDriver(BaseNuagePlugin,
 
     def __init__(self, service_plugin):
         super(NuageBGPVPNDriver, self).__init__(service_plugin)
+        BaseNuagePlugin.__init__(self)
         self.nuage_callbacks.subscribe(self.post_router_update,
                                        resources.ROUTER,
                                        constants.AFTER_UPDATE)
