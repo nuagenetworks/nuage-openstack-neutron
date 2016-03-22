@@ -262,7 +262,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                                         updated_port=port,
                                         original_port=original,
                                         request_port=request_port,
-                                        vport=nuage_vport, rollback=rollbacks)
+                                        vport=nuage_vport, rollbacks=rollbacks)
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
