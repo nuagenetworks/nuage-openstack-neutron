@@ -163,6 +163,7 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
                                                        vsd_filters)
 
     def _get_available_nuage_policy_groups(self, vsd_mapping, vsd_filters):
+        vsd_filters['externalID'] = None
         vsd_id = vsd_mapping['nuage_subnet_id']
         vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(vsd_id)
         if not vsd_subnet:
