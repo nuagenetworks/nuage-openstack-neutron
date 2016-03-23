@@ -200,18 +200,16 @@ def get_subnet_l2dom_by_id(session, id):
 
 
 def get_subnet_l2dom_by_port_id(session, port_id):
+    query = (session.query(nuage_models.SubnetL2Domain)
+             .join(models_v2.Subnet)
+             .join(models_v2.IPAllocation)
+             .filter(models_v2.IPAllocation.port_id == port_id))
     try:
-        return (
-            session.query(nuage_models.SubnetL2Domain)
-            .join(models_v2.Subnet)
-            .join(models_v2.Network)
-            .join(models_v2.Network.ports)
-            .filter(
-                models_v2.Port.id == port_id
-            ).one()
-        )
+        return query.one()
     except sql_exc.NoResultFound:
         raise exceptions.SubnetMappingNotFound(resource='port', id=port_id)
+    except sql_exc.MultipleResultsFound:
+        return query.first()
 
 
 def get_nuage_subnet_info(session, subnet, fields):
