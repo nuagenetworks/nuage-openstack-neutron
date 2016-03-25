@@ -493,7 +493,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         self.nuage_callbacks.notify(resources.PORT, constants.BEFORE_CREATE,
                                     self, context=context, request_port=p_data)
-        self._ensure_default_security_group_on_port(context, port)
         result = super(NuagePlugin, self).create_port(context, port)
 
         # Create the port extension attributes.
