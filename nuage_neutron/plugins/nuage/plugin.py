@@ -550,7 +550,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     try:
                         (super(NuagePlugin, self).
                             _process_port_create_extra_dhcp_opts(
-                                context, result, p_data['extra_dhcp_opts']))
+                                context, result, p_data.get(
+                                    'extra_dhcp_opts')))
                     except Exception:
                         with excutils.save_and_reraise_exception():
                             self._delete_nuage_vport(context, result,
