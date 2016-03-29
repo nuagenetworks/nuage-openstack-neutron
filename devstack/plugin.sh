@@ -28,6 +28,8 @@ if [[ "$1" == "stack" ]]; then
     elif [[ "$2" == "install" ]]; then
         echo_summary "Installing Nuage plugin"
         setup_develop $DIR_NUAGE
+
+    elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $DIR_NUAGE/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
     elif [[ "$2" == "post-config" ]]; then
         configure_neutron_nuage

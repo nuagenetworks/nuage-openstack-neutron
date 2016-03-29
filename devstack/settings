@@ -17,4 +17,3 @@
 #    under the License.
 
 enable_service nuagenetlib
-NUAGE_PORT_ATTRIBUTES_PLUGIN_CLASS = "NuagePortAttributes"
