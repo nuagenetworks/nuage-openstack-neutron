@@ -758,6 +758,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def update_port(self, context, id, port):
+        lbaas_device_owner_added = False
         create_vm = False
         p_data = port['port']
         p_sec_update_reqd = False
@@ -871,10 +872,12 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     self._process_port_create_security_group(context,
                                                              updated_port,
                                                              sgids)
-            self.nuage_callbacks.notify(
-                resources.PORT, constants.AFTER_UPDATE, self, context=context,
-                updated_port=updated_port, original_port=original_port,
-                request_port=port['port'], vport=vport, rollbacks=rollbacks)
+            if not lbaas_device_owner_added:
+                self.nuage_callbacks.notify(
+                    resources.PORT, constants.AFTER_UPDATE, self,
+                    context=context, updated_port=updated_port,
+                    original_port=original_port, request_port=port['port'],
+                    vport=vport, rollbacks=rollbacks)
             return self.get_port(context, id)
         except Exception:
             with excutils.save_and_reraise_exception():
