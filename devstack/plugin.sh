@@ -24,13 +24,14 @@ if [[ $Q_PLUGIN == 'nuage' ]]; then
 
     if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
         source $dir/lib/nuagenetlib
-        _neutron_service_plugin_class_add $NUAGE_PORT_ATTRIBUTES_PLUGIN_CLASS
         echo_summary "Installing nuagenetlib"
         install_nuagenetlib
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         echo_summary "Installing Nuage plugin"
         setup_develop ${GITDIR['nuage']}
+
+    elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v ${GITDIR['nuage']}/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
     fi
 
