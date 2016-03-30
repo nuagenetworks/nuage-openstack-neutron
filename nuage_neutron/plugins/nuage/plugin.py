@@ -307,7 +307,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         l2dom_id = None
         l3dom_id = None
         rtr_id = None
-        vptag_vport_list = []
+        policygroup_ids = []
         port_id = port['id']
 
         if not port.get('fixed_ips'):
@@ -336,11 +336,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             if nuage_port:
                 nuage_vport_id = nuage_port.get('nuage_vport_id')
                 if port[psec.PORTSECURITY]:
-                    params = {
-                        'vptag_vport_list': [],
-                        'nuage_vport_id': nuage_vport_id
-                    }
-                    self.nuageclient.update_nuage_vport(params)
+                    self.nuageclient.update_vport_policygroups(
+                        nuage_vport_id, policygroup_ids)
                 else:
                     sg_id = (self.nuageclient.
                              create_nuage_sec_grp_for_port_sec(params))
@@ -348,12 +345,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         params['sg_id'] = sg_id
                         (self.nuageclient.
                          create_nuage_sec_grp_rule_for_port_sec(params))
-                        vptag_vport_list.append({'nuage_vporttag_id': sg_id})
-                        params = {
-                            'vptag_vport_list': vptag_vport_list,
-                            'nuage_vport_id': nuage_vport_id
-                        }
-                        self.nuageclient.update_nuage_vport(params)
+                        policygroup_ids.append(sg_id)
+                        self.nuageclient.update_vport_policygroups(
+                            nuage_vport_id, policygroup_ids)
 
     @log_helpers.log_method_call
     def _process_port_create_security_group(self, context, port, sec_group):
