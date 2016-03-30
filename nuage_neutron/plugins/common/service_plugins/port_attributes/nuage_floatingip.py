@@ -152,7 +152,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
                 (self.nuageclient.update_vport,
                  [vport['nuage_vport_id'],
                   {'associatedFloatingIPID': vport['nuage_floating_ip']}],
-                 [])
+                 {})
             )
         self.nuageclient.update_vport(
             vport['nuage_vport_id'],
