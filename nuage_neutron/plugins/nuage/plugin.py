@@ -757,6 +757,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @log_helpers.log_method_call
     def update_port(self, context, id, port):
         lbaas_device_owner_added = False
+        lbaas_device_owner_removed = False
         create_vm = False
         p_data = port['port']
         p_sec_update_reqd = False
@@ -793,6 +794,10 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             lbaas_device_owner_added = (
                 p_data.get('device_owner') ==
                 os_constants.DEVICE_OWNER_LOADBALANCER + 'V2')
+            lbaas_device_owner_removed = (
+                'device_owner' in p_data and (not p_data.get('device_owner'))
+                and current_owner == os_constants.DEVICE_OWNER_LOADBALANCER +
+                'V2')
 
             self._validate_update_port(
                 p_data, original_port, has_security_groups)
@@ -870,7 +875,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     self._process_port_create_security_group(context,
                                                              updated_port,
                                                              sgids)
-            if not lbaas_device_owner_added:
+            if not lbaas_device_owner_added and not lbaas_device_owner_removed:
                 self.nuage_callbacks.notify(
                     resources.PORT, constants.AFTER_UPDATE, self,
                     context=context, updated_port=updated_port,
