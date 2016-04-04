@@ -80,6 +80,8 @@ class NuagePortAttributesServicePlugin(service_base.ServicePluginBase):
             .get_nuage_redirect_target_rules
         self.get_nuage_redirect_target_rules_count = source \
             .get_nuage_redirect_target_rules_count
+        self._validate_redirect_target_port_range = (
+            source._validate_redirect_target_port_range)
 
     def init_nuage_policy_group(self):
         source = self.nuage_policy_group
