@@ -220,7 +220,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    def update_port_postcommit(self, context):
+    def update_port_precommit(self, context):
         db_context = context._plugin_context
         core_plugin = context._plugin
         port = context.current
