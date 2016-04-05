@@ -394,15 +394,17 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                 core_plugin._validate_gw_out_of_pools(
                     subnet['gateway_ip'], subnet['allocation_pools'])
             else:
-                self._set_allocation_pools(core_plugin, db_context, subnet)
+                new_pools = self._set_allocation_pools(core_plugin,
+                                                       db_context,
+                                                       subnet)
+                core_plugin._update_subnet_allocation_pools(
+                    db_context, subnet['id'], {'allocation_pools': new_pools,
+                                               'id': subnet['id']})
 
         LOG.warn("Nuage ml2 plugin will overwrite subnet gateway ip "
                  "and allocation pools")
         db_subnet = core_plugin._get_subnet(db_context, subnet['id'])
-        update_subnet = {'subnet': {
-            'allocation_pools': subnet['allocation_pools'],
-            'gateway_ip': subnet['gateway_ip']
-        }}
+        update_subnet = {'gateway_ip': subnet['gateway_ip']}
         db_subnet.update(update_subnet)
 
     def _reserve_dhcp_ip(self, core_plugin, db_context, subnet, nuage_subnet,
@@ -420,6 +422,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                 'gateway_ip': subnet['gateway_ip']}
         pools = core_plugin._allocate_pools_for_subnet(db_context, args)
         subnet['allocation_pools'] = pools
+        return pools
 
     def _cleanup_group(self, db_context, nuage_npid, nuage_subnet_id, subnet):
         try:
