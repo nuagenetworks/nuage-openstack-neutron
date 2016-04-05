@@ -388,15 +388,14 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         if original_gateway != subnet['gateway_ip']:
             # Gateway from vsd is different, we must recalculate the allocation
             # pools.
-            self._set_allocation_pools(core_plugin, subnet)
-
+            new_pools = self._set_allocation_pools(core_plugin, subnet)
+            core_plugin.ipam._update_subnet_allocation_pools(
+                db_context, subnet['id'], {'allocation_pools': new_pools,
+                                           'id': subnet['id']})
         LOG.warn("Nuage ml2 plugin will overwrite subnet gateway ip "
                  "and allocation pools")
         db_subnet = core_plugin._get_subnet(db_context, subnet['id'])
-        update_subnet = {'subnet': {
-            'allocation_pools': subnet['allocation_pools'],
-            'gateway_ip': subnet['gateway_ip']
-        }}
+        update_subnet = {'gateway_ip': subnet['gateway_ip']}
         db_subnet.update(update_subnet)
 
     def _reserve_dhcp_ip(self, core_plugin, db_context, subnet, nuage_subnet,
@@ -418,6 +417,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             {'start': str(netaddr.IPAddress(pool.first, pool.version)),
              'end': str(netaddr.IPAddress(pool.last, pool.version))}
             for pool in pools]
+        return pools
 
     def _cleanup_group(self, db_context, nuage_npid, nuage_subnet_id, subnet):
         try:
