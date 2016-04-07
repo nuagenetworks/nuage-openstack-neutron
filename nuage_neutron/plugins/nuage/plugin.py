@@ -173,37 +173,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             self.syncmanager.synchronize(fip_quota,
                                          cfg.CONF.SYNCMANAGER.enable_sync)
 
-    @log_helpers.log_method_call
-    def _resource_finder(self, context, for_resource, resource_type,
-                         resource):
-        match = re.match(attributes.UUID_PATTERN, resource)
-        if match:
-            obj_lister = getattr(self, "get_%s" % resource_type)
-            found_resource = obj_lister(context, resource)
-            if not found_resource:
-                msg = (_("%(resource)s with id %(resource_id)s does not "
-                         "exist") % {'resource': resource_type,
-                                     'resource_id': resource})
-                raise n_exc.BadRequest(resource=for_resource, msg=msg)
-        else:
-            filter = {'name': [resource]}
-            obj_lister = getattr(self, "get_%ss" % resource_type)
-            found_resource = obj_lister(context, filters=filter)
-            if not found_resource:
-                msg = (_("Either %(resource)s %(req_resource)s not found "
-                         "or you dont have credential to access it")
-                       % {'resource': resource_type,
-                          'req_resource': resource})
-                raise n_exc.BadRequest(resource=for_resource, msg=msg)
-            if len(found_resource) > 1:
-                msg = (_("More than one entry found for %(resource)s "
-                         "%(req_resource)s. Use id instead")
-                       % {'resource': resource_type,
-                          'req_resource': resource})
-                raise n_exc.BadRequest(resource=for_resource, msg=msg)
-            found_resource = found_resource[0]
-        return found_resource
-
     @staticmethod
     @log_helpers.log_method_call
     def _validate_create_nuage_vport(session, ports, np_name, cur_port_id):

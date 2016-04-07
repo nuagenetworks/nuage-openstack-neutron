@@ -257,7 +257,7 @@ class Nuage_redirect_target(extensions.ExtensionDescriptor):
         """Returns Ext Resources."""
         exts = []
         plugin = manager.NeutronManager.get_service_plugins()[
-            nuage_constants.NUAGE_PORT_MANAGEMENT_SERVICE_PLUGIN]
+            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
         for resource_name in ['nuage_redirect_target',
                               'nuage_redirect_target_rule',
                               'nuage_redirect_target_vip']:
