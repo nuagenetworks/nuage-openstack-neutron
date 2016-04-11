@@ -34,7 +34,6 @@ class NuagePortAttributesServicePlugin(service_base.ServicePluginBase):
     """
 
     supported_extension_aliases = ['nuage-redirect-target',
-                                   'allowed-address-pairs',
                                    'nuage-policy-group',
                                    'nuage-vsd-floatingip']
 
@@ -50,7 +49,7 @@ class NuagePortAttributesServicePlugin(service_base.ServicePluginBase):
         return constants.NUAGE_PORT_MANAGEMENT_SERVICE_PLUGIN
 
     def get_plugin_type(self):
-        return constants.NUAGE_PORT_MANAGEMENT_SERVICE_PLUGIN
+        return constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN
 
     def get_plugin_description(self):
         return ("Plugin providing support for nuage-specific apis which "
