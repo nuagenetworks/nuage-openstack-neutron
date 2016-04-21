@@ -31,7 +31,6 @@ if [[ "$1" == "stack" ]]; then
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $DIR_NUAGE/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
-    elif [[ "$2" == "post-config" ]]; then
         configure_neutron_nuage
     fi
 elif [[ "$1" == "unstack" ]]; then
