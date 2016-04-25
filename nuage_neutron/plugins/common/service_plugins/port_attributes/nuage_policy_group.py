@@ -201,7 +201,7 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
         if not vport or not is_attr_set(request_port.get(NUAGE_POLICY_GROUPS)):
             return
         self._process_port_nuage_policy_group(
-            event, kwargs['original_port'], request_port,
+            event, kwargs.get('original_port'), request_port,
             kwargs['rollbacks'], vport)
 
     @nuage_utils.handle_nuage_api_errorcode
