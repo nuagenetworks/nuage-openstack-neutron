@@ -98,7 +98,7 @@ class Nuagepolicygroup(extensions.ExtensionDescriptor):
         """Returns Ext Resources."""
         exts = []
         plugin = manager.NeutronManager.get_service_plugins()[
-            nuage_constants.NUAGE_PORT_MANAGEMENT_SERVICE_PLUGIN]
+            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
         resource_name = 'nuage_policy_group'
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())

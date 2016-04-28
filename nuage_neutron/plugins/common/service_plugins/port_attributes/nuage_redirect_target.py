@@ -21,8 +21,7 @@ from neutron.api.v2.attributes import is_attr_set
 from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.common import exceptions as n_exc
-from neutron.db import db_base_plugin_v2
-from neutron.db.securitygroups_db import SecurityGroupDbMixin
+from neutron import manager
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
@@ -35,9 +34,13 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
 
 
-class NuageRedirectTarget(BaseNuagePlugin,
-                          db_base_plugin_v2.NeutronDbPluginV2,
-                          SecurityGroupDbMixin):
+class NuageRedirectTarget(BaseNuagePlugin):
+
+    @property
+    def core_plugin(self):
+        if not hasattr(self, '_core_plugin'):
+            self._core_plugin = manager.NeutronManager.get_plugin()
+        return self._core_plugin
 
     def __init__(self):
         super(NuageRedirectTarget, self).__init__()
@@ -47,37 +50,6 @@ class NuageRedirectTarget(BaseNuagePlugin,
                                        resources.PORT, constants.AFTER_CREATE)
         self.nuage_callbacks.subscribe(self.post_port_show,
                                        resources.PORT, constants.AFTER_SHOW)
-
-    @log_helpers.log_method_call
-    def _resource_finder(self, context, for_resource, resource_type,
-                         resource):
-        match = re.match(attributes.UUID_PATTERN, resource)
-        if match:
-            obj_lister = getattr(self, "get_%s" % resource_type)
-            found_resource = obj_lister(context, resource)
-            if not found_resource:
-                msg = (_("%(resource)s with id %(resource_id)s does not "
-                         "exist") % {'resource': resource_type,
-                                     'resource_id': resource})
-                raise n_exc.BadRequest(resource=for_resource, msg=msg)
-        else:
-            filter = {'name': [resource]}
-            obj_lister = getattr(self, "get_%ss" % resource_type)
-            found_resource = obj_lister(context, filters=filter)
-            if not found_resource:
-                msg = (_("Either %(resource)s %(req_resource)s not found "
-                         "or you dont have credential to access it")
-                       % {'resource': resource_type,
-                          'req_resource': resource})
-                raise n_exc.BadRequest(resource=for_resource, msg=msg)
-            if len(found_resource) > 1:
-                msg = (_("More than one entry found for %(resource)s "
-                         "%(req_resource)s. Use id instead")
-                       % {'resource': resource_type,
-                          'req_resource': resource})
-                raise n_exc.BadRequest(resource=for_resource, msg=msg)
-            found_resource = found_resource[0]
-        return found_resource
 
     @log_helpers.log_method_call
     def get_nuage_redirect_target(self, context, rtarget_id, fields=None):
@@ -133,9 +105,9 @@ class NuageRedirectTarget(BaseNuagePlugin,
     @log_helpers.log_method_call
     def delete_nuage_redirect_target(self, context, rtarget_id):
         filters = {'device_id': [rtarget_id]}
-        ports = self.get_ports(context, filters=filters)
+        ports = self.core_plugin.get_ports(context, filters=filters)
         for vip_port in ports:
-            self.delete_port(context, vip_port['id'])
+            self.core_plugin.delete_port(context, vip_port['id'])
         self.nuageclient.delete_nuage_redirect_target(rtarget_id)
 
     @log_helpers.log_method_call
@@ -156,7 +128,7 @@ class NuageRedirectTarget(BaseNuagePlugin,
             res['ports'] = redirect_target['ports']
         if context:
             res['tenant_id'] = context.tenant_id
-        return self._fields(res, fields)
+        return self.core_plugin._fields(res, fields)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -199,7 +171,7 @@ class NuageRedirectTarget(BaseNuagePlugin,
         }
         if context:
             res['tenant_id'] = context.tenant_id
-        return self._fields(res, fields)
+        return self.core_plugin._fields(res, fields)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -218,10 +190,10 @@ class NuageRedirectTarget(BaseNuagePlugin,
             context, nuage_redirect_target, subnet_mapping, vip)
         with context.session.begin(subtransactions=True):
             # Port has no 'tenant-id', as it is hidden from user
-            subnet = self.get_subnet(context, subnet_id)
+            subnet = self.core_plugin.get_subnet(context, subnet_id)
             network_id = subnet['network_id']
             fixed_ips = {'ip_address': vip}
-            vip_port = self.create_port(
+            vip_port = self.core_plugin.create_port(
                 context,
                 {'port': {
                     'tenant_id': redirect_target['tenant_id'],
@@ -235,7 +207,7 @@ class NuageRedirectTarget(BaseNuagePlugin,
                 }}
             )
             if not vip_port['fixed_ips']:
-                self.delete_port(context, vip_port['id'])
+                self.core_plugin.delete_port(context, vip_port['id'])
                 msg = ('No IPs available for VIP %s') % network_id
                 raise n_exc.BadRequest(
                     resource='nuage-redirect-target', msg=msg)
@@ -244,7 +216,7 @@ class NuageRedirectTarget(BaseNuagePlugin,
                 redirect_target['redirect_target_id'],
                 redirect_target['virtual_ip_address'])
 
-            super(NuageRedirectTarget, self).update_port(
+            self.core_plugin.update_port(
                 context, vip_port['id'],
                 {'port':
                     {'device_id': redirect_target['redirect_target_id']}})
@@ -297,7 +269,7 @@ class NuageRedirectTarget(BaseNuagePlugin,
         }
         if context:
             res['tenant_id'] = context.tenant_id
-        return self._fields(res, fields)
+        return self.core_plugin._fields(res, fields)
 
     @log_helpers.log_method_call
     def _validate_nuage_redirect_target_rule(self, rule):
@@ -337,7 +309,7 @@ class NuageRedirectTarget(BaseNuagePlugin,
                        % {port_min: port_min, port_max: port_max})
             raise n_exc.InvalidInput(error_message=message)
 
-        ip_proto = self._get_ip_proto_number(rule['protocol'])
+        ip_proto = self.core_plugin._get_ip_proto_number(rule['protocol'])
         if ip_proto in [os_constants.PROTO_NUM_TCP,
                         os_constants.PROTO_NUM_UDP]:
             if (rule['port_range_min'] is not None and
@@ -353,7 +325,7 @@ class NuageRedirectTarget(BaseNuagePlugin,
         remote_sg = None
         rtarget_rule = nuage_redirect_target_rule['nuage_redirect_target_rule']
         if rtarget_rule.get('remote_group_id'):
-            remote_sg = self.get_security_group(
+            remote_sg = self.core_plugin.get_security_group(
                 context, rtarget_rule.get('remote_group_id'))
         self._validate_nuage_redirect_target_rule(rtarget_rule)
         if remote_sg:
@@ -504,7 +476,7 @@ class NuageRedirectTarget(BaseNuagePlugin,
 
     @log_helpers.log_method_call
     def _delete_port_redirect_target_bindings(self, context, port_id):
-        port = self.get_port(context, port_id)
+        port = self.core_plugin.get_port(context, port_id)
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
@@ -529,8 +501,9 @@ class NuageRedirectTarget(BaseNuagePlugin,
 
         # VIP should be in the same subnet as redirect_target['subnet_id']
         if vip:
-            subnet = self.get_subnet(context, subnet_mapping['subnet_id'])
-            if not self._check_subnet_ip(subnet['cidr'], vip):
+            subnet = self.core_plugin.get_subnet(context,
+                                                 subnet_mapping['subnet_id'])
+            if not self.core_plugin._check_subnet_ip(subnet['cidr'], vip):
                 msg = ("VIP should be in the same subnet as subnet %s " %
                        subnet_mapping['subnet_id'])
                 raise nuage_exc.NuageBadRequest(msg=msg)
@@ -546,7 +519,8 @@ class NuageRedirectTarget(BaseNuagePlugin,
             updated_port,
             request_port[ext_rtarget.REDIRECTTARGETS]
         )
-        self._delete_port_redirect_target_bindings(context, updated_port['id'])
+        self._delete_port_redirect_target_bindings(
+            context, updated_port['id'])
         self.process_port_redirect_target(
             context, updated_port, request_port[ext_rtarget.REDIRECTTARGETS],
             nuage_rtargets_ids)

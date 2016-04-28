@@ -197,7 +197,7 @@ class NuageexternalsgMixin(object):
 
     def get_port_attributes_plugin(self):
         return NeutronManager.get_service_plugins()[
-            constants.NUAGE_PORT_MANAGEMENT_SERVICE_PLUGIN]
+            constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
 
     @nuage_utils.handle_nuage_api_error
     @log.log
