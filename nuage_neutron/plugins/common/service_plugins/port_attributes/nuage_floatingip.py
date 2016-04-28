@@ -114,7 +114,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         domain_id = self.nuageclient.get_router_by_domain_subnet_id(
             vsd_subnet['subnet_id'])
         return self.nuageclient.get_nuage_domain_floatingips(
-            domain_id, assigned=False, **vsd_filters)
+            domain_id, assigned=False, externalID=None, **vsd_filters)
 
     def post_port_update(self, resource, event, trigger, **kwargs):
         self.process_port_nuage_floatingip(resource, event, trigger, **kwargs)
@@ -169,7 +169,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
             return
 
         floatingip = self.nuageclient.get_nuage_floatingip(
-            vport['nuage_floating_ip'])
+            vport['nuage_floating_ip'], externalID=None)
         if floatingip:
             port[NUAGE_FLOATINGIP] = {'id': floatingip['ID'],
                                       'ip_address': floatingip['address']}
