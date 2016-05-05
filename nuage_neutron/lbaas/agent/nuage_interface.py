@@ -88,6 +88,9 @@ class NuageVMDriver(object):
         part3 = int(uuidstr[16:24], 16)
         part4 = int(uuidstr[24:32], 16)
         padchar = 0
+        endpoint_type = 0
+        platform_type = 0
+        uuid_length = 128
         send_xml = None
         if (eventStr == 'DEFINED' or eventStr == 'STARTED' or eventStr ==
                 'RESUMED'):
@@ -116,22 +119,22 @@ class NuageVMDriver(object):
         vm_name = vm_name.encode('utf-8')
         if send_xml:
             xml_len = len(str(nuagexml)) + 1
-            send_msg = struct.pack('!IIIIBBBBBBBB64sHHHHHBBBBBB%ds' % xml_len,
-                                   part1, part2, part3, part4,
-                                   padchar, padchar, padchar,
-                                   padchar, padchar, padchar,
-                                   padchar, padchar, vm_name,
-                                   event, eventtype, state, reason,
+            send_msg = struct.pack('!BBHBBBBIIIIIIII64sHHHHHBBBBBB%ds' %
+                                   xml_len, endpoint_type, platform_type,
+                                   uuid_length, padchar, padchar, padchar,
+                                   padchar, part1, part2, part3, part4,
+                                   padchar, padchar, padchar, padchar,
+                                   vm_name, event, eventtype, state, reason,
                                    xml_len, padchar, padchar, padchar,
                                    padchar, padchar, padchar, str(nuagexml))
         else:
             xml_len = 0
-            send_msg = struct.pack('!IIIIBBBBBBBB64sHHHHHBBBBBB',
+            send_msg = struct.pack('!BBHBBBBIIIIIIII64sHHHHHBBBBBB',
+                                   endpoint_type, platform_type, uuid_length,
+                                   padchar, padchar, padchar, padchar,
                                    part1, part2, part3, part4,
-                                   padchar, padchar, padchar,
-                                   padchar, padchar, padchar,
-                                   padchar, padchar, vm_name,
-                                   event, eventtype, state, reason,
+                                   padchar, padchar, padchar, padchar,
+                                   vm_name, event, eventtype, state, reason,
                                    xml_len, padchar, padchar, padchar,
                                    padchar, padchar, padchar)
         return send_msg
