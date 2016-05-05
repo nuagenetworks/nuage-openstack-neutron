@@ -3962,3 +3962,134 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             if key not in fields:
                 del subnet[key]
         return subnet
+
+    def claim_fip_for_domain_from_shared_resource(self, context, id, rtr_id):
+        fip_pool = self.nuageclient.get_nuage_fip_pool_by_id(id)
+        if not fip_pool:
+            msg = _('sharedresource %s not found on VSD') % id
+            raise n_exc.BadRequest(resource='floatingip',
+                                   msg=msg)
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+            context.session, rtr_id)
+        if not ent_rtr_mapping:
+            msg = _('router %s is not associated with '
+                    'any net-partition') % rtr_id
+            raise n_exc.BadRequest(resource='floatingip',
+                                   msg=msg)
+        params = {
+            'nuage_rtr_id': ent_rtr_mapping['nuage_router_id'],
+            'nuage_fippool_id': fip_pool['nuage_fip_pool_id'],
+        }
+        nuage_fip = self.nuageclient.create_nuage_fip_for_vpnaas(params)
+        return nuage_fip
+
+    def associate_fip_to_dummy_port(self, context, nuage_fip, port_id, rtr_id):
+        nuage_vport = self._get_vport_for_fip(context, port_id)
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+            context.session, rtr_id)
+        if nuage_vport:
+            if (nuage_vport['nuage_domain_id']) != (
+                    ent_rtr_mapping['nuage_router_id']):
+                msg = _('Floating IP can not be associated to port in '
+                        'different router context')
+                raise nuage_exc.OperationNotSupported(msg=msg)
+        nuage_fip_id = nuage_fip['ID']
+        params = {
+            'nuage_vport_id': nuage_vport['nuage_vport_id'],
+            'nuage_fip_id': nuage_fip_id
+        }
+        if nuage_fip['assigned']:
+            n_vport = self.nuageclient.get_vport_assoc_with_fip(
+                nuage_fip_id)
+            if n_vport and not n_vport['hasAttachedInterfaces']:
+                disassoc_params = {
+                    'nuage_vport_id': n_vport['ID'],
+                    'nuage_fip_id': None
+                }
+                self.nuageclient.update_nuage_vm_vport(disassoc_params)
+        self.nuageclient.update_nuage_vm_vport(params)
+
+    def get_active_routers_for_host(self, context, host=None):
+        return self.get_routers(context)
+
+    def add_rules_vpn_ping(self, context, rtr_id, remote_subn, port):
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+            context.session, rtr_id)
+        nuage_domain_id = ent_rtr_mapping['nuage_router_id']
+        route = {
+            'nexthop': port['fixed_ips'][0]['ip_address'],
+            'destination': remote_subn
+        }
+        self._add_nuage_static_route(rtr_id, nuage_domain_id, route)
+        nuage_port = self._get_reqd_nauge_vport_params(context, port)
+        if nuage_port:
+            self.nuageclient.update_mac_spoofing_on_vport(
+                nuage_port['nuage_vport_id'], constants.ENABLED)
+
+    def remove_rules_vpn_ping(self, context, rtr_id, remote_subn, nexthop):
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+            context.session, rtr_id)
+        nuage_domain_id = ent_rtr_mapping['nuage_router_id']
+
+        if not ent_rtr_mapping:
+            msg = _('router %s is not associated with '
+                    'any net-partition') % rtr_id
+            raise n_exc.BadRequest(resource='', msg=msg)
+
+        route = {
+            'nexthop': nexthop,
+            'destination': remote_subn
+        }
+        self._delete_nuage_static_route(nuage_domain_id, route)
+
+    def _get_reqd_nauge_vport_params(self, context, port, create_ipsec=True):
+        l2dom_id = None
+        l3dom_id = None
+        sub_id = port['fixed_ips'][0]['subnet_id']
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+            context.session, sub_id)
+        netpart_id = subnet_mapping['net_partition_id']
+        net_partition = nuagedb.get_net_partition_by_id(
+            context.session, netpart_id)
+        if subnet_mapping['nuage_l2dom_tmplt_id']:
+            l2dom_id = subnet_mapping['nuage_subnet_id']
+        else:
+            l3dom_id = subnet_mapping['nuage_subnet_id']
+        port_params = {
+            'neutron_port_id': port['id'],
+            'l2dom_id': l2dom_id,
+            'l3dom_id': l3dom_id
+        }
+        subn = self.get_subnet(context, sub_id)
+        nuage_port = (self.nuageclient.get_nuage_vport_by_id(port_params)
+                      if create_ipsec
+                      else self.nuageclient.get_nuage_port_by_id(port_params))
+        nuage_port['net_partition'] = net_partition
+        nuage_port['subn'] = subn
+        nuage_port['l2dom_id'] = l2dom_id
+        nuage_port['l3dom_id'] = l3dom_id
+        return nuage_port
+
+    def delete_dummy_vm_if(self, context, port):
+        nuage_port = self._get_reqd_nauge_vport_params(context, port, False)
+        if nuage_port:
+            nuage_vif_id = nuage_port['nuage_vif_id']
+            params = {
+                'no_of_ports': 1,
+                'netpart_name': nuage_port['net_partition']['name'],
+                'mac': port['mac_address'],
+                'tenant': port['tenant_id'],
+                'nuage_vif_id': nuage_vif_id,
+                'id': port['id'],
+                'subn_tenant': nuage_port['subn']['tenant_id'],
+                'l2dom_id': nuage_port['l2dom_id'],
+                'l3dom_id': nuage_port['l3dom_id'],
+                'portOnSharedSubn': nuage_port['subn']['shared']
+            }
+            self.nuageclient.delete_vms(params)
+
+    def rtr_in_def_ent(self, context, rtr_id):
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+            context.session, rtr_id)
+        if ent_rtr_mapping['net_partition_id'] == self.default_np_id:
+            return True
