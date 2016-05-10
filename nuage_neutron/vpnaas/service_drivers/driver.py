@@ -129,7 +129,6 @@ class NuageBaseIPsecVpnAgentApi(object):
     """Base class for IPSec API to agent."""
 
     def __init__(self, topic, default_version, driver):
-        print('check the TOPIC here')
         self.topic = topic
         self.driver = driver
         target = oslo_messaging.Target(topic=topic, version=default_version)
@@ -272,6 +271,8 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
         super(NuageIPsecVPNDriver, self).create_vpnservice(
             context, vpnservice_dict)
         l3_plugin = self._get_l3_plugin()
+        # admin context requiored to get fip subnet.
+        context = context if context.is_admin else context.elevated()
         try:
             vpn_serv_rtr = l3_plugin.get_router(
                 context, vpnservice_dict['router_id'])
@@ -398,10 +399,6 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
             res = self._get_vpn_serv_nuage_resources(context, vpnservice)
             res['p_dummy']['gw'] = res['s_dummy']['gateway_ip']
             ns_ports = (res['p_dummy'], res['p_openswan'])
-            l3_plugin.add_rules_vpn_ping(
-                context, vpnservice['router_id'],
-                ipsec_site_connection['peer_cidrs'][0],
-                res['p_openswan'])
         except Exception:
             # case when the user is trying to create an IPSec Site connection
             # when already there is one associated with the current VPN Svc
@@ -432,6 +429,11 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
                     context, prt['id'],
                     {'port': {'device_owner': 'compute:None'}})
 
+        l3_plugin.add_rules_vpn_ping(
+            context, vpnservice['router_id'],
+            ipsec_site_connection['peer_cidrs'][0],
+            res['p_openswan'])
+
         super(NuageIPsecVPNDriver, self).create_ipsec_site_connection(
             context, ipsec_site_connection)
 
@@ -444,10 +446,14 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
         if (vpnservices and len(vpnservices[0]['ipsec_site_connections'])) > 0:
             # This is temporary. For 4.0r2 only one IPSec conn. per VPN svc
             return
+        res = self._get_vpn_serv_nuage_resources(context, vpnservice)
+        l3_plugin.remove_rules_vpn_ping(
+            context, vpnservice['router_id'],
+            ipsec_site_connection['peer_cidrs'][0],
+            res['p_openswan']['fixed_ips'][0]['ip_address'])
         self.agent_rpc.non_tracking(context, vpnservice['router_id'])
         super(NuageIPsecVPNDriver, self).delete_ipsec_site_connection(
             context, ipsec_site_connection)
-        res = self._get_vpn_serv_nuage_resources(context, vpnservice)
         res['p_dummy']['gw'] = res['s_dummy']['gateway_ip']
         ns_ports = (res['p_dummy'], res['p_openswan'])
         ns_name = 'vpn-' + vpnservice['router_id']
@@ -466,8 +472,3 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
                 context, prt['id'], {'port': {'device_owner': ''}})
             # delete the vm-interface
             l3_plugin.delete_dummy_vm_if(context, prt)
-
-        l3_plugin.remove_rules_vpn_ping(
-            context, vpnservice['router_id'],
-            ipsec_site_connection['peer_cidrs'][0],
-            res['p_openswan']['fixed_ips'][0]['ip_address'])
