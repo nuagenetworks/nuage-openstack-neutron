@@ -288,8 +288,11 @@ class NuageIPsecDriver(device_drivers.DeviceDriver):
                                   'alubr0', kwargs['ns_name'])
 
         self.nuage_if_driver.init_l3(kwargs['device_name'], kwargs['cidr'],
-                                     kwargs['ns_name'],
-                                     gateway_ips=kwargs['gw_ip'])
+                                     kwargs['ns_name'])
+        device = ip_lib.IPDevice(kwargs['device_name'],
+                                 namespace=kwargs['ns_name'])
+        for gateway_ip in kwargs['gw_ip']:
+            device.route.add_gateway(gateway_ip)
 
     def unplug_from_ovs(self, context, **kwargs):
         self.nuage_if_driver.unplug(kwargs['device_name'], 'alubr0',

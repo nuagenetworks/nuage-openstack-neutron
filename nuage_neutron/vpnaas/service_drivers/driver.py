@@ -20,6 +20,7 @@ from neutron.common import rpc as n_rpc
 from neutron.extensions import l3
 from neutron import manager
 from neutron.plugins.common import constants
+from neutron_vpnaas.db.vpn import vpn_db as vpn_db
 from neutron_vpnaas.db.vpn import vpn_models
 from neutron_vpnaas.services.vpn.service_drivers import base_ipsec
 from neutron_vpnaas.services.vpn.service_drivers import ipsec_validator
@@ -52,8 +53,9 @@ class NetCreateDict(object):
 
 
 class RouterCreateDict(object):
-    def __init__(self, name):
+    def __init__(self, name, tenant_id):
         self.name = name
+        self.tenant_id = tenant_id
 
     @property
     def rtr_dict(self):
@@ -62,17 +64,19 @@ class RouterCreateDict(object):
                 'name': self.name,
                 'description': 'Dummy router for VPN Service',
                 'admin_state_up': True,
-                'nuage_router_template': None
+                'nuage_router_template': None,
+                'tenant_id': self.tenant_id
             }
         }
 
 
 class SubnetCreateDict(object):
-    def __init__(self, name, net_id, cidr, gw_ip):
+    def __init__(self, name, net_id, cidr, gw_ip, tenant_id):
         self.name = name
         self.net_id = net_id
         self.cidr = cidr
         self.gw_ip = gw_ip
+        self.tenant_id = tenant_id
 
     @property
     def subn_dict(self):
@@ -90,6 +94,7 @@ class SubnetCreateDict(object):
                 'enable_dhcp': True,
                 'dns_nameservers': attributes.ATTR_NOT_SPECIFIED,
                 'host_routes': attributes.ATTR_NOT_SPECIFIED,
+                'tenant_id': self.tenant_id
             }
         }
 
@@ -197,15 +202,21 @@ class NuageIPsecVpnDriverCallBack(object):
         query = query.filter(vpn_models.VPNService.router_id == router_id)
         return query.all()
 
+    def build_local_subnet_cidr_map(self, context):
+        db = vpn_db.VPNPluginRpcDbMixin()
+        return db._build_local_subnet_cidr_map(context)
+
     def get_vpn_services_on_host(self, context, host=None):
         """Returns info on the VPN services on the host."""
         routers = self.driver.l3_plugin.get_active_routers_for_host(context)
         host_vpn_services = []
         for router in routers:
             vpn_services = self.get_vpn_services_using(context, router['id'])
+            local_cidr_map = self.build_local_subnet_cidr_map(context)
             for vpn_service in vpn_services:
                 host_vpn_services.append(
-                    self.driver.make_vpnservice_dict(vpn_service))
+                    self.driver.make_vpnservice_dict(vpn_service,
+                                                     local_cidr_map))
         return host_vpn_services
 
     def update_status(self, context, status):
@@ -288,13 +299,14 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
 
         net_dict = NetCreateDict(context.tenant_id,
                                  'n_d_' + vpn_serv_subn['id'])
-        rtr_dict = RouterCreateDict('r_d_' + vpn_serv_rtr['id'])
-
+        rtr_dict = RouterCreateDict('r_d_' + vpn_serv_rtr['id'],
+                                    context.tenant_id)
         dummy_net = l3_plugin.create_network(context, net_dict.net_dict)
         subn_dict = SubnetCreateDict('s_d_' + vpn_serv_subn['id'],
                                      dummy_net['id'],
                                      vpn_ext_subn['cidr'],
-                                     vpn_ext_subn['gateway_ip'])
+                                     vpn_ext_subn['gateway_ip'],
+                                     context.tenant_id)
 
         # use neutron API to create a dummy router in VSD,
         # create a dummy subnet and attached to this dummy router.
