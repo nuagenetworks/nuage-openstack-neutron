@@ -33,6 +33,7 @@ if [[ $Q_PLUGIN == 'nuage' ]]; then
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v ${GITDIR['nuage']}/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
+        _neutron_deploy_rootwrap_filters ${GITDIR['nuage']}/nuage_neutron/lbaas
     fi
 
     if [[ "$1" == "unstack" ]]; then
