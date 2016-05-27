@@ -21,64 +21,48 @@ Q_ML2_PLUGIN_MECHANISM_DRIVERS=nuage
 Q_ML2_PLUGIN_EXT_DRIVERS=nuage_subnet,nuage_port
 
 Required settings
------------------
+=================
 
-# nuagenetlib repository
-# e.g. NUAGENETLIB_REPO=http://github.mv.usa.alcatel.com/OpenStack/nuagenetlib.git
+::
 
-NUAGENETLIB_REPO
+    # nuagenetlib repository
+    NUAGENETLIB_REPO=http://github.mv.usa.alcatel.com/OpenStack/nuagenetlib.git
 
+    # branch to use
+    NUAGENETLIB_BRANCH=master
 
-# branch to use
-# e.g. NUAGENETLIB_BRANCH=master
+    # IP Address and Port of VSD
+    NUAGE_VSD_SERVERS=172.31.4.211:8443
 
-NUAGENETLIB_BRANCH
+    # Username and password of VSD for authentication
+    NUAGE_VSD_SERVER_AUTH=uname:psswd
 
+    # Organization name in which VSD will orchestrate network resources using openstack
+    NUAGE_VSD_ORGANIZATION=csp
 
-# IP Address and Port of VSD
-# e.g. NUAGE_VSD_SERVERS=172.31.4.211:8443
+    # Boolean for SSL connection with VSD server
+    NUAGE_VSD_SERVER_SSL=True
 
-NUAGE_VSD_SERVERS
+    # Nuage provided base uri to reach out to VSD
+    NUAGE_VSD_BASE_URI=/nuage/api/v4_0
 
+    # Nuage provided uri for initial authorization to access VSD
+    NUAGE_VSD_AUTH_RESOURCE=/me
 
-# Username and password of VSD for authentication
-# e.g. NUAGE_VSD_SERVER_AUTH=uname:psswd
+    # Default Network partition in which VSD will orchestrate network resources using openstack
+    NUAGE_VSD_DEF_NETPART_NAME=test-netpartition
 
-NUAGE_VSD_SERVER_AUTH
-
-
-# Organization name in which VSD will orchestrate network resources using openstack
-# e.g. NUAGE_VSD_ORGANIZATION=csp
-
-NUAGE_VSD_ORGANIZATION
-
-
-# Boolean for SSL connection with VSD server
-# e.g. NUAGE_VSD_SERVER_SSL=True
-
-NUAGE_VSD_SERVER_SSL
+    # OVS bridge to use by nova
+    NOVA_OVS_BRIDGE=alubr0
 
 
-# Nuage provided base uri to reach out to VSD
-# e.g. NUAGE_VSD_BASE_URI=/nuage/api/v3_0
+Enabling LBaaS
+--------------
+Add following settings to your local.conf::
 
-NUAGE_VSD_BASE_URI
-
-
-# Nuage provided uri for initial authorization to access VSD
-# e.g. NUAGE_VSD_AUTH_RESOURCE=/me
-
-NUAGE_VSD_AUTH_RESOURCE
+    enable_service q-lbaasv2
+    enable_plugin neutron-lbaas https://git.openstack.org/openstack/neutron-lbaas
+    NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
 
 
-# Default Network partition in which VSD will orchestrate network resources using openstack
-# e.g. NUAGE_VSD_DEF_NETPART_NAME=test-netpartition
-
-NUAGE_VSD_DEF_NETPART_NAME
-
-
-# OVS bridge to use by nova
-# e.g. NOVA_OVS_BRIDGE=alubr0
-
-NOVA_OVS_BRIDGE
 

@@ -70,6 +70,8 @@ function neutron_plugin_configure_service {
 function configure_neutron_nuage {
     create_or_retrieve_cms cms_id
     iniset /$Q_PLUGIN_CONF_FILE restproxy cms_id $cms_id
+
+    _neutron_deploy_rootwrap_filters $DIR_NUAGE
 }
 
 # Restore xtrace
