@@ -752,7 +752,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         orig_sg = (set(original_port.get(ext_sg.SECURITYGROUPS)) if
                    original_port.get(ext_sg.SECURITYGROUPS) else set())
         sgids_diff = list(new_sg ^ orig_sg)
-        with session.begin(subtransactions=True):
+        with contextlib.nested(lockutils.lock('nuage-port-%s' % id,
+                                              external=True),
+                               session.begin(subtransactions=True)):
             original_port = self.get_port(context, id)
             vport = self._get_vport_for_port(context, original_port)
             current_owner = original_port['device_owner']
@@ -1024,54 +1026,59 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def delete_port(self, context, id, l3_port_check=True):
         self._pre_delete_port(context, id, l3_port_check)
         port = self._get_port(context, id)
-        fip = nuagedb.get_fip_by_floating_port_id(context.session,
-                                                  id)
-        # disassociate_floatingips() will change the row of
-        # floatingips neutron table. Store the reqd. values
-        # in fip_dict that will be used to delete nuage fip
-        # that is associated with the port getting deleted.
-        fip_dict = dict()
-        if fip:
-            fip_dict = {
-                'fip_id': fip['id'],
-                'fip_fixed_port_id': fip['fixed_port_id'],
-                'fip_router_id': fip['router_id'],
-                'fip_last_known_rtr_id': fip['last_known_router_id']
-            }
-        # This is required for to pass ut test_floatingip_port_delete
-        self.disassociate_floatingips(context, id)
-        self._delete_nuage_fip(context, fip_dict)
-        if not port['fixed_ips']:
-            return super(NuagePlugin, self).delete_port(context, id)
+        with contextlib.nested(lockutils.lock('nuage-port-%s' % id,
+                                              external=True),
+                               context.session.begin(subtransactions=True)):
+            fip = nuagedb.get_fip_by_floating_port_id(context.session,
+                                                      id)
+            # disassociate_floatingips() will change the row of
+            # floatingips neutron table. Store the reqd. values
+            # in fip_dict that will be used to delete nuage fip
+            # that is associated with the port getting deleted.
+            fip_dict = dict()
+            if fip:
+                fip_dict = {
+                    'fip_id': fip['id'],
+                    'fip_fixed_port_id': fip['fixed_port_id'],
+                    'fip_router_id': fip['router_id'],
+                    'fip_last_known_rtr_id': fip['last_known_router_id']
+                }
+            # This is required for to pass ut test_floatingip_port_delete
+            self.disassociate_floatingips(context, id)
+            self._delete_nuage_fip(context, fip_dict)
+            if not port['fixed_ips']:
+                return super(NuagePlugin, self).delete_port(context, id)
 
-        sub_id = port['fixed_ips'][0]['subnet_id']
+            sub_id = port['fixed_ips'][0]['subnet_id']
 
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
-                                                        sub_id)
-        if not subnet_mapping:
-            LOG.debug("No subnet to l2domain mapping found for subnet %s",
-                      sub_id)
-            return super(NuagePlugin, self).delete_port(context, id)
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                            sub_id)
+            if not subnet_mapping:
+                LOG.debug("No subnet to l2domain mapping found for subnet %s",
+                          sub_id)
+                return super(NuagePlugin, self).delete_port(context, id)
 
-        if nuage_utils.check_vport_creation(
-                port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
-            # Need to call this explicitly to delete vport to policygroup
-            # binding
-            if (ext_sg.SECURITYGROUPS in port and
-                    subnet_mapping['nuage_managed_subnet'] is False):
-                self._delete_port_security_group_bindings(context, id)
+            if nuage_utils.check_vport_creation(
+                    port.get('device_owner'),
+                    cfg.CONF.PLUGIN.device_owner_prefix):
+                # Need to call this explicitly to delete vport to policygroup
+                # binding
+                if (ext_sg.SECURITYGROUPS in port and
+                        subnet_mapping['nuage_managed_subnet'] is False):
+                    self._delete_port_security_group_bindings(context, id)
 
-            netpart_id = subnet_mapping['net_partition_id']
-            net_partition = nuagedb.get_net_partition_by_id(context.session,
-                                                            netpart_id)
+                netpart_id = subnet_mapping['net_partition_id']
+                net_partition = nuagedb.get_net_partition_by_id(
+                    context.session,
+                    netpart_id)
 
-            self._delete_nuage_vport(context, port, net_partition['name'],
-                                     subnet_mapping, port_delete=True)
-        else:
-            # Check and delete gateway host vport associated with the port
-            self.delete_gw_host_vport(context, port, subnet_mapping)
+                self._delete_nuage_vport(context, port, net_partition['name'],
+                                         subnet_mapping, port_delete=True)
+            else:
+                # Check and delete gateway host vport associated with the port
+                self.delete_gw_host_vport(context, port, subnet_mapping)
 
-        super(NuagePlugin, self).delete_port(context, id)
+            super(NuagePlugin, self).delete_port(context, id)
 
     @log.log
     def get_ports_count(self, context, filters=None):
