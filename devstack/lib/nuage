@@ -121,5 +121,12 @@ function has_neutron_plugin_security_group {
     return 1
 }
 
+function neutron_plugin_setup_interface_driver {
+    local conf_file=$1
+    OVS_BRIDGE=${OVS_BRIDGE:-alubr0}
+    iniset $conf_file DEFAULT interface_driver nuage_neutron.lbaas.agent.nuage_interface.NuageInterfaceDriver
+    iniset $conf_file DEFAULT ovs_integration_bridge $OVS_BRIDGE
+}
+
 # Restore xtrace
 $NU_XTRACE
