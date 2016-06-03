@@ -213,12 +213,17 @@ def get_subnet_l2dom_by_port_id(session, port_id):
 
 
 def get_nuage_subnet_info(session, subnet, fields):
-    if not fields or 'vsd_managed' not in fields:
+    if not fields or not \
+            any(x in fields for x in
+                ['vsd_managed', 'vsd_id', 'nuage_net_partition_id']):
         return subnet
     result = (
         session.query(nuage_models.SubnetL2Domain)
         .filter(nuage_models.SubnetL2Domain.subnet_id == subnet['id']).first())
     subnet['vsd_managed'] = result.nuage_managed_subnet if result else False
+    subnet['vsd_id'] = result.nuage_subnet_id if result else None
+    subnet['nuage_net_partition_id'] = (result.net_partition_id
+                                        if result else None)
     return subnet
 
 
@@ -229,19 +234,33 @@ def get_nuage_subnets_info(session, subnets, fields, filters):
         .filter(nuage_models.SubnetL2Domain.subnet_id.in_(ids))
 
     result = query.all()
-    subnet_id_mapping = dict([(mapping.subnet_id, mapping.nuage_managed_subnet)
+    subnet_id_mapping = dict([(mapping.subnet_id, mapping)
                               for mapping in result])
 
     filtered = []
     for subnet in subnets:
-        if not fields or 'vsd_managed' in fields:
-            subnet['vsd_managed'] = subnet_id_mapping.get(subnet['id'])
-        if filters and 'vsd_managed' in filters.keys():
-            if (str(subnet['vsd_managed']).lower() ==
-                    str(filters['vsd_managed'][0]).lower()):
-                filtered.append(subnet)
-        else:
+        mapping = subnet_id_mapping.get(subnet['id'])
+        subnet['vsd_managed'] = (mapping.nuage_managed_subnet
+                                 if mapping else False)
+        subnet['vsd_id'] = mapping.nuage_subnet_id if mapping else None
+        subnet['nuage_net_partition_id'] = (mapping.net_partition_id
+                                            if mapping else None)
+        add = True
+        if filters:
+            if 'vsd_managed' in filters.keys():
+                add = (str(subnet['vsd_managed']).lower() ==
+                       str(filters['vsd_managed'][0]).lower())
+            if 'vsd_id' in filters.keys():
+                add = str(subnet['vsd_id']) == str(filters['vsd_id'][0])
+            if 'nuage_net_partition_id' in filters.keys():
+                add = (str(subnet['nuage_net_partition_id']) ==
+                       str(filters['nuage_net_partition_id'][0]))
+        if add:
             filtered.append(subnet)
+    for subnet in filtered:
+        for field in ['vsd_managed', 'vsd_id', 'nuage_net_partition_id']:
+            if fields and field not in fields:
+                del subnet[field]
     return filtered
 
 
