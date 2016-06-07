@@ -24,7 +24,9 @@ from neutron import context
 from neutron import manager
 from neutron.plugins.common import constants
 from neutron_vpnaas.services.vpn import device_drivers
+from neutron_vpnaas.services.vpn.device_drivers import fedora_strongswan_ipsec
 from neutron_vpnaas.services.vpn.device_drivers import ipsec
+from neutron_vpnaas.services.vpn.device_drivers import strongswan_ipsec
 from nuage_neutron.vpnaas.common import topics
 from nuage_neutron.vpnaas.nuage_interface import NuageInterfaceDriver
 from oslo_concurrency import lockutils
@@ -296,11 +298,34 @@ class NuageIPsecDriver(device_drivers.DeviceDriver):
                                     kwargs['ns_name'])
         ip = ip_lib.IPWrapper(kwargs['ns_name'])
         ip.garbage_collect_namespace()
+        # On Redhat deployments an additional directory is created named
+        # 'ip_vti0' in the namespace which prevents the cleanup
+        # of namespace by the neutron agent in 'ip_lib.py' which we clean.
+        if kwargs['ns_name'] in ip.get_namespaces():
+            ip.netns.delete(kwargs['ns_name'])
 
 
 class NuageOpenSwanDriver(NuageIPsecDriver):
     def create_process(self, process_id, vpnservice, namespace):
         return ipsec.OpenSwanProcess(
+            self.conf,
+            process_id,
+            vpnservice,
+            namespace)
+
+
+class NuageStrongSwanDriver(NuageIPsecDriver):
+    def create_process(self, process_id, vpnservice, namespace):
+        return strongswan_ipsec.StrongSwanProcess(
+            self.conf,
+            process_id,
+            vpnservice,
+            namespace)
+
+
+class NuageStrongSwanDriverFedora(NuageIPsecDriver):
+    def create_process(self, process_id, vpnservice, namespace):
+        return fedora_strongswan_ipsec.FedoraStrongSwanProcess(
             self.conf,
             process_id,
             vpnservice,
