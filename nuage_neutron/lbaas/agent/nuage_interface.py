@@ -21,6 +21,8 @@ import socket
 import struct
 import time
 
+import nuage_neutron.lbaas.common.exceptions as exceptions
+
 from neutron.agent.linux.interface import OVSInterfaceDriver
 from neutron.agent.linux import utils
 from oslo_log import log as logging
@@ -63,20 +65,24 @@ class NuageVMDriver(object):
             sock.connect(server_address)
             LOG.debug(_("Connected to the vrs..."))
         except socket.error:
-            raise Exception('NuageError: Could not open a socket to VRS')
+            raise exceptions.NuageDriverException(
+                msg='Could not open a socket to VRS')
 
         return sock
 
     @classmethod
-    def send_msg(cls, msg, sock, retry_count=0):
+    def send_msg(cls, msg, sock, max_retries=5):
         ret = 0
         try:
             ret = sock.sendall(msg)
         except Exception:
-            if socket.errno in [errno.EBUSY, errno.EAGAIN]:
-                ''' Retry 5 times every second '''
+            ''' Retry 5 times every second '''
+            if (socket.errno in [errno.EBUSY, errno.EAGAIN]
+                    and max_retries > 0):
                 time.sleep(1)
-                cls.send_msg(msg, retry_count=(retry_count + 1))
+                return cls.send_msg(msg, sock, max_retries=(max_retries - 1))
+            else:
+                raise
         return ret
 
     @classmethod
@@ -148,8 +154,9 @@ class NuageVMDriver(object):
         try:
             cls.send_msg(stop_msg, sock)
             cls.send_msg(undefine_msg, sock)
-        except Exception:
-            raise NameError('NuageError')
+        except Exception as ex:
+            raise exceptions.NuageDriverException(
+                msg='Failed to send stop/undefine event to VRS :' + ex)
 
     @classmethod
     def nuage_xml(cls, nuage_uuid, local_mac, port, bridge):
@@ -183,24 +190,22 @@ class NuageVMDriver(object):
             port_id, 'DEFINED', vm_name=port_id, nuagexml=xml_data)
         start_msg = NuageVMDriver._send_vm_event_to_ovs(
             port_id, 'STARTED', vm_name=port_id, nuagexml=xml_data)
+        sock = cls.get_connected_socket()
         try:
-            sock = cls.get_connected_socket()
             cls.send_msg(define_msg, sock)
             LOG.debug(_('Sent VM define event to VRS for UUID %s '),
                       port_id)
             cls.send_msg(start_msg, sock)
             LOG.debug(_('Sent VM start event to VRS for UUID %s '),
                       port_id)
-        except Exception:
-            raise NameError('NuageError')
+        except Exception as ex:
+            raise exceptions.NuageDriverError(
+                msg='Failed to send define/start msg to VRS: ' + ex)
 
     @classmethod
     def unplug(cls, id, user_helper=None):
-        try:
-            sock = cls.get_connected_socket()
-            cls.send_undefine(vm_name=id, nuage_uuid=id, sock=sock)
-        except Exception:
-            raise Exception('NuageError: failed to delete port')
+        sock = cls.get_connected_socket()
+        cls.send_undefine(vm_name=id, nuage_uuid=id, sock=sock)
 
 
 class NuageInterfaceDriver(OVSInterfaceDriver):
