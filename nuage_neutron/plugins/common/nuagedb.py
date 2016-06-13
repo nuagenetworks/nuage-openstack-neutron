@@ -280,6 +280,11 @@ def get_ent_rtr_mapping_by_entid(session, entid):
     return query.filter_by(net_partition_id=entid).all()
 
 
+def get_ent_l2dom_mapping_by_entid(session, entid):
+    query = session.query(nuage_models.SubnetL2Domain)
+    return query.filter_by(net_partition_id=entid).all()
+
+
 def get_ent_rtr_mapping_by_rtrid(session, rtrid):
     query = session.query(nuage_models.NetPartitionRouter)
     return query.filter_by(router_id=rtrid).first()

@@ -58,11 +58,13 @@ class NuageexternalsgMixin(object):
 
         l2dom_id = None
         l3dom_id = None
+        external_id = None
         if subnet_id:
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, subnet_id)
             if subnet_mapping and subnet_mapping['nuage_l2dom_tmplt_id']:
                 l2dom_id = subnet_mapping['nuage_subnet_id']
+                external_id = subnet_id
             if not l2dom_id:
                 msg = _("No subnet mapping found for subnet %s") % subnet_id
                 raise n_exc.BadRequest(
@@ -71,6 +73,7 @@ class NuageexternalsgMixin(object):
             nuage_router = self.nuageclient.get_router_by_external(router_id)
             if nuage_router:
                 l3dom_id = nuage_router['ID']
+                external_id = router_id
             if not l3dom_id:
                 msg = _("VSD domain not found for router %s") % router_id
                 raise n_exc.BadRequest(
@@ -80,7 +83,9 @@ class NuageexternalsgMixin(object):
             'l3dom_id': l3dom_id,
             'name': external_sg.get('name'),
             'description': external_sg.get('description'),
-            'extended_community': external_sg.get('extended_community_id')
+            'extended_community': external_sg.get('extended_community_id'),
+            'externalID': external_id
+
         }
         ext_sg_resp = (
             self.nuageclient.create_nuage_external_security_group(
