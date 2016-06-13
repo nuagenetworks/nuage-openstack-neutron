@@ -8,7 +8,6 @@ NU_XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
 function neutron_plugin_create_nova_conf {
-    NOVA_OVS_BRIDGE=${NOVA_OVS_BRIDGE:-"br-int"}
     iniset $NOVA_CONF neutron ovs_bridge $NOVA_OVS_BRIDGE
     NOVA_VIF_DRIVER=${NOVA_VIF_DRIVER:-"nova.virt.libvirt.vif.LibvirtGenericVIFDriver"}
     LIBVIRT_FIREWALL_DRIVER=nova.virt.firewall.NoopFirewallDriver
@@ -24,15 +23,6 @@ function neutron_plugin_configure_common {
     Q_PLUGIN_CONF_FILENAME=nuage_plugin.ini
     Q_PLUGIN_CLASS="nuage_neutron.plugins.nuage.plugin.NuagePlugin"
 
-    #Nuage specific Neutron defaults. Actual value must be set and sourced
-    NUAGE_VSD_SERVERS=${NUAGE_VSD_SERVERS:-'localhost:8443'}
-    NUAGE_VSD_SERVER_AUTH=${NUAGE_VSD_SERVER_AUTH:-'username:password'}
-    NUAGE_VSD_ORGANIZATION=${NUAGE_VSD_ORGANIZATION:-'org'}
-    NUAGE_VSD_SERVER_SSL=${NUAGE_VSD_SERVER_SSL:-'True'}
-    NUAGE_VSD_BASE_URI=${NUAGE_VSD_BASE_URI:-'/'}
-    NUAGE_VSD_AUTH_RESOURCE=${NUAGE_VSD_AUTH_RESOURCE:-'/'}
-    NUAGE_VSD_DEF_NETPART_NAME=${NUAGE_VSD_DEF_NETPART_NAME:-''}
-    NUAGE_VSD_CMS_ID=${NUAGE_VSD_CMS_ID:-''}
 }
 
 function neutron_plugin_configure_debug_command {
@@ -65,6 +55,7 @@ function neutron_plugin_configure_service {
     iniset /$Q_PLUGIN_CONF_FILE restproxy server $NUAGE_VSD_SERVERS
     iniset /$Q_PLUGIN_CONF_FILE restproxy auth_resource $NUAGE_VSD_AUTH_RESOURCE
     iniset /$Q_PLUGIN_CONF_FILE restproxy default_net_partition_name $NUAGE_VSD_DEF_NETPART_NAME
+    iniset /$Q_PLUGIN_CONF_FILE restproxy nuage_fip_underlay $NUAGE_FIP_UNDERLAY
 }
 
 function configure_neutron_nuage {

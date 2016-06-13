@@ -16,4 +16,33 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+# Nuage VSP related settings
+NUAGE_VSD_SERVERS=${NUAGE_VSD_SERVERS:-'localhost:8443'}
+NUAGE_VSD_SERVER_AUTH=${NUAGE_VSD_SERVER_AUTH:-'username:password'}
+NUAGE_VSD_ORGANIZATION=${NUAGE_VSD_ORGANIZATION:-'org'}
+NUAGE_VSD_SERVER_SSL=${NUAGE_VSD_SERVER_SSL:-'True'}
+NUAGE_VSD_BASE_URI=${NUAGE_VSD_BASE_URI:-'/'}
+NUAGE_VSD_AUTH_RESOURCE=${NUAGE_VSD_AUTH_RESOURCE:-'/'}
+NUAGE_VSD_DEF_NETPART_NAME=${NUAGE_VSD_DEF_NETPART_NAME:-''}
+NUAGE_VSD_CMS_ID=${NUAGE_VSD_CMS_ID:-''}
+
 enable_service nuagenetlib
+
+# Nuage FIP to underlay
+NUAGE_FIP_UNDERLAY=${NUAGE_FIP_UNDERLAY:-'False'}
+
+# Nova integration bridge
+NOVA_OVS_BRIDGE=${NOVA_OVS_BRIDGE:-"alubr0"}
+
+# Enable L3 for core plugin
+if [ "${Q_PLUGIN}" == "nuage" ]; then
+    Q_L3_ENABLED=True
+fi
+
+# Use IPv4
+IP_VERSION=4
+
+# Tempest options
+IPV6_ENABLED=${IPV6_ENABLED:-'False'}
+IPV6_SUBNET_ATTRIBUTES_ENABLED=${IPV6_SUBNET_ATTRIBUTES_ENABLED:-'False'}
+
