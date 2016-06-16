@@ -17,28 +17,23 @@
 #    under the License.
 
 
-dir=${GITDIR['nuage']}/devstack
-
-if [[ $Q_PLUGIN == 'nuage' ]]; then
-    source $dir/lib/nuage
-
-    if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
-        source $dir/lib/nuagenetlib
+DIR_NUAGE=$DEST/nuage
+source $DIR_NUAGE/devstack/functions
+if [[ "$1" == "stack" ]]; then
+    source $DIR_NUAGE/devstack/lib/$Q_PLUGIN
+    if [[ "$2" == "pre-install" ]]; then
+        source $DIR_NUAGE/devstack/lib/nuagenetlib
         echo_summary "Installing nuagenetlib"
         install_nuagenetlib
-
-    elif [[ "$1" == "stack" && "$2" == "install" ]]; then
+    elif [[ "$2" == "install" ]]; then
         echo_summary "Installing Nuage plugin"
-        setup_develop ${GITDIR['nuage']}
+        setup_develop $DIR_NUAGE
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
-        mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v ${GITDIR['nuage']}/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
-        _neutron_deploy_rootwrap_filters ${GITDIR['nuage']}/nuage_neutron/lbaas
+        mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $DIR_NUAGE/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
+        configure_neutron_nuage
     fi
-
-    if [[ "$1" == "unstack" ]]; then
+elif [[ "$1" == "unstack" ]]; then
         # no-op
         :
-    fi
 fi
-

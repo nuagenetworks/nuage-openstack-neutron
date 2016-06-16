@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Nuage's nuagenetlib
 # -------
 
@@ -24,8 +26,7 @@ function init_nuagenetlib {
 }
 
 function install_nuagenetlib {
-    if [ -z "${NUAGENETLIB_REPO}" ]
-    then
+    if [ -z "${NUAGENETLIB_REPO}" ]; then
         die $LINENO "Error - NUAGENETLIB_REPO required"
     fi
     git_clone $NUAGENETLIB_REPO $NUAGENETLIB_DIR $NUAGENETLIB_BRANCH
