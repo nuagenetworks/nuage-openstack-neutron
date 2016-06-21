@@ -453,8 +453,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
     def _port_should_have_vm(self, port):
         device_owner = port['device_owner']
         return (constants.NOVA_PORT_OWNER_PREF in device_owner
-                or LB_DEVICE_OWNER_V2 in device_owner
-                or device_owner == constants.APPD_PORT)
+                or LB_DEVICE_OWNER_V2 in device_owner)
 
     def _create_nuage_vm(self, core_plugin, db_context, port, np_name,
                          subnet_mapping, nuage_port):
