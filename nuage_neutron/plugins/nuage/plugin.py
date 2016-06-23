@@ -811,7 +811,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                 'in VSD because its created on unsupported'
                                 ' subnet type'), port['device_id'])
 
-                self._check_floatingip_update(context, updated_port)
             else:
                 # nova removes device_owner and device_id fields, in this
                 # update_port, hence before update_port, get_ports for
