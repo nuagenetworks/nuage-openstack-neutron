@@ -50,6 +50,18 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'is_visible': True,
             'default': None,
             'validate': {'type:uuid_or_none': None}
+        },
+        'vsd_id': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'nuage_net_partition_id': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
         }
     },
 }
