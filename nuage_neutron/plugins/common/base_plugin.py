@@ -69,8 +69,6 @@ class BaseNuagePlugin(object):
                               if port.get(psec.PORTSECURITY)
                               else constants.ENABLED)
         }
-        if port['device_owner'] == constants.APPD_PORT:
-            params['name'] = port['name']
 
         return self.nuageclient.create_vport(params)
 
