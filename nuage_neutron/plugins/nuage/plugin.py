@@ -405,12 +405,15 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     def get_port(self, context, id, fields=None):
         port = super(NuagePlugin, self).get_port(context, id, fields=None)
+        self.extend_port_dict(context, port, fields)
+        return self._fields(port, fields)
+
+    def extend_port_dict(self, context, port, fields=None):
         vport = self._get_vport_for_port(context, port)
         if vport:
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_SHOW,
                                         self, context=context, port=port,
                                         fields=fields, vport=vport)
-        return self._fields(port, fields)
 
     def _portsec_ext_port_create_processing(self, context, port_data, port):
         port_security = ((port_data.get(psec.PORTSECURITY) is None) or
@@ -828,7 +831,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     context=context, updated_port=updated_port,
                     original_port=original_port, request_port=port['port'],
                     vport=vport, rollbacks=rollbacks)
-            return self.get_port(context, id)
+            self.extend_port_dict(context, updated_port)
+            return updated_port
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
