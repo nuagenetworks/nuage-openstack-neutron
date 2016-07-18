@@ -5,7 +5,7 @@ Devstack external plugin
 Add and set the following in your local.conf/localrc file:
 
 
-enable_plugin nuage https://github.com/nuage-networks/nuage-openstack-neutron.git
+enable_plugin nuage-openstack-neutron https://github.com/nuage-networks/nuage-openstack-neutron.git
 
 Q_PLUGIN=nuage
 

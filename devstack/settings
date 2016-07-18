@@ -17,3 +17,16 @@
 #    under the License.
 
 enable_service nuagenetlib
+
+# Enable L3 for core plugin
+if [ "${Q_PLUGIN}" == "nuage" ]; then
+    Q_L3_ENABLED=True
+fi
+
+# Use IPv4
+IP_VERSION=4
+
+# Tempest options
+IPV6_ENABLED=${IPV6_ENABLED:-'False'}
+IPV6_SUBNET_ATTRIBUTES_ENABLED=${IPV6_SUBNET_ATTRIBUTES_ENABLED:-'False'}
+

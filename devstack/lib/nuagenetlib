@@ -1,3 +1,4 @@
+#!/bin/bash
 # Nuage's nuagenetlib
 # -------
 
@@ -29,9 +30,9 @@ function install_nuagenetlib {
         die $LINENO "Error - NUAGENETLIB_REPO required"
     fi
     git_clone $NUAGENETLIB_REPO $NUAGENETLIB_DIR $NUAGENETLIB_BRANCH
-    cd $NUAGENETLIB_DIR
+    pushd $NUAGENETLIB_DIR
     sudo python setup.py develop
-    export PYTHONPATH=$NUAGENETLIB_DIR/src:$PYTHONPATH
+    popd
 }
 
 function start_nuagenetlib {
