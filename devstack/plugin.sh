@@ -17,7 +17,7 @@
 #    under the License.
 
 
-DIR_NUAGE=$DEST/nuage
+DIR_NUAGE=$DEST/nuage-openstack-neutron
 source $DIR_NUAGE/devstack/functions
 if [[ "$1" == "stack" ]]; then
     source $DIR_NUAGE/devstack/lib/$Q_PLUGIN
