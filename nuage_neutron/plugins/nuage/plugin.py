@@ -24,6 +24,7 @@ from oslo_db import exception as db_exc
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
 from oslo_service import loopingcall
 from oslo_utils import excutils
 from sqlalchemy import exc as sql_exc
@@ -57,6 +58,8 @@ from neutron.extensions import portbindings
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.plugins.ml2 import db as ml2_db
+from neutron.plugins.ml2 import models as ml2_models
 from nuage_neutron.plugins.common import addresspair
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
@@ -131,6 +134,99 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     response_data[psec.PORTSECURITY] = psec_value
                 else:
                     response_data[psec.PORTSECURITY] = False
+
+    def _ml2_extend_port_dict_binding(self, port_res, port_db):
+        # None when called during unit tests for other plugins.
+        if port_db.port_binding:
+            self._update_port_dict_binding(port_res, port_db.port_binding)
+
+    db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+        attributes.PORTS, ['_ml2_extend_port_dict_binding'])
+
+    def _ml2_port_model_hook(self, context, original_model, query):
+        query = query.outerjoin(ml2_models.PortBinding,
+                                (original_model.id ==
+                                 ml2_models.PortBinding.port_id))
+        return query
+
+    def _ml2_port_result_filter_hook(self, query, filters):
+        values = filters and filters.get(portbindings.HOST_ID, [])
+        if not values:
+            return query
+        return query.filter(ml2_models.PortBinding.host.in_(values))
+
+    db_base_plugin_v2.NeutronDbPluginV2.register_model_query_hook(
+        models_v2.Port,
+        "ml2_port_bindings",
+        '_ml2_port_model_hook',
+        None,
+        '_ml2_port_result_filter_hook')
+
+    def _get_vif_details(self, binding):
+        if binding.vif_details:
+            try:
+                return jsonutils.loads(binding.vif_details)
+            except Exception:
+                LOG.error("Serialized vif_details DB value '%(value)s' "
+                          "for port %(port)s is invalid",
+                          {'value': binding.vif_details,
+                           'port': binding.port_id})
+        return {}
+
+    def _get_profile(self, binding):
+        if binding.profile:
+            try:
+                return jsonutils.loads(binding.profile)
+            except Exception:
+                LOG.error("Serialized profile DB value '%(value)s' for "
+                          "port %(port)s is invalid",
+                          {'value': binding.profile,
+                           'port': binding.port_id})
+        return {}
+
+    def _update_port_dict_binding(self, port, binding):
+        port[portbindings.HOST_ID] = binding.host
+        port[portbindings.VNIC_TYPE] = binding.vnic_type
+        port[portbindings.PROFILE] = self._get_profile(binding)
+        port[portbindings.VIF_TYPE] = binding.vif_type
+        port[portbindings.VIF_DETAILS] = self._get_vif_details(binding)
+
+    def _process_port_binding(self, session, binding, port, attrs):
+        changes = False
+
+        host = attrs and attrs.get(portbindings.HOST_ID)
+        original_host = binding.host
+        if (attributes.is_attr_set(host) and
+                original_host != host):
+            binding.host = host
+            changes = True
+
+        vnic_type = attrs and attrs.get(portbindings.VNIC_TYPE)
+        if (attributes.is_attr_set(vnic_type) and
+                binding.vnic_type != vnic_type):
+            binding.vnic_type = vnic_type
+            changes = True
+
+        # treat None as clear of profile.
+        profile = None
+        if attrs and portbindings.PROFILE in attrs:
+            profile = attrs.get(portbindings.PROFILE) or {}
+
+        if profile not in (None, attributes.ATTR_NOT_SPECIFIED,
+                           self._get_profile(binding)):
+            binding.profile = jsonutils.dumps(profile)
+            if len(binding.profile) > ml2_models.BINDING_PROFILE_LEN:
+                msg = _("binding:profile value too large")
+                raise exc.InvalidInput(error_message=msg)
+            changes = True
+
+        # leave hardcoded
+        binding.vif_type = portbindings.VIF_TYPE_OVS
+        details = {portbindings.CAP_PORT_FILTER: False}
+        binding.vif_details = jsonutils.dumps(details)
+
+        self._update_port_dict_binding(port, binding)
+        return changes
 
     def init_fip_rate_log(self):
         self.def_fip_rate = cfg.CONF.FIPRATE.default_fip_rate
@@ -385,7 +481,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
               self)._delete_port_security_group_bindings(context, port_id)
         port = self.get_port(context, port_id)
         if nuage_utils.check_vport_creation(
-                port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
+                port, cfg.CONF.PLUGIN.device_owner_prefix):
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                             subnet_id)
@@ -465,9 +561,10 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         self._process_port_port_security_create(context, p_data, result)
         self._portsec_ext_port_create_processing(context, result, port)
         self._process_portbindings_create_and_update(context, p_data, result)
-        device_owner = result.get('device_owner', None)
+        binding = ml2_db.add_port_binding(session, result['id'])
+        self._process_port_binding(session, binding, result, p_data)
         if nuage_utils.check_vport_creation(
-                device_owner, cfg.CONF.PLUGIN.device_owner_prefix):
+                p_data, cfg.CONF.PLUGIN.device_owner_prefix):
             if 'fixed_ips' not in result or len(result['fixed_ips']) == 0:
                 return self.get_port(context, result['id'])
             subnet_id = result['fixed_ips'][0]['subnet_id']
@@ -577,7 +674,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def _validate_update_port(self, port, original_port, has_security_groups):
         original_device_owner = original_port.get('device_owner')
         if has_security_groups and not nuage_utils.check_vport_creation(
-                original_device_owner, cfg.CONF.PLUGIN.device_owner_prefix):
+                original_port, cfg.CONF.PLUGIN.device_owner_prefix):
             msg = _("device_owner of port with device_owner set to %s "
                     "can not have security groups") % original_device_owner
             raise nuage_exc.OperationNotSupported(msg=msg)
@@ -731,8 +828,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         has_security_groups = self._check_update_has_security_groups(port)
 
         if 'fixed_ips' in p_data and nuage_utils.check_vport_creation(
-                p_data.get('device_owner', original_port['device_owner']),
-                cfg.CONF.PLUGIN.device_owner_prefix):
+            p_data if p_data.get('device_owner') else original_port,
+            cfg.CONF.PLUGIN.device_owner_prefix):
             changed = [ip for ip in p_data['fixed_ips']
                        if ip not in original_port['fixed_ips']]
             if changed:
@@ -747,7 +844,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                    original_port.get(ext_sg.SECURITYGROUPS) else set())
         sgids_diff = list(new_sg ^ orig_sg)
         with session.begin(subtransactions=True):
-            original_port = self.get_port(context, id)
+            p, binding = (
+                ml2_db.get_locked_port_and_binding(session, id))
             vport = self._get_vport_for_port(context, original_port)
             current_owner = original_port['device_owner']
             lbaas_device_owner_added = (
@@ -802,6 +900,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             if addr_pair.ADDRESS_PAIRS in p_data:
                 self.update_address_pairs_on_port(context, id, port,
                                                   original_port, updated_port)
+            self._process_port_binding(session, binding, updated_port, p_data)
 
         rollbacks = []
         try:
@@ -945,7 +1044,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         # delete nuage vport created explicitly
         if not nuage_port and nuage_utils.check_vport_creation(
-                port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
+                port, cfg.CONF.PLUGIN.device_owner_prefix):
             nuage_vport = self.nuageclient.get_nuage_vport_by_id(
                 port_params, required=False)
             if nuage_vport:
@@ -1034,7 +1133,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             return super(NuagePlugin, self).delete_port(context, id)
 
         if nuage_utils.check_vport_creation(
-                port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
+                port, cfg.CONF.PLUGIN.device_owner_prefix):
             # Need to call this explicitly to delete vport to policygroup
             # binding
             if (ext_sg.SECURITYGROUPS in port and
