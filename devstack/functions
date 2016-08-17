@@ -35,8 +35,17 @@ function create_or_retrieve_cms {
         apikey="${BASH_REMATCH[1]}"
         echo "Connected"
 
-        mac=`cat /sys/class/net/eth0/address`
-        name="OPENSTACK_$mac"
+        if [[ -n "$NUAGE_VSD_CMS_NAME" ]]; then
+            name="$NUAGE_VSD_CMS_NAME"
+        else
+            eth0_file="/sys/class/net/eth0/address"
+            if [[ -f "$eth0_file" ]]; then
+                mac=`cat ${eth0_file}`
+                name="OPENSTACK_$mac"
+            else
+                name="OPENSTACK"
+            fi
+        fi
         url="$base_url/cms"
 
         echo "Trying to find CMS with name: $name"
