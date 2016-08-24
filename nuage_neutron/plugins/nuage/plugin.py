@@ -1376,11 +1376,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             return neutron_subnet
 
     @log_helpers.log_method_call
-    def _create_port_gateway(self, context, subnet, gw_ip=None):
-        if gw_ip is not None:
-            fixed_ip = [{'ip_address': gw_ip, 'subnet_id': subnet['id']}]
-        else:
-            fixed_ip = [{'subnet_id': subnet['id']}]
+    def _reserve_ip(self, context, subnet, ip):
+        fixed_ip = [{'ip_address': ip, 'subnet_id': subnet['id']}]
 
         port_dict = dict(port=dict(
             name='',
@@ -1391,8 +1388,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             fixed_ips=fixed_ip,
             mac_address=attributes.ATTR_NOT_SPECIFIED,
             device_owner=constants.DEVICE_OWNER_DHCP_NUAGE))
-        port = super(NuagePlugin, self).create_port(context, port_dict)
-        return port
+        return super(NuagePlugin, self).create_port(context, port_dict)
 
     @log_helpers.log_method_call
     def _delete_port_gateway(self, context, ports):
@@ -1418,8 +1414,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         if neutron_subnet.get('enable_dhcp'):
             last_address = neutron_subnet['allocation_pools'][-1]['end']
-            gw_port = self._create_port_gateway(context, neutron_subnet,
-                                                last_address)
+            gw_port = self._reserve_ip(context, neutron_subnet,
+                                       last_address)
             params['dhcp_ip'] = gw_port['fixed_ips'][0]['ip_address']
         else:
             LOG.warning(_("CIDR parameter ignored for unmanaged subnet "))
@@ -1510,38 +1506,24 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return nuage_subnet
 
     @log_helpers.log_method_call
-    def _get_gwip_for_adv_managed_subn(self, subn):
-        gw_ip_from_cli = subn['gateway_ip']
-        nuage_subn_id = subn['nuagenet']
-
-        # case for adv. managed subnet
-        # return the gw_ip with which the dhcp port is created
-        # in case of adv. managed subnets.
-        # Also get gateway_ip based upon, if the subnet
-        # is associated with a shared subnet or not.
-        nuage_subnet_details = (
-            self.nuageclient.get_subnet_or_domain_subnet_by_id(
-                nuage_subn_id,
-                required=True))
-        if nuage_subnet_details['subnet_shared_net_id']:
-            subn['gateway_ip'] = self.nuageclient.get_gateway_ip_for_advsub(
-                nuage_subnet_details['subnet_shared_net_id'])
-        else:
-            subn['gateway_ip'] = self.nuageclient.get_gateway_ip_for_advsub(
-                nuage_subn_id)
+    def _get_gwip_for_adv_managed_subn(self, os_subnet, vsd_subnet,
+                                       shared_subnet):
+        gw_ip_from_cli = os_subnet['gateway_ip']
+        os_subnet['gateway_ip'] = self.nuageclient.get_gateway_ip_for_advsub(
+            shared_subnet or vsd_subnet)
 
         # The _is_attr_set() is incomplete to use here, since the method
         # ignores the case if the user sets the attribute value to None.
         if ((gw_ip_from_cli is not attributes.ATTR_NOT_SPECIFIED) and
-                (gw_ip_from_cli != subn['gateway_ip'])):
+                (gw_ip_from_cli != os_subnet['gateway_ip'])):
                 msg = ("Provided gateway-ip does not match VSD "
                        "configuration. ")
                 raise n_exc.BadRequest(resource='subnet', msg=msg)
-        if attributes.is_attr_set(subn['dns_nameservers']):
+        if attributes.is_attr_set(os_subnet['dns_nameservers']):
             LOG.warning(_("DNS Nameservers parameter ignored for "
                           "VSD-Managed managed subnet "))
         # creating a dhcp_port with this gatewayIP
-        return subn['gateway_ip']
+        return os_subnet['gateway_ip']
 
     @log_helpers.log_method_call
     def _link_nuage_adv_subnet(self, context, subnet):
@@ -1549,8 +1531,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         nuage_subn_id = subn['nuagenet']
         tenant_id = subn['tenant_id']
         nuage_tmplt_id = nuage_subn_id
-        gw_ip = None
-
         nuage_netpart_name = subn.get('net_partition', None)
 
         if not nuage_netpart_name:
@@ -1561,9 +1541,19 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                           nuage_netpart_name)
 
         vsd_subnet = self._validate_adv_subnet(context, subn, nuage_netpart)
-
+        shared = vsd_subnet['subnet_shared_net_id']
+        shared_subnet = None
+        if shared:
+            shared_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+                shared)
         if subn['enable_dhcp']:
-            gw_ip = self._get_gwip_for_adv_managed_subn(subn)
+            gw_ip = self._get_gwip_for_adv_managed_subn(subn, vsd_subnet,
+                                                        shared_subnet)
+            if vsd_subnet['type'] == constants.L3SUBNET:
+                reserve_ip = gw_ip
+            else:
+                reserve_ip = (shared_subnet['subnet_gateway'] if shared_subnet
+                              else vsd_subnet['subnet_gateway'])
         else:
             LOG.warning(_("CIDR parameter ignored for unmanaged subnet "))
             LOG.warning(_("Allocation Pool parameter ignored for"
@@ -1595,7 +1585,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     # l3 case: we just create a dhcp server
                     # IP port since we need to block a VM creation with
                     # the gwIp in this domain/subnet
-                    self._create_port_gateway(context, neutron_subnet, gw_ip)
+                    self._reserve_ip(context, neutron_subnet, reserve_ip)
 
                 subnet_l2dom = nuagedb.add_subnetl2dom_mapping(
                     context.session, neutron_subnet['id'],
@@ -1733,9 +1723,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
             if not curr_enable_dhcp and updated_enable_dhcp:
                 last_address = updated_subnet['allocation_pools'][-1]['end']
-                gw_port = self._create_port_gateway(context,
-                                                    updated_subnet,
-                                                    last_address)
+                gw_port = self._reserve_ip(context,
+                                           updated_subnet,
+                                           last_address)
                 params['net'] = netaddr.IPNetwork(original_subnet['cidr'])
                 params['dhcp_ip'] = gw_port['fixed_ips'][0]['ip_address']
             elif curr_enable_dhcp and not updated_enable_dhcp:
@@ -1990,8 +1980,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             raise n_exc.BadRequest(resource='router', msg=msg)
 
         last_address = neutron_subnet['allocation_pools'][-1]['end']
-        gw_port = self._create_port_gateway(context, neutron_subnet,
-                                            last_address)
+        gw_port = self._reserve_ip(context, neutron_subnet, last_address)
         net = netaddr.IPNetwork(neutron_subnet['cidr'])
         netpart_id = ent_rtr_mapping['net_partition_id']
         pnet_binding = nuagedb.get_network_binding(
