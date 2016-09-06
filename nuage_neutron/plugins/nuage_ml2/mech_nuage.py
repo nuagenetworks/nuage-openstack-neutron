@@ -409,8 +409,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
 
     def _reserve_dhcp_ip(self, core_plugin, db_context, subnet, nuage_subnet,
                          shared_subnet):
-        if (nuage_subnet['type'] != constants.L2DOMAIN
-                or not subnet['enable_dhcp']):
+        if not subnet['enable_dhcp']:
             return
         dhcp_ip = (shared_subnet['subnet_gateway']
                    if shared_subnet
