@@ -16,6 +16,7 @@
 from oslo_log import log as logging
 
 from neutron.plugins.ml2 import driver_api as api
+from nuage_neutron.plugins.common import nuagedb
 
 LOG = logging.getLogger(__name__)
 
@@ -35,4 +36,9 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver):
         result['nuagenet'] = data['nuagenet']
 
     def extend_subnet_dict(self, session, db_data, result):
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, result['id'])
+        if subnet_mapping:
+            result['vsd_managed'] = subnet_mapping['nuage_managed_subnet']
+        else:
+            result['vsd_managed'] = False
         return result
