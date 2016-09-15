@@ -133,15 +133,34 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 else:
                     response_data[psec.PORTSECURITY] = False
 
+    def _validate_fip_rate_value(self, fip_value, attribute, units='mbps'):
+        if fip_value < -1:
+            raise cfg.ConfigFileValueError(_('%s can not be < -1') % attribute)
+
+        if self.def_fip_rate > constants.MAX_VSD_INTEGER:
+            raise cfg.ConfigFileValueError(_('%(attr)s cannot be > %(max)s') %
+                                           {'attr': attribute,
+                                            'max': constants.MAX_VSD_INTEGER})
+
+        if units == 'kbps' and int(fip_value) != fip_value:
+            raise cfg.ConfigFileValueError(_('%s cannot be'
+                                             ' in fraction') % attribute)
+
     def init_fip_rate_log(self):
         self.def_fip_rate = cfg.CONF.FIPRATE.default_fip_rate
-        if self.def_fip_rate < -1:
-            raise cfg.ConfigFileValueError(_('default_fip_rate can not be < '
-                                             '-1'))
-        if self.def_fip_rate > constants.MAX_VSD_INTEGER:
-            raise cfg.ConfigFileValueError(_('default_fip_rate can not be > '
-                                             '%s') % constants.MAX_VSD_INTEGER)
+        self.def_ingress_rate_kbps = (
+            cfg.CONF.FIPRATE.default_ingress_fip_rate_kbps)
+        self.def_egress_rate_kbps = (
+            cfg.CONF.FIPRATE.default_egress_fip_rate_kbps)
 
+        self._validate_fip_rate_value(self.def_fip_rate, 'default_fip_rate')
+        self._validate_fip_rate_value(self.def_ingress_rate_kbps,
+                                      'default_ingress_fip_rate_kbps',
+                                      units='kbps')
+        if cfg.CONF.FIPRATE.default_egress_fip_rate_kbps is not None:
+            self._validate_fip_rate_value(self.def_egress_rate_kbps,
+                                          'default_egress_fip_rate_kbps',
+                                          units='kbps')
         self.fip_rate_log = None
         if cfg.CONF.FIPRATE.fip_rate_change_log:
             formatter = ContextFormatter()
@@ -2612,40 +2631,50 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         if not rate_update:
             return
         # Add QOS to port for rate limiting
-        fip_rate = neutron_fip.get('nuage_fip_rate',
-                                   attributes.ATTR_NOT_SPECIFIED)
-        fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
-        if fip_rate_configured and not nuage_vport:
+        nuage_fip_rate = neutron_fip.get('nuage_fip_rate_values')
+        nuage_fip_rate_configured = nuage_fip_rate.pop('cli_configured', None)
+        if nuage_fip_rate_configured and not nuage_vport:
             msg = _('Rate limiting requires the floating ip to be '
                     'associated to a port.')
             raise nuage_exc.NuageBadRequest(msg=msg)
-        if not fip_rate_configured and not nuage_vport:
-            del neutron_fip['nuage_fip_rate']
-
+        if not nuage_fip_rate_configured and not nuage_vport:
+            del neutron_fip['nuage_fip_rate_values']
         if nuage_vport:
-            if not fip_rate_configured:
-                neutron_fip['nuage_fip_rate'] = self.def_fip_rate
             self.nuageclient.create_update_rate_limiting(
-                neutron_fip['nuage_fip_rate'], nuage_vport['ID'],
+                nuage_fip_rate, nuage_vport['ID'],
                 neutron_fip['id'])
-            self.fip_rate_log.info(
-                'FIP %s (owned by tenant %s) rate limit updated to %s Mb/s' %
-                (neutron_fip['id'], neutron_fip['tenant_id'],
-                 (neutron_fip['nuage_fip_rate']
-                  if neutron_fip['nuage_fip_rate'] is not None
-                  else "unlimited")))
+            for direction, value in nuage_fip_rate.iteritems():
+                if 'kbps' in direction:
+                    rate_unit = 'K'
+                    if 'ingress' in direction:
+                        neutron_fip['nuage_ingress_fip_rate_kbps'] = value
+                    else:
+                        neutron_fip['nuage_egress_fip_rate_kbps'] = value
+                else:
+                    rate_unit = 'M'
+                    neutron_fip['nuage_egress_fip_rate_kbps'] = value * 1000
+                self.fip_rate_log.info(
+                    'FIP %s (owned by tenant %s) %s updated to %s %sb/s'
+                    % (neutron_fip['id'], neutron_fip['tenant_id'],
+                       direction, value, rate_unit))
 
     @nuage_utils.handle_nuage_api_error
     @log.log
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuagePlugin, self).get_floatingip(context, id)
 
-        if (not fields or 'nuage_fip_rate' in fields) and fip.get('port_id'):
+        if (not fields or 'nuage_egress_fip_rate_kbps' in fields
+            or 'nuage_ingress_fip_rate_kbps' in fields) and fip.get(
+            'port_id'):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
-                rate_limit = self.nuageclient.get_rate_limit(
+                nuage_rate_limit = self.nuageclient.get_rate_limit(
                     nuage_vport['ID'], fip['id'])
-                fip['nuage_fip_rate'] = rate_limit
+                for direction, value in nuage_rate_limit.iteritems():
+                    if 'ingress' in direction:
+                        fip['nuage_ingress_fip_rate_kbps'] = value
+                    elif 'egress' in direction:
+                        fip['nuage_egress_fip_rate_kbps'] = value
             except Exception as e:
                 msg = (_('Got exception while retrieving fip rate from vsd: '
                          '%s') % e.message)
@@ -2660,18 +2689,19 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         neutron_fip = super(NuagePlugin, self).create_floatingip(
             context, floatingip,
             initial_status=os_constants.FLOATINGIP_STATUS_DOWN)
-        fip_rate = fip.get('nuage_fip_rate')
-        fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
+        nuage_fip_rate = self._get_values_for_fip_rate(
+            fip, for_update='port_id' not in fip)
+        fip_rate_configured = nuage_fip_rate.get('cli_configured')
         if fip_rate_configured:
             if not fip.get('port_id'):
                 msg = _('Rate limiting requires the floating ip to be '
                         'associated to a port.')
                 raise nuage_exc.NuageBadRequest(msg=msg)
-        neutron_fip['nuage_fip_rate'] = fip_rate
-
         if not neutron_fip['router_id']:
-            neutron_fip['nuage_fip_rate'] = None
+            neutron_fip['nuage_egress_fip_rate_kbps'] = None
+            neutron_fip['nuage_ingress_fip_rate_kbps'] = None
             return neutron_fip
+        neutron_fip['nuage_fip_rate_values'] = nuage_fip_rate
 
         try:
             self._create_update_floatingip(context, neutron_fip,
@@ -2722,6 +2752,52 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         return router_ids
 
+    def _get_values_for_fip_rate(self, fip, for_update=False):
+        fip_rate_values = {}
+        egress_fip_rate_mbps = fip.get('nuage_fip_rate',
+                                       attributes.ATTR_NOT_SPECIFIED)
+        ingress_fip_rate_kbps = fip.get('nuage_ingress_fip_rate_kbps',
+                                        attributes.ATTR_NOT_SPECIFIED)
+        egress_fip_rate_kbps = fip.get('nuage_egress_fip_rate_kbps',
+                                       attributes.ATTR_NOT_SPECIFIED)
+        egress_fip_rate_mbps_configured = (egress_fip_rate_mbps is not
+                                           attributes.ATTR_NOT_SPECIFIED)
+        egress_fip_rate_kbps_configured = (egress_fip_rate_kbps is not
+                                           attributes.ATTR_NOT_SPECIFIED)
+        ingress_fip_rate_kbps_configured = (ingress_fip_rate_kbps is not
+                                            attributes.ATTR_NOT_SPECIFIED)
+        if egress_fip_rate_kbps_configured:
+            fip_rate_values['egress_nuage_fip_rate_kbps'] = (
+                egress_fip_rate_kbps)
+            fip_rate_values['cli_configured'] = True
+        elif egress_fip_rate_mbps_configured:
+            fip_rate_values['egress_nuage_fip_rate_mbps'] = (
+                egress_fip_rate_mbps)
+            fip_rate_values['cli_configured'] = True
+        if ingress_fip_rate_kbps_configured:
+            fip_rate_values['ingress_nuage_fip_rate_kbps'] = (
+                ingress_fip_rate_kbps)
+            fip_rate_values['cli_configured'] = True
+        if for_update:
+            return fip_rate_values
+        return self._get_missing_rate_values(fip_rate_values)
+
+    def _get_missing_rate_values(self, fip_rate_values):
+        if not (fip_rate_values.get('egress_nuage_fip_rate_kbps') is not None
+                or fip_rate_values.get(
+                'egress_nuage_fip_rate_mbps') is not None):
+            if self.def_egress_rate_kbps is not None:
+                fip_rate_values['egress_nuage_fip_rate_kbps'] = (
+                    self.def_egress_rate_kbps)
+            elif self.def_fip_rate is not None:
+                fip_rate_values['egress_nuage_fip_rate_mbps'] = (
+                    self.def_fip_rate)
+        if not (fip_rate_values.get('ingress_nuage_fip_rate_kbps'
+                                    ) is not None):
+                fip_rate_values['ingress_nuage_fip_rate_kbps'] = (
+                    self.def_ingress_rate_kbps)
+        return fip_rate_values
+
     @nuage_utils.handle_nuage_api_error
     @log.log
     def update_floatingip(self, context, id, floatingip):
@@ -2729,9 +2805,11 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         orig_fip = self._get_floatingip(context, id)
         port_id = orig_fip['fixed_port_id']
         router_ids = []
-        fip_rate = fip.get('nuage_fip_rate', attributes.ATTR_NOT_SPECIFIED)
-        fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
         neutron_fip = self._make_floatingip_dict(orig_fip)
+        nuage_fip_rate = self._get_values_for_fip_rate(
+            fip,
+            for_update='port_id' not in fip)
+        fip_rate_configured = nuage_fip_rate.get('cli_configured', None)
 
         with context.session.begin(subtransactions=True):
             if 'port_id' in fip or fip.get('description'):
@@ -2743,9 +2821,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     ret_msg = 'floating-ip is not associated yet'
                     raise n_exc.BadRequest(resource='floatingip',
                                            msg=ret_msg)
-                if fip_rate_configured:
-                    neutron_fip['nuage_fip_rate'] = fip_rate
-
+                neutron_fip['nuage_fip_rate_values'] = nuage_fip_rate
                 try:
                     self._create_update_floatingip(context,
                                                    neutron_fip,
@@ -2823,20 +2899,27 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 raise n_exc.BadRequest(resource='floatingip', msg=msg)
             # Add QOS to port for rate limiting
             nuage_vport = self._get_vport_for_fip(context, port_id)
-
-            orig_fip['nuage_fip_rate'] = fip_rate
+            nuage_fip_rate.pop('cli_configured', None)
+            orig_fip['nuage_fip_rate_values'] = nuage_fip_rate
 
             self.nuageclient.create_update_rate_limiting(
-                orig_fip['nuage_fip_rate'], nuage_vport['ID'],
+                nuage_fip_rate, nuage_vport['ID'],
                 orig_fip['id'])
-            self.fip_rate_log.info(
-                'FIP %s (owned by tenant %s) rate limit updated to %s Mb/s'
-                % (orig_fip['id'], orig_fip['tenant_id'],
-                   (orig_fip['nuage_fip_rate']
-                    if (orig_fip['nuage_fip_rate'] is not None
-                        and orig_fip['nuage_fip_rate'] != -1)
-                    else "unlimited")))
-            neutron_fip['nuage_fip_rate'] = orig_fip['nuage_fip_rate']
+            for direction, value in nuage_fip_rate.iteritems():
+                if 'kbps' in direction:
+                    rate_unit = 'K'
+                    if 'ingress' in direction:
+                        neutron_fip['nuage_ingress_fip_rate_kbps'] = value
+                    else:
+                        neutron_fip['nuage_egress_fip_rate_kbps'] = value
+                else:
+                    rate_unit = 'M'
+                    neutron_fip['nuage_egress_fip_rate_kbps'] = value * 1000
+                self.fip_rate_log.info(
+                    'FIP %s (owned by tenant %s) %s updated to %s %sb/s'
+                    % (orig_fip['id'], orig_fip['tenant_id'], direction, value,
+                       rate_unit))
+            neutron_fip['nuage_fip_rate'] = orig_fip['nuage_fip_rate_values']
         elif not fip_rate_configured:
             neutron_fip = self.get_floatingip(context, id)
 
