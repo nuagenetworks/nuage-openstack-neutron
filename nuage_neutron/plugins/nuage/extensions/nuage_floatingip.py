@@ -17,6 +17,8 @@ from oslo_config import cfg
 from neutron.api import extensions
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants
+from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import exceptions as nuage_exc
 
 
 def convert_default_to_default_value(data):
@@ -25,29 +27,67 @@ def convert_default_to_default_value(data):
     return data
 
 
-def send_fip_rate_limit_info():
-    msg = (_("'nuage_fip_rate' should be a number higher than 0, -1 for "
-             "unlimited or 'default' for the configured default value."))
-    return msg
+def convert_egress_default_to_default_value(data):
+    if data in ['default', 'DEFAULT']:
+        return cfg.CONF.FIPRATE.default_egress_fip_rate_kbps
+    return data
+
+
+def convert_ingress_default_to_default_value(data):
+    if data in ['default', 'DEFAULT']:
+        return cfg.CONF.FIPRATE.default_ingress_fip_rate_kbps
+    return data
+
+
+def send_fip_rate_limit_info(attribute):
+    msg = (_("'%s' should be a number higher than 0, -1 for "
+             "unlimited or 'default' for the configured default value.")
+           % attribute)
+    raise nuage_exc.NuageBadRequest(msg=msg)
+
+
+def fip_value_validator(fip_value, attribute, units='mbps'):
+    if fip_value is None:
+        msg = (_("Missing value for %s") % attribute)
+        raise nuage_exc.NuageBadRequest(msg=msg)
+    if isinstance(fip_value, bool):
+        return send_fip_rate_limit_info(attribute)
+    try:
+        fip_value = float(fip_value)
+        if units == 'kbps' and int(fip_value) != fip_value:
+            msg = (_('%s value cannot be in fraction') % attribute)
+            raise nuage_exc.NuageBadRequest(msg=msg)
+        else:
+            fip_value = int(fip_value)
+    except (ValueError, TypeError):
+        return send_fip_rate_limit_info(attribute)
+
+    if fip_value < -1:
+        return send_fip_rate_limit_info(attribute)
+
+    if fip_value > constants.MAX_VSD_INTEGER:
+        msg = (_("%(attr)s cannot be > %(max)s") %
+               {'attr': attribute,
+                'max': constants.MAX_VSD_INTEGER})
+        raise nuage_exc.NuageBadRequest(msg=msg)
 
 
 def fip_rate_limit_validation(data, valid_values=None):
-    if data is None:
-        msg = _("Missing value for nuage_fip_rate")
-        return msg
+    fip_value_validator(data, "nuage_fip_rate")
 
-    if isinstance(data, bool):
-        return send_fip_rate_limit_info()
 
-    try:
-        data = float(data)
-    except (ValueError, TypeError):
-        return send_fip_rate_limit_info()
+def egress_limit_validation_kbps(data, valid_values=None):
+    fip_value_validator(data, "nuage_egress_fip_rate_kbps", units='kbps')
 
-    if data < -1:
-        return send_fip_rate_limit_info()
+
+def ingress_limit_validation_kbps(data, valid_values=None):
+    fip_value_validator(data, "nuage_ingress_fip_rate_kbps", units='kbps')
 
 lib_validators.add_validator('type:fip_rate_valid', fip_rate_limit_validation)
+lib_validators.add_validator('type:egress_rate_valid_kbps',
+                             egress_limit_validation_kbps)
+lib_validators.add_validator('type:ingress_rate_valid_kbps',
+                             ingress_limit_validation_kbps)
 
 
 EXTENDED_ATTRIBUTES_2_0 = {
@@ -59,6 +99,24 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'default': lib_constants.ATTR_NOT_SPECIFIED,
             'validate': {'type:fip_rate_valid': None},
             'convert_to': convert_default_to_default_value,
+            'enforce_policy': True
+        },
+        'nuage_ingress_fip_rate_kbps': {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': lib_constants.ATTR_NOT_SPECIFIED,
+            'validate': {'type:ingress_rate_valid_kbps': None},
+            'convert_to': convert_ingress_default_to_default_value,
+            'enforce_policy': True
+        },
+        'nuage_egress_fip_rate_kbps': {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': lib_constants.ATTR_NOT_SPECIFIED,
+            'validate': {'type:egress_rate_valid_kbps': None},
+            'convert_to': convert_egress_default_to_default_value,
             'enforce_policy': True
         }
     }
