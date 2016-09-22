@@ -12,6 +12,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import contextlib
+import functools
 import sys
 
 from neutron.common import exceptions as n_exc
@@ -159,3 +161,30 @@ def filters_to_vsd_filters(filterables, filters, os_to_vsd):
             else:
                 vsd_filters[vsd_key] = filters[filter][0]
     return vsd_filters
+
+
+def add_rollback(rollbacks, method, *args, **kwargs):
+    rollbacks.append(functools.partial(method, *args, **kwargs))
+
+
+@contextlib.contextmanager
+def rollback():
+    """
+    contextmanager allowing you to add rollback actions to be ran on exception
+
+    use like:
+    with rollback() as on_exception:
+        do_action()
+        on_exception(undo_action, *args, **kwargs)
+    """
+    rollbacks = []
+    log = logging.getLogger()
+    try:
+        yield functools.partial(add_rollback, rollbacks)
+    except Exception:
+        for action in reversed(rollbacks):
+            try:
+                action()
+            except Exception:
+                log.exception("Rollback failed.")
+        raise
