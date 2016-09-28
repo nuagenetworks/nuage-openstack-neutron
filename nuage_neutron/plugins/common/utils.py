@@ -11,7 +11,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import contextlib
 import functools
 import sys
@@ -22,6 +21,7 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuagenetlib.restproxy import RESTProxyError
 
+from oslo_config import cfg
 from oslo_log import log as logging
 
 
@@ -188,3 +188,7 @@ def rollback():
             except Exception:
                 log.exception("Rollback failed.")
         raise
+
+
+def is_supported(name):
+    return name in cfg.CONF.PLUGIN.experimental_features

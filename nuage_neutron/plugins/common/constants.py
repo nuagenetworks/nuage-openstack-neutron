@@ -125,3 +125,6 @@ AFTER_UPDATE = 'after_update_nuage'
 AFTER_SHOW = 'after_show_nuage'
 BEFORE_UPDATE = 'before_update_nuage'
 BEFORE_CREATE = 'before_create_nuage'
+
+FEATURE_SUBNET_ATTACH = 'subnet_attach'
+EXPERIMENTAL_FEATURES = [FEATURE_SUBNET_ATTACH]

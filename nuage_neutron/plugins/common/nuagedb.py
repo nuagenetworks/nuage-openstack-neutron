@@ -14,6 +14,7 @@
 from sqlalchemy.orm import exc as sql_exc
 
 from neutron.common import constants as os_constants
+from neutron.db.allowedaddresspairs_db import AllowedAddressPair
 from neutron.db import common_db_mixin
 from neutron.db import external_net_db
 from neutron.db import extraroute_db
@@ -425,3 +426,14 @@ def make_entrtr_dict(entrtr):
     return {'net_partition_id': entrtr['net_partition_id'],
             'router_id': entrtr['router_id'],
             'nuage_router_id': entrtr['nuage_router_id']}
+
+
+def count_allowedaddresspairs_for_subnet(session, subnet_id):
+    return (
+        session.query(AllowedAddressPair)
+        .join(models_v2.Port)
+        .join(models_v2.Network)
+        .join(models_v2.Subnet)
+        .filter(
+            models_v2.Subnet.id == subnet_id
+        )).count()

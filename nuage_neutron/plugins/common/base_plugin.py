@@ -60,11 +60,19 @@ class BaseNuagePlugin(object):
                                                    organization=organization)
 
     def _create_nuage_vport(self, port, subnet_mapping, description=None):
+        if subnet_mapping['nuage_managed_subnet'] is False:
+            if subnet_mapping['nuage_l2dom_tmplt_id']:
+                parent_type = constants.L2DOMAIN
+            else:
+                parent_type = constants.L3SUBNET
+        else:
+            parent_type = None
         params = {
             'port_id': port['id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'description': description,
             'parent_id': subnet_mapping['nuage_subnet_id'],
+            'parent_type': parent_type,
             'address_spoof': (constants.INHERITED
                               if port.get(psec.PORTSECURITY)
                               else constants.ENABLED)
