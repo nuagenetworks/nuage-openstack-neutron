@@ -117,6 +117,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                     db_context.session, subnet['id'], nuage_subnet_id,
                     nuage_npid, nuage_user_id=nuage_uid,
                     nuage_group_id=nuage_gid, managed=True)
+                subnet['vsd_managed'] = True
         except DBDuplicateEntry:
             self._cleanup_group(db_context, nuage_npid, nuage_subnet_id,
                                 subnet)
