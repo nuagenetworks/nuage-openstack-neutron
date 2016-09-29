@@ -292,6 +292,17 @@ def get_ent_rtr_mapping_by_rtrid(session, rtrid):
     return query.filter_by(router_id=rtrid).first()
 
 
+def get_ent_rtr_mapping_by_rtrids(session, rtrids):
+    if not rtrids:
+        return []
+    return (
+        session.query(nuage_models.NetPartitionRouter)
+        .filter(
+            nuage_models.NetPartitionRouter.router_id.in_(rtrids)
+        )
+    ).all()
+
+
 def add_network_binding(session, network_id, network_type, physical_network,
                         vlan_id):
     binding = nuage_models.ProviderNetBinding(
