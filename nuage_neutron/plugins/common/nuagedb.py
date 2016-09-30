@@ -20,11 +20,9 @@ from neutron.db import extraroute_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
-from neutron.extensions import portbindings
 from neutron.plugins.nuage import nuage_models
 
 from nuage_neutron.plugins.common import exceptions
-from nuage_neutron.plugins.common import port_binding_model as pb_model
 
 
 def add_net_partition(session, netpart_id,
@@ -427,25 +425,3 @@ def make_entrtr_dict(entrtr):
     return {'net_partition_id': entrtr['net_partition_id'],
             'router_id': entrtr['router_id'],
             'nuage_router_id': entrtr['nuage_router_id']}
-
-
-def add_port_binding(session, port_id):
-    with session.begin(subtransactions=True):
-        record = pb_model.PortBinding(
-            port_id=port_id,
-            vif_type=portbindings.VIF_TYPE_UNBOUND)
-        session.add(record)
-        return record
-
-
-def get_binding(session, port_id):
-    """Get port binding record."""
-
-    try:
-        binding = (session.query(pb_model.PortBinding).
-                   enable_eagerloads(False).
-                   filter_by(port_id=port_id).
-                   one())
-        return binding
-    except sql_exc.NoResultFound:
-        return None

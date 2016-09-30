@@ -17,7 +17,6 @@ import functools
 import sys
 
 from neutron.common import exceptions as n_exc
-from neutron.extensions import portbindings
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuagenetlib.restproxy import RESTProxyError
@@ -54,16 +53,9 @@ def convert_to_cidr(address, mask):
     return '.'.join(net_start) + '/' + get_net_size(netmask)
 
 
-def is_baremetal(port):
-    vnic_type = port.get(portbindings.VNIC_TYPE, None)
-    return vnic_type == 'baremetal'
-
-
-def check_vport_creation(port, prefix_list):
-    device_owner = port.get('device_owner', None)
+def check_vport_creation(device_owner, prefix_list):
     if (device_owner in constants.AUTO_CREATE_PORT_OWNERS or
-            device_owner.startswith(tuple(prefix_list)) or
-            is_baremetal(port)):
+            device_owner.startswith(tuple(prefix_list))):
         return False
     return True
 
