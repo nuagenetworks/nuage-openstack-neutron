@@ -1491,7 +1491,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             fixed_ips=fixed_ip,
             mac_address=attributes.ATTR_NOT_SPECIFIED,
             device_owner=constants.DEVICE_OWNER_DHCP_NUAGE))
-        return super(NuagePlugin, self).create_port(context, port_dict)
+        port = super(NuagePlugin, self).create_port(context, port_dict)
+        ml2_db.add_port_binding(context.session, port['id'])
+        return port
 
     @log_helpers.log_method_call
     def _delete_port_gateway(self, context, ports):
