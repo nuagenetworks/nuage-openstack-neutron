@@ -1968,7 +1968,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         net = netaddr.IPNetwork(subn['cidr'])
         params = {
             'net': net,
-            'zone_id': nuage_zone['ID'],
+            'zone_id': nuage_zone['nuage_zone_id'],
             'neutron_subnet_id': subnet_id,
             'pnet_binding': nuagedb.get_network_binding(context.session,
                                                         subn['network_id'])
