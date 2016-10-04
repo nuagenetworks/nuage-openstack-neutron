@@ -846,6 +846,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         with session.begin(subtransactions=True):
             p, binding = (
                 ml2_db.get_locked_port_and_binding(session, id))
+            if not binding:
+                ml2_db.add_port_binding(session, id)
+                p, binding = (ml2_db.get_locked_port_and_binding(session, id))
             vport = self._get_vport_for_port(context, original_port)
             current_owner = original_port['device_owner']
             lbaas_device_owner_added = (
