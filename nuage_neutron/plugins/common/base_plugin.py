@@ -59,20 +59,12 @@ class BaseNuagePlugin(object):
                                                    auth_resource=auth_resource,
                                                    organization=organization)
 
-    def _create_nuage_vport(self, port, subnet_mapping, description=None):
-        if subnet_mapping['nuage_managed_subnet'] is False:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                parent_type = constants.L2DOMAIN
-            else:
-                parent_type = constants.L3SUBNET
-        else:
-            parent_type = None
+    def _create_nuage_vport(self, port, vsd_subnet, description=None):
         params = {
             'port_id': port['id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'description': description,
-            'parent_id': subnet_mapping['nuage_subnet_id'],
-            'parent_type': parent_type,
+            'vsd_subnet': vsd_subnet,
             'address_spoof': (constants.INHERITED
                               if port.get(psec.PORTSECURITY)
                               else constants.ENABLED)
@@ -97,14 +89,14 @@ class BaseNuagePlugin(object):
 
     def _validate_cidr(self, subnet, nuage_subnet, shared_subnet):
         shared_subnet = shared_subnet or {}
-        if (not nuage_subnet['subnet_address']) and (
-                not shared_subnet.get('subnet_address')):
+        if (not nuage_subnet['address']) and (
+                not shared_subnet.get('address')):
             nuage_ip = None
         else:
-            if shared_subnet.get('subnet_address'):
+            if shared_subnet.get('address'):
                 nuage_subnet = shared_subnet
-            nuage_ip = netaddr.IPNetwork(nuage_subnet['subnet_address'] + '/' +
-                                         nuage_subnet['subnet_netmask'])
+            nuage_ip = netaddr.IPNetwork(nuage_subnet['address'] + '/' +
+                                         nuage_subnet['netmask'])
 
         subnet_validate = {'enable_dhcp': Is(nuage_ip is not None)}
         if nuage_ip:
