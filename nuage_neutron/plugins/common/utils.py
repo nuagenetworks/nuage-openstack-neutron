@@ -17,11 +17,13 @@ import functools
 import sys
 
 from neutron.common import exceptions as n_exc
+from oslo_db import exception as db_exc
+from oslo_log import log as logging
+from oslo_utils import excutils
+
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuagenetlib.restproxy import RESTProxyError
-
-from oslo_log import log as logging
 
 
 def handle_nuage_api_error(fn):
@@ -163,14 +165,24 @@ def filters_to_vsd_filters(filterables, filters, os_to_vsd):
     return vsd_filters
 
 
+@contextlib.contextmanager
+def exc_to_retry(exceptions):
+    try:
+        yield
+    except Exception as e:
+        with excutils.save_and_reraise_exception() as ctx:
+            if isinstance(e, exceptions):
+                ctx.reraise = False
+                raise db_exc.RetryRequest(e)
+
+
 def add_rollback(rollbacks, method, *args, **kwargs):
     rollbacks.append(functools.partial(method, *args, **kwargs))
 
 
 @contextlib.contextmanager
 def rollback():
-    """
-    contextmanager allowing you to add rollback actions to be ran on exception
+    """contextmanager allowing you to add rollback actions.
 
     use like:
     with rollback() as on_exception:

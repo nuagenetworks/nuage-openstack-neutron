@@ -136,12 +136,12 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
                                       vsd_filters):
         vsd_mapping = nuagedb.get_subnet_l2dom_by_port_id(context.session,
                                                           port_id)
-        vport = self.nuageclient.get_nuage_vport_by_id(
+        vport = self.nuageclient.get_nuage_vport_by_neutron_id(
             {'neutron_port_id': port_id,
              'l2dom_id': vsd_mapping['nuage_subnet_id'],
              'l3dom_id': vsd_mapping['nuage_subnet_id']})
         return self.nuageclient.get_nuage_vport_policy_groups(
-            vport['nuage_vport_id'], externalID=None, **vsd_filters)
+            vport['ID'], externalID=None, **vsd_filters)
 
     def get_port_available_nuage_policy_groups(self, context, filters=None):
         port_id = filters.pop('for_port')[0]
@@ -170,10 +170,10 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
             raise exceptions.VsdSubnetNotFound(id=vsd_id)
         if vsd_subnet['type'] == constants.L2DOMAIN:
             return self.nuageclient.get_nuage_l2domain_policy_groups(
-                vsd_subnet['subnet_id'], **vsd_filters)
+                vsd_subnet['ID'], **vsd_filters)
         else:
             domain_id = self.nuageclient.get_router_by_domain_subnet_id(
-                vsd_subnet['subnet_id'])
+                vsd_subnet['ID'])
             return self.nuageclient.get_nuage_domain_policy_groups(
                 domain_id, **vsd_filters)
 
@@ -213,10 +213,9 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
                 NUAGE_POLICY_GROUPS in original_port):
             rollbacks.append(
                 (self.nuageclient.update_vport_policygroups,
-                 [vport['nuage_vport_id'], original_port[NUAGE_POLICY_GROUPS]],
-                 {})
+                 [vport['ID'], original_port[NUAGE_POLICY_GROUPS]], {})
             )
-        self.nuageclient.update_vport_policygroups(vport['nuage_vport_id'],
+        self.nuageclient.update_vport_policygroups(vport['ID'],
                                                    policy_group_ids)
 
     def validate_policy_group(self, policy_group_id):
@@ -238,6 +237,6 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
             return
 
         policy_groups = self.nuageclient.get_nuage_vport_policy_groups(
-            vport['nuage_vport_id'], externalID=None)
+            vport['ID'], externalID=None)
         port[NUAGE_POLICY_GROUPS] = [policy_group['ID']
                                      for policy_group in policy_groups]

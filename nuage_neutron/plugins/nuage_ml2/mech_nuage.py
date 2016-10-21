@@ -13,14 +13,12 @@
 #    under the License.
 
 import inspect
-import re
 
 from oslo_db.exception import DBDuplicateEntry
 from oslo_log import log
 from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
-from neutron.api.v2.attributes import UUID_PATTERN
 from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.extensions import portbindings
@@ -184,28 +182,29 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         try:
             np_id = subnet_mapping['net_partition_id']
             nova_prefix = constants.NOVA_PORT_OWNER_PREF
+            nuage_subnet, _ = self._get_nuage_subnet(
+                subnet_mapping['nuage_subnet_id'])
             if port['device_owner'].startswith(nova_prefix):
                 self._validate_vmports_same_netpartition(core_plugin,
                                                          db_context,
                                                          port, np_id)
                 desc = ("device_owner:" + constants.NOVA_PORT_OWNER_PREF +
                         "(please do not edit)")
-                nuage_vport = self._create_nuage_vport(port, subnet_mapping,
+                nuage_vport = self._create_nuage_vport(port, nuage_subnet,
                                                        desc)
                 np_name = self.nuageclient.get_net_partition_name_by_id(np_id)
                 require(np_name, "netpartition", np_id)
                 nuage_vm = self._create_nuage_vm(
                     core_plugin, db_context, port, np_name, subnet_mapping,
-                    nuage_vport)
+                    nuage_vport, nuage_subnet)
             else:
-                nuage_vport = self._create_nuage_vport(port, subnet_mapping)
+                nuage_vport = self._create_nuage_vport(port, nuage_subnet)
         except Exception:
             if nuage_vm:
                 self._delete_nuage_vm(core_plugin, db_context, port, np_name,
                                       subnet_mapping)
             if nuage_vport:
-                self.nuageclient.delete_nuage_vport(
-                    nuage_vport.get('nuage_vport_id'))
+                self.nuageclient.delete_nuage_vport(nuage_vport.get('ID'))
             raise
         rollbacks = []
         try:
@@ -254,8 +253,11 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             elif device_added:
                 if port['device_owner'].startswith(
                         constants.NOVA_PORT_OWNER_PREF):
+                    nuage_subnet, _ = self._get_nuage_subnet(
+                        subnet_mapping['nuage_subnet_id'])
                     self._create_nuage_vm(core_plugin, db_context, port,
-                                          np_name, subnet_mapping, nuage_vport)
+                                          np_name, subnet_mapping, nuage_vport,
+                                          nuage_subnet)
         rollbacks = []
         try:
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
@@ -291,10 +293,10 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         if nuage_vport:
             try:
                 self.nuageclient.delete_nuage_vport(
-                    nuage_vport['nuage_vport_id'])
+                    nuage_vport['ID'])
             except Exception as e:
                 LOG.error("Failed to delete vport from vsd {vport id: %s}"
-                          % nuage_vport['nuage_vport_id'])
+                          % nuage_vport['ID'])
                 raise e
 
     @utils.context_log
@@ -356,12 +358,11 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         nuage_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
             nuage_subnet_id)
         require(nuage_subnet, 'subnet or domain', nuage_subnet_id)
-        shared = nuage_subnet['subnet_shared_net_id']
+        shared = nuage_subnet['associatedSharedNetworkResourceID']
         shared_subnet = None
         if shared:
             shared_subnet = self.nuageclient.get_nuage_sharedresource(shared)
             require(shared_subnet, 'sharednetworkresource', shared)
-            shared_subnet['subnet_id'] = shared
         return nuage_subnet, shared_subnet
 
     def _set_gateway_from_vsd(self, nuage_subnet, shared_subnet, subnet):
@@ -369,9 +370,9 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
         if subnet['enable_dhcp']:
             if nuage_subnet['type'] == constants.L2DOMAIN:
                 gw_ip = self.nuageclient.get_gw_from_dhcp_l2domain(
-                    gateway_subnet['subnet_id'])
+                    gateway_subnet['ID'])
             else:
-                gw_ip = gateway_subnet['subnet_gateway']
+                gw_ip = gateway_subnet['gateway']
             gw_ip = gw_ip or None
         else:
             gw_ip = None
@@ -412,9 +413,9 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                          shared_subnet):
         if not subnet['enable_dhcp']:
             return
-        dhcp_ip = (shared_subnet['subnet_gateway']
+        dhcp_ip = (shared_subnet['gateway']
                    if shared_subnet
-                   else nuage_subnet['subnet_gateway'])
+                   else nuage_subnet['gateway'])
         core_plugin._allocate_specific_ip(db_context, subnet['id'], dhcp_ip)
 
     def _set_allocation_pools(self, core_plugin, db_context, subnet):
@@ -460,7 +461,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                 or LB_DEVICE_OWNER_V2 in device_owner)
 
     def _create_nuage_vm(self, core_plugin, db_context, port, np_name,
-                         subnet_mapping, nuage_port):
+                         subnet_mapping, nuage_port, nuage_subnet):
         no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
             core_plugin, db_context, port)
         subn = core_plugin.get_subnet(
@@ -475,11 +476,11 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             'tenant': port['tenant_id'],
             'netpart_id': subnet_mapping['net_partition_id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
-            'vport_id': nuage_port.get('nuage_vport_id'),
-            'parent_id': subnet_mapping['nuage_subnet_id'],
+            'vport_id': nuage_port.get('ID'),
             'subn_tenant': subn['tenant_id'],
             'portOnSharedSubn': subn['shared'],
-            'dhcp_enabled': subn['enable_dhcp']
+            'dhcp_enabled': subn['enable_dhcp'],
+            'vsd_subnet': nuage_subnet
         }
         network_details = core_plugin.get_network(db_context,
                                                   port['network_id'])
@@ -532,7 +533,7 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
             'subn_tenant': subn['tenant_id'],
             'portOnSharedSubn': subn['shared']
         }
-        if not nuage_port['nuage_domain_id']:
+        if not nuage_port['parentID']:
             params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
             params['l3dom_id'] = subnet_mapping['nuage_subnet_id'],
@@ -543,44 +544,14 @@ class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
                       % vm_id)
             raise e
 
-    def _process_port_redirect_target(self, port, nuage_vport):
-        redirect_targets = port['nuage_redirect_targets']
-        if redirect_targets is None:
-            return
-        if len(redirect_targets) == 0:
-            self.nuageclient.update_nuage_vport_redirect_target(
-                None, nuage_vport.get('nuage_vport_id'))
-            return
-        if len(redirect_targets) > 1:
-            msg = _("Multiple redirect targets on a port not supported.")
-            raise NuageBadRequest(msg=msg)
-
-        rtarget = redirect_targets[0]
-        uuid_match = re.match(UUID_PATTERN, rtarget)
-        if not uuid_match:
-            nuage_rtarget = self.nuageclient.get_nuage_redirect_targets(
-                {'name': rtarget})
-            require(nuage_rtarget, "redirect target", rtarget)
-            nuage_rtarget_id = nuage_rtarget[0]['ID']
-        else:
-            nuage_rtarget = self.nuageclient.get_nuage_redirect_targets(
-                {'id': rtarget})
-            require(nuage_rtarget, "redirect target", rtarget)
-            nuage_rtarget_id = rtarget
-
-        self.nuageclient.update_nuage_vport_redirect_target(
-            nuage_rtarget_id, nuage_vport.get('nuage_vport_id'))
-
-        port['nuage_redirect_targets'] = [nuage_rtarget_id]
-
     def _get_nuage_vport(self, port, subnet_mapping, required=True):
         port_params = {
             'neutron_port_id': port['id'],
             'l2dom_id': subnet_mapping['nuage_subnet_id'],
             'l3dom_id': subnet_mapping['nuage_subnet_id']
         }
-        return self.nuageclient.get_nuage_vport_by_id(port_params,
-                                                      required=required)
+        return self.nuageclient.get_nuage_vport_by_neutron_id(
+            port_params, required=required)
 
     def _check_segment(self, segment):
         network_type = segment[api.NETWORK_TYPE]

@@ -130,7 +130,6 @@ class NuagegatewayMixin(object):
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
             context.session, subnet_id)
         if subnet_mapping:
-            params['nuage_subnet_id'] = subnet_mapping['nuage_subnet_id']
             params['np_id'] = subnet_mapping['net_partition_id']
             params['nuage_managed_subnet'] = (
                 subnet_mapping['nuage_managed_subnet'])
@@ -139,8 +138,13 @@ class NuagegatewayMixin(object):
             raise nuage_exc.NuageBadRequest(msg=msg)
 
         try:
+            vsd_subnet = self.nuageclient \
+                .get_subnet_or_domain_subnet_by_id(
+                    subnet_mapping['nuage_subnet_id'])
+            params['vsd_subnet'] = vsd_subnet
             resp = self.nuageclient.create_gateway_vport(context.tenant_id,
                                                          params)
+            vport = resp['vport']
         except Exception as ex:
             if ex.code == constants.RES_CONFLICT:
                 # gridinv - do not map resource in conflict to 500
@@ -153,13 +157,23 @@ class NuagegatewayMixin(object):
                 self._process_port_create_security_group(
                     context,
                     port,
-                    port[ext_sg.SECURITYGROUPS]
+                    vport,
+                    port[ext_sg.SECURITYGROUPS],
+                    vsd_subnet
                 )
                 LOG.debug("Created security group for port %s", port['id'])
             self._check_floatingip_update(context, port,
                                           vport_type=constants.HOST_VPORT,
-                                          vport_id=resp['vport_id'])
-        return self._make_vport_dict(resp, context=context)
+                                          vport_id=vport['ID'])
+        resp_dict = {'vport_id': resp['vport']['ID'],
+                     'vport_type': resp['vport']['type'],
+                     'vport_name': resp['vport']['name'],
+                     'interface': resp['interface']['ID'],
+                     'vport_gw_type': resp['vport_gw_type'],
+                     'subnet_id': subnet_id}
+        if port_id:
+            resp_dict['port_id'] = port_id
+        return self._make_vport_dict(resp_dict, context=context)
 
     @utils.handle_nuage_api_error
     @log.log
@@ -404,13 +418,12 @@ class NuagegatewayMixin(object):
                 port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
             else:
                 port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-        nuage_vport = self.nuageclient.get_nuage_vport_by_id(port_params,
-                                                             required=False)
-        if nuage_vport and (nuage_vport['nuage_vport_type'] ==
-                            constants.HOST_VPORT):
+        nuage_vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+            port_params, required=False)
+        if nuage_vport and (nuage_vport['type'] == constants.HOST_VPORT):
             def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
             netpart = nuagedb.get_default_net_partition(context, def_netpart)
             self.nuageclient.delete_nuage_gateway_vport(
                 context.tenant_id,
-                nuage_vport.get('nuage_vport_id'),
+                nuage_vport.get('ID'),
                 netpart['id'])

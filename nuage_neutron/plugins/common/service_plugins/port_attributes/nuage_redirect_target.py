@@ -464,12 +464,13 @@ class NuageRedirectTarget(BaseNuagePlugin):
                     'l3dom_id': l3dom_id
                 }
 
-                nuage_port = self.nuageclient.get_nuage_vport_by_id(params)
+                nuage_port = self.nuageclient.get_nuage_vport_by_neutron_id(
+                    params)
                 nuage_port['l2dom_id'] = l2dom_id
                 nuage_port['l3dom_id'] = l3dom_id
-                if nuage_port and nuage_port.get('nuage_vport_id'):
+                if nuage_port and nuage_port.get('ID'):
                     self.nuageclient.update_nuage_vport_redirect_target(
-                        n_rtarget_id, nuage_port.get('nuage_vport_id'))
+                        n_rtarget_id, nuage_port.get('ID'))
             except Exception:
                 raise
 
@@ -548,6 +549,6 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 fields and REDIRECTTARGETS not in fields:
             return
         policy_groups = self.nuageclient.get_nuage_vport_redirect_targets(
-            vport['nuage_vport_id'])
+            vport['ID'])
         port[REDIRECTTARGETS] = [policy_group['ID']
                                  for policy_group in policy_groups]

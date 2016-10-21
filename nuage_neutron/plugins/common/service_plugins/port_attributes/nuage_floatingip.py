@@ -112,7 +112,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
             return []
 
         domain_id = self.nuageclient.get_router_by_domain_subnet_id(
-            vsd_subnet['subnet_id'])
+            vsd_subnet['ID'])
         return self.nuageclient.get_nuage_domain_floatingips(
             domain_id, assigned=False, externalID=None, **vsd_filters)
 
@@ -120,7 +120,9 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         self.process_port_nuage_floatingip(resource, event, trigger, **kwargs)
 
     def post_port_create(self, resource, event, trigger, **kwargs):
-        self.process_port_nuage_floatingip(resource, event, trigger, **kwargs)
+        if kwargs['vport'] and kwargs['request_port'].get(NUAGE_FLOATINGIP):
+            self.process_port_nuage_floatingip(resource, event, trigger,
+                                               **kwargs)
         if kwargs['vport']:
             kwargs['port'][NUAGE_FLOATINGIP] = kwargs['request_port'].get(
                 NUAGE_FLOATINGIP)
@@ -150,12 +152,12 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         if event == constants.AFTER_UPDATE:
             rollbacks.append(
                 (self.nuageclient.update_vport,
-                 [vport['nuage_vport_id'],
-                  {'associatedFloatingIPID': vport['nuage_floating_ip']}],
+                 [vport['ID'],
+                  {'associatedFloatingIPID': vport['associatedFloatingIPID']}],
                  {})
             )
         self.nuageclient.update_vport(
-            vport['nuage_vport_id'],
+            vport['ID'],
             {'associatedFloatingIPID': request_fip.get('id')})
 
     def _post_port_show(self, resource, event, trigger, **kwargs):
@@ -164,12 +166,12 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         fields = kwargs.get('fields')
         if fields and NUAGE_FLOATINGIP not in fields:
             return
-        if not vport:
+        if not vport or not vport.get('associatedFloatingIPID'):
             port[NUAGE_FLOATINGIP] = None
             return
 
         floatingip = self.nuageclient.get_nuage_floatingip(
-            vport['nuage_floating_ip'], externalID=None)
+            vport['associatedFloatingIPID'], externalID=None)
         if floatingip:
             port[NUAGE_FLOATINGIP] = {'id': floatingip['ID'],
                                       'ip_address': floatingip['address']}
