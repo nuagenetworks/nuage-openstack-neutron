@@ -70,6 +70,7 @@ from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage.extensions import nuage_router
 from nuage_neutron.plugins.nuage import externalsg
 from nuage_neutron.plugins.nuage import gateway
+from nuagenetlib.restproxy import ResourceNotFoundException
 from nuagenetlib.restproxy import RESTProxyError
 
 LOG = logging.getLogger(__name__)
@@ -1659,10 +1660,12 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         subnet = nuagedb.get_nuage_subnet_info(context.session, subnet, fields)
         network = self._get_network(context, subnet['network_id'])
         if network.get('external'):
-            nuage_subnet = self.nuageclient.get_sharedresource(id)
-            subnet['underlay'] = nuage_subnet['underlay']
-            subnet['nuage_uplink'] = nuage_subnet['sharedResourceParentID']
-
+            try:
+                nuage_subnet = self.nuageclient.get_sharedresource(id)
+                subnet['underlay'] = nuage_subnet['underlay']
+                subnet['nuage_uplink'] = nuage_subnet['sharedResourceParentID']
+            except ResourceNotFoundException:
+                pass
         return self._fields(subnet, fields)
 
     @log_helpers.log_method_call
