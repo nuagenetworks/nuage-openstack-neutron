@@ -1132,31 +1132,30 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @log.log
     def create_network(self, context, network):
-        binding = None
         data = network['network']
         (network_type, physical_network,
          vlan_id) = self._process_provider_create(context, data)
         with context.session.begin(subtransactions=True):
             self._ensure_default_security_group(
                 context,
-                network['network']['tenant_id']
-            )
+                network['network']['tenant_id'])
+
             net = super(NuagePlugin, self).create_network(context,
                                                           network)
+            net_db = self._get_network(context, net['id'])
             # Create the network extension attributes.
             if psec.PORTSECURITY in data:
-                self._process_network_port_security_create(
-                    context, data, net)
+                self._process_network_port_security_create(context, data, net)
 
             self._process_l3_create(context, net, data)
 
             if network_type == 'vlan':
-                binding = nuagedb.add_network_binding(context.session,
-                                                      net['id'],
-                                                      network_type,
-                                                      physical_network,
-                                                      vlan_id)
-            self._extend_network_dict_provider_nuage(net, None, binding)
+                nuagedb.add_network_binding(context.session,
+                                            net['id'],
+                                            network_type,
+                                            physical_network,
+                                            vlan_id)
+            self._apply_dict_extend_functions(attributes.NETWORKS, net, net_db)
         return net
 
     @log.log
