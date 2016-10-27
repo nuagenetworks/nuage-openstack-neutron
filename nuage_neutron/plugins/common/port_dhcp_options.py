@@ -43,13 +43,13 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
         self.nuage_callbacks.subscribe(self._update_port_dhcp_opts,
                                        resources.PORT, constants.AFTER_UPDATE)
 
-    def _create_update_extra_dhcp_options(self, dhcp_options, vport_dict,
+    def _create_update_extra_dhcp_options(self, dhcp_options, vport,
                                           port_id, on_opts_update=False):
         response = []
         for dhcp_option in dhcp_options:
             try:
                 resp = self.nuageclient.crt_or_updt_vport_dhcp_option(
-                    dhcp_option, vport_dict['nuage_vport_id'], port_id)
+                    dhcp_option, vport['ID'], port_id)
             except Exception as e:
                 e = self._build_dhcp_option_error_message(
                     dhcp_option['opt_name'], e)

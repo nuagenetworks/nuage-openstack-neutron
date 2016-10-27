@@ -14,16 +14,16 @@
 from sqlalchemy.orm import exc as sql_exc
 
 from neutron.common import constants as os_constants
-from neutron.db.allowedaddresspairs_db import AllowedAddressPair
 from neutron.db import common_db_mixin
 from neutron.db import external_net_db
 from neutron.db import extraroute_db
 from neutron.db import l3_db
+from neutron.db.models import allowed_address_pair as addr_pair_models
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
-from nuage_neutron.plugins.common import nuage_models
 
 from nuage_neutron.plugins.common import exceptions
+from nuage_neutron.plugins.common import nuage_models
 
 
 def add_net_partition(session, netpart_id,
@@ -430,7 +430,7 @@ def make_entrtr_dict(entrtr):
 
 def count_allowedaddresspairs_for_subnet(session, subnet_id):
     return (
-        session.query(AllowedAddressPair)
+        session.query(addr_pair_models.AllowedAddressPair)
         .join(models_v2.Port)
         .join(models_v2.Network)
         .join(models_v2.Subnet)
