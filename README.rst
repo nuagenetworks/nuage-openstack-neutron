@@ -1,15 +1,11 @@
-===============================
+=======================
 nuage-openstack-neutron
-===============================
+=======================
 
-"Openstack Neutron Plugin for Nuage Networks"
+Openstack Neutron Plugin for Nuage Networks
 
 * Free software: Apache license
-* Documentation: http://docs.openstack.org/developer/nuage-openstack-neutron
-* Source: http://git.openstack.org/cgit/openstack/nuage-openstack-neutron
-* Bugs: http://bugs.launchpad.net/replace with the name of the project on launchpad
-
-Features
---------
-
-* TODO
+* [Report an issue](https://github.com/nuagenetworks/nuage-openstack-neutron/issues/new)
+* [This blog post](http://nuagenetworks.github.io/2016/06/16/LBaaS-with-Nuage-and-HAProxy.html)
+  details a Load Balancing as a Service (LBaaS) setup on OSP 8 (Liberty) with
+  the Nuage Neutron Plugin.
