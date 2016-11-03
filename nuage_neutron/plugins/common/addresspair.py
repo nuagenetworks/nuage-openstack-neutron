@@ -45,7 +45,7 @@ class NuageAddressPair(BaseNuagePlugin):
                 'vip': vip,
                 'mac': mac,
                 'subnet_id': nuage_subnet_id,
-                'vport_id': nuage_vport['nuage_vport_id'],
+                'vport_id': nuage_vport['ID'],
                 'port_ip': port['fixed_ips'][0]['ip_address'],
                 'port_mac': port['mac_address'],
                 'externalID': port['id']
@@ -61,7 +61,7 @@ class NuageAddressPair(BaseNuagePlugin):
                               "%(mac)s: %(err)s", {'vip': vip,
                                                    'mac': mac,
                                                    'err': e.message})
-                    self.nuageclient.delete_vips(nuage_vport['nuage_vport_id'],
+                    self.nuageclient.delete_vips(nuage_vport['ID'],
                                                  nuage_vip_dict,
                                                  nuage_vip_dict.keys())
 
@@ -75,14 +75,14 @@ class NuageAddressPair(BaseNuagePlugin):
                     'vip': addrpair['ip_address'],
                     'mac': addrpair['mac_address'],
                     'subnet_id': nuage_subnet_id,
-                    'vport_id': nuage_vport['nuage_vport_id'],
+                    'vport_id': nuage_vport['ID'],
                     'port_ip': port['fixed_ips'][0]['ip_address'],
                     'port_mac': port['mac_address']
                 }
                 self.nuageclient.process_deleted_addr_pair(params)
 
         # Get all the vips on vport
-        nuage_vips = self.nuageclient.get_vips(nuage_vport['nuage_vport_id'])
+        nuage_vips = self.nuageclient.get_vips(nuage_vport['ID'])
 
         nuage_vip_dict = dict()
         for nuage_vip in nuage_vips:
@@ -130,13 +130,13 @@ class NuageAddressPair(BaseNuagePlugin):
 
         if vips_delete_set:
             try:
-                self.nuageclient.delete_vips(nuage_vport['nuage_vport_id'],
+                self.nuageclient.delete_vips(nuage_vport['ID'],
                                              nuage_vip_dict,
                                              vips_delete_set)
             except Exception as e:
                 with excutils.save_and_reraise_exception:
                     LOG.error("Error in deleting vips on vport %(port)s: %("
-                              "err)s", {'port': nuage_vport['nuage_vport_id'],
+                              "err)s", {'port': nuage_vport['ID'],
                                         'err': e})
 
         if vips_add_list:
