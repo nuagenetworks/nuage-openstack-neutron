@@ -2708,7 +2708,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         neutron_fip = self._make_floatingip_dict(orig_fip)
 
         with context.session.begin(subtransactions=True):
-            if 'port_id' in fip:
+            if 'port_id' in fip or fip.get('description'):
                 neutron_fip = super(NuagePlugin, self).update_floatingip(
                     context, id, floatingip)
             last_known_router_id = orig_fip['last_known_router_id']
