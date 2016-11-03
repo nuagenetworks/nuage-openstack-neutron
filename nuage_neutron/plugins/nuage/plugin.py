@@ -2145,8 +2145,19 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             new_routes = updates.get('routes', curr_router.get('routes'))
             self._update_nuage_router_static_routes(id, nuage_domain_id,
                                                     old_routes, new_routes)
-            self._update_nuage_router(nuage_domain_id, curr_router, updates,
-                                      ent_rtr_mapping)
+            try:
+                if 'routes' in updates and len(updates) == 1:
+                    pass
+                else:
+                    self._update_nuage_router(nuage_domain_id, curr_router,
+                                              updates,
+                                              ent_rtr_mapping)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    self._update_nuage_router_static_routes(id,
+                                                            nuage_domain_id,
+                                                            new_routes,
+                                                            old_routes)
         nuage_router = self.nuageclient.get_router_by_external(id)
         self._add_nuage_router_attributes(router_updated, nuage_router)
 
