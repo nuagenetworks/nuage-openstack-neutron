@@ -927,7 +927,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def _delete_nuage_fip(self, context, fip_dict):
         if fip_dict:
             fip_id = fip_dict['fip_id']
-            port_id = fip_dict['fip_fixed_port_id']
+            port_id = fip_dict.get('fip_fixed_port_id')
             if port_id:
                 router_id = fip_dict['fip_router_id']
             else:
@@ -2498,8 +2498,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'fip_id': neutron_fip['id'],
             'neutron_fip': neutron_fip
         }
-
         fip = self.nuageclient.get_nuage_fip_by_id(params)
+
         if not fip:
             LOG.debug("Floating ip not found in VSD for fip %s",
                       neutron_fip['id'])
@@ -2518,18 +2518,10 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                               vport_type=vport_type,
                                               vport_id=vport_id,
                                               required=False)
-        if nuage_vport:
-            if (nuage_vport['domainID']) != (
-                    ent_rtr_mapping['nuage_router_id']):
-                msg = _('Floating IP can not be associated to port in '
-                        'different router context')
-                raise nuage_exc.OperationNotSupported(msg=msg)
 
-            params = {
-                'nuage_vport_id': nuage_vport['ID'],
-                'nuage_fip_id': nuage_fip_id
-            }
+        if nuage_vport:
             nuage_fip = self.nuageclient.get_nuage_fip(nuage_fip_id)
+
             if nuage_fip['assigned']:
                 # check if there are any interfaces attached to the
                 # vport (n_vport) where the fip is as of now associated.
@@ -2545,6 +2537,58 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         'nuage_fip_id': None
                     }
                     self.nuageclient.update_nuage_vm_vport(disassoc_params)
+
+                if (nuage_vport['domainID']) != (
+                        ent_rtr_mapping['nuage_router_id']):
+                    fip_dict = {
+                        'fip_id': neutron_fip['id'],
+                        'fip_last_known_rtr_id': ent_rtr_mapping['router_id']
+                    }
+                    fip = self.nuageclient.get_nuage_fip_by_id(fip_dict)
+
+                    if fip:
+                        self._delete_nuage_fip(context, fip_dict)
+
+                    # Now change the rtd_id to vport's router id
+                    rtr_id = neutron_fip['router_id']
+
+                    ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+                        context.session,
+                        rtr_id
+                    )
+
+                    if not ent_rtr_mapping:
+                        msg = _('router %s is not associated with '
+                                'any net-partition') % rtr_id
+                        raise n_exc.BadRequest(resource='floatingip',
+                                               msg=msg)
+
+                    params = {
+                        'router_id': ent_rtr_mapping['nuage_router_id'],
+                        'fip_id': neutron_fip['id'],
+                        'neutron_fip': neutron_fip
+                    }
+                    fip = self.nuageclient.get_nuage_fip_by_id(params)
+
+                    if not fip:
+                        LOG.debug("Floating ip not found in VSD for fip %s",
+                                  neutron_fip['id'])
+                        params = {
+                            'nuage_rtr_id': ent_rtr_mapping['nuage_router_id'],
+                            'nuage_fippool_id': fip_pool['nuage_fip_pool_id'],
+                            'neutron_fip_ip':
+                                neutron_fip['floating_ip_address'],
+                            'neutron_fip_id': neutron_fip['id']
+                        }
+                        nuage_fip_id = \
+                            self.nuageclient.create_nuage_floatingip(params)
+                    else:
+                        nuage_fip_id = fip['nuage_fip_id']
+
+            params = {
+                'nuage_vport_id': nuage_vport['ID'],
+                'nuage_fip_id': nuage_fip_id
+            }
             self.nuageclient.update_nuage_vm_vport(params)
             self.fip_rate_log.info(
                 'FIP %s (owned by tenant %s) associated to port %s'
