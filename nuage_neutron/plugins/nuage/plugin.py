@@ -110,7 +110,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         neutron_extensions.append_api_extensions_path(extensions.__path__)
         neutron_extensions.append_api_extensions_path(
             common_extensions.__path__)
-        self._nuageclient_init()
         self._prepare_default_netpartition()
         self.init_fip_rate_log()
         LOG.debug("NuagePlugin initialization done")
