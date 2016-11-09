@@ -14,6 +14,7 @@
 
 from oslo_config import cfg
 
+from neutron._i18n import _
 from neutron.api import extensions
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants

@@ -14,6 +14,7 @@
 
 from oslo_log import helpers as log_helpers
 
+from neutron._i18n import _
 from neutron.callbacks import resources
 from neutron import policy
 from neutron_lib.api.validators import is_attr_set

@@ -16,11 +16,12 @@ import contextlib
 import functools
 import sys
 
+from neutron._i18n import _
 from neutron_lib import exceptions as n_exc
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuagenetlib.restproxy import RESTProxyError
+from nuage_neutron.vsdclient.vsdclient import RESTProxyError
 
 from oslo_log import log as logging
 
