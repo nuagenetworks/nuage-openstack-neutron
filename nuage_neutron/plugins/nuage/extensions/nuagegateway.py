@@ -12,11 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
 from neutron.common import exceptions as nexception
+from neutron.i18n import _
 from neutron import manager
 from neutron.quota import resource_registry
 

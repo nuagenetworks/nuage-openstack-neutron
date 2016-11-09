@@ -22,6 +22,7 @@ from neutron.api.v2.attributes import is_attr_set
 from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.common import exceptions as n_exc
+from neutron.i18n import _
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc

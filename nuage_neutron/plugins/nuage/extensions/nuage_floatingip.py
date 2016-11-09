@@ -15,6 +15,8 @@
 from oslo_config import cfg
 
 from neutron.api.v2 import attributes as attr
+from neutron.i18n import _
+
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 

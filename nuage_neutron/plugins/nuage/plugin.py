@@ -59,6 +59,7 @@ from neutron.extensions import portbindings
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron.i18n import _
 from neutron.plugins.ml2 import db as ml2_db
 from neutron.plugins.ml2 import models as ml2_models
 from nuage_neutron.plugins.common import addresspair
@@ -106,9 +107,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         neutron_extensions.append_api_extensions_path(extensions.__path__)
         neutron_extensions.append_api_extensions_path(
             common_extensions.__path__)
-        self._prepare_default_netpartition()
-        self.init_fip_rate_log()
-        LOG.debug("NuagePlugin initialization done")
         self.base_binding_dict = {
             portbindings.VIF_TYPE: portbindings.VIF_TYPE_OVS,
             portbindings.VNIC_TYPE: portbindings.VNIC_NORMAL,
@@ -116,6 +114,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 portbindings.CAP_PORT_FILTER: False
             }
         }
+        self._prepare_default_netpartition()
+        self.init_fip_rate_log()
+        LOG.debug("NuagePlugin initialization done")
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
         attributes.NETWORKS, ['_extend_network_dict_provider_nuage'])
@@ -802,7 +803,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         if 'fixed_ips' in p_data and nuage_utils.check_vport_creation(
             p_data if p_data.get('device_owner') else original_port,
-            cfg.CONF.PLUGIN.device_owner_prefix):
+                cfg.CONF.PLUGIN.device_owner_prefix):
             changed = [ip for ip in p_data['fixed_ips']
                        if ip not in original_port['fixed_ips']]
             if changed:
@@ -2394,7 +2395,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @log_helpers.log_method_call
     def _validate_create_net_partition(self,
                                        net_part_name,
-                                       session=db.get_session()):
+                                       session):
         nuage_netpart = self.nuageclient.get_netpartition_data(
             net_part_name)
         netpart_db = nuagedb.get_net_partition_by_name(session, net_part_name)
@@ -2512,7 +2513,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                        msg=msg)
         else:
             default_netpart = self._validate_create_net_partition(
-                netpart_name)
+                netpart_name, db.get_session())
             self.default_np_id = default_netpart['id']
             return default_netpart
 
@@ -2764,7 +2765,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         if (not fields or 'nuage_egress_fip_rate_kbps' in fields
             or 'nuage_ingress_fip_rate_kbps' in fields) and fip.get(
-            'port_id'):
+                'port_id'):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
                 nuage_rate_limit = self.nuageclient.get_rate_limit(

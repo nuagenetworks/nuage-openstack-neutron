@@ -16,6 +16,7 @@ from neutron.api import extensions
 from neutron.api.v2 import base
 from neutron.common import constants as const
 from neutron.common import exceptions as nexception
+from neutron.i18n import _
 from neutron import manager
 from neutron.quota import resource_registry
 

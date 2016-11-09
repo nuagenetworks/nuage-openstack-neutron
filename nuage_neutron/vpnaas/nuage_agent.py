@@ -12,9 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
 from neutron.agent import l3_agent as entry
+from neutron.i18n import _
+
 from nuage_neutron.vpnaas.nuage_vpn_svc import NuageVPNService
+
 from oslo_config import cfg
 
 vpn_agent_opts = [

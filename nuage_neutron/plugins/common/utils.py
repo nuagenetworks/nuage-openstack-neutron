@@ -11,15 +11,17 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import contextlib
 import functools
 import sys
 
 from neutron.common import exceptions as n_exc
 from neutron.extensions import portbindings
+from neutron.i18n import _
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuagenetlib.restproxy import RESTProxyError
+from nuage_neutron.vsdclient.vsdclient import RESTProxyError
 
 from oslo_config import cfg
 from oslo_log import log as logging

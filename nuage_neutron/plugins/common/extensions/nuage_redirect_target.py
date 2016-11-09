@@ -19,6 +19,7 @@ from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
 from neutron.common import constants as const
 from neutron.common import exceptions as nexception
+from neutron.i18n import _
 from neutron import manager
 from neutron.quota import resource_registry
 from nuage_neutron.plugins.common import constants as nuage_constants

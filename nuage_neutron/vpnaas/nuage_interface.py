@@ -23,6 +23,8 @@ import time
 
 from neutron.agent.linux.interface import OVSInterfaceDriver
 from neutron.agent.linux import utils
+from neutron.i18n import _
+
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)

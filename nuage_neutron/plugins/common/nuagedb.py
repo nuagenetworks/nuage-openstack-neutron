@@ -11,6 +11,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 from sqlalchemy.orm import exc as sql_exc
 
 from neutron.common import constants as os_constants
