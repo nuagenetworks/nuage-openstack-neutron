@@ -22,6 +22,7 @@ from neutron.api import extensions as neutron_extensions
 from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.extensions import portbindings
+from neutron.i18n import _
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
 
@@ -44,16 +45,14 @@ LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCER + 'V2'
 LOG = log.getLogger(__name__)
 
 
-class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
+class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                            api.MechanismDriver):
     def initialize(self):
         LOG.debug('Initializing driver')
         neutron_extensions.append_api_extensions_path(extensions.__path__)
-        LOG.debug('Initializing complete')
-
-    def _nuageclient_init(self):
-        super(NuageMechanismDriver, self)._nuageclient_init()
+        self.init_vsd_client()
         self._wrap_nuageclient()
+        LOG.debug('Initializing complete')
 
     def _wrap_nuageclient(self):
         """Wraps nuagecient methods with try-except to ignore certain errors.

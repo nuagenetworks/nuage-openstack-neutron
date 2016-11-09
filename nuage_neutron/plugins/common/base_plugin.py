@@ -15,13 +15,12 @@
 import netaddr
 import re
 
-from oslo_config import cfg
 from oslo_log import helpers as log_helpers
-from oslo_utils import importutils
 
 from neutron.api.v2 import attributes
 from neutron.common import exceptions as n_exc
 from neutron.extensions import portsecurity as psec
+from neutron.i18n import _
 from nuage_neutron.plugins.common import callback_manager
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
@@ -29,35 +28,19 @@ from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import validate
+from nuage_neutron.vsdclient.vsdclient import VsdClient
 
 
-class BaseNuagePlugin(object):
+class RootNuagePlugin(object):
 
     def __init__(self):
-        super(BaseNuagePlugin, self).__init__()
+        super(RootNuagePlugin, self).__init__()
         config.nuage_register_cfg_opts()
-        self._nuageclient_init()
         self.nuage_callbacks = callback_manager.get_callback_manager()
+        self.nuageclient = None  # deferred initialization
 
-    def _nuageclient_init(self):
-        server = cfg.CONF.RESTPROXY.server
-        serverauth = cfg.CONF.RESTPROXY.serverauth
-        serverssl = cfg.CONF.RESTPROXY.serverssl
-        base_uri = cfg.CONF.RESTPROXY.base_uri
-        auth_resource = cfg.CONF.RESTPROXY.auth_resource
-        organization = cfg.CONF.RESTPROXY.organization
-        cms_id = cfg.CONF.RESTPROXY.cms_id
-        if not cms_id:
-            raise cfg.ConfigFileValueError(
-                _('Missing cms_id in configuration.'))
-        nuageclient = importutils.import_module('nuagenetlib.nuageclient')
-        self.nuageclient = nuageclient.NuageClient(cms_id=cms_id,
-                                                   server=server,
-                                                   base_uri=base_uri,
-                                                   serverssl=serverssl,
-                                                   serverauth=serverauth,
-                                                   auth_resource=auth_resource,
-                                                   organization=organization)
+    def init_vsd_client(self):
+        self.nuageclient = VsdClient()
 
     def _create_nuage_vport(self, port, vsd_subnet, description=None):
         params = {
@@ -133,3 +116,10 @@ class BaseNuagePlugin(object):
                 raise n_exc.BadRequest(resource=for_resource, msg=msg)
             found_resource = found_resource[0]
         return found_resource
+
+
+class BaseNuagePlugin(RootNuagePlugin):
+
+    def __init__(self):
+        super(BaseNuagePlugin, self).__init__()
+        self.init_vsd_client()

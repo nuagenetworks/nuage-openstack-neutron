@@ -12,6 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
+from neutron.i18n import _
+
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import utils as nuage_utils
