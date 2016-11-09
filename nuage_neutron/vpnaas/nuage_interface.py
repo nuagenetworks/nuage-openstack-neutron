@@ -21,8 +21,10 @@ import socket
 import struct
 import time
 
+from neutron._i18n import _
 from neutron.agent.linux.interface import OVSInterfaceDriver
 from neutron.agent.linux import utils
+
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)

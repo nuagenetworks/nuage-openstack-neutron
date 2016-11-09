@@ -15,6 +15,7 @@
 import contextlib
 import logging
 
+from neutron._i18n import _
 from neutron.common import exceptions
 from neutron.db import api as db_api
 from neutron.plugins.common import constants as const

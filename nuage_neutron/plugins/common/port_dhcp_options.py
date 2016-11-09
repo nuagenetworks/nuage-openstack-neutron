@@ -18,6 +18,7 @@ from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
 
 from oslo_log import log as logging
 
+from neutron._i18n import _
 from neutron.api.v2.attributes import is_attr_set
 from neutron.callbacks import resources
 from neutron.common import constants as os_constants
