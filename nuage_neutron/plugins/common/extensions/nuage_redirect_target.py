@@ -15,12 +15,12 @@
 import netaddr
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
 from neutron.common import constants as const
 from neutron.common import exceptions as nexception
 from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib import constants as lib_constants
 from nuage_neutron.plugins.common import constants as nuage_constants
 
 supported_protocols = [const.PROTO_NAME_TCP,
@@ -223,7 +223,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': True,
             'is_visible': True,
             'convert_to': convert_to_list_or_none,
-            'default': attr.ATTR_NOT_SPECIFIED
+            'default': lib_constants.ATTR_NOT_SPECIFIED
         }
     }
 }

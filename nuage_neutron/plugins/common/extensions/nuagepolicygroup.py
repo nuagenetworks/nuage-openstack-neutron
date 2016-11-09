@@ -19,6 +19,8 @@ from neutron.api.v2 import attributes
 from neutron.api.v2 import base
 from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib.api import converters as lib_converters
+from neutron_lib import constants as lib_constants
 from nuage_neutron.plugins.common import constants as nuage_constants
 
 LOG = logging.getLogger(__name__)
@@ -62,8 +64,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
-            'convert_to': attributes.convert_none_to_empty_list,
-            'default': attributes.ATTR_NOT_SPECIFIED,
+            'convert_to': lib_converters.convert_none_to_empty_list,
+            'default': lib_constants.ATTR_NOT_SPECIFIED,
             'validate': {'type:validate_port_policy_groups': None},
         }
     }

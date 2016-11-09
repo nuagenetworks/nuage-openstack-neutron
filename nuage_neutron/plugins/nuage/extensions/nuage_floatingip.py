@@ -16,6 +16,7 @@ from oslo_config import cfg
 
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
+from neutron_lib import constants as lib_constants
 
 
 def convert_default_to_default_value(data):
@@ -55,7 +56,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
-            'default': attr.ATTR_NOT_SPECIFIED,
+            'default': lib_constants.ATTR_NOT_SPECIFIED,
             'validate': {'type:fip_rate_valid': None},
             'convert_to': convert_default_to_default_value,
             'enforce_policy': True

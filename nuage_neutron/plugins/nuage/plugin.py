@@ -58,6 +58,9 @@ from neutron.extensions import portbindings
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron_lib.api import validators as lib_validators
+from neutron_lib import constants as lib_constants
+
 from nuage_neutron.plugins.common import addresspair
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
@@ -320,7 +323,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @log_helpers.log_method_call
     def _process_port_create_security_group(self, context, port, vport,
                                             sec_group, vsd_subnet):
-        if not attributes.is_attr_set(sec_group):
+        if not lib_validators.is_attr_set(sec_group):
             port[ext_sg.SECURITYGROUPS] = []
             return
         if len(sec_group) > 6:
@@ -426,7 +429,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 port['device_owner'].startswith('network:')):
             return False
 
-        if attributes.is_attr_set(port.get(psec.PORTSECURITY)):
+        if lib_validators.is_attr_set(port.get(psec.PORTSECURITY)):
             port_security_enabled = port[psec.PORTSECURITY]
         else:
             port_security_enabled = self._get_network_security_binding(
@@ -1097,9 +1100,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         physical_network = attrs.get(pnet.PHYSICAL_NETWORK)
         segmentation_id = attrs.get(pnet.SEGMENTATION_ID)
 
-        network_type_set = attributes.is_attr_set(network_type)
-        physical_network_set = attributes.is_attr_set(physical_network)
-        segmentation_id_set = attributes.is_attr_set(segmentation_id)
+        network_type_set = lib_validators.is_attr_set(network_type)
+        physical_network_set = lib_validators.is_attr_set(physical_network)
+        segmentation_id_set = lib_validators.is_attr_set(segmentation_id)
 
         if not (network_type_set or physical_network_set or
                 segmentation_id_set):
@@ -1171,7 +1174,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         req_data = network['network']
         is_external_set = req_data.get(external_net.EXTERNAL)
-        if not attributes.is_attr_set(is_external_set):
+        if not lib_validators.is_attr_set(is_external_set):
             return (None, None)
         neutron_net = self.get_network(context, id)
         if neutron_net.get(external_net.EXTERNAL) == is_external_set:
@@ -1312,14 +1315,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                 'create vsd managed subnets')
                         raise nuage_exc.NuageBadRequest(msg=msg)
 
-        if (attributes.is_attr_set(subnet['gateway_ip'])
+        if (lib_validators.is_attr_set(subnet['gateway_ip'])
                 and netaddr.IPAddress(subnet['gateway_ip'])
                 not in netaddr.IPNetwork(subnet['cidr'])):
             msg = "Gateway IP outside of the subnet CIDR "
             raise nuage_exc.NuageBadRequest(msg=msg)
 
         if (not network_external and
-                subnet['underlay'] != attributes.ATTR_NOT_SPECIFIED):
+                subnet['underlay'] != lib_constants.ATTR_NOT_SPECIFIED):
             msg = _("underlay attribute can not be set for internal subnets")
             raise nuage_exc.NuageBadRequest(msg=msg)
 
@@ -1404,7 +1407,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             network_id=subnet['network_id'],
             tenant_id=subnet['tenant_id'],
             fixed_ips=fixed_ip,
-            mac_address=attributes.ATTR_NOT_SPECIFIED,
+            mac_address=lib_constants.ATTR_NOT_SPECIFIED,
             device_owner=constants.DEVICE_OWNER_DHCP_NUAGE))
         return super(NuagePlugin, self).create_port(context, port_dict)
 
@@ -1532,12 +1535,12 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         # The _is_attr_set() is incomplete to use here, since the method
         # ignores the case if the user sets the attribute value to None.
-        if ((gw_ip_from_cli is not attributes.ATTR_NOT_SPECIFIED) and
+        if ((gw_ip_from_cli is not lib_constants.ATTR_NOT_SPECIFIED) and
                 (gw_ip_from_cli != os_subnet['gateway_ip'])):
                 msg = ("Provided gateway-ip does not match VSD "
                        "configuration. ")
                 raise n_exc.BadRequest(resource='subnet', msg=msg)
-        if attributes.is_attr_set(os_subnet['dns_nameservers']):
+        if lib_validators.is_attr_set(os_subnet['dns_nameservers']):
             LOG.warning(_("DNS Nameservers parameter ignored for "
                           "VSD-Managed managed subnet "))
         # creating a dhcp_port with this gatewayIP
@@ -1584,7 +1587,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 LOG.warning(_("Gateway IP parameter ignored for "
                               "VSD-Managed unmanaged subnet "))
                 subn['gateway_ip'] = None
-            if attributes.is_attr_set(subn['dns_nameservers']):
+            if lib_validators.is_attr_set(subn['dns_nameservers']):
                 subn['dns_nameservers'] = None
                 LOG.warning(_("DNS Nameservers parameter ignored "
                               "for VSD-Managed unmanaged subnet "))
@@ -2597,8 +2600,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             return
         # Add QOS to port for rate limiting
         fip_rate = neutron_fip.get('nuage_fip_rate',
-                                   attributes.ATTR_NOT_SPECIFIED)
-        fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
+                                   lib_constants.ATTR_NOT_SPECIFIED)
+        fip_rate_configured = fip_rate is not lib_constants.ATTR_NOT_SPECIFIED
         if fip_rate_configured and not nuage_vport:
             msg = _('Rate limiting requires the floating ip to be '
                     'associated to a port.')
@@ -2646,7 +2649,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 context, floatingip,
                 initial_status=os_constants.FLOATINGIP_STATUS_DOWN)
             fip_rate = fip.get('nuage_fip_rate')
-            fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
+            fip_rate_configured = (fip_rate is not
+                                   lib_constants.ATTR_NOT_SPECIFIED)
             if fip_rate_configured:
                 if not fip.get('port_id'):
                     msg = _('Rate limiting requires the floating ip to be '
@@ -2714,8 +2718,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         orig_fip = self._get_floatingip(context, id)
         port_id = orig_fip['fixed_port_id']
         router_ids = []
-        fip_rate = fip.get('nuage_fip_rate', attributes.ATTR_NOT_SPECIFIED)
-        fip_rate_configured = fip_rate is not attributes.ATTR_NOT_SPECIFIED
+        fip_rate = fip.get('nuage_fip_rate', lib_constants.ATTR_NOT_SPECIFIED)
+        fip_rate_configured = fip_rate is not lib_constants.ATTR_NOT_SPECIFIED
         neutron_fip = self._make_floatingip_dict(orig_fip)
 
         with context.session.begin(subtransactions=True):

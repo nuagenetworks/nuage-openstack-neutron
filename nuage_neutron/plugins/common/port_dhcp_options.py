@@ -18,10 +18,10 @@ from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
 
 from oslo_log import log as logging
 
-from neutron.api.v2.attributes import is_attr_set
 from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.common import exceptions as n_exc
+from neutron_lib.api import validators as lib_validators
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
@@ -173,7 +173,8 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
     def _validate_port_dhcp_opts(self, resource, event, trigger, **kwargs):
         request_port = kwargs.get('request_port')
         if not request_port or \
-                not is_attr_set(request_port.get('extra_dhcp_opts')):
+                not lib_validators.is_attr_set(
+                    request_port.get('extra_dhcp_opts')):
             return
         dhcp_options = copy.deepcopy(request_port['extra_dhcp_opts'])
         for dhcp_option in dhcp_options:
@@ -187,7 +188,8 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
         vport = kwargs.get('vport')
         context = kwargs.get('context')
         if not request_port or \
-                not is_attr_set(request_port.get('extra_dhcp_opts')):
+                not lib_validators.is_attr_set(
+                    request_port.get('extra_dhcp_opts')):
             return
         try:
             nuagedb.get_subnet_l2dom_by_port_id(context.session,

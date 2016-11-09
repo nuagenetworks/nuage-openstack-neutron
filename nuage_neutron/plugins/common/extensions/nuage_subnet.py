@@ -12,8 +12,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from neutron.api import extensions
-from neutron.api.v2 import attributes
-
+from neutron_lib.api import converters
+from neutron_lib import constants as lib_constants
 
 EXTENDED_ATTRIBUTES_2_0 = {
     'subnets': {
@@ -35,8 +35,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_post': True,
             'allow_put': False,
             'is_visible': True,
-            'default': attributes.ATTR_NOT_SPECIFIED,
-            'convert_to': attributes.convert_to_boolean_if_not_none,
+            'default': lib_constants.ATTR_NOT_SPECIFIED,
+            'convert_to': converters.convert_to_boolean_if_not_none,
         },
         'vsd_managed': {
             'allow_post': False,

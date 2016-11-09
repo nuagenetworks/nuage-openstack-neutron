@@ -17,12 +17,13 @@ import re
 from oslo_log import helpers as log_helpers
 
 from neutron.api.v2 import attributes
-from neutron.api.v2.attributes import is_attr_set
 from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.common import exceptions as n_exc
 from neutron.ipam import utils as ipam_utils
 from neutron import manager
+from neutron_lib.api.validators import is_attr_set
+from neutron_lib import constants as lib_constants
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
@@ -200,7 +201,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 {'port': {
                     'tenant_id': redirect_target['tenant_id'],
                     'network_id': network_id,
-                    'mac_address': attributes.ATTR_NOT_SPECIFIED,
+                    'mac_address': lib_constants.ATTR_NOT_SPECIFIED,
                     'fixed_ips': [fixed_ips],
                     'device_id': '',
                     'device_owner': constants.DEVICE_OWNER_VIP_NUAGE,
@@ -403,7 +404,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _validate_port_redirect_target(self, context, port, rtargets):
-        if not attributes.is_attr_set(rtargets):
+        if not is_attr_set(rtargets):
             return
         if len(rtargets) > 1:
             msg = (_("Multiple redirect targets on a port not supported "))
@@ -450,7 +451,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
     @log_helpers.log_method_call
     def process_port_redirect_target(self, context, port, rtargets,
                                      n_rtargets_ids):
-        if not attributes.is_attr_set(rtargets):
+        if not is_attr_set(rtargets):
             port[ext_rtarget.REDIRECTTARGETS] = []
             return
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(

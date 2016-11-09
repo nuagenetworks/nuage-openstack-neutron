@@ -16,9 +16,9 @@ from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.api.v2 import attributes as attr
 from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
+from neutron_lib.api import validators as lib_validators
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import nuagedb
@@ -168,7 +168,8 @@ class NuageAddressPair(BaseNuagePlugin):
                 not (port_data[addr_pair.ADDRESS_PAIRS] or
                      port[addr_pair.ADDRESS_PAIRS])))
         if ((addr_pair.ADDRESS_PAIRS not in port_data) or (
-                not attr.is_attr_set(port_data[addr_pair.ADDRESS_PAIRS])) or
+                not lib_validators.is_attr_set(
+                    port_data[addr_pair.ADDRESS_PAIRS])) or
                 empty_allowed_address_pairs):
             # No change is required if port_data doesn't have addr pairs
             LOG.info('No allowed address pairs update required for port %s',
