@@ -266,7 +266,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             'port_range_max': port_range_max,
             'action': redirect_target_rule['action'],
             'redirect_target_id': redirect_target_rule['redirectVPortTagID'],
-            'remote_ip_prefix': remote_ip_prefix,
+            'remote_ip_prefix': str(remote_ip_prefix),
             'remote_group_id': remote_group_id,
             'origin_group_id': redirect_target_rule['origin_group_id']
         }
