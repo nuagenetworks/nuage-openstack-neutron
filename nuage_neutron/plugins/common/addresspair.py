@@ -19,6 +19,7 @@ from oslo_utils import excutils
 from neutron.api.v2 import attributes as attr
 from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
+from neutron import manager
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import nuagedb
@@ -35,8 +36,18 @@ class NuageAddressPair(BaseNuagePlugin):
         self.nuage_callbacks.subscribe(self.post_port_create,
                                        resources.PORT, constants.AFTER_CREATE)
 
+    @property
+    def core_plugin(self):
+        if not getattr(self, '_core_plugin', None):
+            self._core_plugin = manager.NeutronManager.get_plugin()
+        return self._core_plugin
+
     def _create_vips(self, nuage_subnet_id, port, nuage_vport):
         nuage_vip_dict = dict()
+        enable_spoofing = False
+        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+            nuage_subnet_id,
+            required=True)
         for allowed_addr_pair in port[addr_pair.ADDRESS_PAIRS]:
             vip = allowed_addr_pair['ip_address']
             mac = allowed_addr_pair['mac_address']
@@ -45,6 +56,7 @@ class NuageAddressPair(BaseNuagePlugin):
                 'vip': vip,
                 'mac': mac,
                 'subnet_id': nuage_subnet_id,
+                'vsd_subnet': vsd_subnet,
                 'vport_id': nuage_vport['ID'],
                 'port_ip': port['fixed_ips'][0]['ip_address'],
                 'port_mac': port['mac_address'],
@@ -52,7 +64,7 @@ class NuageAddressPair(BaseNuagePlugin):
             }
 
             try:
-                self.nuageclient.create_vip(params)
+                enable_spoofing |= self.nuageclient.create_vip(params)
                 nuage_vip_dict[params['vip']] = params['mac']
 
             except Exception as e:
@@ -64,6 +76,9 @@ class NuageAddressPair(BaseNuagePlugin):
                     self.nuageclient.delete_vips(nuage_vport['ID'],
                                                  nuage_vip_dict,
                                                  nuage_vip_dict.keys())
+        self.nuageclient.update_mac_spoofing_on_vport(
+            nuage_vport['ID'],
+            constants.ENABLED if enable_spoofing else constants.INHERITED)
 
     def _update_vips(self, nuage_subnet_id, port, nuage_vport,
                      deleted_addr_pairs):
@@ -223,6 +238,24 @@ class NuageAddressPair(BaseNuagePlugin):
                 deleted_addr_pairs.append(addrpair)
 
         return deleted_addr_pairs
+
+    def process_address_pairs_of_subnet(self, context, subnet_mapping,
+                                        subnet_type):
+        subnet_id = subnet_mapping.subnet_id
+        vsd_subnet_id = subnet_mapping.nuage_subnet_id
+
+        filters = {'fixed_ips': {'subnet_id': [subnet_id]}}
+        ports = self.core_plugin.get_ports(context,
+                                           filters=filters)
+        vports = self.nuageclient.get_vports(subnet_type,
+                                             vsd_subnet_id)
+        vports_by_port_id = dict([(vport['externalID'].split('@')[0], vport)
+                                  for vport in vports])
+
+        for port in ports:
+            vport = vports_by_port_id.get(port['id'])
+            if vport:
+                self.create_allowed_address_pairs(context, port, port, vport)
 
     def post_port_create(self, resource, event, plugin, **kwargs):
         port = kwargs.get('port')
