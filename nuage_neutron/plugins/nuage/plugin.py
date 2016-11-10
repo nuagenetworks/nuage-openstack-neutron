@@ -1833,7 +1833,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         else:
             subnet_id = rtr_if_info['subnet_id']
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
-        self.validate_no_allowed_address_pairs(context, subnet_id)
         l2domain_id = subnet_l2dom['nuage_subnet_id']
         subnet = self.get_subnet(context, subnet_id)
         vsd_zone = self.nuageclient.get_zone_by_routerid(router_id,
@@ -1864,17 +1863,10 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
             self.nuageclient.move_l2domain_to_l3subnet(l2domain_id,
                                                        vsd_subnet['ID'])
+            self.process_address_pairs_of_subnet(context, subnet_l2dom,
+                                                 constants.L3SUBNET)
 
         return rtr_if_info
-
-    def validate_no_allowed_address_pairs(self, context, subnet_id):
-        count = nuagedb.count_allowedaddresspairs_for_subnet(context.session,
-                                                             subnet_id)
-        if count != 0:
-            raise nuage_exc.NuageBadRequest(
-                resource='router',
-                msg="Subnet %s has allowed address pairs related to it."
-                    % subnet_id)
 
     def _nuage_validate_add_rtr_itf(self, session, router_id, subnet,
                                     subnet_l2dom, nuage_zone):
@@ -1944,7 +1936,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                          self).remove_router_interface(context,
                                                        router_id,
                                                        interface_info)
-        self.validate_no_allowed_address_pairs(context, subnet_id)
         nuage_subn_id = subnet_l2dom['nuage_subnet_id']
         if self._nuage_vips_on_subnet(context, subnet):
             msg = (_("Subnet %s has one or more active nuage VIPs "
@@ -1987,6 +1978,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 vsd_l2domain['nuage_l2domain_id'],
                 subnet_l2dom,
                 pnet_binding)
+            self.process_address_pairs_of_subnet(context, subnet_l2dom,
+                                                 constants.L2DOMAIN)
             LOG.debug("Deleted nuage domain subnet %s", nuage_subn_id)
             return result
 
