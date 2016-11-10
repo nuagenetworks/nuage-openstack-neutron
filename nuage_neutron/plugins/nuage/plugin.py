@@ -313,76 +313,35 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                             nuage_vport_id, policygroup_ids)
 
     @log.log
-    def _process_port_create_security_group(self, context, port, vport,
-                                            sec_group, vsd_subnet):
-        if not attributes.is_attr_set(sec_group):
-            port[ext_sg.SECURITYGROUPS] = []
-            return
-        if len(sec_group) > 6:
+    def _process_port_create_security_group(self, context, port, vport, sg_ids,
+                                            vsd_subnet):
+        if len(sg_ids) > 6:
             msg = (_("Exceeds maximum num of security groups on a port "
                      "supported on nuage VSP"))
             raise nuage_exc.NuageBadRequest(msg=msg)
-        port_id = port['id']
-        with context.session.begin(subtransactions=True):
-            for sg_id in sec_group:
-                super(NuagePlugin,
-                      self)._create_port_security_group_binding(context,
-                                                                port_id,
-                                                                sg_id)
-        if not port.get('fixed_ips'):
-            return self._make_port_dict(port)
-        try:
-            policygroup_ids = []
-            for sg_id in sec_group:
-                sg = self._get_security_group(context, sg_id)
-                sg_rules = self.get_security_group_rules(
-                    context,
-                    {'security_group_id': [sg_id]})
-                sg_params = {
-                    'vsd_subnet': vsd_subnet,
-                    'sg': sg,
-                    'sg_rules': sg_rules
-                }
-                nuage_policygroup_id = (
-                    self.nuageclient.process_port_create_security_group(
-                        sg_params))
-                policygroup_ids.append(nuage_policygroup_id)
-
-            if policygroup_ids:
-                self.nuageclient.update_vport_policygroups(vport['ID'],
-                                                           policygroup_ids)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                super(NuagePlugin,
-                      self)._delete_port_security_group_bindings(context,
-                                                                 port_id)
-        # Convert to list as a set might be passed here and
-        # this has to be serialized.
-        port[ext_sg.SECURITYGROUPS] = (list(sec_group) if sec_group else [])
-
-    @log.log
-    def _delete_port_security_group_bindings(self, context, port_id):
         super(NuagePlugin,
-              self)._delete_port_security_group_bindings(context, port_id)
-        port = self.get_port(context, port_id)
-        if nuage_utils.check_vport_creation(
-                port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
-            subnet_id = port['fixed_ips'][0]['subnet_id']
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
-                                                            subnet_id)
-            if subnet_mapping:
-                l2dom_id = None
-                l3dom_id = None
-                if subnet_mapping['nuage_l2dom_tmplt_id']:
-                    l2dom_id = subnet_mapping['nuage_subnet_id']
-                else:
-                    l3dom_id = subnet_mapping['nuage_subnet_id']
-                params = {
-                    'neutron_port_id': port_id,
-                    'l2dom_id': l2dom_id,
-                    'l3dom_id': l3dom_id
-                }
-                self.nuageclient.delete_port_security_group_bindings(params)
+              self)._process_port_create_security_group(context, port, sg_ids)
+
+        if not port.get('fixed_ips'):
+            return
+        policygroup_ids = []
+        for sg_id in sg_ids:
+            sg = self._get_security_group(context, sg_id)
+            sg_rules = self.get_security_group_rules(
+                context,
+                {'security_group_id': [sg_id]})
+            sg_params = {
+                'vsd_subnet': vsd_subnet,
+                'sg': sg,
+                'sg_rules': sg_rules
+            }
+            vsd_policygroup_id = (
+                self.nuageclient.process_port_create_security_group(
+                    sg_params))
+            policygroup_ids.append(vsd_policygroup_id)
+
+        self.nuageclient.update_vport_policygroups(vport['ID'],
+                                                   policygroup_ids)
 
     def get_port(self, context, id, fields=None):
         port = super(NuagePlugin, self).get_port(context, id, fields=None)
@@ -821,11 +780,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             if (subnet_mapping and subnet_mapping['nuage_managed_subnet'] is
                 False and delete_security_groups or (has_security_groups and
                                                      sgids_diff)):
-                    # delete the port binding and process new sg binding
-                    self._delete_port_security_group_bindings(context, id)
+                    super(NuagePlugin,
+                          self)._delete_port_security_group_bindings(context,
+                                                                     id)
                     sgids = self._get_security_groups_on_port(context, port)
                     self._process_port_create_security_group(
                         context, updated_port, vport, sgids, vsd_subnet)
+                    deleted_sg_ids = orig_sg - new_sg
+                    self.nuageclient.check_unused_policygroups(deleted_sg_ids)
             if not lbaas_device_owner_added and not lbaas_device_owner_removed:
                 self.nuage_callbacks.notify(
                     resources.PORT, constants.AFTER_UPDATE, self,
@@ -1050,7 +1012,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 # binding
                 if (ext_sg.SECURITYGROUPS in port and
                         subnet_mapping['nuage_managed_subnet'] is False):
-                    self._delete_port_security_group_bindings(context, id)
+                    super(NuagePlugin,
+                          self)._delete_port_security_group_bindings(context,
+                                                                     id)
 
                 netpart_id = subnet_mapping['net_partition_id']
                 net_partition = nuagedb.get_net_partition_by_id(
@@ -1059,6 +1023,10 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
                 self._delete_nuage_vport(context, port, net_partition['name'],
                                          subnet_mapping, port_delete=True)
+                securitygroups = port.get(ext_sg.SECURITYGROUPS, [])
+                securitygroup_ids = [sg.security_group_id
+                                     for sg in securitygroups]
+                self.nuageclient.check_unused_policygroups(securitygroup_ids)
             else:
                 # Check and delete gateway host vport associated with the port
                 self.delete_gw_host_vport(context, port, subnet_mapping)
