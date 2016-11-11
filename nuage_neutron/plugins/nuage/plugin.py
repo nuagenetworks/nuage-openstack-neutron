@@ -36,8 +36,6 @@ from neutron.api.v2 import attributes
 from neutron.callbacks import events
 from neutron.callbacks import exceptions as cb_exc
 from neutron.callbacks import registry
-from neutron.common import constants as os_constants
-from neutron.common import exceptions as n_exc
 from neutron.common import utils
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db
@@ -60,6 +58,7 @@ from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants
+from neutron_lib import exceptions as n_exc
 
 from nuage_neutron.plugins.common import addresspair
 from nuage_neutron.plugins.common import constants
@@ -231,7 +230,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         # instead of device_id for lbaas dummy VM
         # as get_ports by device_id would return multiple vip_ports,
         # as workaround set no_of_ports = 1
-        if (port.get('device_owner') == os_constants.DEVICE_OWNER_LOADBALANCER
+        if (port.get('device_owner') == lib_constants.DEVICE_OWNER_LOADBALANCER
                 + 'V2'):
             vm_id = port['id']
             no_of_ports = 1
@@ -266,7 +265,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def _get_router_by_subnet(self, context, subnet_id):
         filters = {
             'fixed_ips': {'subnet_id': [subnet_id]},
-            'device_owner': [os_constants.DEVICE_OWNER_ROUTER_INTF]
+            'device_owner': [lib_constants.DEVICE_OWNER_ROUTER_INTF]
         }
         router_port = self.get_ports(context, filters=filters)
         if not router_port:
@@ -618,7 +617,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             current_owner.startswith(constants.NOVA_PORT_OWNER_PREF))
         lbaas_device_owner_removed = (
             'device_owner' in p and (not p.get('device_owner')) and
-            current_owner == os_constants.DEVICE_OWNER_LOADBALANCER + 'V2')
+            current_owner == lib_constants.DEVICE_OWNER_LOADBALANCER + 'V2')
         # upstream neutron lbaas assigns a constant device_id to the lbaas
         # VIP port even when the VIP belongs to different loadbalancer
         # as get_ports by device_id would return multiple vip_ports,
@@ -712,10 +711,10 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             current_owner = original_port['device_owner']
             lbaas_device_owner_added = (
                 p_data.get('device_owner') ==
-                os_constants.DEVICE_OWNER_LOADBALANCER + 'V2')
+                lib_constants.DEVICE_OWNER_LOADBALANCER + 'V2')
             lbaas_device_owner_removed = (
                 'device_owner' in p_data and (not p_data.get('device_owner'))
-                and current_owner == os_constants.DEVICE_OWNER_LOADBALANCER +
+                and current_owner == lib_constants.DEVICE_OWNER_LOADBALANCER +
                 'V2')
 
             self._validate_update_port(
@@ -876,11 +875,11 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         # upstream neutron_lbaas assigns a constant device_id to all the
         # lbaas_ports (which is a bug), hence we use port ID as vm_id
         # instead of device_id for lbaas dummy VM
-        if os_constants.DEVICE_OWNER_LOADBALANCER + 'V2' in port.get(
+        if lib_constants.DEVICE_OWNER_LOADBALANCER + 'V2' in port.get(
                 'device_owner'):
             vm_id = port['id']
         if (constants.NOVA_PORT_OWNER_PREF in port['device_owner']
-                or os_constants.DEVICE_OWNER_LOADBALANCER + 'V2' in port.get(
+                or lib_constants.DEVICE_OWNER_LOADBALANCER + 'V2' in port.get(
                 'device_owner')):
             LOG.debug("Deleting VM port %s", port['id'])
             # This was a VM Port
@@ -1896,7 +1895,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             try:
                 filters = {'device_id': [router_id],
                            'device_owner':
-                           [os_constants.DEVICE_OWNER_ROUTER_INTF],
+                           [lib_constants.DEVICE_OWNER_ROUTER_INTF],
                            'network_id': [subnet['network_id']]}
                 ports = self.get_ports(context, filters)
 
@@ -2208,7 +2207,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             LOG.debug("Enterprise to router mapping found for router %s", id)
             filters = {
                 'device_id': [id],
-                'device_owner': [os_constants.DEVICE_OWNER_ROUTER_INTF]
+                'device_owner': [lib_constants.DEVICE_OWNER_ROUTER_INTF]
             }
             ports = self.get_ports(context, filters)
             if ports:
@@ -2606,7 +2605,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         with context.session.begin(subtransactions=True):
             neutron_fip = super(NuagePlugin, self).create_floatingip(
                 context, floatingip,
-                initial_status=os_constants.FLOATINGIP_STATUS_DOWN)
+                initial_status=lib_constants.FLOATINGIP_STATUS_DOWN)
             fip_rate = fip.get('nuage_fip_rate')
             fip_rate_configured = (fip_rate is not
                                    lib_constants.ATTR_NOT_SPECIFIED)
@@ -2626,8 +2625,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                fip['port_id'])
                 self.update_floatingip_status(
                     context, neutron_fip['id'],
-                    os_constants.FLOATINGIP_STATUS_ACTIVE)
-                neutron_fip['status'] = os_constants.FLOATINGIP_STATUS_ACTIVE
+                    lib_constants.FLOATINGIP_STATUS_ACTIVE)
+                neutron_fip['status'] = lib_constants.FLOATINGIP_STATUS_ACTIVE
             except (nuage_exc.OperationNotSupported, n_exc.BadRequest):
                 with excutils.save_and_reraise_exception():
                     super(NuagePlugin, self).delete_floatingip(
@@ -2646,7 +2645,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         # we can hav only 1 fip associated with a vPort at a time.fips[0]
         self.update_floatingip_status(
-            context, fips[0]['id'], os_constants.FLOATINGIP_STATUS_DOWN)
+            context, fips[0]['id'], lib_constants.FLOATINGIP_STATUS_DOWN)
 
         # Disassociate only if nuage_port has a FIP associated with it.
         # Calling disassociate on a port with no FIP causes no issue in Neutron
@@ -2701,9 +2700,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                    last_known_router_id)
                     self.update_floatingip_status(
                         context, neutron_fip['id'],
-                        os_constants.FLOATINGIP_STATUS_ACTIVE)
+                        lib_constants.FLOATINGIP_STATUS_ACTIVE)
                     neutron_fip['status'] = (
-                        os_constants.FLOATINGIP_STATUS_ACTIVE)
+                        lib_constants.FLOATINGIP_STATUS_ACTIVE)
                 except nuage_exc.OperationNotSupported:
                     with excutils.save_and_reraise_exception():
                         router_ids = super(
@@ -2742,8 +2741,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
                 self.update_floatingip_status(
                     context, neutron_fip['id'],
-                    os_constants.FLOATINGIP_STATUS_DOWN)
-                neutron_fip['status'] = os_constants.FLOATINGIP_STATUS_DOWN
+                    lib_constants.FLOATINGIP_STATUS_DOWN)
+                neutron_fip['status'] = lib_constants.FLOATINGIP_STATUS_DOWN
 
         # purely rate limit update. Use existing port data.
         if 'port_id' not in fip and fip_rate_configured:

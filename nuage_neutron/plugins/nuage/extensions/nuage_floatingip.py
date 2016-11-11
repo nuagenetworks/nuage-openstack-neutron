@@ -15,7 +15,7 @@
 from oslo_config import cfg
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes as attr
+from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants
 
 
@@ -47,7 +47,7 @@ def fip_rate_limit_validation(data, valid_values=None):
     if data < -1:
         return send_fip_rate_limit_info()
 
-attr.validators['type:fip_rate_valid'] = fip_rate_limit_validation
+lib_validators.add_validator('type:fip_rate_valid', fip_rate_limit_validation)
 
 
 EXTENDED_ATTRIBUTES_2_0 = {

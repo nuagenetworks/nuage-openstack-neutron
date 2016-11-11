@@ -19,9 +19,10 @@ from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_utils import importutils
 
-from neutron.api.v2 import attributes
-from neutron.common import exceptions as n_exc
 from neutron.extensions import portsecurity as psec
+from neutron_lib import constants as lib_constants
+from neutron_lib import exceptions as n_exc
+
 from nuage_neutron.plugins.common import callback_manager
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
@@ -106,7 +107,7 @@ class BaseNuagePlugin(object):
     @log_helpers.log_method_call
     def _resource_finder(self, context, for_resource, resource_type,
                          resource):
-        match = re.match(attributes.UUID_PATTERN, resource)
+        match = re.match(lib_constants.UUID_PATTERN, resource)
         if match:
             obj_lister = getattr(self, "get_%s" % resource_type)
             found_resource = obj_lister(context, resource)

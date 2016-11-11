@@ -21,12 +21,12 @@ from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
 from neutron.callbacks import resources
-from neutron.common import constants as os_constants
 from neutron.extensions import portbindings
 from neutron.ipam.drivers.neutrondb_ipam import driver
 from neutron.ipam import requests as ipam_req
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
+from neutron_lib import constants as os_constants
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants

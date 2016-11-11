@@ -15,9 +15,9 @@
 from oslo_utils import excutils
 
 from neutron.callbacks import resources
-from neutron.common import exceptions as n_exc
 from neutron import manager
 from neutron.plugins.common import constants as plugin_constants
+from neutron_lib import exceptions as n_exc
 
 from networking_bgpvpn.neutron.db import bgpvpn_db
 from networking_bgpvpn.neutron.extensions import bgpvpn as bgpvpn_ext

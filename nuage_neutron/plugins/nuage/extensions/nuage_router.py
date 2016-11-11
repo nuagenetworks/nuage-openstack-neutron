@@ -11,9 +11,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 from neutron.api import extensions
-from neutron.api.v2 import attributes as attr
-from neutron.common import exceptions
+from neutron_lib.api import validators
+from neutron_lib import exceptions
 
 
 class RtrItfAddIncompleteRouterOnVsd(exceptions.BadRequest):
@@ -76,7 +77,7 @@ def convert_to_uppercase(data):
         return str(data).upper()
 
 
-attr.validators['type:ecmp_count'] = ecmp_count_validation
+validators.add_validator('type:ecmp_count', ecmp_count_validation)
 
 EXTENDED_ATTRIBUTES_2_0 = {
     'routers': {

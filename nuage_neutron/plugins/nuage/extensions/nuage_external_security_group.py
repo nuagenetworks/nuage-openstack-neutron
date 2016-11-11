@@ -14,10 +14,10 @@
 
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron.common import constants as const
-from neutron.common import exceptions as nexception
 from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib import constants as const
+from neutron_lib import exceptions as nexception
 
 
 supported_protocols = [const.PROTO_NAME_TCP,

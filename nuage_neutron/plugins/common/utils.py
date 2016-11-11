@@ -16,7 +16,8 @@ import contextlib
 import functools
 import sys
 
-from neutron.common import exceptions as n_exc
+from neutron_lib import exceptions as n_exc
+
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuagenetlib.restproxy import RESTProxyError

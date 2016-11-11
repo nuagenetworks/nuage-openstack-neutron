@@ -19,9 +19,10 @@ from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
 from oslo_log import log as logging
 
 from neutron.callbacks import resources
-from neutron.common import constants as os_constants
-from neutron.common import exceptions as n_exc
 from neutron_lib.api import validators as lib_validators
+from neutron_lib import constants as os_constants
+from neutron_lib import exceptions as n_exc
+
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc

@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.common import constants
+from neutron_lib import constants
 
 
 DEVICE_OWNER_VIP_NUAGE = 'nuage:vip'

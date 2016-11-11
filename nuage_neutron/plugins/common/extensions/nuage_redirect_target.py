@@ -16,15 +16,16 @@ import netaddr
 
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron.common import constants as const
-from neutron.common import exceptions as nexception
 from neutron import manager
 from neutron.quota import resource_registry
 from neutron_lib import constants as lib_constants
+from neutron_lib import exceptions as nexception
+
 from nuage_neutron.plugins.common import constants as nuage_constants
 
-supported_protocols = [const.PROTO_NAME_TCP,
-                       const.PROTO_NAME_UDP, const.PROTO_NAME_ICMP]
+supported_protocols = [lib_constants.PROTO_NAME_TCP,
+                       lib_constants.PROTO_NAME_UDP,
+                       lib_constants.PROTO_NAME_ICMP]
 PROTO_NAME_TO_NUM = {
     'tcp': 6,
     'udp': 17,

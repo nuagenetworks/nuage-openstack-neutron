@@ -14,7 +14,7 @@
 
 ''' Nuage specific exceptions '''
 
-from neutron.common import exceptions as n_exc
+from neutron_lib import exceptions as n_exc
 
 
 class OperationNotSupported(n_exc.InvalidConfigurationOption):

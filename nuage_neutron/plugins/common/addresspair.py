@@ -19,8 +19,8 @@ from oslo_utils import excutils
 
 from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron_lib.api import validators as lib_validators
 from neutron import manager
+from neutron_lib.api import validators as lib_validators
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import nuagedb

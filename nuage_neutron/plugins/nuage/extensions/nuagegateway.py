@@ -16,9 +16,9 @@
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
-from neutron.common import exceptions as nexception
 from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib import exceptions as nexception
 
 
 class GatewayInvalidVlanValue(nexception.InvalidInput):

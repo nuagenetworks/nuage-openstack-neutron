@@ -16,7 +16,7 @@ from neutron.manager import NeutronManager
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from neutron.common import exceptions as n_exc
+from neutron_lib import exceptions as n_exc
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc

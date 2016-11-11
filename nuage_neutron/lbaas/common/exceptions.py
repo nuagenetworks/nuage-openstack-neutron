@@ -13,8 +13,8 @@
 #    under the License.
 #
 
-from neutron.common import exceptions
 from neutron.i18n import _LE
+from neutron_lib import exceptions
 
 
 class NuageDriverException(exceptions.NeutronException):

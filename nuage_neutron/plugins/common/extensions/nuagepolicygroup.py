@@ -15,11 +15,11 @@
 from oslo_log import log as logging
 
 from neutron.api import extensions
-from neutron.api.v2 import attributes
 from neutron.api.v2 import base
 from neutron import manager
 from neutron.quota import resource_registry
 from neutron_lib.api import converters as lib_converters
+from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants
 from nuage_neutron.plugins.common import constants as nuage_constants
 
@@ -32,8 +32,8 @@ def validate_port_policy_groups(nuage_policy_groups, valid_values=None):
         LOG.debug(msg)
         return msg
 
-attributes.validators['type:validate_port_policy_groups'] = (
-    validate_port_policy_groups)
+lib_validators.add_validator('type:validate_port_policy_groups',
+                             validate_port_policy_groups)
 
 NUAGE_POLICY_GROUPS = 'nuage_policy_groups'
 RESOURCE_ATTRIBUTE_MAP = {

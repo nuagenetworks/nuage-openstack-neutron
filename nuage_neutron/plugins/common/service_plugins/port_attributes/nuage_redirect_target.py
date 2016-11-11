@@ -16,14 +16,12 @@ import re
 
 from oslo_log import helpers as log_helpers
 
-from neutron.api.v2 import attributes
 from neutron.callbacks import resources
-from neutron.common import constants as os_constants
-from neutron.common import exceptions as n_exc
 from neutron.ipam import utils as ipam_utils
 from neutron import manager
 from neutron_lib.api.validators import is_attr_set
 from neutron_lib import constants as lib_constants
+from neutron_lib import exceptions as n_exc
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
@@ -314,8 +312,8 @@ class NuageRedirectTarget(BaseNuagePlugin):
             raise n_exc.InvalidInput(error_message=message)
 
         ip_proto = self.core_plugin._get_ip_proto_number(rule['protocol'])
-        if ip_proto in [os_constants.PROTO_NUM_TCP,
-                        os_constants.PROTO_NUM_UDP]:
+        if ip_proto in [lib_constants.PROTO_NUM_TCP,
+                        lib_constants.PROTO_NUM_UDP]:
             if (rule['port_range_min'] is not None and
                     rule['port_range_min'] <= rule['port_range_max']):
                 pass
@@ -413,7 +411,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             context.session, port['fixed_ips'][0]['subnet_id'])
         nuage_rtargets_ids = []
         for rtarget in rtargets:
-            uuid_match = re.match(attributes.UUID_PATTERN, rtarget)
+            uuid_match = re.match(lib_constants.UUID_PATTERN, rtarget)
             if not uuid_match:
                 nuage_rtarget = self._resource_finder(
                     context, 'port', 'nuage_redirect_target', rtarget)
