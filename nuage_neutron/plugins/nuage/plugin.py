@@ -340,6 +340,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @log_helpers.log_method_call
     def _process_port_create_security_group(self, context, port, vport, sg_ids,
                                             vsd_subnet):
+        if not lib_validators.is_attr_set(sg_ids):
+            port[ext_sg.SECURITYGROUPS] = []
+            return
         if len(sg_ids) > 6:
             msg = (_("Exceeds maximum num of security groups on a port "
                      "supported on nuage VSP"))
