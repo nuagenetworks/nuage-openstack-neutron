@@ -11,11 +11,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import netaddr
 import re
 
 from oslo_log import helpers as log_helpers
 
+from neutron._i18n import _
 from neutron.callbacks import resources
 from neutron.ipam import utils as ipam_utils
 from neutron import manager
@@ -209,7 +211,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             )
             if not vip_port['fixed_ips']:
                 self.core_plugin.delete_port(context, vip_port['id'])
-                msg = ('No IPs available for VIP %s') % network_id
+                msg = 'No IPs available for VIP %s' % network_id
                 raise n_exc.BadRequest(
                     resource='nuage-redirect-target', msg=msg)
 

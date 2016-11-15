@@ -12,8 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-''' Nuage specific exceptions '''
+# Nuage specific exceptions
 
+from neutron._i18n import _
 from neutron_lib import exceptions as n_exc
 
 

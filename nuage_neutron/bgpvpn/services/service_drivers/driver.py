@@ -14,6 +14,7 @@
 
 from oslo_utils import excutils
 
+from neutron._i18n import _
 from neutron.callbacks import resources
 from neutron import manager
 from neutron.plugins.common import constants as plugin_constants

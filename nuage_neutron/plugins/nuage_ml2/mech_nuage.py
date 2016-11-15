@@ -19,6 +19,7 @@ from oslo_db.exception import DBDuplicateEntry
 from oslo_log import log
 from oslo_utils import excutils
 
+from neutron._i18n import _
 from neutron.api import extensions as neutron_extensions
 from neutron.callbacks import resources
 from neutron.extensions import portbindings
@@ -47,16 +48,14 @@ LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCER + 'V2'
 LOG = log.getLogger(__name__)
 
 
-class NuageMechanismDriver(base_plugin.BaseNuagePlugin,
+class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                            api.MechanismDriver):
     def initialize(self):
         LOG.debug('Initializing driver')
         neutron_extensions.append_api_extensions_path(extensions.__path__)
-        LOG.debug('Initializing complete')
-
-    def _nuageclient_init(self):
-        super(NuageMechanismDriver, self)._nuageclient_init()
+        self.init_vsd_client()
         self._wrap_nuageclient()
+        LOG.debug('Initializing complete')
 
     def _wrap_nuageclient(self):
         """Wraps nuagecient methods with try-except to ignore certain errors.
