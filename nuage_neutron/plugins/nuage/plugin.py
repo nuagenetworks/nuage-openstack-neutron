@@ -763,7 +763,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             elif vport and vport['parentType'] == constants.L2DOMAIN:
                 vsd_subnet = self.nuageclient.get_l2domain_by_id(
                     subnet_mapping['nuage_subnet_id'])
-            else:
+            elif subnet_mapping:
                 vsd_subnet = self.nuageclient \
                     .get_subnet_or_domain_subnet_by_id(
                         subnet_mapping['nuage_subnet_id'])
