@@ -14,6 +14,7 @@
 
 from oslo_utils import excutils
 
+from neutron._i18n import _
 from neutron.callbacks import resources
 from neutron.common import exceptions as n_exc
 from neutron import manager
