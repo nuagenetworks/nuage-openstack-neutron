@@ -14,6 +14,7 @@
 
 from neutron.api.v2 import attributes as attr
 from neutron.common import exceptions
+from neutron.i18n import _
 
 
 class RtrItfAddIncompleteRouterOnVsd(exceptions.BadRequest):

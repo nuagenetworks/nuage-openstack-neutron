@@ -18,12 +18,16 @@ from neutron.api.v2 import attributes
 from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
 from neutron.extensions import l3
+from neutron.i18n import _
 from neutron import manager
 from neutron.plugins.common import constants
+
 from neutron_vpnaas.db.vpn import vpn_models
 from neutron_vpnaas.services.vpn.service_drivers import base_ipsec
 from neutron_vpnaas.services.vpn.service_drivers import ipsec_validator
+
 from nuage_neutron.vpnaas.common import topics
+
 from oslo_log import log as logging
 
 

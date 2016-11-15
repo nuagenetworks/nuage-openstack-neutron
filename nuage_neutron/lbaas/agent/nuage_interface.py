@@ -21,10 +21,12 @@ import socket
 import struct
 import time
 
-import nuage_neutron.lbaas.common.exceptions as exceptions
-
 from neutron.agent.linux.interface import OVSInterfaceDriver
 from neutron.agent.linux import utils
+from neutron.i18n import _
+
+import nuage_neutron.lbaas.common.exceptions as exceptions
+
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)

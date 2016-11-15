@@ -14,6 +14,7 @@
 
 from oslo_config import cfg
 
+from neutron.i18n import _
 from nuage_neutron.plugins.common import constants
 
 nuage_pat_choices = [constants.NUAGE_PAT_NOT_AVAILABLE,
@@ -28,6 +29,10 @@ restproxy_opts = [
                help=_("Username and password for authentication")),
     cfg.BoolOpt('serverssl', default=False,
                 help=_("Boolean for SSL connection with VSD server")),
+    cfg.IntOpt('server_timeout', default=30,
+               help=_("VSD server invocation timeout")),
+    cfg.IntOpt('server_max_retries', default=5,
+               help=_("Number of retries invoking VSD server")),
     cfg.StrOpt('base_uri', default='/',
                help=_("Nuage provided base uri to reach out to VSD")),
     cfg.StrOpt('organization', default='system',

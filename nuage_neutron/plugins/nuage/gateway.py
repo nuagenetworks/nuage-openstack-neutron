@@ -17,6 +17,8 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from neutron.extensions import securitygroup as ext_sg
+from neutron.i18n import _
+
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
