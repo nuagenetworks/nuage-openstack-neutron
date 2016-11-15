@@ -11,12 +11,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from neutron.manager import NeutronManager
 
 from oslo_log import log as logging
 
 from neutron.common import exceptions as n_exc
 from neutron.common import log
+from neutron.i18n import _
+from neutron.manager import NeutronManager
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc

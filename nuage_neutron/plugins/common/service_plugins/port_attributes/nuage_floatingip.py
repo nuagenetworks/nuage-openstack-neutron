@@ -15,6 +15,7 @@
 from oslo_log import helpers as log_helpers
 
 from neutron.callbacks import resources
+from neutron.i18n import _
 from neutron import policy
 
 from nuage_neutron.plugins.common import constants

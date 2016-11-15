@@ -11,6 +11,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import netaddr
 import re
 
@@ -21,6 +22,7 @@ from neutron.api.v2.attributes import is_attr_set
 from neutron.callbacks import resources
 from neutron.common import constants as os_constants
 from neutron.common import exceptions as n_exc
+from neutron.i18n import _
 from neutron import manager
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
@@ -209,7 +211,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             )
             if not vip_port['fixed_ips']:
                 self.core_plugin.delete_port(context, vip_port['id'])
-                msg = ('No IPs available for VIP %s') % network_id
+                msg = 'No IPs available for VIP %s' % network_id
                 raise n_exc.BadRequest(
                     resource='nuage-redirect-target', msg=msg)
 

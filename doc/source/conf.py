@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     'sphinx.ext.autodoc',
-    #'sphinx.ext.intersphinx',
+    # 'sphinx.ext.intersphinx',
     'oslosphinx'
 ]
 
@@ -38,7 +38,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'nuage-openstack-neutron'
-copyright = u'Alcatel-Lucent USA Inc'
+copyright = u'NOKIA'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = True
@@ -72,4 +72,4 @@ latex_documents = [
 ]
 
 # Example configuration for intersphinx: refer to the Python standard library.
-#intersphinx_mapping = {'http://docs.python.org/': None}
+# intersphinx_mapping = {'http://docs.python.org/': None}

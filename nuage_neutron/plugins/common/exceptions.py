@@ -12,9 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-''' Nuage specific exceptions '''
+# Nuage specific exceptions
 
 from neutron.common import exceptions as n_exc
+from neutron.i18n import _
 
 
 class OperationNotSupported(n_exc.InvalidConfigurationOption):

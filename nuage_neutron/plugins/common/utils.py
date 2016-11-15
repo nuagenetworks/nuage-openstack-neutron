@@ -17,13 +17,15 @@ import functools
 import sys
 
 from neutron.common import exceptions as n_exc
+from neutron.i18n import _
+
 from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuagenetlib.restproxy import RESTProxyError
+from nuage_neutron.vsdclient.vsdclient import RESTProxyError
 
 
 def handle_nuage_api_error(fn):

@@ -17,8 +17,10 @@ from oslo_log import log as logging
 from neutron.api import extensions
 from neutron.api.v2 import attributes
 from neutron.api.v2 import base
+from neutron.i18n import _
 from neutron import manager
 from neutron import quota
+
 from nuage_neutron.plugins.common import constants as nuage_constants
 
 LOG = logging.getLogger(__name__)
