@@ -21,7 +21,8 @@ from neutron_lib import exceptions as n_exc
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuage_neutron.vsdclient.vsdclient import RESTProxyError
+
+from nuagenetlib.restproxy import RESTProxyError
 
 from oslo_log import log as logging
 
