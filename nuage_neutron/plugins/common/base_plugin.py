@@ -15,6 +15,7 @@
 import netaddr
 import re
 
+from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 
 from neutron._i18n import _
@@ -29,7 +30,8 @@ from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import validate
-from nuage_neutron.vsdclient.vsdclient import VsdClient
+
+from nuagenetlib.nuageclient import NuageClient
 
 
 class RootNuagePlugin(object):
@@ -41,7 +43,22 @@ class RootNuagePlugin(object):
         self.nuageclient = None  # deferred initialization
 
     def init_vsd_client(self):
-        self.nuageclient = VsdClient()
+        cms_id = cfg.CONF.RESTPROXY.cms_id
+
+        if not cms_id:
+            raise cfg.ConfigFileValueError(
+                _('Missing cms_id in configuration.'))
+
+        self.nuageclient = NuageClient(
+            cms_id,
+            server=cfg.CONF.RESTPROXY.server,
+            base_uri=cfg.CONF.RESTPROXY.base_uri,
+            serverssl=cfg.CONF.RESTPROXY.serverssl,
+            serverauth=cfg.CONF.RESTPROXY.serverauth,
+            auth_resource=cfg.CONF.RESTPROXY.auth_resource,
+            organization=cfg.CONF.RESTPROXY.organization,
+            servertimeout=cfg.CONF.RESTPROXY.server_timeout,
+            max_retries=cfg.CONF.RESTPROXY.server_max_retries)
 
     def _create_nuage_vport(self, port, vsd_subnet, description=None):
         params = {

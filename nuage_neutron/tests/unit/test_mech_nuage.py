@@ -15,9 +15,9 @@
 # run me using :
 # python -m testtools.run nuage_neutron/tests/unit/test_mech_nuage.py
 
+from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
-from nuage_neutron.vsdclient.vsdclient import VsdClient
 from oslo_context import context
 
 import mock
@@ -48,7 +48,7 @@ class TestNuageMechanismDriverNative(testtools.TestCase):
 
 class TestNuageMechanismDriverMocked(testtools.TestCase):
 
-    @mock.patch.object(VsdClient, 'initialize')
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     def test_create_subnet_precommit_no_nuage(self, mock):
         nmd = NuageMechanismDriver()
         nmd.initialize()
@@ -61,7 +61,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
-    @mock.patch.object(VsdClient, 'initialize')
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     def test_create_subnet_precommit_nuage(self, mock):
         nmd = NuageMechanismDriver()
         nmd.initialize()
@@ -76,7 +76,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
-    @mock.patch.object(VsdClient, 'initialize')
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     def test_create_subnet_precommit_nuage_external_net(self, _mock):
         nmd = NuageMechanismDriver()
         nmd.initialize()
