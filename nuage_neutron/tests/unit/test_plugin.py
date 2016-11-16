@@ -13,7 +13,7 @@
 #    under the License.
 
 # run me using :
-# python -m testtools.run nuage_neutron/tests/unit/test_nuage.py
+# python -m testtools.run nuage_neutron/tests/unit/test_plugin.py
 
 from nuage_neutron.plugins.nuage.plugin import NuagePlugin
 
