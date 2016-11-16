@@ -3073,6 +3073,15 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                            'disassociated from port %s'
                                            % (fip_id, fip['tenant_id'],
                                               port_id))
+                else:
+                    # Could be vip-port (fip2vip feature)
+                    port = self.get_port(context, port_id)
+                    if (port.get('device_owner') ==
+                            constants.DEVICE_OWNER_VIP_NUAGE):
+                        neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
+                        vip = port['fixed_ips'][0]['ip_address']
+                        self.nuageclient.disassociate_fip_from_vips(
+                            neutron_subnet_id, vip)
 
                 router_id = fip['router_id']
             else:
@@ -3136,12 +3145,11 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     def _process_fip_to_vip(self, context, port_id, nuage_fip_id=None):
         port = self._get_port(context, port_id)
-        params = {
-            'nuage_fip_id': nuage_fip_id,
-            'neutron_subnet_id': port['fixed_ips'][0]['subnet_id'],
-            'vip': port['fixed_ips'][0]['ip_address']
-        }
-        self.nuageclient.associate_fip_to_vips(params)
+        neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
+        vip = port['fixed_ips'][0]['ip_address']
+        self.nuageclient.associate_fip_to_vips(neutron_subnet_id,
+                                               vip,
+                                               nuage_fip_id)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
