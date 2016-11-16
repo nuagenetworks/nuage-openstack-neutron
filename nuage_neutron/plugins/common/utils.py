@@ -25,7 +25,8 @@ from oslo_utils import excutils
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuage_neutron.vsdclient.vsdclient import RESTProxyError
+
+from nuagenetlib.restproxy import RESTProxyError
 
 
 def handle_nuage_api_error(fn):
