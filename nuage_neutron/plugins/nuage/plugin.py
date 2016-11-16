@@ -2755,7 +2755,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         neutron_fip['nuage_egress_fip_rate_kbps'] = value
                 else:
                     rate_unit = 'M'
-                    neutron_fip['nuage_egress_fip_rate_kbps'] = value * 1000
+                    neutron_fip['nuage_egress_fip_rate_kbps'] = float(value
+                                                                      ) * 1000
                 self.fip_rate_log.info(
                     'FIP %s (owned by tenant %s) %s updated to %s %sb/s'
                     % (neutron_fip['id'], neutron_fip['tenant_id'],
@@ -3018,7 +3019,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         neutron_fip['nuage_egress_fip_rate_kbps'] = value
                 else:
                     rate_unit = 'M'
-                    neutron_fip['nuage_egress_fip_rate_kbps'] = value * 1000
+                    neutron_fip['nuage_egress_fip_rate_kbps'] = float(value
+                                                                      ) * 1000
                 self.fip_rate_log.info(
                     'FIP %s (owned by tenant %s) %s updated to %s %sb/s'
                     % (orig_fip['id'], orig_fip['tenant_id'], direction, value,
