@@ -317,7 +317,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             }
             nuage_port = self.nuageclient.get_nuage_vport_for_port_sec(params)
             if nuage_port:
-                nuage_vport_id = nuage_port.get('nuage_vport_id')
+                nuage_vport_id = nuage_port.get('ID')
                 if port[psec.PORTSECURITY]:
                     self.nuageclient.update_vport_policygroups(
                         nuage_vport_id, policygroup_ids)
