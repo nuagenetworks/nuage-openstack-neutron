@@ -16,7 +16,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron.common import log
-from neutron.extensions import securitygroup as ext_sg
 from neutron.i18n import _
 
 from nuage_neutron.plugins.common import constants
@@ -154,16 +153,6 @@ class NuagegatewayMixin(object):
             raise
         if port_id and not subnet_mapping['nuage_managed_subnet']:
             port = params['port']
-            if resp['vport_gw_type'] == constants.SOFTWARE:
-                self._delete_port_security_group_bindings(context, port['id'])
-                self._process_port_create_security_group(
-                    context,
-                    port,
-                    vport,
-                    port[ext_sg.SECURITYGROUPS],
-                    vsd_subnet
-                )
-                LOG.debug("Created security group for port %s", port['id'])
             self._check_floatingip_update(context, port,
                                           vport_type=constants.HOST_VPORT,
                                           vport_id=vport['ID'])
