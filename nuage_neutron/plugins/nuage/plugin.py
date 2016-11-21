@@ -1960,10 +1960,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                        router_id,
                                                        interface_info)
         nuage_subn_id = subnet_l2dom['nuage_subnet_id']
-        if self._nuage_vips_on_subnet(context, subnet):
-            msg = (_("Subnet %s has one or more active nuage VIPs "
-                     "Router-IF delete not permitted") % subnet_id)
-            raise n_exc.BadRequest(resource='subnet', msg=msg)
 
         neutron_subnet = self.get_subnet(context, subnet_id)
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
