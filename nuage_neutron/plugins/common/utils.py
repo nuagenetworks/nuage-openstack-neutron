@@ -17,13 +17,11 @@ import functools
 import sys
 
 from neutron._i18n import _
-from neutron_lib import exceptions as n_exc
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 
 from nuagenetlib.restproxy import RESTProxyError
-
 from oslo_log import log as logging
 
 
@@ -31,9 +29,7 @@ def handle_nuage_api_error(fn):
     def wrapped(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
-        except Exception as ex:
-            if isinstance(ex, n_exc.NeutronException):
-                raise
+        except RESTProxyError as ex:
             et, ei, tb = sys.exc_info()
             raise nuage_exc.NuageAPIException, \
                 nuage_exc.NuageAPIException(msg=ex), tb

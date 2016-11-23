@@ -20,7 +20,6 @@ from logging import handlers
 import netaddr
 from oslo_concurrency import lockutils
 from oslo_config import cfg
-from oslo_db import api as oslo_db_api
 from oslo_db import exception as db_exc
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
@@ -59,6 +58,7 @@ from neutron.extensions import portbindings
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from nuage_neutron.db import api as nuage_db_api
 from nuage_neutron.plugins.common import addresspair
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
@@ -370,6 +370,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         self.nuageclient.update_vport_policygroups(vport['ID'],
                                                    policygroup_ids)
 
+    @nuage_db_api.retry_db_errors
     def get_port(self, context, id, fields=None):
         port = super(NuagePlugin, self).get_port(context, id, fields=None)
         self.extend_port_dict(context, port, fields=fields)
@@ -416,9 +417,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return port_security_enabled
 
     @nuage_utils.handle_nuage_api_error
-    @oslo_db_api.wrap_db_retry(max_retries=db.MAX_RETRIES,
-                               retry_on_request=True,
-                               retry_on_deadlock=True)
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def create_port(self, context, port):
         session = context.session
@@ -567,7 +566,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     "can not be modified") % original_device_owner
             raise nuage_exc.OperationNotSupported(msg=msg)
 
-    @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _params_to_get_vport(self, port_id, subnet_mapping, current_owner):
         l2dom_id = None
@@ -591,7 +589,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         }
         return params
 
-    @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _process_update_nuage_vport(self, context, port_id, updated_port,
                                     subnet_mapping, current_owner, vport,
@@ -607,7 +604,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             # should not come here, log debug message
             LOG.debug("Nuage vport does not exist for port %s ", id)
 
-    @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _process_update_port(self, context, p, original_port,
                              subnet_mapping, no_of_ports):
@@ -693,6 +689,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 raise psec.PortSecurityPortHasSecurityGroup()
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def update_port(self, context, id, port):
         create_vm = False
@@ -992,9 +989,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             raise n_exc.ServicePortInUse(port_id=port_id, reason=e)
 
     @nuage_utils.handle_nuage_api_error
-    @oslo_db_api.wrap_db_retry(max_retries=db.MAX_RETRIES,
-                               retry_on_request=True,
-                               retry_on_deadlock=True)
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def delete_port(self, context, id, l3_port_check=True):
         self._pre_delete_port(context, id, l3_port_check)
@@ -1052,6 +1047,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         super(NuagePlugin, self).delete_port(context, id)
 
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def get_ports_count(self, context, filters=None):
         if filters.get('tenant_id', None):
@@ -1117,6 +1113,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return network_type, physical_network, segmentation_id
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def create_network(self, context, network):
         data = network['network']
@@ -1184,6 +1181,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return (is_external_set, subnet)
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def update_network(self, context, id, network):
         data = network['network']
@@ -1378,9 +1376,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                            req_subnet=req_subnet)
             return neutron_subnet
 
-    @oslo_db_api.wrap_db_retry(max_retries=db.MAX_RETRIES,
-                               retry_on_request=True,
-                               retry_on_deadlock=True)
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def _reserve_ip(self, context, subnet, ip):
         fixed_ip = [{'ip_address': ip, 'subnet_id': subnet['id']}]
@@ -1613,6 +1609,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 msg = _("A concurrent binding to the same VSD managed"
                         " subnet detected. This operation is not allowed.")
                 raise n_exc.BadRequest(resource='subnet', msg=msg)
+            raise
 
         try:
             nuage_npid = nuage_netpart['id']
@@ -1642,6 +1639,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                ns_dict)
         return neutron_subnet
 
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def get_subnet(self, context, id, fields=None):
         subnet = super(NuagePlugin, self).get_subnet(context, id, None)
@@ -1656,6 +1654,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 pass
         return self._fields(subnet, fields)
 
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
                     limit=None, marker=None, page_reverse=False):
@@ -1669,6 +1668,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return subnets
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def create_subnet(self, context, subnet):
         subn = subnet['subnet']
@@ -1710,6 +1710,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             return updated_subnet
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def update_subnet(self, context, id, subnet):
         subn = copy.deepcopy(subnet['subnet'])
@@ -1761,6 +1762,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             return updated_subnet
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def delete_subnet(self, context, id):
         subnet = self.get_subnet(context, id)
@@ -2022,6 +2024,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return net_partition
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):
         router = super(NuagePlugin, self).get_router(context, id, fields)
@@ -2052,6 +2055,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 route['rd'] = nuage_route['rd']
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def create_router(self, context, router):
         req_router = copy.deepcopy(router['router'])
@@ -2106,6 +2110,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return neutron_router
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def update_router(self, context, id, router):
         updates = router['router']
@@ -2228,6 +2233,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         nuagedb.update_entrouter_mapping(ent_rtr_mapping, ns_dict)
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def delete_router(self, context, id):
         neutron_router = self.get_router(context, id)
@@ -2428,6 +2434,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                l3shared)
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
@@ -2451,6 +2458,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             raise n_exc.BadRequest(resource='net_partition', msg=msg)
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def delete_net_partition(self, context, id):
         net_partition = nuagedb.get_net_partition_by_id(context.session, id)
@@ -2463,6 +2471,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             nuagedb.delete_net_partition(context.session,
                                          net_partition)
 
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def get_net_partition(self, context, id, fields=None):
         net_partition = nuagedb.get_net_partition_by_id(context.session,
@@ -2472,6 +2481,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                           resource_id=id)
         return self._make_net_partition_dict(net_partition, context=context)
 
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def get_net_partitions(self, context, filters=None, fields=None):
         net_partitions = nuagedb.get_net_partitions(context.session,
@@ -2660,6 +2670,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                        direction, value, rate_unit))
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuagePlugin, self).get_floatingip(context, id)
@@ -2684,6 +2695,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return self._fields(fip, fields)
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def create_floatingip(self, context, floatingip):
         fip = floatingip['floatingip']
@@ -2801,6 +2813,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return fip_rate_values
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def update_floatingip(self, context, id, floatingip):
         fip = floatingip['floatingip']
@@ -2931,6 +2944,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return neutron_fip
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def delete_floatingip(self, context, fip_id):
         fip = self._get_floatingip(context, fip_id)
@@ -3026,6 +3040,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         self.nuageclient.associate_fip_to_vips(params)
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def delete_security_group(self, context, id):
         filters = {'security_group_id': [id]}
@@ -3039,6 +3054,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         super(NuagePlugin, self).delete_security_group(context, id)
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def create_security_group_rule(self, context, security_group_rule):
         remote_sg = None
@@ -3072,6 +3088,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         return local_sg_rule
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def delete_security_group_rule(self, context, id):
         local_sg_rule = self.get_security_group_rule(context, id)
@@ -3080,6 +3097,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         LOG.debug("Deleted security group rule %s", id)
 
     @nuage_utils.handle_nuage_api_error
+    @nuage_db_api.retry_db_errors
     @log_helpers.log_method_call
     def get_vsd_subnet(self, context, id, fields=None):
         subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(

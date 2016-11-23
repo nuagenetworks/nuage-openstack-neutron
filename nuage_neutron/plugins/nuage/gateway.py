@@ -80,7 +80,6 @@ class NuagegatewayMixin(object):
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _make_vport_dict(self, vport, fields=None, context=None):
         res = {
@@ -283,7 +282,6 @@ class NuagegatewayMixin(object):
     def get_nuage_gateway_vports_count(self, context, filters=None):
         return 0
 
-    @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _check_for_permissions(self, context, user_tenant):
         fetch_tenant = None
