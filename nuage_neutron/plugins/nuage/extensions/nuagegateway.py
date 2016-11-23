@@ -16,9 +16,9 @@ from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
-from neutron import manager
 from neutron.quota import resource_registry
 from neutron_lib import exceptions as nexception
+from neutron_lib.plugins import directory
 
 
 class GatewayInvalidVlanValue(nexception.InvalidInput):
@@ -195,7 +195,7 @@ class Nuagegateway(extensions.ExtensionDescriptor):
         my_plurals = [(key, key[:-1]) for key in RESOURCE_ATTRIBUTE_MAP.keys()]
         attr.PLURALS.update(dict(my_plurals))
         exts = []
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         for resource_name in ['nuage_gateway', 'nuage_gateway_port',
                               'nuage_gateway_vlan',
                               'nuage_gateway_vport']:

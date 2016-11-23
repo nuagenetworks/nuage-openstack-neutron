@@ -15,8 +15,8 @@
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
-from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib.plugins import directory
 
 
 RESOURCE_ATTRIBUTE_MAP = {
@@ -94,7 +94,7 @@ class Vsd_resource(extensions.ExtensionDescriptor):
         my_plurals = [(key, key[:-1]) for key in RESOURCE_ATTRIBUTE_MAP.keys()]
         attr.PLURALS.update(dict(my_plurals))
         exts = []
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         for resource_name in ['vsd_organisation', 'vsd_domain', 'vsd_zone',
                               'vsd_subnet']:
             collection_name = resource_name.replace('_', '-') + "s"

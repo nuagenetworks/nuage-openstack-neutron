@@ -17,10 +17,10 @@ import netaddr
 from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron import manager
 from neutron.quota import resource_registry
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as nexception
+from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants as nuage_constants
 
@@ -258,8 +258,8 @@ class Nuage_redirect_target(extensions.ExtensionDescriptor):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_service_plugins()[
-            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
+        plugin = directory.get_plugin(
+            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN)
         for resource_name in ['nuage_redirect_target',
                               'nuage_redirect_target_rule',
                               'nuage_redirect_target_vip']:

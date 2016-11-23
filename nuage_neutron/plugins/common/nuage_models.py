@@ -16,11 +16,11 @@
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from neutron.db import model_base
 from neutron.db import models_v2
+from neutron_lib.db import model_base
 
 
-class NetPartition(model_base.BASEV2, models_v2.HasId):
+class NetPartition(model_base.BASEV2, model_base.HasId):
     __tablename__ = 'nuage_net_partitions'
     name = sa.Column(sa.String(64))
     l3dom_tmplt_id = sa.Column(sa.String(36))

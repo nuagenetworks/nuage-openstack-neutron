@@ -16,8 +16,8 @@ import abc
 
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib.plugins import directory
 
 
 # Attribute Map
@@ -66,7 +66,7 @@ class Netpartition(extensions.ExtensionDescriptor):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         resource_name = 'net_partition'
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())

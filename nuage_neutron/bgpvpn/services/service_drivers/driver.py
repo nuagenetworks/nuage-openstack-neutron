@@ -16,9 +16,9 @@ from oslo_utils import excutils
 
 from neutron._i18n import _
 from neutron.callbacks import resources
-from neutron import manager
-from neutron.plugins.common import constants as plugin_constants
+from neutron_lib import constants as n_const
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 
 from networking_bgpvpn.neutron.db import bgpvpn_db
 from networking_bgpvpn.neutron.extensions import bgpvpn as bgpvpn_ext
@@ -53,15 +53,14 @@ class NuageBGPVPNDriver(driver_api.BGPVPNDriver,
     @property
     def l3_plugin(self):
         if not hasattr(self, '_l3plugin'):
-            self._l3plugin = manager.NeutronManager.get_service_plugins()[
-                plugin_constants.L3_ROUTER_NAT]
+            self._l3plugin = directory.get_plugin(n_const.L3)
         return self._l3plugin
 
     @property
     def bgpvpn_plugin(self):
         if not hasattr(self, '_bgpvpn_plugin'):
-            self._bgpvpn_plugin = manager.NeutronManager.get_service_plugins()[
-                bgpvpn_constants.BGPVPN]
+            self._bgpvpn_plugin = directory.get_plugin(
+                bgpvpn_constants.BGPVPN)
         return self._bgpvpn_plugin
 
     def __init__(self, service_plugin):

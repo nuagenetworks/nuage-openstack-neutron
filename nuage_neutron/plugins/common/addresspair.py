@@ -19,8 +19,9 @@ from oslo_utils import excutils
 
 from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron import manager
 from neutron_lib.api import validators as lib_validators
+from neutron_lib.plugins import directory
+
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import nuagedb
@@ -40,7 +41,7 @@ class NuageAddressPair(BaseNuagePlugin):
     @property
     def core_plugin(self):
         if not getattr(self, '_core_plugin', None):
-            self._core_plugin = manager.NeutronManager.get_plugin()
+            self._core_plugin = directory.get_plugin()
         return self._core_plugin
 
     def _create_vips(self, nuage_subnet_id, port, nuage_vport):

@@ -21,8 +21,8 @@ import six
 from neutron.agent.linux import ip_lib
 from neutron.common import rpc as n_rpc
 from neutron import context
-from neutron import manager
-from neutron.plugins.common import constants
+from neutron_lib import constants
+from neutron_lib.plugins import directory
 from neutron_vpnaas.services.vpn import device_drivers
 from neutron_vpnaas.services.vpn.device_drivers import fedora_strongswan_ipsec
 from neutron_vpnaas.services.vpn.device_drivers import ipsec
@@ -90,8 +90,7 @@ class NuageIPsecDriver(device_drivers.DeviceDriver):
         self.nuage_if_driver = NuageInterfaceDriver(cfg.CONF)
 
     def _get_l3_plugin(self):
-        return manager.NeutronManager.get_service_plugins().get(
-            constants.L3_ROUTER_NAT)
+        return directory.get_plugin(constants.L3)
 
     def get_namespace(self, router_id):
         """Get namespace of router.

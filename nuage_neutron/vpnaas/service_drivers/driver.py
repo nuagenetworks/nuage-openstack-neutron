@@ -17,10 +17,9 @@ import oslo_messaging
 from neutron._i18n import _
 from neutron.common import rpc as n_rpc
 from neutron.extensions import l3
-from neutron import manager
-from neutron.plugins.common import constants
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 
 from neutron_vpnaas.db.vpn import vpn_db as vpn_db
 from neutron_vpnaas.db.vpn import vpn_models
@@ -248,8 +247,7 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
             topics.NUAGE_IPSEC_AGENT_TOPIC, BASE_IPSEC_VERSION, self)
 
     def _get_l3_plugin(self):
-        return manager.NeutronManager.get_service_plugins().get(
-            constants.L3_ROUTER_NAT)
+        return directory.get_plugin(lib_constants.L3)
 
     @staticmethod
     def get_vpn_services_using(context, router_id):
