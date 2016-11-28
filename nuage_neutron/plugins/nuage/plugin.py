@@ -2314,6 +2314,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                    % net_part_name)
                             raise n_exc.BadRequest(resource='net_partition',
                                                    msg=msg)
+                        self._update_net_partition(session,
+                                                   netpart_db,
+                                                   nuage_netpart)
                         LOG.info("Default net-partition %s already exists,"
                                  " so will just use it" % net_part_name)
                         return self._make_net_partition_dict(netpart_db)
@@ -2359,6 +2362,21 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                          netpart_name,
                                          l3isolated,
                                          l3shared)
+
+    @log_helpers.log_method_call
+    def _update_net_partition(self, session,
+                              net_partition_db,
+                              vsd_net_partition):
+        l3dom_id = vsd_net_partition['l3dom_tid']
+        l3isolated = constants.DEF_NUAGE_ZONE_PREFIX + '-' + l3dom_id
+        l3shared = constants.DEF_NUAGE_ZONE_PREFIX + '-pub-' + l3dom_id
+        with session.begin(subtransactions=True):
+            nuagedb.update_netpartition(net_partition_db, {
+                'l3dom_tmplt_id': l3dom_id,
+                'l2dom_tmplt_id': vsd_net_partition['l2dom_tid'],
+                'isolated_zone': l3isolated,
+                'shared_zone': l3shared,
+            })
 
     @log_helpers.log_method_call
     def _link_default_netpartition(self, netpart_name,
