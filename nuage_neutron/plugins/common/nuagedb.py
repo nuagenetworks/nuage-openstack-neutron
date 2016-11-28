@@ -168,9 +168,8 @@ def add_subnetl2dom_mapping(session, neutron_subnet_id,
     return subnet_l2dom
 
 
-def get_update_netpartition(session, new_dict):
-    netpart = get_net_partition_with_lock(session, new_dict['id'])
-    netpart.update(new_dict)
+def update_netpartition(net_partition_db, new_values):
+    net_partition_db.update(new_values)
 
 
 def update_subnetl2dom_mapping(subnet_l2dom,
