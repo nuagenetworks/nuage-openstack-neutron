@@ -401,7 +401,6 @@ class NuageRedirectTarget(BaseNuagePlugin):
     def get_nuage_redirect_target_rules_count(self, context, filters=None):
         return 0
 
-    @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _validate_port_redirect_target(self, context, port, rtargets):
         if not is_attr_set(rtargets):
@@ -447,7 +446,6 @@ class NuageRedirectTarget(BaseNuagePlugin):
 
         return nuage_rtargets_ids
 
-    @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def process_port_redirect_target(self, context, port, rtargets,
                                      n_rtargets_ids):
