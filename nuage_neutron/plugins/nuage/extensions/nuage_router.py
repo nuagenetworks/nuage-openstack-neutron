@@ -13,7 +13,7 @@
 #    under the License.
 
 from neutron._i18n import _
-from neutron.api import extensions
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib.api import validators
 from neutron_lib import exceptions
 
@@ -158,7 +158,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Nuage_router(extensions.ExtensionDescriptor):
+class Nuage_router(api_extensions.ExtensionDescriptor):
     """Extension class supporting nuage router."""
 
     @classmethod

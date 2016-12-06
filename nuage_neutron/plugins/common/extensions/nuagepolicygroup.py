@@ -19,6 +19,7 @@ from neutron.api import extensions
 from neutron.api.v2 import base
 from neutron.quota import resource_registry
 from neutron_lib.api import converters as lib_converters
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants
 from neutron_lib.plugins import directory
@@ -74,7 +75,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Nuagepolicygroup(extensions.ExtensionDescriptor):
+class Nuagepolicygroup(api_extensions.ExtensionDescriptor):
     """Extension class supporting Nuage policy groups."""
 
     @classmethod
