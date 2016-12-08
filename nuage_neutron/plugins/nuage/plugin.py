@@ -1854,6 +1854,11 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                          subnet['shared'])
         self._nuage_validate_add_rtr_itf(session, router_id,
                                          subnet, subnet_l2dom, vsd_zone)
+        if self.nuageclient.get_host_and_bridge_vports(l2domain_id,
+                                                       constants.L2DOMAIN):
+            msg = _("Subnet has bridge or host vports. "
+                    "No router interface add allowed.")
+            raise nuage_exc.NuageBadRequest(msg=msg)
 
         filters = {
             'fixed_ips': {'subnet_id': [subnet_id]},
@@ -1946,6 +1951,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         session = context.session
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
                                                       subnet_id)
+
+        if self.nuageclient.get_host_and_bridge_vports(
+                subnet_l2dom['nuage_subnet_id'],
+                constants.L3SUBNET):
+            msg = _("Subnet has bridge or host vports. "
+                    "No router interface delete allowed.")
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
         if not subnet_l2dom:
             return super(NuagePlugin,
                          self).remove_router_interface(context,
