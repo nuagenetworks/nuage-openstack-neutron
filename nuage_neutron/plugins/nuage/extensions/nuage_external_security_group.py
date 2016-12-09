@@ -16,6 +16,7 @@ from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import base
 from neutron.quota import resource_registry
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib import constants as const
 from neutron_lib import exceptions as nexception
 from neutron_lib.plugins import directory
@@ -131,7 +132,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Nuage_external_security_group(extensions.ExtensionDescriptor):
+class Nuage_external_security_group(api_extensions.ExtensionDescriptor):
     """Extension class supporting External Security Group."""
 
     @classmethod

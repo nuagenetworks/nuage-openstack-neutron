@@ -15,7 +15,7 @@
 from oslo_config import cfg
 
 from neutron._i18n import _
-from neutron.api import extensions
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants
 from nuage_neutron.plugins.common import constants
@@ -124,7 +124,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Nuage_floatingip(extensions.ExtensionDescriptor):
+class Nuage_floatingip(api_extensions.ExtensionDescriptor):
     """Extension class supporting nuage floatingip."""
 
     @classmethod

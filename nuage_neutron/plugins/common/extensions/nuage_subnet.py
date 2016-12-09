@@ -12,8 +12,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api import extensions
 from neutron_lib.api import converters
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib import constants as lib_constants
 
 EXTENDED_ATTRIBUTES_2_0 = {
@@ -68,7 +68,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Nuage_subnet(extensions.ExtensionDescriptor):
+class Nuage_subnet(api_extensions.ExtensionDescriptor):
     """Extension class supporting Nuage subnet."""
 
     @classmethod

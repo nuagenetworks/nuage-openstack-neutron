@@ -15,6 +15,7 @@
 from neutron.api import extensions
 from neutron.api.v2 import base
 from neutron.quota import resource_registry
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants as nuage_constants
@@ -46,7 +47,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Nuagefloatingip(extensions.ExtensionDescriptor):
+class Nuagefloatingip(api_extensions.ExtensionDescriptor):
     """Extension class supporting Nuage Floatingips."""
 
     @classmethod

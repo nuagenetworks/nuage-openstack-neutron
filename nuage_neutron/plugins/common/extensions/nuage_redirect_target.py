@@ -18,6 +18,7 @@ from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import base
 from neutron.quota import resource_registry
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as nexception
 from neutron_lib.plugins import directory
@@ -231,7 +232,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Nuage_redirect_target(extensions.ExtensionDescriptor):
+class Nuage_redirect_target(api_extensions.ExtensionDescriptor):
     """Extension class supporting Redirect Target."""
 
     @classmethod
