@@ -74,14 +74,24 @@ class retry_if_session_inactive(db_api.wrap_db_retry):
 
 # https://review.openstack.org/#/c/326927 from Newton.
 def is_retriable(e):
-    if n_db_api._is_nested_instance(e, (db_exc.DBDeadlock,
-                                        exc.StaleDataError,
-                                        db_exc.DBConnectionError,
-                                        db_exc.DBDuplicateEntry,
-                                        db_exc.RetryRequest)):
+
+    # deal with older Mitaka not having commit
+    # https://github.com/openstack/neutron/commit/
+    # 046f529b85376575ba55e6466184e11471274de5
+    def _is_nested_instance(e, etypes):
+        try:
+            return n_db_api._is_nested_instance(e, etypes)
+        except AttributeError:
+            return isinstance(e, etypes)
+
+    if _is_nested_instance(e, (db_exc.DBDeadlock,
+                               exc.StaleDataError,
+                               db_exc.DBConnectionError,
+                               db_exc.DBDuplicateEntry,
+                               db_exc.RetryRequest)):
         return True
     # looking savepoints mangled by deadlocks. see bug/1590298 for details.
-    return n_db_api._is_nested_instance(e, db_exc.DBError) and '1305' in str(e)
+    return _is_nested_instance(e, db_exc.DBError) and '1305' in str(e)
 
 
 retry_db_errors = retry_if_session_inactive(
