@@ -13,6 +13,7 @@
 #    under the License.
 
 import contextlib
+import copy
 import logging
 
 from neutron._i18n import _
@@ -123,6 +124,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
     def update_firewall_rule(self, context, id, firewall_rule):
         with self.db_lock_by_rule(context, id):
             original_rule = self.get_firewall_rule(context, id)
+            request = copy.deepcopy(firewall_rule)
             fw_rule = super(NuageFWaaSPlugin, self).update_firewall_rule(
                 context, id, firewall_rule)
             self._validate_fwr_protocol_parameters(fw_rule)
@@ -136,7 +138,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
                 self._disable_rule(context, fw_rule, id)
             elif fw_rule['enabled'] is True:
                 self.nuageclient.update_firewall_rule(
-                    self.enterprise_id, id, firewall_rule['firewall_rule'])
+                    self.enterprise_id, id, request['firewall_rule'])
             return fw_rule
 
     def _enable_rule(self, context, fw_rule):
