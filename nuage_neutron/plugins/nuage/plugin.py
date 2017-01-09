@@ -3227,9 +3227,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                       'name': subnet['name'],
                       'cidr': self._calc_cidr(subnet),
                       'gateway': subnet['gateway'],
-                      'ip_version': subnet['IPType'],
-                      'linked': self._is_subnet_linked(context.session,
-                                                       subnet)}
+                      'ip_version': subnet['IPType']}
         if subnet['type'] == constants.L3SUBNET:
             domain_id = self.nuageclient.get_router_by_domain_subnet_id(
                 vsd_subnet['id'])
@@ -3251,13 +3249,11 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         l3subs = self.nuageclient.get_domain_subnet_by_zone_id(
             filters['vsd_zone_id'][0])
         vsd_to_os = {
-            'subnet_id': 'id',
-            'subnet_name': 'name',
+            'ID': 'id',
+            'name': 'name',
             self._calc_cidr: 'cidr',
-            'subnet_gateway': 'gateway',
-            'subnet_iptype': 'ip_version',
-            functools.partial(
-                self._is_subnet_linked, context.session): 'linked',
+            'gateway': 'gateway',
+            'IPType': 'ip_version',
             functools.partial(
                 self._return_val, filters['vsd_zone_id'][0]): 'vsd_zone_id'
         }
@@ -3275,14 +3271,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             ip = netaddr.IPNetwork(subnet['address'] + '/' +
                                    subnet['netmask'])
             return str(ip)
-
-    def _is_subnet_linked(self, session, subnet):
-        if subnet['externalID']:
-            return True
-
-        l2dom_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
-            session, subnet['ID'])
-        return l2dom_mapping is not None
 
     @log_helpers.log_method_call
     def _get_default_net_partition(self, context):
