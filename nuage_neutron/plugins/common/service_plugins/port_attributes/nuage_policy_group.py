@@ -14,9 +14,10 @@
 
 from oslo_log import helpers as log_helpers
 
-from neutron.api.v2.attributes import is_attr_set
+from neutron._i18n import _
 from neutron.callbacks import resources
 from neutron import policy
+from neutron_lib.api.validators import is_attr_set
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions

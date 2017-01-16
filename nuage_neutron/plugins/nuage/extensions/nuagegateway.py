@@ -12,13 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
-from neutron.api import extensions
-from neutron.api.v2 import attributes as attr
-from neutron.api.v2 import base
-from neutron.common import exceptions as nexception
-from neutron import manager
-from neutron.quota import resource_registry
+from neutron._i18n import _
+from neutron.api.v2 import resource_helper
+from neutron_lib.api import extensions as api_extensions
+from neutron_lib import constants
+from neutron_lib import exceptions as nexception
 
 
 class GatewayInvalidVlanValue(nexception.InvalidInput):
@@ -166,7 +164,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Nuagegateway(extensions.ExtensionDescriptor):
+class Nuagegateway(api_extensions.ExtensionDescriptor):
     """Extension class supporting gateway."""
 
     @classmethod
@@ -192,21 +190,9 @@ class Nuagegateway(extensions.ExtensionDescriptor):
     @classmethod
     def get_resources(cls):
         """Returns Ext Resources."""
-        my_plurals = [(key, key[:-1]) for key in RESOURCE_ATTRIBUTE_MAP.keys()]
-        attr.PLURALS.update(dict(my_plurals))
-        exts = []
-        plugin = manager.NeutronManager.get_plugin()
-        for resource_name in ['nuage_gateway', 'nuage_gateway_port',
-                              'nuage_gateway_vlan',
-                              'nuage_gateway_vport']:
-            collection_name = resource_name.replace('_', '-') + "s"
-            params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-            resource_registry.register_resource_by_name(resource_name)
-            controller = base.create_resource(collection_name,
-                                              resource_name,
-                                              plugin, params, allow_bulk=True)
-            ex = extensions.ResourceExtension(collection_name,
-                                              controller)
-            exts.append(ex)
-
-        return exts
+        plural_mappings = resource_helper.build_plural_mappings(
+            {}, RESOURCE_ATTRIBUTE_MAP)
+        return resource_helper.build_resource_info(plural_mappings,
+                                                   RESOURCE_ATTRIBUTE_MAP,
+                                                   constants.CORE,
+                                                   translate_name=True)

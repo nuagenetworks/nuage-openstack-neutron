@@ -14,17 +14,20 @@
 
 import netaddr
 
+from neutron._i18n import _
 from neutron.api import extensions
-from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
-from neutron.common import constants as const
-from neutron.common import exceptions as nexception
-from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib.api import extensions as api_extensions
+from neutron_lib import constants as lib_constants
+from neutron_lib import exceptions as nexception
+from neutron_lib.plugins import directory
+
 from nuage_neutron.plugins.common import constants as nuage_constants
 
-supported_protocols = [const.PROTO_NAME_TCP,
-                       const.PROTO_NAME_UDP, const.PROTO_NAME_ICMP]
+supported_protocols = [lib_constants.PROTO_NAME_TCP,
+                       lib_constants.PROTO_NAME_UDP,
+                       lib_constants.PROTO_NAME_ICMP]
 PROTO_NAME_TO_NUM = {
     'tcp': 6,
     'udp': 17,
@@ -223,13 +226,13 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': True,
             'is_visible': True,
             'convert_to': convert_to_list_or_none,
-            'default': attr.ATTR_NOT_SPECIFIED
+            'default': lib_constants.ATTR_NOT_SPECIFIED
         }
     }
 }
 
 
-class Nuage_redirect_target(extensions.ExtensionDescriptor):
+class Nuage_redirect_target(api_extensions.ExtensionDescriptor):
     """Extension class supporting Redirect Target."""
 
     @classmethod
@@ -256,8 +259,8 @@ class Nuage_redirect_target(extensions.ExtensionDescriptor):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_service_plugins()[
-            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
+        plugin = directory.get_plugin(
+            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN)
         for resource_name in ['nuage_redirect_target',
                               'nuage_redirect_target_rule',
                               'nuage_redirect_target_vip']:

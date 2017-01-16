@@ -13,7 +13,6 @@
 #    under the License.
 from sqlalchemy.orm import exc as sql_exc
 
-from neutron.common import constants as os_constants
 from neutron.db import common_db_mixin
 from neutron.db import external_net_db
 from neutron.db import extraroute_db
@@ -21,6 +20,7 @@ from neutron.db import l3_db
 from neutron.db.models import allowed_address_pair as addr_pair_models
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
+from neutron_lib import constants as os_constants
 
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import nuage_models
@@ -167,9 +167,8 @@ def add_subnetl2dom_mapping(session, neutron_subnet_id,
     return subnet_l2dom
 
 
-def get_update_netpartition(session, new_dict):
-    netpart = get_net_partition_with_lock(session, new_dict['id'])
-    netpart.update(new_dict)
+def update_netpartition(net_partition_db, new_values):
+    net_partition_db.update(new_values)
 
 
 def update_subnetl2dom_mapping(subnet_l2dom,

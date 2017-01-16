@@ -12,11 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api import extensions
-from neutron.api.v2 import attributes as attr
-from neutron.api.v2 import base
-from neutron import manager
-from neutron.quota import resource_registry
+from neutron.api.v2 import resource_helper
+from neutron_lib.api import extensions as api_extensions
+from neutron_lib import constants
 
 
 RESOURCE_ATTRIBUTE_MAP = {
@@ -65,7 +63,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Vsd_resource(extensions.ExtensionDescriptor):
+class Vsd_resource(api_extensions.ExtensionDescriptor):
     """Extension class supporting Vsd_resources."""
 
     @classmethod
@@ -91,19 +89,9 @@ class Vsd_resource(extensions.ExtensionDescriptor):
     @classmethod
     def get_resources(cls):
         """Returns Ext Resources."""
-        my_plurals = [(key, key[:-1]) for key in RESOURCE_ATTRIBUTE_MAP.keys()]
-        attr.PLURALS.update(dict(my_plurals))
-        exts = []
-        plugin = manager.NeutronManager.get_plugin()
-        for resource_name in ['vsd_organisation', 'vsd_domain', 'vsd_zone',
-                              'vsd_subnet']:
-            collection_name = resource_name.replace('_', '-') + "s"
-            params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-            resource_registry.register_resource_by_name(resource_name)
-            controller = base.create_resource(collection_name,
-                                              resource_name,
-                                              plugin, params, allow_bulk=True)
-            ex = extensions.ResourceExtension(collection_name,
-                                              controller)
-            exts.append(ex)
-        return exts
+        plural_mappings = resource_helper.build_plural_mappings(
+            {}, RESOURCE_ATTRIBUTE_MAP)
+        return resource_helper.build_resource_info(plural_mappings,
+                                                   RESOURCE_ATTRIBUTE_MAP,
+                                                   constants.CORE,
+                                                   translate_name=True)

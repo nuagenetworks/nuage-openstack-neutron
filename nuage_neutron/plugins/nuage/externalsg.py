@@ -11,12 +11,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from neutron.manager import NeutronManager
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
+from neutron._i18n import _
 from neutron.common import exceptions as n_exc
+from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
@@ -201,8 +202,8 @@ class NuageexternalsgMixin(object):
                                                             context=context)
 
     def get_port_attributes_plugin(self):
-        return NeutronManager.get_service_plugins()[
-            constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
+        return directory.get_plugin(
+            constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call

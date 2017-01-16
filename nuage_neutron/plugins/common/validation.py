@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.api.v2.attributes import is_attr_set
+from neutron_lib.api import validators
 
 from nuage_neutron.plugins.common import exceptions
 
@@ -36,7 +36,7 @@ def require(result, resource, id):
 class IsSet(object):
 
     def matches(self, value):
-        return is_attr_set(value)
+        return validators.is_attr_set(value)
 
     def msg(self, key, name):
         return "%s is required in %s" % (key, name)
@@ -49,7 +49,7 @@ class Not(object):
         self.invalid = invalid
 
     def matches(self, value):
-        return is_attr_set(value) and value != self.invalid
+        return validators.is_attr_set(value) and value != self.invalid
 
     def msg(self, key, name):
         return "%s in %s can't be %s or None" % (key, name, self.invalid)
@@ -62,7 +62,7 @@ class NotIn(object):
         self.invalid = invalid
 
     def matches(self, value):
-        return not is_attr_set(value) or value not in self.invalid
+        return not validators.is_attr_set(value) or value not in self.invalid
 
     def msg(self, key, name):
         return "%s in %s can't be one of %s" % (key, name, self.invalid)
@@ -75,7 +75,7 @@ class Is(object):
         self.valid = valid
 
     def matches(self, value):
-        return is_attr_set(value) and value == self.valid
+        return validators.is_attr_set(value) and value == self.valid
 
     def msg(self, key, name):
         return "%s in %s must be %s" % (key, name, self.valid)
@@ -88,7 +88,7 @@ class IsOrNone(object):
         self.valid = valid
 
     def matches(self, value):
-        return not is_attr_set(value) or value == self.valid
+        return not validators.is_attr_set(value) or value == self.valid
 
     def msg(self, key, name):
         return "%s in %s must be %s or None" % (key, name, self.valid)
@@ -101,7 +101,7 @@ class IsIn(object):
         self.valid = valid
 
     def matches(self, value):
-        return is_attr_set(value) and value in self.valid
+        return validators.is_attr_set(value) and value in self.valid
 
     def msg(self, key, name):
         return "%s in %s must be one of %s" % (key, name, self.valid)

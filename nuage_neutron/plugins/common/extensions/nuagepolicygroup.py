@@ -14,11 +14,16 @@
 
 from oslo_log import log as logging
 
+from neutron._i18n import _
 from neutron.api import extensions
-from neutron.api.v2 import attributes
 from neutron.api.v2 import base
-from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib.api import converters as lib_converters
+from neutron_lib.api import extensions as api_extensions
+from neutron_lib.api import validators as lib_validators
+from neutron_lib import constants as lib_constants
+from neutron_lib.plugins import directory
+
 from nuage_neutron.plugins.common import constants as nuage_constants
 
 LOG = logging.getLogger(__name__)
@@ -30,8 +35,8 @@ def validate_port_policy_groups(nuage_policy_groups, valid_values=None):
         LOG.debug(msg)
         return msg
 
-attributes.validators['type:validate_port_policy_groups'] = (
-    validate_port_policy_groups)
+lib_validators.add_validator('type:validate_port_policy_groups',
+                             validate_port_policy_groups)
 
 NUAGE_POLICY_GROUPS = 'nuage_policy_groups'
 RESOURCE_ATTRIBUTE_MAP = {
@@ -62,15 +67,15 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
-            'convert_to': attributes.convert_none_to_empty_list,
-            'default': attributes.ATTR_NOT_SPECIFIED,
+            'convert_to': lib_converters.convert_none_to_empty_list,
+            'default': lib_constants.ATTR_NOT_SPECIFIED,
             'validate': {'type:validate_port_policy_groups': None},
         }
     }
 }
 
 
-class Nuagepolicygroup(extensions.ExtensionDescriptor):
+class Nuagepolicygroup(api_extensions.ExtensionDescriptor):
     """Extension class supporting Nuage policy groups."""
 
     @classmethod
@@ -97,8 +102,8 @@ class Nuagepolicygroup(extensions.ExtensionDescriptor):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_service_plugins()[
-            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
+        plugin = directory.get_plugin(
+            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN)
         resource_name = 'nuage_policy_group'
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())

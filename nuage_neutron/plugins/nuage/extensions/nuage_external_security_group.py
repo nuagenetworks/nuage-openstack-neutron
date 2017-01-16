@@ -12,12 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron.common import constants as const
-from neutron.common import exceptions as nexception
-from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib.api import extensions as api_extensions
+from neutron_lib import constants as const
+from neutron_lib import exceptions as nexception
+from neutron_lib.plugins import directory
 
 
 supported_protocols = [const.PROTO_NAME_TCP,
@@ -130,7 +132,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Nuage_external_security_group(extensions.ExtensionDescriptor):
+class Nuage_external_security_group(api_extensions.ExtensionDescriptor):
     """Extension class supporting External Security Group."""
 
     @classmethod
@@ -157,7 +159,7 @@ class Nuage_external_security_group(extensions.ExtensionDescriptor):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_plugin()
+        plugin = directory.get_plugin()
         for resource_name in ['nuage_external_security_group',
                               'nuage_external_security_group_rule']:
             collection_name = resource_name.replace('_', '-') + "s"

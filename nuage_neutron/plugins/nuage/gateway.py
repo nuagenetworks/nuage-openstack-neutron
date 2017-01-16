@@ -16,7 +16,8 @@ from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from neutron.extensions import securitygroup as ext_sg
+from neutron._i18n import _
+
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
@@ -78,7 +79,6 @@ class NuagegatewayMixin(object):
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _make_vport_dict(self, vport, fields=None, context=None):
         res = {
@@ -152,16 +152,6 @@ class NuagegatewayMixin(object):
             raise
         if port_id and not subnet_mapping['nuage_managed_subnet']:
             port = params['port']
-            if resp['vport_gw_type'] == constants.SOFTWARE:
-                self._delete_port_security_group_bindings(context, port['id'])
-                self._process_port_create_security_group(
-                    context,
-                    port,
-                    vport,
-                    port[ext_sg.SECURITYGROUPS],
-                    vsd_subnet
-                )
-                LOG.debug("Created security group for port %s", port['id'])
             self._check_floatingip_update(context, port,
                                           vport_type=constants.HOST_VPORT,
                                           vport_id=vport['ID'])
@@ -281,7 +271,6 @@ class NuagegatewayMixin(object):
     def get_nuage_gateway_vports_count(self, context, filters=None):
         return 0
 
-    @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _check_for_permissions(self, context, user_tenant):
         fetch_tenant = None

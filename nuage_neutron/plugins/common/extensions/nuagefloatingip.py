@@ -14,8 +14,10 @@
 
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib.api import extensions as api_extensions
+from neutron_lib.plugins import directory
+
 from nuage_neutron.plugins.common import constants as nuage_constants
 
 
@@ -45,7 +47,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
 }
 
 
-class Nuagefloatingip(extensions.ExtensionDescriptor):
+class Nuagefloatingip(api_extensions.ExtensionDescriptor):
     """Extension class supporting Nuage Floatingips."""
 
     @classmethod
@@ -72,8 +74,8 @@ class Nuagefloatingip(extensions.ExtensionDescriptor):
     def get_resources(cls):
         """Returns Ext Resources."""
         exts = []
-        plugin = manager.NeutronManager.get_service_plugins()[
-            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
+        plugin = directory.get_plugin(
+            nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN)
         resource_name = 'nuage_floatingip'
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())

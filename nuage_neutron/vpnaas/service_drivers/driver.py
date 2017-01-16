@@ -14,17 +14,20 @@
 
 import oslo_messaging
 
-from neutron.api.v2 import attributes
-from neutron.common import exceptions as n_exc
+from neutron._i18n import _
 from neutron.common import rpc as n_rpc
 from neutron.extensions import l3
-from neutron import manager
-from neutron.plugins.common import constants
+from neutron_lib import constants as lib_constants
+from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
+
 from neutron_vpnaas.db.vpn import vpn_db as vpn_db
 from neutron_vpnaas.db.vpn import vpn_models
 from neutron_vpnaas.services.vpn.service_drivers import base_ipsec
 from neutron_vpnaas.services.vpn.service_drivers import ipsec_validator
+
 from nuage_neutron.vpnaas.common import topics
+
 from oslo_log import log as logging
 
 
@@ -87,13 +90,13 @@ class SubnetCreateDict(object):
                 'network_id': self.net_id,
                 'cidr': self.cidr,
                 'gateway_ip': self.gw_ip,
-                'underlay': attributes.ATTR_NOT_SPECIFIED,
+                'underlay': lib_constants.ATTR_NOT_SPECIFIED,
                 'nuage_uplink': None,
                 'ip_version': 4,
-                'allocation_pools': attributes.ATTR_NOT_SPECIFIED,
+                'allocation_pools': lib_constants.ATTR_NOT_SPECIFIED,
                 'enable_dhcp': True,
-                'dns_nameservers': attributes.ATTR_NOT_SPECIFIED,
-                'host_routes': attributes.ATTR_NOT_SPECIFIED,
+                'dns_nameservers': lib_constants.ATTR_NOT_SPECIFIED,
+                'host_routes': lib_constants.ATTR_NOT_SPECIFIED,
                 'tenant_id': self.tenant_id
             }
         }
@@ -101,7 +104,7 @@ class SubnetCreateDict(object):
 
 class PortCreateDict(object):
     def __init__(self, tenant_id, name, net_id,
-                 fixed_ip=attributes.ATTR_NOT_SPECIFIED):
+                 fixed_ip=lib_constants.ATTR_NOT_SPECIFIED):
         self.tenant_id = tenant_id
         self.name = name
         self.net_id = net_id
@@ -118,14 +121,14 @@ class PortCreateDict(object):
                 'network_id': self.net_id,
                 'admin_state_up': True,
                 'tenant_id': self.tenant_id,
-                'nuage_redirect_targets': attributes.ATTR_NOT_SPECIFIED,
-                'binding:host_id': attributes.ATTR_NOT_SPECIFIED,
-                'allowed_address_pairs': attributes.ATTR_NOT_SPECIFIED,
-                'security_groups': attributes.ATTR_NOT_SPECIFIED,
+                'nuage_redirect_targets': lib_constants.ATTR_NOT_SPECIFIED,
+                'binding:host_id': lib_constants.ATTR_NOT_SPECIFIED,
+                'allowed_address_pairs': lib_constants.ATTR_NOT_SPECIFIED,
+                'security_groups': lib_constants.ATTR_NOT_SPECIFIED,
                 'binding:vnic_type': 'normal',
                 'extra_dhcp_opts': None,
-                'mac_address': attributes.ATTR_NOT_SPECIFIED,
-                'binding:profile': attributes.ATTR_NOT_SPECIFIED
+                'mac_address': lib_constants.ATTR_NOT_SPECIFIED,
+                'binding:profile': lib_constants.ATTR_NOT_SPECIFIED
             }
         }
 
@@ -244,8 +247,7 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
             topics.NUAGE_IPSEC_AGENT_TOPIC, BASE_IPSEC_VERSION, self)
 
     def _get_l3_plugin(self):
-        return manager.NeutronManager.get_service_plugins().get(
-            constants.L3_ROUTER_NAT)
+        return directory.get_plugin(lib_constants.L3)
 
     @staticmethod
     def get_vpn_services_using(context, router_id):

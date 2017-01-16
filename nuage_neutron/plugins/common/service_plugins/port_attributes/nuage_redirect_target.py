@@ -11,18 +11,19 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import netaddr
 import re
 
 from oslo_log import helpers as log_helpers
 
-from neutron.api.v2 import attributes
-from neutron.api.v2.attributes import is_attr_set
+from neutron._i18n import _
 from neutron.callbacks import resources
-from neutron.common import constants as os_constants
-from neutron.common import exceptions as n_exc
 from neutron.ipam import utils as ipam_utils
-from neutron import manager
+from neutron_lib.api.validators import is_attr_set
+from neutron_lib import constants as lib_constants
+from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
@@ -40,7 +41,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
     @property
     def core_plugin(self):
         if not hasattr(self, '_core_plugin'):
-            self._core_plugin = manager.NeutronManager.get_plugin()
+            self._core_plugin = directory.get_plugin()
         return self._core_plugin
 
     def __init__(self):
@@ -200,7 +201,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 {'port': {
                     'tenant_id': redirect_target['tenant_id'],
                     'network_id': network_id,
-                    'mac_address': attributes.ATTR_NOT_SPECIFIED,
+                    'mac_address': lib_constants.ATTR_NOT_SPECIFIED,
                     'fixed_ips': [fixed_ips],
                     'device_id': '',
                     'device_owner': constants.DEVICE_OWNER_VIP_NUAGE,
@@ -210,7 +211,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             )
             if not vip_port['fixed_ips']:
                 self.core_plugin.delete_port(context, vip_port['id'])
-                msg = ('No IPs available for VIP %s') % network_id
+                msg = 'No IPs available for VIP %s' % network_id
                 raise n_exc.BadRequest(
                     resource='nuage-redirect-target', msg=msg)
 
@@ -313,8 +314,8 @@ class NuageRedirectTarget(BaseNuagePlugin):
             raise n_exc.InvalidInput(error_message=message)
 
         ip_proto = self.core_plugin._get_ip_proto_number(rule['protocol'])
-        if ip_proto in [os_constants.PROTO_NUM_TCP,
-                        os_constants.PROTO_NUM_UDP]:
+        if ip_proto in [lib_constants.PROTO_NUM_TCP,
+                        lib_constants.PROTO_NUM_UDP]:
             if (rule['port_range_min'] is not None and
                     rule['port_range_min'] <= rule['port_range_max']):
                 pass
@@ -400,10 +401,9 @@ class NuageRedirectTarget(BaseNuagePlugin):
     def get_nuage_redirect_target_rules_count(self, context, filters=None):
         return 0
 
-    @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _validate_port_redirect_target(self, context, port, rtargets):
-        if not attributes.is_attr_set(rtargets):
+        if not is_attr_set(rtargets):
             return
         if len(rtargets) > 1:
             msg = (_("Multiple redirect targets on a port not supported "))
@@ -412,7 +412,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             context.session, port['fixed_ips'][0]['subnet_id'])
         nuage_rtargets_ids = []
         for rtarget in rtargets:
-            uuid_match = re.match(attributes.UUID_PATTERN, rtarget)
+            uuid_match = re.match(lib_constants.UUID_PATTERN, rtarget)
             if not uuid_match:
                 nuage_rtarget = self._resource_finder(
                     context, 'port', 'nuage_redirect_target', rtarget)
@@ -446,11 +446,10 @@ class NuageRedirectTarget(BaseNuagePlugin):
 
         return nuage_rtargets_ids
 
-    @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def process_port_redirect_target(self, context, port, rtargets,
                                      n_rtargets_ids):
-        if not attributes.is_attr_set(rtargets):
+        if not is_attr_set(rtargets):
             port[ext_rtarget.REDIRECTTARGETS] = []
             return
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
