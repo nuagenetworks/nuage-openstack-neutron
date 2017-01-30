@@ -66,7 +66,7 @@ class RootNuagePlugin(object):
             'description': description,
             'vsd_subnet': vsd_subnet,
             'address_spoof': (constants.INHERITED
-                              if port.get(psec.PORTSECURITY)
+                              if port.get(psec.PORTSECURITY, True)
                               else constants.ENABLED)
         }
 
