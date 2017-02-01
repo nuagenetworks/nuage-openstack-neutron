@@ -261,9 +261,11 @@ class Nuage_redirect_target(api_extensions.ExtensionDescriptor):
         exts = []
         plugin = directory.get_plugin(
             nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN)
-        for resource_name in ['nuage_redirect_target',
-                              'nuage_redirect_target_rule',
-                              'nuage_redirect_target_vip']:
+        resources = ['nuage_redirect_target', 'nuage_redirect_target_vip']
+        if (directory.get_plugin().__class__.__name__ ==
+                nuage_constants.NUAGE_CORE_PLUGIN):
+            resources.append('nuage_redirect_target_rule')
+        for resource_name in resources:
             collection_name = resource_name.replace('_', '-') + "s"
             params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
             resource_registry.register_resource_by_name(resource_name)
