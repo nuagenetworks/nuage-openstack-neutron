@@ -270,7 +270,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             'redirect_target_id': redirect_target_rule['redirectVPortTagID'],
             'remote_ip_prefix': remote_ip_prefix,
             'remote_group_id': remote_group_id,
-            'origin_group_id': redirect_target_rule['origin_group_id']
+            'origin_group_id': redirect_target_rule.get('origin_group_id')
         }
         if context:
             res['tenant_id'] = context.tenant_id
