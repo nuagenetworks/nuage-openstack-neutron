@@ -2,5 +2,8 @@
     "get_nuage_policy_group": "rule:regular_user",
     "get_nuage_policy_group_all": "rule:admin_only",
     "get_nuage_floatingip": "rule:regular_user",
-    "get_nuage_floatingip_all": "rule:admin_only"
+    "get_nuage_floatingip_all": "rule:admin_only",
+    "get_router:tunnel_type": "rule:admin_only",
+    "create_router:tunnel_type": "rule:admin_only",
+    "update_router:tunnel_type": "rule:admin_only"
 }
