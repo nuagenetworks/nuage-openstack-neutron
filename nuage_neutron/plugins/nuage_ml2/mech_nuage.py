@@ -248,7 +248,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             if device_removed:
                 if self._port_should_have_vm(original):
                     self._delete_nuage_vm(core_plugin, db_context, original,
-                                          np_name, subnet_mapping)
+                                          np_name, subnet_mapping,
+                                          is_port_update_device_removed=True)
             elif device_added:
                 if port['device_owner'].startswith(
                         constants.NOVA_PORT_OWNER_PREF):
@@ -515,9 +516,22 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return False
 
     def _delete_nuage_vm(self, core_plugin, db_context, port, np_name,
-                         subnet_mapping):
+                         subnet_mapping, is_port_update_device_removed=False):
         no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
             core_plugin, db_context, port)
+
+        if is_port_update_device_removed:
+            # In case of device removed, this number should be the amount of
+            # vminterfaces on VSD. If it's >1, nuagenetlib knows there are
+            # still other vminterfaces using the VM, and it will not delete the
+            # vm. If it's 1 or less. Nuagenetlib will also automatically delete
+            # the vm. Because the port count is determined on a database count
+            # of ports with device_id X, AND because the update already
+            # happened by ml2plugin, AND because we're in the same database
+            # transaction, the count here would return 1 less (as the updated
+            # port will not be counted because the device_id is already cleared
+            no_of_ports += 1
+
         subn = core_plugin.get_subnet(db_context, subnet_mapping['subnet_id'])
         nuage_port = self.nuageclient.get_nuage_port_by_id(
             {'neutron_port_id': port['id']})
@@ -532,16 +546,16 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             'subn_tenant': subn['tenant_id'],
             'portOnSharedSubn': subn['shared']
         }
-        if not nuage_port['parentID']:
+        if not nuage_port['domainID']:
             params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
             params['l3dom_id'] = subnet_mapping['nuage_subnet_id'],
         try:
             self.nuageclient.delete_vms(params)
-        except Exception as e:
+        except Exception:
             LOG.error("Failed to delete vm from vsd {vm id: %s}"
                       % vm_id)
-            raise e
+            raise
 
     def _get_nuage_vport(self, port, subnet_mapping, required=True):
         port_params = {
