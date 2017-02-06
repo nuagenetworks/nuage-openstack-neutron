@@ -252,7 +252,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 if self._port_should_have_vm(original):
                     self._delete_nuage_vm(core_plugin, db_context, original,
                                           np_name, subnet_mapping,
-                                          is_port_update_device_removed=True)
+                                          is_port_device_owner_removed=True)
             elif device_added:
                 if port['device_owner'].startswith(
                         constants.NOVA_PORT_OWNER_PREF):
@@ -290,7 +290,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             require(np_name, "netpartition",
                     subnet_mapping['net_partition_id'])
             self._delete_nuage_vm(core_plugin, db_context, port, np_name,
-                                  subnet_mapping)
+                                  subnet_mapping,
+                                  is_port_device_owner_removed=True)
         nuage_vport = self._get_nuage_vport(port, subnet_mapping,
                                             required=False)
         if nuage_vport:
@@ -514,11 +515,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return False
 
     def _delete_nuage_vm(self, core_plugin, db_context, port, np_name,
-                         subnet_mapping, is_port_update_device_removed=False):
+                         subnet_mapping, is_port_device_owner_removed=False):
         no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
             core_plugin, db_context, port)
 
-        if is_port_update_device_removed:
+        if is_port_device_owner_removed:
             # In case of device removed, this number should be the amount of
             # vminterfaces on VSD. If it's >1, nuagenetlib knows there are
             # still other vminterfaces using the VM, and it will not delete the
