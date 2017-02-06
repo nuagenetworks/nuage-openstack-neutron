@@ -191,41 +191,40 @@ class NuageRedirectTarget(BaseNuagePlugin):
         vip = redirect_target.get('virtual_ip_address')
         self._validate_create_redirect_target_vip(
             context, nuage_redirect_target, subnet_mapping, vip)
-        with context.session.begin(subtransactions=True):
-            # Port has no 'tenant-id', as it is hidden from user
-            subnet = self.core_plugin.get_subnet(context, subnet_id)
-            network_id = subnet['network_id']
-            fixed_ips = {'ip_address': vip}
-            vip_port = self.core_plugin.create_port(
-                context,
-                {'port': {
-                    'tenant_id': redirect_target['tenant_id'],
-                    'network_id': network_id,
-                    'mac_address': lib_constants.ATTR_NOT_SPECIFIED,
-                    'fixed_ips': [fixed_ips],
-                    'device_id': '',
-                    'device_owner': constants.DEVICE_OWNER_VIP_NUAGE,
-                    'admin_state_up': True,
-                    'name': ''
-                }}
-            )
-            if not vip_port['fixed_ips']:
-                self.core_plugin.delete_port(context, vip_port['id'])
-                msg = 'No IPs available for VIP %s' % network_id
-                raise n_exc.BadRequest(
-                    resource='nuage-redirect-target', msg=msg)
+        # Port has no 'tenant-id', as it is hidden from user
+        subnet = self.core_plugin.get_subnet(context, subnet_id)
+        network_id = subnet['network_id']
+        fixed_ips = {'ip_address': vip}
+        vip_port = self.core_plugin.create_port(
+            context,
+            {'port': {
+                'tenant_id': redirect_target['tenant_id'],
+                'network_id': network_id,
+                'mac_address': lib_constants.ATTR_NOT_SPECIFIED,
+                'fixed_ips': [fixed_ips],
+                'device_id': '',
+                'device_owner': constants.DEVICE_OWNER_VIP_NUAGE,
+                'admin_state_up': True,
+                'name': ''
+            }}
+        )
+        if not vip_port['fixed_ips']:
+            self.core_plugin.delete_port(context, vip_port['id'])
+            msg = 'No IPs available for VIP %s' % network_id
+            raise n_exc.BadRequest(
+                resource='nuage-redirect-target', msg=msg)
 
-            vip_resp = self.nuageclient.create_virtual_ip(
-                redirect_target['redirect_target_id'],
-                redirect_target['virtual_ip_address'],
-                vip_port['id'])
+        vip_resp = self.nuageclient.create_virtual_ip(
+            redirect_target['redirect_target_id'],
+            redirect_target['virtual_ip_address'],
+            vip_port['id'])
 
-            self.core_plugin.update_port(
-                context, vip_port['id'],
-                {'port':
-                    {'device_id': redirect_target['redirect_target_id']}})
-            return self._make_redirect_target_vip_dict(vip_resp[3][0],
-                                                       context=context)
+        self.core_plugin.update_port(
+            context, vip_port['id'],
+            {'port':
+                {'device_id': redirect_target['redirect_target_id']}})
+        return self._make_redirect_target_vip_dict(vip_resp[3][0],
+                                                   context=context)
 
     @log_helpers.log_method_call
     def get_nuage_redirect_target_vips_count(self, context, filters=None):

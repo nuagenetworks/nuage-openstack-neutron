@@ -16,7 +16,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from neutron._i18n import _
-from neutron.common import exceptions as n_exc
+from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants
