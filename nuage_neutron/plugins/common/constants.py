@@ -19,6 +19,8 @@ DEVICE_OWNER_VIP_NUAGE = 'nuage:vip'
 
 DEVICE_OWNER_IRONIC = 'compute:ironic'
 
+DEVICE_OWNER_DHCP_NUAGE = "network:dhcp:nuage"
+
 AUTO_CREATE_PORT_OWNERS = [
     constants.DEVICE_OWNER_DHCP,
     constants.DEVICE_OWNER_ROUTER_INTF,
@@ -93,8 +95,6 @@ NOVA_PORT_OWNER_PREF = 'compute:'
 
 SR_TYPE_FLOATING = "FLOATING"
 
-DEVICE_OWNER_DHCP_NUAGE = "network:dhcp:nuage"
-
 DEF_L3DOM_TEMPLATE_PFIX = '_def_L3_Template'
 DEF_L2DOM_TEMPLATE_PFIX = '_def_L2_Template'
 DEF_NUAGE_ZONE_PREFIX = 'def_zone'
@@ -119,9 +119,12 @@ DISABLED = 'DISABLED'
 INHERITED = 'INHERITED'
 
 NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN = 'NUAGE_PORT_ATTRIBUTES_SERVICES'
+NUAGE_L3_SERVICE_PLUGIN = 'NUAGE_L3_PLUGIN'
+NUAGE_APIS = 'NUAGE_APIS'
 
 AFTER_CREATE = 'after_create_nuage'
 AFTER_UPDATE = 'after_update_nuage'
+AFTER_DELETE = 'after_delete_nuage'
 AFTER_SHOW = 'after_show_nuage'
 BEFORE_UPDATE = 'before_update_nuage'
 BEFORE_CREATE = 'before_create_nuage'

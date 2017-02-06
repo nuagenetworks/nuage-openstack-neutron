@@ -36,7 +36,7 @@ from neutron.api.v2 import attributes
 from neutron.callbacks import events
 from neutron.callbacks import exceptions as cb_exc
 from neutron.callbacks import registry
-from neutron.common import utils
+from neutron.callbacks import resources
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
@@ -59,19 +59,20 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.utils import helpers
+
 
 from nuage_neutron.plugins.common import addresspair
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import extensions as common_extensions
+from nuage_neutron.plugins.common.extensions import nuage_router
+from nuage_neutron.plugins.common import gateway
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import port_dhcp_options
-from nuage_neutron.plugins.common.service_plugins import resources
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import extensions
-from nuage_neutron.plugins.nuage.extensions import nuage_router
 from nuage_neutron.plugins.nuage import externalsg
-from nuage_neutron.plugins.nuage import gateway
 from nuagenetlib.restproxy import ResourceNotFoundException
 from nuagenetlib.restproxy import RESTProxyError
 
@@ -118,6 +119,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         }
         self._prepare_default_netpartition()
         self.init_fip_rate_log()
+        addresspair.NuageAddressPair.register(self)
+        gateway.NuagegatewayMixin.__init__(self)
         LOG.debug("NuagePlugin initialization done")
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
@@ -1042,9 +1045,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             securitygroups = port.get(ext_sg.SECURITYGROUPS, [])
             securitygroup_ids = [sg.security_group_id for sg in securitygroups]
             self.nuageclient.check_unused_policygroups(securitygroup_ids)
-        else:
             # Check and delete gateway host vport associated with the port
-            self.delete_gw_host_vport(context, port, subnet_mapping)
+        self.delete_gw_host_vport(context, port, subnet_mapping)
 
         super(NuagePlugin, self).delete_port(context, id)
 
@@ -2184,7 +2186,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     def _update_nuage_router_static_routes(self, id, nuage_domain_id,
                                            old_routes, new_routes):
-        added, removed = utils.diff_list_of_dict(old_routes, new_routes)
+        added, removed = helpers.diff_list_of_dict(old_routes, new_routes)
         routes_removed = []
         routes_added = []
         try:

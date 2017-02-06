@@ -31,12 +31,17 @@ LOG = logging.getLogger(__name__)
 
 class NuageAddressPair(BaseNuagePlugin):
 
-    def __init__(self):
-        super(NuageAddressPair, self).__init__()
+    def register(self):
         self.nuage_callbacks.subscribe(self.post_port_update,
                                        resources.PORT, constants.AFTER_UPDATE)
         self.nuage_callbacks.subscribe(self.post_port_create,
                                        resources.PORT, constants.AFTER_CREATE)
+        self.nuage_callbacks.subscribe(self.post_router_interface_create,
+                                       resources.ROUTER_INTERFACE,
+                                       constants.AFTER_CREATE)
+        self.nuage_callbacks.subscribe(self.post_router_interface_delete,
+                                       resources.ROUTER_INTERFACE,
+                                       constants.AFTER_DELETE)
 
     @property
     def core_plugin(self):
@@ -277,6 +282,24 @@ class NuageAddressPair(BaseNuagePlugin):
         vport = kwargs.get('vport')
         original_port = kwargs.get('original_port')
         request_port = kwargs.get('request_port')
+        rollbacks = kwargs.get('rollbacks')
         context = kwargs.get('context')
         self.update_allowed_address_pairs(context, original_port, request_port,
                                           updated_port, vport)
+        rollbacks.append((self.update_allowed_address_pairs,
+                          [context, original_port, request_port,
+                           updated_port, vport], {}))
+
+    def post_router_interface_create(self, resource, event, plugin, **kwargs):
+        context = kwargs['context']
+        subnet_mapping = kwargs['subnet_mapping']
+        self.process_address_pairs_of_subnet(context,
+                                             subnet_mapping,
+                                             constants.L3SUBNET)
+
+    def post_router_interface_delete(self, resource, event, plugin, **kwargs):
+        context = kwargs['context']
+        subnet_mapping = kwargs['subnet_mapping']
+        self.process_address_pairs_of_subnet(context,
+                                             subnet_mapping,
+                                             constants.L2DOMAIN)

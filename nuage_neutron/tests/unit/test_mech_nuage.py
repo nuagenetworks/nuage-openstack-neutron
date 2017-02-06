@@ -16,7 +16,6 @@
 # python -m testtools.run nuage_neutron/tests/unit/test_mech_nuage.py
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
-from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from oslo_context import context
 
@@ -75,28 +74,6 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
                   'net_partition': 'partyland'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
-
-    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_create_subnet_precommit_nuage_external_net(self, _mock):
-        nmd = NuageMechanismDriver()
-        nmd.initialize()
-
-        network = {'id': '1',
-                   'provider:network_type': 'vxlan',
-                   'router:external': True}
-        subnet = {'id': '10',
-                  'network_id': '1',
-                  'nuagenet': '0x100',
-                  'net_partition': 'partyland'}
-
-        try:
-            nmd.create_subnet_precommit(Context(network, subnet))
-            self.fail()  # should not get here
-        except NuageBadRequest as e:
-            if str(e) != 'Bad request: ' \
-                         'router:external in network must be False':
-                traceback.print_exc()
-                raise e
 
 
 class Context(context.RequestContext):

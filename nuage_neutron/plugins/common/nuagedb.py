@@ -14,12 +14,11 @@
 from sqlalchemy.orm import exc as sql_exc
 
 from neutron.db import common_db_mixin
-from neutron.db import external_net_db
-from neutron.db import extraroute_db
-from neutron.db import l3_db
 from neutron.db.models import allowed_address_pair as addr_pair_models
+from neutron.db.models import external_net as external_net_db
+from neutron.db.models import l3 as l3_db
+from neutron.db.models import securitygroup as securitygroups_db
 from neutron.db import models_v2
-from neutron.db import securitygroups_db
 from neutron_lib import constants as os_constants
 
 from nuage_neutron.plugins.common import exceptions
@@ -199,6 +198,14 @@ def get_subnet_l2dom_by_id(session, id):
     return query.filter_by(subnet_id=id).first()
 
 
+def get_subnet_l2doms_by_subnet_ids(session, subnet_ids):
+    return (
+        session.query(nuage_models.SubnetL2Domain)
+        .filter(
+            nuage_models.SubnetL2Domain.subnet_id.in_(subnet_ids)
+        )).all()
+
+
 def get_subnet_l2dom_by_port_id(session, port_id):
     query = (session.query(nuage_models.SubnetL2Domain)
              .join(models_v2.Subnet)
@@ -351,7 +358,7 @@ def get_default_net_partition(context, def_net_part):
 
 
 def get_all_routes(session):
-    routes = session.query(extraroute_db.RouterRoute)
+    routes = session.query(l3_db.RouterRoute)
     return make_route_list(routes)
 
 
@@ -361,7 +368,7 @@ def get_ext_network_ids(session):
 
 
 def get_route_with_lock(session, dest, nhop):
-    query = session.query(extraroute_db.RouterRoute)
+    query = session.query(l3_db.RouterRoute)
     route_db = (query.filter_by(destination=dest).filter_by(nexthop=nhop)
                 .with_lockmode('update').one())
     return make_route_dict(route_db)

@@ -15,27 +15,54 @@
 
 from oslo_log import log as logging
 
+from neutron.db.models import external_net
 from neutron.plugins.ml2 import driver_api as api
+from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import nuagedb
+from sqlalchemy.orm import exc
+
 
 LOG = logging.getLogger(__name__)
 
 
-class NuageSubnetExtensionDriver(api.ExtensionDriver):
+class NuageSubnetExtensionDriver(api.ExtensionDriver,
+                                 base_plugin.RootNuagePlugin):
     _supported_extension_alias = 'nuage-subnet'
 
     def initialize(self):
-        pass
+        super(NuageSubnetExtensionDriver, self).__init__()
+        self.init_vsd_client()
 
     @property
     def extension_alias(self):
         return self._supported_extension_alias
 
+    def _is_network_external(self, session, net_id):
+        try:
+            session.query(
+                external_net.ExternalNetwork).filter_by(
+                    network_id=net_id).one()
+            return True
+        except exc.NoResultFound:
+            return False
+
     def process_create_subnet(self, plugin_context, data, result):
         result['net_partition'] = data['net_partition']
         result['nuagenet'] = data['nuagenet']
+        result['underlay'] = data['underlay']
+        result['nuage_uplink'] = data['nuage_uplink']
 
     def extend_subnet_dict(self, session, db_data, result):
+        if self._is_network_external(session, db_data['network_id']):
+            try:
+                nuage_subnet = self.get_vsd_shared_subnet_attributes(
+                    result['id'])
+            except Exception as e:
+                LOG.exception(e)
+                raise
+            if nuage_subnet:
+                result['underlay'] = nuage_subnet['underlay']
+                result['nuage_uplink'] = nuage_subnet['sharedResourceParentID']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, result['id'])
         if subnet_mapping:
             result['vsd_managed'] = subnet_mapping['nuage_managed_subnet']

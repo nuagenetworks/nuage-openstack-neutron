@@ -11,12 +11,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from neutron._i18n import _
+from neutron_lib import constants as lib_constants
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
@@ -30,6 +31,20 @@ class NuagegatewayMixin(object):
 
     def __init__(self, *args, **kwargs):
         super(NuagegatewayMixin, self).__init__(*args, **kwargs)
+        self._l2_plugin = None
+        self._l3plugin = None
+
+    @property
+    def core_plugin(self):
+        if self._l2_plugin is None:
+            self._l2_plugin = directory.get_plugin()
+        return self._l2_plugin
+
+    @property
+    def l3_plugin(self):
+        if self._l3plugin is None:
+            self._l3plugin = directory.get_plugin(lib_constants.L3)
+        return self._l3plugin
 
     @log_helpers.log_method_call
     def _make_gw_port_dict(self, port, fields=None, context=None):
@@ -117,13 +132,13 @@ class NuagegatewayMixin(object):
         }
 
         if subnet_id:
-            params['subnet'] = self.get_subnet(context, subnet_id)
+            params['subnet'] = self.core_plugin.get_subnet(context, subnet_id)
 
         if port_id:
-            p = self.get_port(context, port_id)
+            p = self.core_plugin.get_port(context, port_id)
             if p.get('fixed_ips'):
                 subnet_id = p['fixed_ips'][0]['subnet_id']
-                subnet = self.get_subnet(context, subnet_id)
+                subnet = self.core_plugin.get_subnet(context, subnet_id)
                 params['enable_dhcp'] = subnet.get('enable_dhcp')
             params['port'] = p
 
@@ -152,9 +167,11 @@ class NuagegatewayMixin(object):
             raise
         if port_id and not subnet_mapping['nuage_managed_subnet']:
             port = params['port']
-            self._check_floatingip_update(context, port,
-                                          vport_type=constants.HOST_VPORT,
-                                          vport_id=vport['ID'])
+            self.l3_plugin._check_floatingip_update(
+                context,
+                port,
+                vport_type=constants.HOST_VPORT,
+                vport_id=vport['ID'])
         resp_dict = {'vport_id': resp['vport']['ID'],
                      'vport_type': resp['vport']['type'],
                      'vport_name': resp['vport']['name'],

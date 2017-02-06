@@ -108,7 +108,7 @@ def ignore_no_update(fn):
             # does not complain when updating to the same values.
             if str(e.vsd_code) == '2039':
                 return Ignored(e)
-            raise e
+            raise
     return wrapped
 
 
