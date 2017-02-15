@@ -199,6 +199,14 @@ def get_subnet_l2dom_by_id(session, id):
     return query.filter_by(subnet_id=id).first()
 
 
+def get_subnet_l2doms_by_subnet_ids(session, subnet_ids):
+    return (
+        session.query(nuage_models.SubnetL2Domain)
+        .filter(
+            nuage_models.SubnetL2Domain.subnet_id.in_(subnet_ids)
+        )).all()
+
+
 def get_subnet_l2dom_by_port_id(session, port_id):
     query = (session.query(nuage_models.SubnetL2Domain)
              .join(models_v2.Subnet)

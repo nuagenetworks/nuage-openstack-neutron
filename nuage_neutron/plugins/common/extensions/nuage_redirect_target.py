@@ -260,11 +260,9 @@ class Nuage_redirect_target(extensions.ExtensionDescriptor):
         exts = []
         plugin = manager.NeutronManager.get_service_plugins()[
             nuage_constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN]
-        resources = ['nuage_redirect_target', 'nuage_redirect_target_vip']
-        if (manager.NeutronManager.get_plugin().__class__.__name__ ==
-                nuage_constants.NUAGE_CORE_PLUGIN):
-            resources.append('nuage_redirect_target_rule')
-        for resource_name in resources:
+        for resource_name in ['nuage_redirect_target',
+                              'nuage_redirect_target_rule',
+                              'nuage_redirect_target_vip']:
             collection_name = resource_name.replace('_', '-') + "s"
             params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
             resource_registry.register_resource_by_name(resource_name)

@@ -19,9 +19,12 @@ from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 
 from neutron._i18n import _
+from neutron.api.v2 import attributes
 from neutron.extensions import portsecurity as psec
+from neutron.plugins.common import utils as plugin_utils
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
+from nuagenetlib import restproxy
 
 from nuage_neutron.plugins.common import callback_manager
 from nuage_neutron.plugins.common import config
@@ -72,6 +75,12 @@ class RootNuagePlugin(object):
         }
 
         return self.nuageclient.create_vport(params)
+
+    def get_vsd_shared_subnet_attributes(self, neutron_id):
+        try:
+            return self.nuageclient.get_sharedresource(neutron_id)
+        except restproxy.ResourceNotFoundException:
+            pass
 
     def _validate_vmports_same_netpartition(self, core_plugin, db_context,
                                             current_port, np_id):
@@ -135,9 +144,29 @@ class RootNuagePlugin(object):
             found_resource = found_resource[0]
         return found_resource
 
+    @log_helpers.log_method_call
+    def _reserve_ip(self, core_plugin, context, subnet, ip):
+        fixed_ip = [{'ip_address': ip, 'subnet_id': subnet['id']}]
+        p_data = {
+            'network_id': subnet['network_id'],
+            'tenant_id': subnet['tenant_id'],
+            'fixed_ips': fixed_ip,
+            'device_owner': constants.DEVICE_OWNER_DHCP_NUAGE
+        }
+        port = plugin_utils._fixup_res_dict(context,
+                                            attributes.PORTS,
+                                            p_data)
+        return core_plugin._create_port_db(context, {'port': port})[0]
+
 
 class BaseNuagePlugin(RootNuagePlugin):
 
     def __init__(self):
         super(BaseNuagePlugin, self).__init__()
         self.init_vsd_client()
+
+    def _fields(self, resource, fields):
+        if fields:
+            return dict(((key, item) for key, item in resource.items()
+                         if key in fields))
+        return resource
