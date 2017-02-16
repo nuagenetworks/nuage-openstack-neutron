@@ -57,7 +57,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
     """This class is the upstream implementation without the rpc calls.
 
     The rpc calls are done upstream to talk with the l3-agent but for nuage we
-    will talk to the VSD via nuagenetlib instead.
+    will talk to the VSD via vsdclient instead.
     """
     def __init__(self):
         super(NuageFWaaSPlugin, self).__init__()
@@ -116,8 +116,8 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
             fw_rule = super(NuageFWaaSPlugin, self).create_firewall_rule(
                 context, firewall_rule)
             if fw_rule['enabled'] is True:
-                self.nuageclient.create_firewall_rule(self.enterprise_id,
-                                                      fw_rule)
+                self.vsdclient.create_firewall_rule(self.enterprise_id,
+                                                    fw_rule)
         return fw_rule
 
     @log_helpers.log_method_call
@@ -137,15 +137,15 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
             elif became_disabled:
                 self._disable_rule(context, fw_rule, id)
             elif fw_rule['enabled'] is True:
-                self.nuageclient.update_firewall_rule(
+                self.vsdclient.update_firewall_rule(
                     self.enterprise_id, id, request['firewall_rule'])
             return fw_rule
 
     def _enable_rule(self, context, fw_rule):
         with utils.rollback() as on_exc:
-            vsd_rule = self.nuageclient.create_firewall_rule(
+            vsd_rule = self.vsdclient.create_firewall_rule(
                 self.enterprise_id, fw_rule)
-            on_exc(self.nuageclient.delete_vsd_firewallrule, vsd_rule['ID'])
+            on_exc(self.vsdclient.delete_vsd_firewallrule, vsd_rule['ID'])
             if fw_rule['firewall_policy_id']:
                 self._update_policy_rules(context,
                                           fw_rule['firewall_policy_id'])
@@ -153,25 +153,25 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
     def _disable_rule(self, context, fw_rule, id):
         with utils.rollback() as on_exc:
             if fw_rule['firewall_policy_id']:
-                self.nuageclient.remove_rule(self.enterprise_id,
-                                             fw_rule['firewall_policy_id'],
-                                             {'firewall_rule_id': id})
+                self.vsdclient.remove_rule(self.enterprise_id,
+                                           fw_rule['firewall_policy_id'],
+                                           {'firewall_rule_id': id})
                 on_exc(self._update_policy_rules,
                        context, fw_rule['firewall_policy_id'])
-            self.nuageclient.delete_firewall_rule(self.enterprise_id, id)
+            self.vsdclient.delete_firewall_rule(self.enterprise_id, id)
 
     @log_helpers.log_method_call
     def delete_firewall_rule(self, context, id):
         with self.db_lock_by_rule(context, id):
             super(NuageFWaaSPlugin, self).delete_firewall_rule(context, id)
-            self.nuageclient.delete_firewall_rule(self.enterprise_id, id)
+            self.vsdclient.delete_firewall_rule(self.enterprise_id, id)
 
     def _update_policy_rules(self, context, policy_id, delete_rule=None):
         policy = self.get_firewall_policy(context, policy_id)
         rules = policy['firewall_rules']
         if delete_rule:
             rules.remove(delete_rule)
-        self.nuageclient.update_firewall_policy(
+        self.vsdclient.update_firewall_policy(
             self.enterprise_id, policy['id'],
             {'firewall_rules': rules})
 
@@ -182,7 +182,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
         with context.session.begin(subtransactions=True):
             policy = super(NuageFWaaSPlugin, self).create_firewall_policy(
                 context, firewall_policy)
-            self.nuageclient.create_firewall_policy(self.enterprise_id, policy)
+            self.vsdclient.create_firewall_policy(self.enterprise_id, policy)
 
         return policy
 
@@ -191,22 +191,22 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
         with self.db_lock_by_policy(context, id):
             policy = super(NuageFWaaSPlugin, self).update_firewall_policy(
                 context, id, firewall_policy)
-            self.nuageclient.update_firewall_policy(self.enterprise_id,
-                                                    id, firewall_policy)
+            self.vsdclient.update_firewall_policy(self.enterprise_id,
+                                                  id, firewall_policy)
         return policy
 
     @log_helpers.log_method_call
     def delete_firewall_policy(self, context, id):
         with context.session.begin(subtransactions=True):
             super(NuageFWaaSPlugin, self).delete_firewall_policy(context, id)
-            self.nuageclient.delete_firewall_policy(self.enterprise_id, id)
+            self.vsdclient.delete_firewall_policy(self.enterprise_id, id)
 
     @log_helpers.log_method_call
     def remove_rule(self, context, id, rule_info):
         with self.db_lock_by_policy(context, id):
             policy = super(NuageFWaaSPlugin, self).remove_rule(
                 context, id, rule_info)
-        self.nuageclient.remove_rule(self.enterprise_id, id, rule_info)
+        self.vsdclient.remove_rule(self.enterprise_id, id, rule_info)
         return policy
 
     @log_helpers.log_method_call
@@ -214,7 +214,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
         with self.db_lock_by_policy(context, id):
             policy = super(NuageFWaaSPlugin, self).insert_rule(
                 context, id, rule_info)
-            self.nuageclient.insert_rule(self.enterprise_id, id, rule_info)
+            self.vsdclient.insert_rule(self.enterprise_id, id, rule_info)
         return policy
 
     # Firewall
@@ -229,8 +229,8 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
                                                                firewall)
             l3domain_ids = self.l3domain_ids_by_policy_id(
                 context, fw.get('firewall_policy_id'))
-            self.nuageclient.create_firewall(self.enterprise_id, fw,
-                                             l3domain_ids)
+            self.vsdclient.create_firewall(self.enterprise_id, fw,
+                                           l3domain_ids)
             self._update_firewall_status(context, fw)
             return fw
 
@@ -249,14 +249,14 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
                               updated_fw['firewall_policy_id'])
             with utils.rollback() as on_exc:
                 if policy_updated:
-                    self.nuageclient.update_firewall(self.enterprise_id,
-                                                     original_fw,
-                                                     [])
-                    on_exc(self.nuageclient.update_firewall,
+                    self.vsdclient.update_firewall(self.enterprise_id,
+                                                   original_fw,
+                                                   [])
+                    on_exc(self.vsdclient.update_firewall,
                            self.enterprise_id, original_fw, original_l3domains)
                 l3domain_ids = self.l3domain_ids_by_policy_id(
                     context, updated_fw['firewall_policy_id'])
-                self.nuageclient.update_firewall(
+                self.vsdclient.update_firewall(
                     self.enterprise_id, updated_fw, l3domain_ids)
                 self._update_firewall_status(context, updated_fw)
                 return updated_fw
@@ -270,7 +270,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
             fwaas_db.Firewall_db_mixin.delete_firewall(self, context, id)
             l3domain_ids = self.l3domain_ids_by_policy_id(
                 context, firewall.get('firewall_policy_id'))
-            self.nuageclient.delete_firewall(
+            self.vsdclient.delete_firewall(
                 self.enterprise_id, firewall, l3domain_ids)
 
     def l3domain_ids_by_policy_id(self, context, policy_id):

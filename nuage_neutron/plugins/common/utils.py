@@ -21,7 +21,7 @@ from neutron._i18n import _
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 
-from nuagenetlib.restproxy import RESTProxyError
+from nuage_neutron.vsdclient.restproxy import RESTProxyError
 from oslo_log import log as logging
 
 
@@ -31,8 +31,14 @@ def handle_nuage_api_error(fn):
             return fn(*args, **kwargs)
         except RESTProxyError as ex:
             et, ei, tb = sys.exc_info()
-            raise nuage_exc.NuageAPIException, \
-                nuage_exc.NuageAPIException(msg=ex), tb
+
+            # converting python-2 style code
+            # raise nuage_exc.NuageAPIException, \
+            #    nuage_exc.NuageAPIException(msg=ex), tb
+            e = nuage_exc.NuageAPIException(msg=ex)
+            e.__traceback__ = tb
+            raise e
+
     return wrapped
 
 
@@ -77,7 +83,7 @@ def context_log(fn):
 class Ignored(object):
     """Class that will evaluate to False in if-statement and contains error.
 
-    This is returned when exceptions are silently ignored from nuageclient.
+    This is returned when exceptions are silently ignored from vsdclient.
     It will return false when doing if x:
     But it's still possible to raise the original exception by doing
     raise x.exception
@@ -94,8 +100,13 @@ def handle_nuage_api_errorcode(fn):
         try:
             return fn(*args, **kwargs)
         except RESTProxyError as e:
-            raise nuage_exc.NuageBadRequest(msg=ERROR_DICT.get(
-                str(e.vsd_code), e.message)), None, sys.exc_info()[2]
+            # raise nuage_exc.NuageBadRequest(msg=ERROR_DICT.get(
+            #     str(e.vsd_code), e.message)), None, sys.exc_info()[2]
+            e = nuage_exc.NuageBadRequest(msg=ERROR_DICT.get(
+                str(e.vsd_code), e.message))
+            e.__traceback__ = sys.exc_info()[2]
+            raise e
+
     return wrapped
 
 

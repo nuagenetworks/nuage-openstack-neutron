@@ -27,7 +27,7 @@ from nuage_neutron.plugins.common.service_plugins \
     import vsd_passthrough_resource
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.common.validation import require
-from nuagenetlib.restproxy import ResourceNotFoundException
+from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 
 
 class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
@@ -57,8 +57,8 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
     @log_helpers.log_method_call
     def get_nuage_floatingip(self, context, id, fields=None):
         try:
-            floatingip = self.nuageclient.get_nuage_floatingip(id,
-                                                               externalID=None)
+            floatingip = self.vsdclient.get_nuage_floatingip(id,
+                                                             externalID=None)
             if not floatingip:
                 raise exceptions.NuageNotFound(resource="nuage-floatingip",
                                                resource_id=id)
@@ -100,21 +100,21 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
 
     def get_all_nuage_floatingips(self, context, filters=None):
         vsd_filters = self.osfilters_to_vsdfilters(filters)
-        return self.nuageclient.get_nuage_floatingips(externalID=None,
-                                                      **vsd_filters)
+        return self.vsdclient.get_nuage_floatingips(externalID=None,
+                                                    **vsd_filters)
 
     def _get_available_nuage_floatingips(self, vsd_mapping, filters):
         vsd_filters = self.osfilters_to_vsdfilters(filters)
         vsd_id = vsd_mapping['nuage_subnet_id']
-        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(vsd_id)
+        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(vsd_id)
         if not vsd_subnet:
             raise exceptions.VsdSubnetNotFound(id=vsd_id)
         if vsd_subnet['type'] == constants.L2DOMAIN:
             return []
 
-        domain_id = self.nuageclient.get_router_by_domain_subnet_id(
+        domain_id = self.vsdclient.get_router_by_domain_subnet_id(
             vsd_subnet['ID'])
-        return self.nuageclient.get_nuage_domain_floatingips(
+        return self.vsdclient.get_nuage_domain_floatingips(
             domain_id, assigned=False, externalID=None, **vsd_filters)
 
     def post_port_update(self, resource, event, trigger, **kwargs):
@@ -144,7 +144,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
                                        vport):
         request_fip = request_port[NUAGE_FLOATINGIP] or {}
         if request_fip:
-            floatingip = self.nuageclient.get_nuage_floatingip(
+            floatingip = self.vsdclient.get_nuage_floatingip(
                 request_fip.get('id'), required=True)
             if floatingip['externalID']:
                 msg = _("Floatingip %s has externalID, it can't be used with "
@@ -152,12 +152,12 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
                 raise exceptions.NuageBadRequest(msg=msg)
         if event == constants.AFTER_UPDATE:
             rollbacks.append(
-                (self.nuageclient.update_vport,
+                (self.vsdclient.update_vport,
                  [vport['ID'],
                   {'associatedFloatingIPID': vport['associatedFloatingIPID']}],
                  {})
             )
-        self.nuageclient.update_vport(
+        self.vsdclient.update_vport(
             vport['ID'],
             {'associatedFloatingIPID': request_fip.get('id')})
 
@@ -171,7 +171,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
             port[NUAGE_FLOATINGIP] = None
             return
 
-        floatingip = self.nuageclient.get_nuage_floatingip(
+        floatingip = self.vsdclient.get_nuage_floatingip(
             vport['associatedFloatingIPID'], externalID=None)
         if floatingip:
             port[NUAGE_FLOATINGIP] = {'id': floatingip['ID'],
