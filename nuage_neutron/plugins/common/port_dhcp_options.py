@@ -50,7 +50,7 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
         response = []
         for dhcp_option in dhcp_options:
             try:
-                resp = self.nuageclient.crt_or_updt_vport_dhcp_option(
+                resp = self.vsdclient.crt_or_updt_vport_dhcp_option(
                     dhcp_option, vport['ID'], port_id)
             except Exception as e:
                 e = self._build_dhcp_option_error_message(
@@ -61,7 +61,7 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
                     return response
                 for del_resp in response:
                     if del_resp[1] == 'Created':
-                        self.nuageclient.delete_vport_dhcp_option(
+                        self.vsdclient.delete_vport_dhcp_option(
                             del_resp[3][0]['ID'], True)
                 raise e
             response.append(resp)
@@ -165,7 +165,7 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
                 raise e
         except Exception as e:
             for rollback_opt in created_rollback_opts:
-                self.nuageclient.delete_vport_dhcp_option(
+                self.vsdclient.delete_vport_dhcp_option(
                     rollback_opt[3][0]['ID'], True)
             self._create_update_extra_dhcp_options(old_dhcp_opts, vport,
                                                    port_id, True)

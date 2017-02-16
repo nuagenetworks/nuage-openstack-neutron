@@ -71,7 +71,7 @@ class NuageexternalsgMixin(object):
                 raise n_exc.BadRequest(
                     resource='nuage_external_security_group', msg=msg)
         elif router_id:
-            nuage_router = self.nuageclient.get_router_by_external(router_id)
+            nuage_router = self.vsdclient.get_router_by_external(router_id)
             if nuage_router:
                 l3dom_id = nuage_router['ID']
                 external_id = router_id
@@ -89,8 +89,7 @@ class NuageexternalsgMixin(object):
 
         }
         ext_sg_resp = (
-            self.nuageclient.create_nuage_external_security_group(
-                params))
+            self.vsdclient.create_nuage_external_security_group(params))
         return self._make_external_security_group_dict(ext_sg_resp[0],
                                                        context=context)
 
@@ -98,7 +97,7 @@ class NuageexternalsgMixin(object):
     def get_nuage_external_security_group(self, context, ext_sg_id,
                                           fields=None):
         try:
-            ext_sg_resp = self.nuageclient.get_nuage_external_security_group(
+            ext_sg_resp = self.vsdclient.get_nuage_external_security_group(
                 ext_sg_id)
         except Exception:
             raise nuage_exc.NuageNotFound(
@@ -137,7 +136,7 @@ class NuageexternalsgMixin(object):
             resource_id = params['name']
 
         try:
-            ext_sgs = self.nuageclient.get_nuage_external_security_groups(
+            ext_sgs = self.vsdclient.get_nuage_external_security_groups(
                 params)
         except Exception:
             raise nuage_exc.NuageNotFound(
@@ -149,7 +148,7 @@ class NuageexternalsgMixin(object):
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def delete_nuage_external_security_group(self, context, ext_sg_id):
-        self.nuageclient.delete_nuage_external_security_group(ext_sg_id)
+        self.vsdclient.delete_nuage_external_security_group(ext_sg_id)
 
     @log_helpers.log_method_call
     def get_nuage_external_security_groups_count(self, context, filters=None):
@@ -195,7 +194,7 @@ class NuageexternalsgMixin(object):
                 'nuage_external_security_group_rule'])
         self.get_port_attributes_plugin()._validate_redirect_target_port_range(
             external_sg_rule)
-        rule_resp = self.nuageclient.create_nuage_external_sg_rule(
+        rule_resp = self.vsdclient.create_nuage_external_sg_rule(
             external_sg_rule)
         rule_resp['direction'] = external_sg_rule['direction']
         return self._make_external_security_group_rule_dict(rule_resp,
@@ -211,7 +210,7 @@ class NuageexternalsgMixin(object):
                                                fields=None):
         try:
             ext_rule_resp = (
-                self.nuageclient.get_nuage_external_sg_rule(external_rule_id))
+                self.vsdclient.get_nuage_external_sg_rule(external_rule_id))
         except Exception:
             raise nuage_exc.NuageNotFound(
                 resource='nuage-external-security-group-rule',
@@ -224,7 +223,7 @@ class NuageexternalsgMixin(object):
     @log_helpers.log_method_call
     def delete_nuage_external_security_group_rule(self, context,
                                                   external_rule_id):
-        self.nuageclient.delete_nuage_external_sg_rule(external_rule_id)
+        self.vsdclient.delete_nuage_external_sg_rule(external_rule_id)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -251,7 +250,7 @@ class NuageexternalsgMixin(object):
             params['external_group'] = filters.get('external_group')[0]
             resource_id = params['external_group']
         try:
-            ext_rules = self.nuageclient.get_nuage_external_sg_rules(
+            ext_rules = self.vsdclient.get_nuage_external_sg_rules(
                 params)
         except Exception:
             raise nuage_exc.NuageNotFound(
