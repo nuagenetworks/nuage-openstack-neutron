@@ -1931,6 +1931,12 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         rtr_if_info = super(NuagePlugin, self).add_router_interface(
             context, router_id, interface_info)
         try:
+            subnet = self.get_subnet(context, rtr_if_info['subnet_id'])
+            network = self.get_network(context, subnet['network_id'])
+            if network['router:external']:
+                msg = _("Subnet in external network cannot be an interface of "
+                        "a router.")
+                raise nuage_exc.NuageBadRequest(msg=msg)
             return self._nuage_add_router_interface(context,
                                                     interface_info,
                                                     router_id,
