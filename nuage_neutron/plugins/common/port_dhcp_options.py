@@ -180,8 +180,8 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
             return
         dhcp_options = copy.deepcopy(request_port['extra_dhcp_opts'])
         for dhcp_option in dhcp_options:
-            self._translate_dhcp_option(dhcp_option)
             self._validate_extra_dhcp_option_ip_version(dhcp_option)
+            self._translate_dhcp_option(dhcp_option)
         self._validate_extra_dhcp_opt_for_neutron(dhcp_options)
 
     def _create_port_dhcp_opts(self, resource, event, trigger, **kwargs):

@@ -36,6 +36,7 @@ from neutron.api.v2 import attributes
 from neutron.callbacks import events
 from neutron.callbacks import exceptions as cb_exc
 from neutron.callbacks import registry
+from neutron.callbacks import resources
 from neutron.common import utils
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db
@@ -64,14 +65,13 @@ from nuage_neutron.plugins.common import addresspair
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import extensions as common_extensions
+from nuage_neutron.plugins.common.extensions import nuage_router
+from nuage_neutron.plugins.common import gateway
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import port_dhcp_options
-from nuage_neutron.plugins.common.service_plugins import resources
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import extensions
-from nuage_neutron.plugins.nuage.extensions import nuage_router
 from nuage_neutron.plugins.nuage import externalsg
-from nuage_neutron.plugins.nuage import gateway
 from nuagenetlib.restproxy import ResourceNotFoundException
 from nuagenetlib.restproxy import RESTProxyError
 
@@ -118,6 +118,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         }
         self._prepare_default_netpartition()
         self.init_fip_rate_log()
+        addresspair.NuageAddressPair.register(self)
+        gateway.NuagegatewayMixin.__init__(self)
         LOG.debug("NuagePlugin initialization done")
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
@@ -1042,9 +1044,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             securitygroups = port.get(ext_sg.SECURITYGROUPS, [])
             securitygroup_ids = [sg.security_group_id for sg in securitygroups]
             self.nuageclient.check_unused_policygroups(securitygroup_ids)
-        else:
             # Check and delete gateway host vport associated with the port
-            self.delete_gw_host_vport(context, port, subnet_mapping)
+        self.delete_gw_host_vport(context, port, subnet_mapping)
 
         super(NuagePlugin, self).delete_port(context, id)
 
