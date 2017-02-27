@@ -26,7 +26,6 @@ from neutron.plugins.common import constants as plugin_constants
 from neutron.plugins.common import utils as plugin_utils
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
-from nuagenetlib import restproxy
 
 from nuage_neutron.plugins.common import callback_manager
 from nuage_neutron.plugins.common import config
@@ -36,7 +35,8 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import validate
 
-from nuagenetlib.nuageclient import NuageClient
+from nuage_neutron.vsdclient import restproxy
+from nuage_neutron.vsdclient.vsdclient_fac import VsdClientFactory
 
 
 class RootNuagePlugin(object):
@@ -45,7 +45,7 @@ class RootNuagePlugin(object):
         super(RootNuagePlugin, self).__init__()
         config.nuage_register_cfg_opts()
         self.nuage_callbacks = callback_manager.get_callback_manager()
-        self.nuageclient = None  # deferred initialization
+        self.vsdclient = None  # deferred initialization
         self._l2_plugin = None
         self._l3_plugin = None
 
@@ -69,7 +69,7 @@ class RootNuagePlugin(object):
             raise cfg.ConfigFileValueError(
                 _('Missing cms_id in configuration.'))
 
-        self.nuageclient = NuageClient(
+        self.vsdclient = VsdClientFactory().new_vsd_client(
             cms_id,
             server=cfg.CONF.RESTPROXY.server,
             base_uri=cfg.CONF.RESTPROXY.base_uri,
@@ -91,11 +91,11 @@ class RootNuagePlugin(object):
                               else constants.ENABLED)
         }
 
-        return self.nuageclient.create_vport(params)
+        return self.vsdclient.create_vport(params)
 
     def get_vsd_shared_subnet_attributes(self, neutron_id):
         try:
-            return self.nuageclient.get_sharedresource(neutron_id)
+            return self.vsdclient.get_sharedresource(neutron_id)
         except restproxy.ResourceNotFoundException:
             pass
 

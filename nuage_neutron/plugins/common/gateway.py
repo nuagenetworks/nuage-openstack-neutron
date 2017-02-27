@@ -154,12 +154,12 @@ class NuagegatewayMixin(object):
             raise nuage_exc.NuageBadRequest(msg=msg)
 
         try:
-            vsd_subnet = self.nuageclient \
+            vsd_subnet = self.vsdclient \
                 .get_subnet_or_domain_subnet_by_id(
                     subnet_mapping['nuage_subnet_id'])
             params['vsd_subnet'] = vsd_subnet
-            resp = self.nuageclient.create_gateway_vport(context.tenant_id,
-                                                         params)
+            resp = self.vsdclient.create_gateway_vport(context.tenant_id,
+                                                       params)
             vport = resp['vport']
         except Exception as ex:
             if ex.code == constants.RES_CONFLICT:
@@ -188,22 +188,22 @@ class NuagegatewayMixin(object):
     def create_nuage_gateway_vlan(self, context, nuage_gateway_vlan):
         vlan = nuage_gateway_vlan['nuage_gateway_vlan']
 
-        resp = self.nuageclient.create_gateway_port_vlan(vlan)
+        resp = self.vsdclient.create_gateway_port_vlan(vlan)
         return self._make_vlan_dict(resp, context=context)
 
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def delete_nuage_gateway_vlan(self, context, id):
-        self.nuageclient.delete_gateway_port_vlan(id)
+        self.vsdclient.delete_gateway_port_vlan(id)
 
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def delete_nuage_gateway_vport(self, context, id):
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
         netpart = nuagedb.get_default_net_partition(context, def_netpart)
-        self.nuageclient.delete_nuage_gateway_vport(context.tenant_id,
-                                                    id,
-                                                    netpart['id'])
+        self.vsdclient.delete_nuage_gateway_vport(context.tenant_id,
+                                                  id,
+                                                  netpart['id'])
 
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -216,15 +216,15 @@ class NuagegatewayMixin(object):
             'vlan': vlan,
             'np_id': netpart['id']
         }
-        resp = self.nuageclient.update_gateway_port_vlan(context.tenant_id, id,
-                                                         params)
+        resp = self.vsdclient.update_gateway_port_vlan(context.tenant_id, id,
+                                                       params)
         return self._make_vlan_dict(resp, context=context)
 
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def get_nuage_gateway_vlan(self, context, id, fields=None):
-        resp = self.nuageclient.get_gateway_port_vlan(context.tenant_id,
-                                                      id)
+        resp = self.vsdclient.get_gateway_port_vlan(context.tenant_id,
+                                                    id)
         if resp:
             return self._make_vlan_dict(resp, fields=fields, context=context)
         else:
@@ -238,9 +238,9 @@ class NuagegatewayMixin(object):
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
         netpart = nuagedb.get_default_net_partition(context, def_netpart)
 
-        resp = self.nuageclient.get_gateway_vport(fetch_tenant,
-                                                  netpart['id'],
-                                                  id)
+        resp = self.vsdclient.get_gateway_vport(fetch_tenant,
+                                                netpart['id'],
+                                                id)
         if resp:
             if not resp.get('subnet_id'):
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
@@ -270,9 +270,9 @@ class NuagegatewayMixin(object):
             msg = 'No neutron subnet to nuage subnet mapping found'
             raise nuage_exc.NuageBadRequest(msg=msg)
 
-        resp = self.nuageclient.get_gateway_vports(fetch_tenant,
-                                                   netpart['id'],
-                                                   filters)
+        resp = self.vsdclient.get_gateway_vports(fetch_tenant,
+                                                 netpart['id'],
+                                                 filters)
         if resp:
             return [self._make_vport_dict(vport, fields=fields,
                                           context=context) for vport in resp]
@@ -355,9 +355,9 @@ class NuagegatewayMixin(object):
 
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
         netpart = nuagedb.get_default_net_partition(context, def_netpart)
-        resp = self.nuageclient.get_gateway_port_vlans(fetch_tenant,
-                                                       netpart['id'],
-                                                       filters=filters)
+        resp = self.vsdclient.get_gateway_port_vlans(fetch_tenant,
+                                                     netpart['id'],
+                                                     filters=filters)
         if resp:
             return [self._make_vlan_dict(
                 vlan, fields=fields, context=context) for vlan in resp]
@@ -367,7 +367,7 @@ class NuagegatewayMixin(object):
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def get_nuage_gateway_port(self, context, id, fields=None):
-        resp = self.nuageclient.get_gateway_port(context.tenant_id, id)
+        resp = self.vsdclient.get_gateway_port(context.tenant_id, id)
 
         if resp:
             return self._make_gw_port_dict(resp, fields=fields,
@@ -379,15 +379,15 @@ class NuagegatewayMixin(object):
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def get_nuage_gateway_ports(self, context, filters=None, fields=None):
-        resp = self.nuageclient.get_gateway_ports(context.tenant_id,
-                                                  filters=filters)
+        resp = self.vsdclient.get_gateway_ports(context.tenant_id,
+                                                filters=filters)
         return [self._make_gw_port_dict(gw, fields=fields, context=context)
                 for gw in resp]
 
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def get_nuage_gateway(self, context, id, fields=None):
-        resp = self.nuageclient.get_gateway(context.tenant_id, id)
+        resp = self.vsdclient.get_gateway(context.tenant_id, id)
         if resp:
             return self._make_gateway_dict(resp, fields=fields,
                                            context=context)
@@ -398,8 +398,8 @@ class NuagegatewayMixin(object):
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def get_nuage_gateways(self, context, filters=None, fields=None):
-        resp = self.nuageclient.get_gateways(context.tenant_id,
-                                             filters=filters)
+        resp = self.vsdclient.get_gateways(context.tenant_id,
+                                           filters=filters)
         return [self._make_gateway_dict(gw, fields=fields, context=context)
                 for gw in resp]
 
@@ -412,7 +412,7 @@ class NuagegatewayMixin(object):
         # Check if l2domain/subnet exist. In case of router_interface_delete,
         # subnet is deleted and then call comes to delete_port. In that
         # case, we just return
-        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             subnet_mapping['nuage_subnet_id'])
         if not vsd_subnet:
             return
@@ -425,12 +425,12 @@ class NuagegatewayMixin(object):
                 port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
             else:
                 port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-        nuage_vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+        nuage_vport = self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=False)
         if nuage_vport and (nuage_vport['type'] == constants.HOST_VPORT):
             def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
             netpart = nuagedb.get_default_net_partition(context, def_netpart)
-            self.nuageclient.delete_nuage_gateway_vport(
+            self.vsdclient.delete_nuage_gateway_vport(
                 context.tenant_id,
                 nuage_vport.get('ID'),
                 netpart['id'])

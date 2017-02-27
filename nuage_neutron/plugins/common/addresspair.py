@@ -51,7 +51,7 @@ class NuageAddressPair(BaseNuagePlugin):
     def _create_vips(self, nuage_subnet_id, port, nuage_vport):
         nuage_vip_dict = dict()
         enable_spoofing = False
-        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             nuage_subnet_id,
             required=True)
         for allowed_addr_pair in port[addr_pair.ADDRESS_PAIRS]:
@@ -70,7 +70,7 @@ class NuageAddressPair(BaseNuagePlugin):
             }
 
             try:
-                enable_spoofing |= self.nuageclient.create_vip(params)
+                enable_spoofing |= self.vsdclient.create_vip(params)
                 nuage_vip_dict[params['vip']] = params['mac']
 
             except Exception as e:
@@ -79,10 +79,10 @@ class NuageAddressPair(BaseNuagePlugin):
                               "%(mac)s: %(err)s", {'vip': vip,
                                                    'mac': mac,
                                                    'err': e.message})
-                    self.nuageclient.delete_vips(nuage_vport['ID'],
-                                                 nuage_vip_dict,
-                                                 nuage_vip_dict.keys())
-        self.nuageclient.update_mac_spoofing_on_vport(
+                    self.vsdclient.delete_vips(nuage_vport['ID'],
+                                               nuage_vip_dict,
+                                               nuage_vip_dict.keys())
+        self.vsdclient.update_mac_spoofing_on_vport(
             nuage_vport['ID'],
             constants.ENABLED if enable_spoofing else constants.INHERITED)
 
@@ -100,10 +100,10 @@ class NuageAddressPair(BaseNuagePlugin):
                     'port_ip': port['fixed_ips'][0]['ip_address'],
                     'port_mac': port['mac_address']
                 }
-                self.nuageclient.process_deleted_addr_pair(params)
+                self.vsdclient.process_deleted_addr_pair(params)
 
         # Get all the vips on vport
-        nuage_vips = self.nuageclient.get_vips(nuage_vport['ID'])
+        nuage_vips = self.vsdclient.get_vips(nuage_vport['ID'])
 
         nuage_vip_dict = dict()
         for nuage_vip in nuage_vips:
@@ -151,9 +151,9 @@ class NuageAddressPair(BaseNuagePlugin):
 
         if vips_delete_set:
             try:
-                self.nuageclient.delete_vips(nuage_vport['ID'],
-                                             nuage_vip_dict,
-                                             vips_delete_set)
+                self.vsdclient.delete_vips(nuage_vport['ID'],
+                                           nuage_vip_dict,
+                                           vips_delete_set)
             except Exception as e:
                 with excutils.save_and_reraise_exception:
                     LOG.error("Error in deleting vips on vport %(port)s: %("
@@ -254,8 +254,8 @@ class NuageAddressPair(BaseNuagePlugin):
         filters = {'fixed_ips': {'subnet_id': [subnet_id]}}
         ports = self.core_plugin.get_ports(context,
                                            filters=filters)
-        vports = self.nuageclient.get_vports(subnet_type,
-                                             vsd_subnet_id)
+        vports = self.vsdclient.get_vports(subnet_type,
+                                           vsd_subnet_id)
         vports_by_port_id = dict([(vport['externalID'].split('@')[0], vport)
                                   for vport in vports])
 

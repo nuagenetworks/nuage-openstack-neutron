@@ -153,20 +153,20 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             port = self.core_plugin._get_port(context, port_id)
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
-            vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+            vport = self.vsdclient.get_nuage_vport_by_neutron_id(
                 {'neutron_port_id': port['id'],
                  'l2dom_id': subnet_l2dom['nuage_subnet_id'],
                  'l3dom_id': subnet_l2dom['nuage_subnet_id']},
                 required=False)
             if vport:
-                self.nuageclient.delete_nuage_vport(vport['ID'])
+                self.vsdclient.delete_nuage_vport(vport['ID'])
         else:
             subnet_id = rtr_if_info['subnet_id']
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
         l2domain_id = subnet_l2dom['nuage_subnet_id']
         subnet = self.core_plugin.get_subnet(context, subnet_id)
-        vsd_zone = self.nuageclient.get_zone_by_routerid(router_id,
-                                                         subnet['shared'])
+        vsd_zone = self.vsdclient.get_zone_by_routerid(router_id,
+                                                       subnet['shared'])
         self._nuage_validate_add_rtr_itf(session, router_id,
                                          subnet, subnet_l2dom, vsd_zone)
 
@@ -183,17 +183,17 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         with nuage_utils.rollback() as on_exc, \
                 session.begin(subtransactions=True):
-            vsd_subnet = self.nuageclient.create_domain_subnet(
+            vsd_subnet = self.vsdclient.create_domain_subnet(
                 vsd_zone, subnet, pnet_binding)
-            on_exc(self.nuageclient.delete_domain_subnet,
+            on_exc(self.vsdclient.delete_domain_subnet,
                    vsd_subnet['ID'], subnet['id'], pnet_binding)
             nuagedb.update_subnetl2dom_mapping(
                 subnet_l2dom,
                 {'nuage_subnet_id': vsd_subnet['ID'],
                  'nuage_l2dom_tmplt_id': None})
 
-            self.nuageclient.move_l2domain_to_l3subnet(l2domain_id,
-                                                       vsd_subnet['ID'])
+            self.vsdclient.move_l2domain_to_l3subnet(l2domain_id,
+                                                     vsd_subnet['ID'])
             rollbacks = []
             try:
                 self.nuage_callbacks.notify(resources.ROUTER_INTERFACE,
@@ -229,8 +229,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 subnet=subnet_id, router=router_id)
         nuage_subnet_id = subnet_l2dom['nuage_subnet_id']
         nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
-        self.nuageclient.validate_create_domain_subnet(subnet, nuage_subnet_id,
-                                                       nuage_rtr_id)
+        self.vsdclient.validate_create_domain_subnet(subnet, nuage_subnet_id,
+                                                     nuage_rtr_id)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -301,11 +301,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 context.session, neutron_subnet['network_id'])
             on_exc(self.core_plugin.delete_port, context, port['id'])
 
-            self.nuageclient.confirm_router_interface_not_in_use(router_id,
-                                                                 subnet)
-            vsd_l2domain = self.nuageclient.create_l2domain_for_router_detach(
+            self.vsdclient.confirm_router_interface_not_in_use(router_id,
+                                                               subnet)
+            vsd_l2domain = self.vsdclient.create_l2domain_for_router_detach(
                 subnet, subnet_l2dom)
-            on_exc(self.nuageclient.delete_subnet, subnet['id'])
+            on_exc(self.vsdclient.delete_subnet, subnet['id'])
             result = super(NuageL3Plugin,
                            self).remove_router_interface(context, router_id,
                                                          interface_info)
@@ -313,7 +313,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 subnet_l2dom,
                 {'nuage_subnet_id': vsd_l2domain['nuage_l2domain_id'],
                  'nuage_l2dom_tmplt_id': vsd_l2domain['nuage_l2template_id']})
-            self.nuageclient.move_l3subnet_to_l2domain(
+
+            self.vsdclient.move_l3subnet_to_l2domain(
                 nuage_subn_id,
                 vsd_l2domain['nuage_l2domain_id'],
                 subnet_l2dom,
@@ -360,7 +361,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):
         router = super(NuageL3Plugin, self).get_router(context, id, fields)
-        nuage_router = self.nuageclient.get_router_by_external(id)
+        nuage_router = self.vsdclient.get_router_by_external(id)
         self._add_nuage_router_attributes(router, nuage_router)
         return self._fields(router, fields)
 
@@ -382,7 +383,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 'nexthop': route['nexthop'],
                 'nuage_domain_id': nuage_router['ID']
             }
-            nuage_route = self.nuageclient.get_nuage_static_route(params)
+            nuage_route = self.vsdclient.get_nuage_static_route(params)
             if nuage_route:
                 route['rd'] = nuage_route['rd']
 
@@ -411,9 +412,9 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
         }
         try:
-            nuage_router = self.nuageclient.create_router(neutron_router,
-                                                          req_router,
-                                                          params)
+            nuage_router = self.vsdclient.create_router(neutron_router,
+                                                        req_router,
+                                                        params)
         except Exception:
             with excutils.save_and_reraise_exception():
                 super(NuageL3Plugin, self).delete_router(context,
@@ -486,7 +487,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 on_exc(self._update_nuage_router, updates,
                        curr_router, ent_rtr_mapping)
 
-            nuage_router = self.nuageclient.get_router_by_external(id)
+            nuage_router = self.vsdclient.get_router_by_external(id)
             self._add_nuage_router_attributes(router_updated, nuage_router)
 
             rollbacks = []
@@ -546,7 +547,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             'net': netaddr.IPNetwork(route['destination']),
             'nexthop': route['nexthop']
         }
-        self.nuageclient.create_nuage_staticroute(params)
+        self.vsdclient.create_nuage_staticroute(params)
 
     def _delete_nuage_static_route(self, nuage_domain_id, route):
         destaddr = route['destination']
@@ -556,7 +557,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             "nexthop": route['nexthop'],
             "nuage_domain_id": nuage_domain_id
         }
-        self.nuageclient.delete_nuage_staticroute(params)
+        self.vsdclient.delete_nuage_staticroute(params)
 
     def _update_nuage_router(self, nuage_id, curr_router, router_updates,
                              ent_rtr_mapping):
@@ -565,7 +566,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
         }
         curr_router.update(router_updates)
-        self.nuageclient.update_router(nuage_id, curr_router, params)
+        self.vsdclient.update_router(nuage_id, curr_router, params)
         ns_dict = {
             'nuage_rtr_rt':
                 router_updates.get('rt', ent_rtr_mapping.get('nuage_rtr_rt')),
@@ -592,7 +593,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             if ports:
                 raise l3.RouterInUse(router_id=id)
             nuage_domain_id = ent_rtr_mapping['nuage_router_id']
-            self.nuageclient.delete_router(nuage_domain_id)
+            self.vsdclient.delete_router(nuage_domain_id)
 
         super(NuageL3Plugin, self).delete_router(context, id)
 
@@ -600,11 +601,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 context, neutron_router['tenant_id']):
             LOG.debug("No router/subnet found for tenant %s",
                       neutron_router['tenant_id'])
-            user_id, group_id = self.nuageclient.get_usergroup(
+            user_id, group_id = self.vsdclient.get_usergroup(
                 neutron_router['tenant_id'],
                 ent_rtr_mapping['net_partition_id'])
-            self.nuageclient.delete_user(user_id)
-            self.nuageclient.delete_group(group_id)
+            self.vsdclient.delete_user(user_id)
+            self.vsdclient.delete_group(group_id)
 
     @log_helpers.log_method_call
     def _check_floatingip_update(self, context, port,
@@ -637,7 +638,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                            net_id,
                                            neutron_fip['floating_ip_address'])
 
-        fip_pool = self.nuageclient.get_nuage_fip_pool_by_id(subn['subnet_id'])
+        fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(subn['subnet_id'])
         if not fip_pool:
             msg = _('sharedresource %s not found on VSD') % subn['subnet_id']
             raise n_exc.BadRequest(resource='floatingip',
@@ -656,7 +657,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             'fip_id': neutron_fip['id'],
             'neutron_fip': neutron_fip
         }
-        fip = self.nuageclient.get_nuage_fip_by_id(params)
+        fip = self.vsdclient.get_nuage_fip_by_id(params)
 
         if not fip:
             LOG.debug("Floating ip not found in VSD for fip %s",
@@ -667,7 +668,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 'neutron_fip_ip': neutron_fip['floating_ip_address'],
                 'neutron_fip_id': neutron_fip['id']
             }
-            nuage_fip_id = self.nuageclient.create_nuage_floatingip(params)
+            nuage_fip_id = self.vsdclient.create_nuage_floatingip(params)
         else:
             nuage_fip_id = fip['nuage_fip_id']
 
@@ -678,17 +679,17 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                               required=False)
 
         if nuage_vport:
-            nuage_fip = self.nuageclient.get_nuage_fip(nuage_fip_id)
+            nuage_fip = self.vsdclient.get_nuage_fip(nuage_fip_id)
 
             if nuage_fip['assigned']:
-                n_vport = self.nuageclient.get_vport_assoc_with_fip(
+                n_vport = self.vsdclient.get_vport_assoc_with_fip(
                     nuage_fip_id)
                 if n_vport:
                     disassoc_params = {
                         'nuage_vport_id': n_vport['ID'],
                         'nuage_fip_id': None
                     }
-                    self.nuageclient.update_nuage_vm_vport(disassoc_params)
+                    self.vsdclient.update_nuage_vm_vport(disassoc_params)
 
                 if (nuage_vport['domainID']) != (
                         ent_rtr_mapping['nuage_router_id']):
@@ -696,7 +697,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                         'fip_id': neutron_fip['id'],
                         'fip_last_known_rtr_id': ent_rtr_mapping['router_id']
                     }
-                    fip = self.nuageclient.get_nuage_fip_by_id(fip_dict)
+                    fip = self.vsdclient.get_nuage_fip_by_id(fip_dict)
 
                     if fip:
                         self._delete_nuage_fip(context, fip_dict)
@@ -720,7 +721,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                         'fip_id': neutron_fip['id'],
                         'neutron_fip': neutron_fip
                     }
-                    fip = self.nuageclient.get_nuage_fip_by_id(params)
+                    fip = self.vsdclient.get_nuage_fip_by_id(params)
 
                     if not fip:
                         LOG.debug("Floating ip not found in VSD for fip %s",
@@ -733,7 +734,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                             'neutron_fip_id': neutron_fip['id']
                         }
                         nuage_fip_id = \
-                            self.nuageclient.create_nuage_floatingip(params)
+                            self.vsdclient.create_nuage_floatingip(params)
                     else:
                         nuage_fip_id = fip['nuage_fip_id']
 
@@ -741,7 +742,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 'nuage_vport_id': nuage_vport['ID'],
                 'nuage_fip_id': nuage_fip_id
             }
-            self.nuageclient.update_nuage_vm_vport(params)
+            self.vsdclient.update_nuage_vm_vport(params)
             self.fip_rate_log.info(
                 'FIP %s (owned by tenant %s) associated to port %s'
                 % (neutron_fip['id'], neutron_fip['tenant_id'], port_id))
@@ -761,7 +762,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         if nuage_fip_rate_configured and not nuage_vport:
             del neutron_fip['nuage_fip_rate_values']
         if nuage_vport:
-            self.nuageclient.create_update_rate_limiting(
+            self.vsdclient.create_update_rate_limiting(
                 nuage_fip_rate, nuage_vport['ID'],
                 neutron_fip['id'])
             for direction, value in nuage_fip_rate.iteritems():
@@ -791,7 +792,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
            'port_id'):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
-                nuage_rate_limit = self.nuageclient.get_rate_limit(
+                nuage_rate_limit = self.vsdclient.get_rate_limit(
                     nuage_vport['ID'], fip['id'])
                 for direction, value in nuage_rate_limit.iteritems():
                     if 'ingress' in direction:
@@ -860,7 +861,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         nuage_vport = self._get_vport_for_fip(context, port_id, required=False)
         if nuage_vport and nuage_vport.get('associatedFloatingIPID'):
             for fip in fips:
-                self.nuageclient.delete_rate_limiting(
+                self.vsdclient.delete_rate_limiting(
                     nuage_vport['ID'], fip['id'])
                 self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                        'disassociated from port %s'
@@ -870,7 +871,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 'nuage_vport_id': nuage_vport['ID'],
                 'nuage_fip_id': None
             }
-            self.nuageclient.update_nuage_vm_vport(params)
+            self.vsdclient.update_nuage_vm_vport(params)
             LOG.debug("Disassociated floating ip from VM attached at port %s",
                       port_id)
 
@@ -985,7 +986,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                         'nuage_vport_id': nuage_vport['ID'],
                         'nuage_fip_id': None
                     }
-                    self.nuageclient.update_nuage_vm_vport(params)
+                    self.vsdclient.update_nuage_vm_vport(params)
                     fip_id = id
                     ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
                         context.session,
@@ -999,13 +1000,13 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                         'router_id': ent_rtr_mapping['nuage_router_id'],
                         'fip_id': fip_id
                     }
-                    nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                    nuage_fip = self.vsdclient.get_nuage_fip_by_id(params)
                     if nuage_fip:
-                        self.nuageclient.delete_nuage_floatingip(
+                        self.vsdclient.delete_nuage_floatingip(
                             nuage_fip['nuage_fip_id'])
                         LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
-                    self.nuageclient.delete_rate_limiting(
+                    self.vsdclient.delete_rate_limiting(
                         nuage_vport['ID'], id)
                     self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                            'disassociated from port %s'
@@ -1028,7 +1029,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             nuage_fip_rate.pop('cli_configured', None)
             orig_fip['nuage_fip_rate_values'] = nuage_fip_rate
 
-            self.nuageclient.create_update_rate_limiting(
+            self.vsdclient.create_update_rate_limiting(
                 nuage_fip_rate, nuage_vport['ID'],
                 orig_fip['id'])
             for direction, value in nuage_fip_rate.iteritems():
@@ -1069,12 +1070,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     'nuage_vport_id': nuage_vport['ID'],
                     'nuage_fip_id': None
                 }
-                self.nuageclient.update_nuage_vm_vport(params)
+                self.vsdclient.update_nuage_vm_vport(params)
                 LOG.debug("Floating-ip %(fip)s is disassociated from "
                           "vport %(vport)s",
                           {'fip': fip_id,
                            'vport': nuage_vport['ID']})
-                self.nuageclient.delete_rate_limiting(
+                self.vsdclient.delete_rate_limiting(
                     nuage_vport['ID'], fip_id)
                 self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                        'disassociated from port %s'
@@ -1087,7 +1088,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                         constants.DEVICE_OWNER_VIP_NUAGE):
                     neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
                     vip = port['fixed_ips'][0]['ip_address']
-                    self.nuageclient.disassociate_fip_from_vips(
+                    self.vsdclient.disassociate_fip_from_vips(
                         neutron_subnet_id, vip)
             router_id = fip['router_id']
         else:
@@ -1102,9 +1103,9 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     'router_id': ent_rtr_mapping['nuage_router_id'],
                     'fip_id': fip_id
                 }
-                nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                nuage_fip = self.vsdclient.get_nuage_fip_by_id(params)
                 if nuage_fip:
-                    self.nuageclient.delete_nuage_floatingip(
+                    self.vsdclient.delete_nuage_floatingip(
                         nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
@@ -1126,7 +1127,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             'nuage_vport_id': vport_id
         }
         try:
-            vport = self.nuageclient.get_nuage_port_by_id(params)
+            vport = self.vsdclient.get_nuage_port_by_id(params)
         except Exception:
             pass
         if vport:
@@ -1142,16 +1143,16 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         elif subnet_mapping:
             params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-        return self.nuageclient.get_nuage_vport_by_neutron_id(
+        return self.vsdclient.get_nuage_vport_by_neutron_id(
             params, required=required)
 
     def _process_fip_to_vip(self, context, port_id, nuage_fip_id=None):
         port = self.core_plugin._get_port(context, port_id)
         neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
         vip = port['fixed_ips'][0]['ip_address']
-        self.nuageclient.associate_fip_to_vips(neutron_subnet_id,
-                                               vip,
-                                               nuage_fip_id)
+        self.vsdclient.associate_fip_to_vips(neutron_subnet_id,
+                                             vip,
+                                             nuage_fip_id)
 
     @log_helpers.log_method_call
     def _delete_nuage_fip(self, context, fip_dict):
@@ -1175,9 +1176,9 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     'fip_id': fip_id
                 }
 
-                nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                nuage_fip = self.vsdclient.get_nuage_fip_by_id(params)
                 if nuage_fip:
-                    self.nuageclient.delete_nuage_floatingip(
+                    self.vsdclient.delete_nuage_floatingip(
                         nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 

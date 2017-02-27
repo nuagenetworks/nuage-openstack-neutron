@@ -66,13 +66,13 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def pre_delete_security_group(self, resource, event, trigger, **kwargs):
-        self.nuageclient.delete_nuage_secgroup(kwargs['security_group_id'])
+        self.vsdclient.delete_nuage_secgroup(kwargs['security_group_id'])
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def pre_create_security_group_rule(self, resource, event, trigger,
                                        **kwargs):
-        self.nuageclient.validate_nuage_sg_rule_definition(
+        self.vsdclient.validate_nuage_sg_rule_definition(
             kwargs['security_group_rule'])
 
     @nuage_utils.handle_nuage_api_error
@@ -88,7 +88,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             remote_sg = self.core_plugin.get_security_group(
                 context, sg_rule.get('remote_group_id'))
         try:
-            nuage_policygroup = self.nuageclient.get_sg_policygroup_mapping(
+            nuage_policygroup = self.vsdclient.get_sg_policygroup_mapping(
                 sg_id)
             if nuage_policygroup:
                 sg_params = {
@@ -98,7 +98,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                 }
                 if remote_sg:
                     sg_params['remote_group_name'] = remote_sg['name']
-                self.nuageclient.create_nuage_sgrule(sg_params)
+                self.vsdclient.create_nuage_sgrule(sg_params)
         except Exception:
             with excutils.save_and_reraise_exception():
                 self.core_plugin.delete_security_group_rule(context,
@@ -111,7 +111,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         context = kwargs['context']
         id = kwargs['security_group_rule_id']
         local_sg_rule = self.core_plugin.get_security_group_rule(context, id)
-        self.nuageclient.delete_nuage_sgrule([local_sg_rule])
+        self.vsdclient.delete_nuage_sgrule([local_sg_rule])
 
     def post_port_create(self, resource, event, trigger, **kwargs):
         context = kwargs['context']
@@ -120,7 +120,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         if subnet_mapping['nuage_managed_subnet']:
             return
 
-        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             subnet_mapping['nuage_subnet_id'])
         if port[ext_sg.SECURITYGROUPS]:
             self._process_port_security_group(context,
@@ -141,7 +141,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         if subnet_mapping['nuage_managed_subnet']:
             return
 
-        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             subnet_mapping['nuage_subnet_id'])
         self._process_port_security_group(context,
                                           updated_port,
@@ -154,7 +154,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                           {}))
         deleted_sg_ids = (set(original_port[ext_sg.SECURITYGROUPS]) -
                           set(updated_port[ext_sg.SECURITYGROUPS]))
-        self.nuageclient.check_unused_policygroups(deleted_sg_ids)
+        self.vsdclient.check_unused_policygroups(deleted_sg_ids)
 
     def post_port_delete(self, resource, event, trigger, **kwargs):
         port = kwargs['port']
@@ -163,7 +163,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             return
 
         securitygroups = port.get(ext_sg.SECURITYGROUPS, [])
-        self.nuageclient.check_unused_policygroups(securitygroups)
+        self.vsdclient.check_unused_policygroups(securitygroups)
 
     @log_helpers.log_method_call
     def _process_port_security_group(self, context, port, vport, sg_ids,
@@ -187,12 +187,12 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                 'sg_rules': sg_rules
             }
             vsd_policygroup_id = (
-                self.nuageclient.process_port_create_security_group(
+                self.vsdclient.process_port_create_security_group(
                     sg_params))
             policygroup_ids.append(vsd_policygroup_id)
 
-        self.nuageclient.update_vport_policygroups(vport['ID'],
-                                                   policygroup_ids)
+        self.vsdclient.update_vport_policygroups(vport['ID'],
+                                                 policygroup_ids)
 
     @log_helpers.log_method_call
     def _process_port_create_secgrp_for_no_port_sec(self, port,
@@ -208,7 +208,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3dom_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = (self.nuageclient.
+                rtr_id = (self.vsdclient.
                           get_nuage_domain_id_from_subnet(l3dom_id))
 
             params = {
@@ -219,15 +219,15 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                 'type': constants.VM_VPORT,
                 'sg_type': constants.SOFTWARE
             }
-            nuage_port = self.nuageclient.get_nuage_vport_for_port_sec(params)
+            nuage_port = self.vsdclient.get_nuage_vport_for_port_sec(params)
             if nuage_port:
                 nuage_vport_id = nuage_port.get('ID')
-                sg_id = (self.nuageclient.
+                sg_id = (self.vsdclient.
                          create_nuage_sec_grp_for_port_sec(params))
                 if sg_id:
                     params['sg_id'] = sg_id
-                    (self.nuageclient.
+                    (self.vsdclient.
                      create_nuage_sec_grp_rule_for_port_sec(params))
                     policygroup_ids.append(sg_id)
-                    self.nuageclient.update_vport_policygroups(
+                    self.vsdclient.update_vport_policygroups(
                         nuage_vport_id, policygroup_ids)

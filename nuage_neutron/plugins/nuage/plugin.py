@@ -73,8 +73,8 @@ from nuage_neutron.plugins.common import port_dhcp_options
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage import externalsg
-from nuagenetlib.restproxy import ResourceNotFoundException
-from nuagenetlib.restproxy import RESTProxyError
+from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
+from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
 LOG = logging.getLogger(__name__)
 
@@ -219,7 +219,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                            net_partition_id):
         network_details = self.get_network(context, port['network_id'])
         if network_details['shared']:
-            self.nuageclient.create_usergroup(
+            self.vsdclient.create_usergroup(
                 port['tenant_id'],
                 net_partition_id)
 
@@ -283,7 +283,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         }
         self._resolve_tenant_for_shared_network(
             context, port, subnet_mapping['net_partition_id'])
-        self.nuageclient.create_vms(params)
+        self.vsdclient.create_vms(params)
 
     @log_helpers.log_method_call
     def _get_router_by_subnet(self, context, subnet_id):
@@ -315,7 +315,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3dom_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = (self.nuageclient.
+                rtr_id = (self.vsdclient.
                           get_nuage_domain_id_from_subnet(l3dom_id))
 
             params = {
@@ -326,21 +326,21 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'type': constants.VM_VPORT,
                 'sg_type': constants.SOFTWARE
             }
-            nuage_port = self.nuageclient.get_nuage_vport_for_port_sec(params)
+            nuage_port = self.vsdclient.get_nuage_vport_for_port_sec(params)
             if nuage_port:
                 nuage_vport_id = nuage_port.get('ID')
                 if port[psec.PORTSECURITY]:
-                    self.nuageclient.update_vport_policygroups(
+                    self.vsdclient.update_vport_policygroups(
                         nuage_vport_id, policygroup_ids)
                 else:
-                    sg_id = (self.nuageclient.
+                    sg_id = (self.vsdclient.
                              create_nuage_sec_grp_for_port_sec(params))
                     if sg_id:
                         params['sg_id'] = sg_id
-                        (self.nuageclient.
+                        (self.vsdclient.
                          create_nuage_sec_grp_rule_for_port_sec(params))
                         policygroup_ids.append(sg_id)
-                        self.nuageclient.update_vport_policygroups(
+                        self.vsdclient.update_vport_policygroups(
                             nuage_vport_id, policygroup_ids)
 
     @log_helpers.log_method_call
@@ -370,12 +370,12 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'sg_rules': sg_rules
             }
             vsd_policygroup_id = (
-                self.nuageclient.process_port_create_security_group(
+                self.vsdclient.process_port_create_security_group(
                     sg_params))
             policygroup_ids.append(vsd_policygroup_id)
 
-        self.nuageclient.update_vport_policygroups(vport['ID'],
-                                                   policygroup_ids)
+        self.vsdclient.update_vport_policygroups(vport['ID'],
+                                                 policygroup_ids)
 
     @db.retry_if_session_inactive()
     def get_port(self, context, id, fields=None):
@@ -458,7 +458,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             if subnet_mapping:
                 LOG.debug("Found subnet mapping for neutron subnet %s",
                           subnet_id)
-                vsd_subnet = self.nuageclient \
+                vsd_subnet = self.vsdclient \
                     .get_subnet_or_domain_subnet_by_id(
                         subnet_mapping['nuage_subnet_id'])
 
@@ -619,14 +619,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         if psec.PORTSECURITY in p:
             params = self._params_to_get_vport(
                 original_port['id'], subnet_mapping, current_owner)
-            nuage_port = self.nuageclient.get_nuage_vport_by_neutron_id(
+            nuage_port = self.vsdclient.get_nuage_vport_by_neutron_id(
                 params)
             if nuage_port:
                 # Only update the VSD flag if the vport exists
                 current_spoof = (constants.DISABLED
                                  if p[psec.PORTSECURITY]
                                  else constants.ENABLED)
-                self.nuageclient.update_mac_spoofing_on_vport(
+                self.vsdclient.update_mac_spoofing_on_vport(
                     nuage_port['ID'], current_spoof)
             else:
                 # case where the user has deleted the vPort on VSD
@@ -764,13 +764,13 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             subnet_id = updated_port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
             if vport and vport['parentType'] == constants.L3SUBNET:
-                vsd_subnet = self.nuageclient.get_domain_subnet_by_id(
+                vsd_subnet = self.vsdclient.get_domain_subnet_by_id(
                     subnet_mapping['nuage_subnet_id'])
             elif vport and vport['parentType'] == constants.L2DOMAIN:
-                vsd_subnet = self.nuageclient.get_l2domain_by_id(
+                vsd_subnet = self.vsdclient.get_l2domain_by_id(
                     subnet_mapping['nuage_subnet_id'])
             elif subnet_mapping:
-                vsd_subnet = self.nuageclient \
+                vsd_subnet = self.vsdclient \
                     .get_subnet_or_domain_subnet_by_id(
                         subnet_mapping['nuage_subnet_id'])
             if (p_data.get('device_owner', '').startswith(
@@ -817,7 +817,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     self._process_port_create_security_group(
                         context, updated_port, vport, sgids, vsd_subnet)
                     deleted_sg_ids = orig_sg - new_sg
-                    self.nuageclient.check_unused_policygroups(deleted_sg_ids)
+                    self.vsdclient.check_unused_policygroups(deleted_sg_ids)
             if not lbaas_device_owner_added and not lbaas_device_owner_removed:
                 self.nuage_callbacks.notify(
                     resources.PORT, constants.AFTER_UPDATE, self,
@@ -825,8 +825,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     original_port=original_port, request_port=port['port'],
                     vport=vport, rollbacks=rollbacks)
             if vport:
-                vport = self.nuageclient.get_nuage_vport_by_id(vport['ID'],
-                                                               required=False)
+                vport = self.vsdclient.get_nuage_vport_by_id(vport['ID'],
+                                                             required=False)
             self.extend_port_dict(context, updated_port, vport=vport)
             return updated_port
         except Exception:
@@ -859,7 +859,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             LOG.debug(_("No subnet mapping found for subnet %s") % subnet_id)
             return None
 
-        vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+        vport = self.vsdclient.get_nuage_vport_by_neutron_id(
             {'neutron_port_id': port['id'],
              'l2dom_id': subnet_mapping['nuage_subnet_id'],
              'l3dom_id': subnet_mapping['nuage_subnet_id']},
@@ -894,7 +894,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'l3dom_id': l3dom_id
         }
         subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
-        nuage_port = self.nuageclient.get_nuage_port_by_id(port_params)
+        nuage_port = self.vsdclient.get_nuage_port_by_id(port_params)
         vm_id = port['device_id']
         # upstream neutron_lbaas assigns a constant device_id to all the
         # lbaas_ports (which is a bug), hence we use port ID as vm_id
@@ -927,26 +927,26 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'l3dom_id': l3dom_id,
                 'portOnSharedSubn': subn['shared']
             }
-            self.nuageclient.delete_vms(params)
+            self.vsdclient.delete_vms(params)
 
             # Delete the vports that nova created on nova boot or when the
             # port is being deleted in neutron
-            nuage_vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+            nuage_vport = self.vsdclient.get_nuage_vport_by_neutron_id(
                 port_params, required=False)
             if nuage_vport:
                 vport_desc = nuage_vport.get('description')
                 nova_created = (constants.NOVA_PORT_OWNER_PREF in vport_desc
                                 if vport_desc else False)
                 if port_delete or nova_created:
-                    self.nuageclient.delete_nuage_vport(nuage_vport.get('ID'))
+                    self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
 
         # delete nuage vport created explicitly
         if not nuage_port and nuage_utils.check_vport_creation(
                 port.get('device_owner'), cfg.CONF.PLUGIN.device_owner_prefix):
-            nuage_vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+            nuage_vport = self.vsdclient.get_nuage_vport_by_neutron_id(
                 port_params, required=False)
             if nuage_vport:
-                self.nuageclient.delete_nuage_vport(nuage_vport.get('ID'))
+                self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
 
     @log_helpers.log_method_call
     def _delete_nuage_fip(self, context, fip_dict):
@@ -970,9 +970,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     'fip_id': fip_id
                 }
 
-                nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                nuage_fip = self.vsdclient.get_nuage_fip_by_id(params)
                 if nuage_fip:
-                    self.nuageclient.delete_nuage_floatingip(
+                    self.vsdclient.delete_nuage_floatingip(
                         nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
@@ -1047,7 +1047,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                      subnet_mapping, port_delete=True)
             securitygroups = port.get(ext_sg.SECURITYGROUPS, [])
             securitygroup_ids = [sg.security_group_id for sg in securitygroups]
-            self.nuageclient.check_unused_policygroups(securitygroup_ids)
+            self.vsdclient.check_unused_policygroups(securitygroup_ids)
             # Check and delete gateway host vport associated with the port
         self.delete_gw_host_vport(context, port, subnet_mapping)
 
@@ -1112,9 +1112,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             msg = _("provider:segmentation_id required")
             raise nuage_exc.NuageBadRequest(msg=msg)
 
-        self.nuageclient.validate_provider_network(network_type,
-                                                   physical_network,
-                                                   segmentation_id)
+        self.vsdclient.validate_provider_network(network_type,
+                                                 physical_network,
+                                                 segmentation_id)
 
         return network_type, physical_network, segmentation_id
 
@@ -1216,15 +1216,15 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                               {'subn_id': subn['id'],
                                'nuage_subn_id':
                                    subnet_l2dom['nuage_subnet_id']})
-                    self.nuageclient.delete_subnet(subn['id'])
+                    self.vsdclient.delete_subnet(subn['id'])
                     nuagedb.delete_subnetl2dom_mapping(context.session,
                                                        subnet_l2dom)
                     if not self._check_router_subnet_for_tenant(
                             context, subn['tenant_id']):
                         LOG.debug("No router/subnet found for tenant %s",
                                   subn['tenant_id'])
-                        self.nuageclient.delete_user(user_id)
-                        self.nuageclient.delete_group(group_id)
+                        self.vsdclient.delete_user(user_id)
+                        self.vsdclient.delete_group(group_id)
 
                     # delete the neutron port that was reserved with IP of
                     # the dhcp server that is reserved.
@@ -1246,7 +1246,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         context.session, subn['id'])
                     if subnet_l2dom['nuage_l2dom_tmplt_id']:
                         # change of perm only reqd in l2dom case
-                        self.nuageclient.change_perm_of_subns(
+                        self.vsdclient.change_perm_of_subns(
                             subnet_l2dom['net_partition_id'],
                             subnet_l2dom['nuage_subnet_id'],
                             network['network']['shared'],
@@ -1332,7 +1332,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @log_helpers.log_method_call
     def _delete_nuage_sharedresource(self, net_id):
-        self.nuageclient.delete_nuage_sharedresource(net_id)
+        self.vsdclient.delete_nuage_sharedresource(net_id)
 
     @log_helpers.log_method_call
     def _validate_nuage_sharedresource(self, context, net_id):
@@ -1367,7 +1367,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             subnet['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
             params['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
 
-        self.nuageclient.create_nuage_sharedresource(params)
+        self.vsdclient.create_nuage_sharedresource(params)
 
     @log_helpers.log_method_call
     def _create_nuage_sharedresource(self, context, subnet, type):
@@ -1432,8 +1432,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             params['dhcp_ip'] = None
 
         try:
-            nuage_subnet = self.nuageclient.create_subnet(neutron_subnet,
-                                                          params)
+            nuage_subnet = self.vsdclient.create_subnet(neutron_subnet,
+                                                        params)
         except Exception:
             with excutils.save_and_reraise_exception():
                 if gw_port:
@@ -1478,8 +1478,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                    "configuration. ")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-        if not self.nuageclient.check_if_l2Dom_in_correct_ent(nuage_subn_id,
-                                                              nuage_netpart):
+        if not self.vsdclient.check_if_l2Dom_in_correct_ent(nuage_subn_id,
+                                                            nuage_netpart):
             msg = ("Provided Nuage subnet not in the provided"
                    " Nuage net-partition")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
@@ -1490,17 +1490,17 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                    "same VSD network")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
-        nuage_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        nuage_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             nuage_subn_id, required=True)
         shared_nuage_subnet = None
         if nuage_subnet['associatedSharedNetworkResourceID']:
             try:
                 shared_nuage_subnet = (
-                    self.nuageclient.get_nuage_sharedresource(
+                    self.vsdclient.get_nuage_sharedresource(
                         nuage_subnet['associatedSharedNetworkResourceID']))
             except Exception as e:
                 if e.code == constants.RES_NOT_FOUND:
-                    resp = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+                    resp = self.vsdclient.get_subnet_or_domain_subnet_by_id(
                         nuage_subnet['associatedSharedNetworkResourceID'],
                         required=True)
                     if resp.get('type') == constants.L2DOMAIN:
@@ -1517,7 +1517,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def _get_gwip_for_adv_managed_subn(self, os_subnet, vsd_subnet,
                                        shared_subnet):
         gw_ip_from_cli = os_subnet['gateway_ip']
-        os_subnet['gateway_ip'] = self.nuageclient.get_gateway_ip_for_advsub(
+        os_subnet['gateway_ip'] = self.vsdclient.get_gateway_ip_for_advsub(
             shared_subnet or vsd_subnet)
 
         # The _is_attr_set() is incomplete to use here, since the method
@@ -1552,7 +1552,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         shared = vsd_subnet['associatedSharedNetworkResourceID']
         shared_subnet = None
         if shared:
-            shared_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+            shared_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
                 shared)
         if subn['enable_dhcp']:
             gw_ip = self._get_gwip_for_adv_managed_subn(subn, vsd_subnet,
@@ -1609,7 +1609,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         try:
             nuage_npid = nuage_netpart['id']
             (nuage_uid,
-             nuage_gid) = self.nuageclient.attach_nuage_group_to_nuagenet(
+             nuage_gid) = self.vsdclient.attach_nuage_group_to_nuagenet(
                  tenant_id, nuage_npid, nuage_subn_id,
                  neutron_subnet.get('shared'))
         except Exception:
@@ -1642,7 +1642,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         network = self._get_network(context, subnet['network_id'])
         if network.get('external'):
             try:
-                nuage_subnet = self.nuageclient.get_sharedresource(id)
+                nuage_subnet = self.vsdclient.get_sharedresource(id)
                 subnet['underlay'] = nuage_subnet['underlay']
                 subnet['nuage_uplink'] = nuage_subnet['sharedResourceParentID']
             except ResourceNotFoundException:
@@ -1699,8 +1699,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'net_id': net_id,
                 'gateway_ip': subn.get('gateway_ip')
             }
-            self.nuageclient.update_nuage_sharedresource(id, nuage_params)
-            nuage_subnet = self.nuageclient.get_sharedresource(id)
+            self.vsdclient.update_nuage_sharedresource(id, nuage_params)
+            nuage_subnet = self.vsdclient.get_sharedresource(id)
             updated_subnet['underlay'] = nuage_subnet['underlay']
             return updated_subnet
 
@@ -1752,7 +1752,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 gw_ports = self.get_ports(context, filters=filters)
                 self._delete_port_gateway(context, gw_ports)
             subn['id'] = subnet['subnet']['id']
-            self.nuageclient.update_subnet(subn, params)
+            self.vsdclient.update_subnet(subn, params)
 
             return updated_subnet
 
@@ -1781,7 +1781,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         if subnet_l2dom:
             LOG.debug("Found l2domain mapping for subnet %s", id)
             try:
-                self.nuageclient.delete_subnet(id)
+                self.vsdclient.delete_subnet(id)
             except Exception as ex:
                 if ex.code == constants.RES_CONFLICT:
                     raise n_exc.SubnetInUse(subnet_id=id)
@@ -1794,7 +1794,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     tenants = [context.tenant]
                 else:
                     tenants = [context.tenant, subnet['tenant_id']]
-                self.nuageclient.detach_nuage_group_to_nuagenet(
+                self.vsdclient.detach_nuage_group_to_nuagenet(
                     tenants,
                     subnet_l2dom['nuage_subnet_id'],
                     subnet['shared'])
@@ -1803,8 +1803,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     context, subnet['tenant_id']):
                 LOG.debug("No router/subnet found for tenant %s", subnet[
                     'tenant_id'])
-                self.nuageclient.delete_user(subnet_l2dom['nuage_user_id'])
-                self.nuageclient.delete_group(subnet_l2dom['nuage_group_id'])
+                self.vsdclient.delete_user(subnet_l2dom['nuage_user_id'])
+                self.vsdclient.delete_group(subnet_l2dom['nuage_group_id'])
 
     def _nuage_vips_on_subnet(self, context, subnet):
         vip_found = False
@@ -1848,24 +1848,24 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             port = super(NuagePlugin, self)._get_port(context, port_id)
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
-            vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+            vport = self.vsdclient.get_nuage_vport_by_neutron_id(
                 {'neutron_port_id': port['id'],
                  'l2dom_id': subnet_l2dom['nuage_subnet_id'],
                  'l3dom_id': subnet_l2dom['nuage_subnet_id']},
                 required=False)
             if vport:
-                self.nuageclient.delete_nuage_vport(vport['ID'])
+                self.vsdclient.delete_nuage_vport(vport['ID'])
         else:
             subnet_id = rtr_if_info['subnet_id']
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
         l2domain_id = subnet_l2dom['nuage_subnet_id']
         subnet = self.get_subnet(context, subnet_id)
-        vsd_zone = self.nuageclient.get_zone_by_routerid(router_id,
-                                                         subnet['shared'])
+        vsd_zone = self.vsdclient.get_zone_by_routerid(router_id,
+                                                       subnet['shared'])
         self._nuage_validate_add_rtr_itf(session, router_id,
                                          subnet, subnet_l2dom, vsd_zone)
-        if self.nuageclient.get_host_and_bridge_vports(l2domain_id,
-                                                       constants.L2DOMAIN):
+        if self.vsdclient.get_host_and_bridge_vports(l2domain_id,
+                                                     constants.L2DOMAIN):
             msg = _("Subnet has bridge or host vports. "
                     "No router interface add allowed.")
             raise nuage_exc.NuageBadRequest(msg=msg)
@@ -1882,17 +1882,17 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         with nuage_utils.rollback() as on_exc, \
                 session.begin(subtransactions=True):
-            vsd_subnet = self.nuageclient.create_domain_subnet(
+            vsd_subnet = self.vsdclient.create_domain_subnet(
                 vsd_zone, subnet, pnet_binding)
-            on_exc(self.nuageclient.delete_domain_subnet,
+            on_exc(self.vsdclient.delete_domain_subnet,
                    vsd_subnet['ID'], subnet['id'], pnet_binding)
             nuagedb.update_subnetl2dom_mapping(
                 subnet_l2dom,
                 {'nuage_subnet_id': vsd_subnet['ID'],
                  'nuage_l2dom_tmplt_id': None})
 
-            self.nuageclient.move_l2domain_to_l3subnet(l2domain_id,
-                                                       vsd_subnet['ID'])
+            self.vsdclient.move_l2domain_to_l3subnet(l2domain_id,
+                                                     vsd_subnet['ID'])
             self.process_address_pairs_of_subnet(context, subnet_l2dom,
                                                  constants.L3SUBNET)
 
@@ -1915,8 +1915,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 subnet=subnet_id, router=router_id)
         nuage_subnet_id = subnet_l2dom['nuage_subnet_id']
         nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
-        self.nuageclient.validate_create_domain_subnet(subnet, nuage_subnet_id,
-                                                       nuage_rtr_id)
+        self.vsdclient.validate_create_domain_subnet(subnet, nuage_subnet_id,
+                                                     nuage_rtr_id)
 
     def abort_add_router_interface(self, context, interface_info, router_id):
         super(NuagePlugin, self).remove_router_interface(context,
@@ -1962,7 +1962,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
                                                       subnet_id)
 
-        if self.nuageclient.get_host_and_bridge_vports(
+        if self.vsdclient.get_host_and_bridge_vports(
                 subnet_l2dom['nuage_subnet_id'],
                 constants.L3SUBNET):
             msg = _("Subnet has bridge or host vports. "
@@ -1997,17 +1997,17 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 context.session, neutron_subnet['network_id'])
             on_exc(self._delete_port_gateway, context, [port])
 
-            self.nuageclient.confirm_router_interface_not_in_use(router_id,
-                                                                 subnet)
-            vsd_l2domain = self.nuageclient.create_l2domain_for_router_detach(
+            self.vsdclient.confirm_router_interface_not_in_use(router_id,
+                                                               subnet)
+            vsd_l2domain = self.vsdclient.create_l2domain_for_router_detach(
                 subnet, subnet_l2dom)
-            on_exc(self.nuageclient.delete_subnet, subnet['id'])
+            on_exc(self.vsdclient.delete_subnet, subnet['id'])
 
             nuagedb.update_subnetl2dom_mapping(
                 subnet_l2dom,
                 {'nuage_subnet_id': vsd_l2domain['nuage_l2domain_id'],
                  'nuage_l2dom_tmplt_id': vsd_l2domain['nuage_l2template_id']})
-            self.nuageclient.move_l3subnet_to_l2domain(
+            self.vsdclient.move_l3subnet_to_l2domain(
                 nuage_subn_id,
                 vsd_l2domain['nuage_l2domain_id'],
                 subnet_l2dom,
@@ -2037,7 +2037,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):
         router = super(NuagePlugin, self).get_router(context, id, fields)
-        nuage_router = self.nuageclient.get_router_by_external(id)
+        nuage_router = self.vsdclient.get_router_by_external(id)
         self._add_nuage_router_attributes(router, nuage_router)
         return self._fields(router, fields)
 
@@ -2059,7 +2059,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'nexthop': route['nexthop'],
                 'nuage_domain_id': nuage_router['ID']
             }
-            nuage_route = self.nuageclient.get_nuage_static_route(params)
+            nuage_route = self.vsdclient.get_nuage_static_route(params)
             if nuage_route:
                 route['rd'] = nuage_route['rd']
 
@@ -2087,9 +2087,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
         }
         try:
-            nuage_router = self.nuageclient.create_router(neutron_router,
-                                                          req_router,
-                                                          params)
+            nuage_router = self.vsdclient.create_router(neutron_router,
+                                                        req_router,
+                                                        params)
         except Exception:
             with excutils.save_and_reraise_exception():
                 super(NuagePlugin, self).delete_router(context,
@@ -2153,7 +2153,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                             nuage_domain_id,
                                                             new_routes,
                                                             old_routes)
-        nuage_router = self.nuageclient.get_router_by_external(id)
+        nuage_router = self.vsdclient.get_router_by_external(id)
         self._add_nuage_router_attributes(router_updated, nuage_router)
 
         rollbacks = []
@@ -2213,7 +2213,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'net': netaddr.IPNetwork(route['destination']),
             'nexthop': route['nexthop']
         }
-        self.nuageclient.create_nuage_staticroute(params)
+        self.vsdclient.create_nuage_staticroute(params)
 
     def _delete_nuage_static_route(self, nuage_domain_id, route):
         destaddr = route['destination']
@@ -2223,7 +2223,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             "nexthop": route['nexthop'],
             "nuage_domain_id": nuage_domain_id
         }
-        self.nuageclient.delete_nuage_staticroute(params)
+        self.vsdclient.delete_nuage_staticroute(params)
 
     def _update_nuage_router(self, nuage_id, curr_router, router_updates,
                              ent_rtr_mapping):
@@ -2232,7 +2232,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
         }
         curr_router.update(router_updates)
-        self.nuageclient.update_router(nuage_id, curr_router, params)
+        self.vsdclient.update_router(nuage_id, curr_router, params)
         ns_dict = {
             'nuage_rtr_rt':
                 router_updates.get('rt', ent_rtr_mapping.get('nuage_rtr_rt')),
@@ -2259,7 +2259,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             if ports:
                 raise l3.RouterInUse(router_id=id)
             nuage_domain_id = ent_rtr_mapping['nuage_router_id']
-            self.nuageclient.delete_router(nuage_domain_id)
+            self.vsdclient.delete_router(nuage_domain_id)
 
         super(NuagePlugin, self).delete_router(context, id)
 
@@ -2267,11 +2267,11 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 context, neutron_router['tenant_id']):
             LOG.debug("No router/subnet found for tenant %s",
                       neutron_router['tenant_id'])
-            user_id, group_id = self.nuageclient.get_usergroup(
+            user_id, group_id = self.vsdclient.get_usergroup(
                 neutron_router['tenant_id'],
                 ent_rtr_mapping['net_partition_id'])
-            self.nuageclient.delete_user(user_id)
-            self.nuageclient.delete_group(group_id)
+            self.vsdclient.delete_user(user_id)
+            self.vsdclient.delete_group(group_id)
 
     @log_helpers.log_method_call
     def _make_net_partition_dict(self, net_partition,
@@ -2294,11 +2294,11 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             "name": net_part_name,
             "fp_quota": str(cfg.CONF.RESTPROXY.default_floatingip_quota)
         }
-        nuage_net_partition = self.nuageclient.create_net_partition(params)
+        nuage_net_partition = self.vsdclient.create_net_partition(params)
         net_partitioninst = None
         if nuage_net_partition:
             with session.begin(subtransactions=True):
-                self.nuageclient.set_external_id_for_netpart_rel_elems(
+                self.vsdclient.set_external_id_for_netpart_rel_elems(
                     nuage_net_partition)
                 net_partitioninst = NuagePlugin._add_net_partition(
                     session,
@@ -2312,7 +2312,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def _validate_create_net_partition(self,
                                        net_part_name,
                                        session):
-        nuage_netpart = self.nuageclient.get_netpartition_data(
+        nuage_netpart = self.vsdclient.get_netpartition_data(
             net_part_name)
         netpart_db = nuagedb.get_net_partition_by_name(session, net_part_name)
 
@@ -2403,9 +2403,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'l2template': l2template
         }
         (np_id, l3dom_tid,
-         l2dom_tid) = self.nuageclient.link_default_netpartition(params)
+         l2dom_tid) = self.vsdclient.link_default_netpartition(params)
         # verify that the provided zones have been created already
-        shared_match, isolated_match = self.nuageclient.validate_zone_create(
+        shared_match, isolated_match = self.vsdclient.validate_zone_create(
             l3dom_tid, l3isolated, l3shared)
         if not shared_match or not isolated_match:
             msg = ('Default zone names must be provided for '
@@ -2493,7 +2493,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             raise nuage_exc.NuageNotFound(resource='net_partition',
                                           resource_id=id)
         self._validate_delete_net_partition(context, id, net_partition['name'])
-        self.nuageclient.delete_net_partition(net_partition['id'])
+        self.vsdclient.delete_net_partition(net_partition['id'])
         with context.session.begin(subtransactions=True):
             nuagedb.delete_net_partition(context.session,
                                          net_partition)
@@ -2548,7 +2548,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                            net_id,
                                            neutron_fip['floating_ip_address'])
 
-        fip_pool = self.nuageclient.get_nuage_fip_pool_by_id(subn['subnet_id'])
+        fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(subn['subnet_id'])
         if not fip_pool:
             msg = _('sharedresource %s not found on VSD') % subn['subnet_id']
             raise n_exc.BadRequest(resource='floatingip',
@@ -2567,7 +2567,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'fip_id': neutron_fip['id'],
             'neutron_fip': neutron_fip
         }
-        fip = self.nuageclient.get_nuage_fip_by_id(params)
+        fip = self.vsdclient.get_nuage_fip_by_id(params)
 
         if not fip:
             LOG.debug("Floating ip not found in VSD for fip %s",
@@ -2578,7 +2578,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'neutron_fip_ip': neutron_fip['floating_ip_address'],
                 'neutron_fip_id': neutron_fip['id']
             }
-            nuage_fip_id = self.nuageclient.create_nuage_floatingip(params)
+            nuage_fip_id = self.vsdclient.create_nuage_floatingip(params)
         else:
             nuage_fip_id = fip['nuage_fip_id']
 
@@ -2589,7 +2589,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                               required=False)
 
         if nuage_vport:
-            nuage_fip = self.nuageclient.get_nuage_fip(nuage_fip_id)
+            nuage_fip = self.vsdclient.get_nuage_fip(nuage_fip_id)
 
             if nuage_fip['assigned']:
                 # check if there are any interfaces attached to the
@@ -2598,14 +2598,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 # disassociate the fip assoc with the vport it is
                 # currently associated and associate this fip
                 # with the new vport. (nuage_vport)
-                n_vport = self.nuageclient.get_vport_assoc_with_fip(
+                n_vport = self.vsdclient.get_vport_assoc_with_fip(
                     nuage_fip_id)
                 if n_vport and not n_vport['hasAttachedInterfaces']:
                     disassoc_params = {
                         'nuage_vport_id': n_vport['ID'],
                         'nuage_fip_id': None
                     }
-                    self.nuageclient.update_nuage_vm_vport(disassoc_params)
+                    self.vsdclient.update_nuage_vm_vport(disassoc_params)
 
                 if (nuage_vport['domainID']) != (
                         ent_rtr_mapping['nuage_router_id']):
@@ -2613,7 +2613,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         'fip_id': neutron_fip['id'],
                         'fip_last_known_rtr_id': ent_rtr_mapping['router_id']
                     }
-                    fip = self.nuageclient.get_nuage_fip_by_id(fip_dict)
+                    fip = self.vsdclient.get_nuage_fip_by_id(fip_dict)
 
                     if fip:
                         self._delete_nuage_fip(context, fip_dict)
@@ -2637,7 +2637,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         'fip_id': neutron_fip['id'],
                         'neutron_fip': neutron_fip
                     }
-                    fip = self.nuageclient.get_nuage_fip_by_id(params)
+                    fip = self.vsdclient.get_nuage_fip_by_id(params)
 
                     if not fip:
                         LOG.debug("Floating ip not found in VSD for fip %s",
@@ -2650,7 +2650,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                             'neutron_fip_id': neutron_fip['id']
                         }
                         nuage_fip_id = \
-                            self.nuageclient.create_nuage_floatingip(params)
+                            self.vsdclient.create_nuage_floatingip(params)
                     else:
                         nuage_fip_id = fip['nuage_fip_id']
 
@@ -2658,7 +2658,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'nuage_vport_id': nuage_vport['ID'],
                 'nuage_fip_id': nuage_fip_id
             }
-            self.nuageclient.update_nuage_vm_vport(params)
+            self.vsdclient.update_nuage_vm_vport(params)
             self.fip_rate_log.info(
                 'FIP %s (owned by tenant %s) associated to port %s'
                 % (neutron_fip['id'], neutron_fip['tenant_id'], port_id))
@@ -2678,7 +2678,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         if nuage_fip_rate_configured and not nuage_vport:
             del neutron_fip['nuage_fip_rate_values']
         if nuage_vport:
-            self.nuageclient.create_update_rate_limiting(
+            self.vsdclient.create_update_rate_limiting(
                 nuage_fip_rate, nuage_vport['ID'],
                 neutron_fip['id'])
             for direction, value in nuage_fip_rate.iteritems():
@@ -2708,7 +2708,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'port_id'):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
-                nuage_rate_limit = self.nuageclient.get_rate_limit(
+                nuage_rate_limit = self.vsdclient.get_rate_limit(
                     nuage_vport['ID'], fip['id'])
                 for direction, value in nuage_rate_limit.iteritems():
                     if 'ingress' in direction:
@@ -2778,7 +2778,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         nuage_vport = self._get_vport_for_fip(context, port_id, required=False)
         if nuage_vport and nuage_vport.get('associatedFloatingIPID'):
             for fip in fips:
-                self.nuageclient.delete_rate_limiting(
+                self.vsdclient.delete_rate_limiting(
                     nuage_vport['ID'], fip['id'])
                 self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                        'disassociated from port %s'
@@ -2788,7 +2788,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'nuage_vport_id': nuage_vport['ID'],
                 'nuage_fip_id': None
             }
-            self.nuageclient.update_nuage_vm_vport(params)
+            self.vsdclient.update_nuage_vm_vport(params)
             LOG.debug("Disassociated floating ip from VM attached at port %s",
                       port_id)
 
@@ -2903,7 +2903,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         'nuage_vport_id': nuage_vport['ID'],
                         'nuage_fip_id': None
                     }
-                    self.nuageclient.update_nuage_vm_vport(params)
+                    self.vsdclient.update_nuage_vm_vport(params)
                     fip_id = id
                     ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
                         context.session,
@@ -2917,13 +2917,13 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         'router_id': ent_rtr_mapping['nuage_router_id'],
                         'fip_id': fip_id
                     }
-                    nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                    nuage_fip = self.vsdclient.get_nuage_fip_by_id(params)
                     if nuage_fip:
-                        self.nuageclient.delete_nuage_floatingip(
+                        self.vsdclient.delete_nuage_floatingip(
                             nuage_fip['nuage_fip_id'])
                         LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
-                    self.nuageclient.delete_rate_limiting(
+                    self.vsdclient.delete_rate_limiting(
                         nuage_vport['ID'], id)
                     self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                            'disassociated from port %s'
@@ -2946,7 +2946,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             nuage_fip_rate.pop('cli_configured', None)
             orig_fip['nuage_fip_rate_values'] = nuage_fip_rate
 
-            self.nuageclient.create_update_rate_limiting(
+            self.vsdclient.create_update_rate_limiting(
                 nuage_fip_rate, nuage_vport['ID'],
                 orig_fip['id'])
             for direction, value in nuage_fip_rate.iteritems():
@@ -2988,12 +2988,12 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                         'nuage_vport_id': nuage_vport['ID'],
                         'nuage_fip_id': None
                     }
-                    self.nuageclient.update_nuage_vm_vport(params)
+                    self.vsdclient.update_nuage_vm_vport(params)
                     LOG.debug("Floating-ip %(fip)s is disassociated from "
                               "vport %(vport)s",
                               {'fip': fip_id,
                                'vport': nuage_vport['ID']})
-                    self.nuageclient.delete_rate_limiting(
+                    self.vsdclient.delete_rate_limiting(
                         nuage_vport['ID'], fip_id)
                     self.fip_rate_log.info('FIP %s (owned by tenant %s) '
                                            'disassociated from port %s'
@@ -3006,7 +3006,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                             constants.DEVICE_OWNER_VIP_NUAGE):
                         neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
                         vip = port['fixed_ips'][0]['ip_address']
-                        self.nuageclient.disassociate_fip_from_vips(
+                        self.vsdclient.disassociate_fip_from_vips(
                             neutron_subnet_id, vip)
 
                 router_id = fip['router_id']
@@ -3026,9 +3026,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     'router_id': ent_rtr_mapping['nuage_router_id'],
                     'fip_id': fip_id
                 }
-                nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                nuage_fip = self.vsdclient.get_nuage_fip_by_id(params)
                 if nuage_fip:
-                    self.nuageclient.delete_nuage_floatingip(
+                    self.vsdclient.delete_nuage_floatingip(
                         nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
@@ -3050,7 +3050,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'nuage_vport_id': vport_id
         }
         try:
-            vport = self.nuageclient.get_nuage_port_by_id(params)
+            vport = self.vsdclient.get_nuage_port_by_id(params)
         except Exception:
             pass
         if vport:
@@ -3066,16 +3066,16 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
             params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-        return self.nuageclient.get_nuage_vport_by_neutron_id(
+        return self.vsdclient.get_nuage_vport_by_neutron_id(
             params, required=required)
 
     def _process_fip_to_vip(self, context, port_id, nuage_fip_id=None):
         port = self._get_port(context, port_id)
         neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
         vip = port['fixed_ips'][0]['ip_address']
-        self.nuageclient.associate_fip_to_vips(neutron_subnet_id,
-                                               vip,
-                                               nuage_fip_id)
+        self.vsdclient.associate_fip_to_vips(neutron_subnet_id,
+                                             vip,
+                                             nuage_fip_id)
 
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
@@ -3086,7 +3086,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                        filters)
         if ports:
             raise ext_sg.SecurityGroupInUse(id=id)
-        self.nuageclient.delete_nuage_secgroup(id)
+        self.vsdclient.delete_nuage_secgroup(id)
         LOG.debug("Deleted security group %s", id)
 
         super(NuagePlugin, self).delete_security_group(context, id)
@@ -3097,7 +3097,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def create_security_group_rule(self, context, security_group_rule):
         remote_sg = None
         sg_rule = security_group_rule['security_group_rule']
-        self.nuageclient.validate_nuage_sg_rule_definition(sg_rule)
+        self.vsdclient.validate_nuage_sg_rule_definition(sg_rule)
         sg_id = sg_rule['security_group_id']
 
         local_sg_rule = super(
@@ -3107,7 +3107,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             remote_sg = self.get_security_group(
                 context, local_sg_rule.get('remote_group_id'))
         try:
-            nuage_policygroup = self.nuageclient.get_sg_policygroup_mapping(
+            nuage_policygroup = self.vsdclient.get_sg_policygroup_mapping(
                 sg_id)
             if nuage_policygroup:
                 sg_params = {
@@ -3117,7 +3117,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 }
                 if remote_sg:
                     sg_params['remote_group_name'] = remote_sg['name']
-                self.nuageclient.create_nuage_sgrule(sg_params)
+                self.vsdclient.create_nuage_sgrule(sg_params)
         except Exception:
             with excutils.save_and_reraise_exception():
                 super(NuagePlugin, self).delete_security_group_rule(
@@ -3131,14 +3131,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def delete_security_group_rule(self, context, id):
         local_sg_rule = self.get_security_group_rule(context, id)
         super(NuagePlugin, self).delete_security_group_rule(context, id)
-        self.nuageclient.delete_nuage_sgrule([local_sg_rule])
+        self.vsdclient.delete_nuage_sgrule([local_sg_rule])
         LOG.debug("Deleted security group rule %s", id)
 
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_vsd_subnet(self, context, id, fields=None):
-        subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             id, required=True)
         vsd_subnet = {'id': subnet['ID'],
                       'name': subnet['name'],
@@ -3146,13 +3146,13 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                       'gateway': subnet['gateway'],
                       'ip_version': subnet['IPType']}
         if subnet['type'] == constants.L3SUBNET:
-            domain_id = self.nuageclient.get_router_by_domain_subnet_id(
+            domain_id = self.vsdclient.get_router_by_domain_subnet_id(
                 vsd_subnet['id'])
-            netpart_id = self.nuageclient.get_router_np_id(domain_id)
+            netpart_id = self.vsdclient.get_router_np_id(domain_id)
         else:
             netpart_id = subnet['parentID']
 
-        net_partition = self.nuageclient.get_net_partition_name_by_id(
+        net_partition = self.vsdclient.get_net_partition_name_by_id(
             netpart_id)
         vsd_subnet['net_partition'] = net_partition
         return self._fields(vsd_subnet, fields)
@@ -3163,7 +3163,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         if 'vsd_zone_id' not in filters:
             msg = _('vsd_zone_id is a required filter parameter for this API.')
             raise n_exc.BadRequest(resource='vsd-subnets', msg=msg)
-        l3subs = self.nuageclient.get_domain_subnet_by_zone_id(
+        l3subs = self.vsdclient.get_domain_subnet_by_zone_id(
             filters['vsd_zone_id'][0])
         vsd_to_os = {
             'ID': 'id',
@@ -3183,7 +3183,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         shared_id = subnet['associatedSharedNetworkResourceID']
         if shared_id:
-            subnet = self.nuageclient.get_nuage_sharedresource(shared_id)
+            subnet = self.vsdclient.get_nuage_sharedresource(shared_id)
         if subnet.get('address'):
             ip = netaddr.IPNetwork(subnet['address'] + '/' +
                                    subnet['netmask'])
@@ -3207,7 +3207,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     'API.')
             raise n_exc.BadRequest(resource='vsd-zones', msg=msg)
         try:
-            vsd_zones = self.nuageclient.get_zone_by_domainid(
+            vsd_zones = self.vsdclient.get_zone_by_domainid(
                 filters['vsd_domain_id'][0])
         except RESTProxyError as e:
             if e.code == 404:
@@ -3232,9 +3232,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             msg = _('vsd_organisation_id is a required filter parameter for '
                     'this API.')
             raise n_exc.BadRequest(resource='vsd-domains', msg=msg)
-        vsd_domains = self.nuageclient.get_routers_by_netpart(
+        vsd_domains = self.vsdclient.get_routers_by_netpart(
             filters['vsd_organisation_id'][0])
-        vsd_l2domains = self.nuageclient.get_subnet_by_netpart(
+        vsd_l2domains = self.vsdclient.get_subnet_by_netpart(
             filters['vsd_organisation_id'][0])
         if vsd_domains:
             vsd_domains = [self._update_dict(vsd_domain, 'type', 'L3')
@@ -3272,7 +3272,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def get_vsd_organisations(self, context, filters=None, fields=None):
-        netpartitions = self.nuageclient.get_net_partitions()
+        netpartitions = self.vsdclient.get_net_partitions()
         vsd_to_os = {
             'net_partition_id': 'id',
             'net_partition_name': 'name'
@@ -3318,7 +3318,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     def claim_fip_for_domain_from_shared_resource(self, context, id,
                                                   rtr_id, vpn_id):
-        fip_pool = self.nuageclient.get_nuage_fip_pool_by_id(id)
+        fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(id)
         if not fip_pool:
             msg = _('sharedresource %s not found on VSD') % id
             raise n_exc.BadRequest(resource='floatingip',
@@ -3335,7 +3335,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'nuage_fippool_id': fip_pool['nuage_fip_pool_id'],
             'vpn_id': vpn_id
         }
-        nuage_fip = self.nuageclient.create_nuage_fip_for_vpnaas(params)
+        nuage_fip = self.vsdclient.create_nuage_fip_for_vpnaas(params)
         return nuage_fip
 
     def associate_fip_to_dummy_port(self, context, nuage_fip, port_id, rtr_id):
@@ -3354,15 +3354,15 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'nuage_fip_id': nuage_fip_id
         }
         if nuage_fip['assigned']:
-            n_vport = self.nuageclient.get_vport_assoc_with_fip(
+            n_vport = self.vsdclient.get_vport_assoc_with_fip(
                 nuage_fip_id)
             if n_vport and not n_vport['hasAttachedInterfaces']:
                 disassoc_params = {
                     'nuage_vport_id': n_vport['ID'],
                     'nuage_fip_id': None
                 }
-                self.nuageclient.update_nuage_vm_vport(disassoc_params)
-        self.nuageclient.update_nuage_vm_vport(params)
+                self.vsdclient.update_nuage_vm_vport(disassoc_params)
+        self.vsdclient.update_nuage_vm_vport(params)
 
     def get_active_routers_for_host(self, context, host=None):
         return self.get_routers(context)
@@ -3378,7 +3378,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         self._add_nuage_static_route(rtr_id, nuage_domain_id, route)
         nuage_port = self._get_reqd_nauge_vport_params(context, port)
         if nuage_port:
-            self.nuageclient.update_mac_spoofing_on_vport(
+            self.vsdclient.update_mac_spoofing_on_vport(
                 nuage_port['nuage_vport_id'], constants.ENABLED)
 
     def remove_rules_vpn_ping(self, context, rtr_id, remote_subn, nexthop):
@@ -3416,9 +3416,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             'l3dom_id': l3dom_id
         }
         subn = self.get_subnet(context, sub_id)
-        nuage_port = (self.nuageclient.get_nuage_vport_by_id(port_params)
+        nuage_port = (self.vsdclient.get_nuage_vport_by_id(port_params)
                       if create_ipsec
-                      else self.nuageclient.get_nuage_port_by_id(port_params))
+                      else self.vsdclient.get_nuage_port_by_id(port_params))
         nuage_port['net_partition'] = net_partition
         nuage_port['subn'] = subn
         nuage_port['l2dom_id'] = l2dom_id
@@ -3441,7 +3441,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 'l3dom_id': nuage_port['l3dom_id'],
                 'portOnSharedSubn': nuage_port['subn']['shared']
             }
-            self.nuageclient.delete_vms(params)
+            self.vsdclient.delete_vms(params)
 
     def rtr_in_def_ent(self, context, rtr_id):
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(

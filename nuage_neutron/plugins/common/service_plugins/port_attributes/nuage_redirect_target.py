@@ -55,11 +55,11 @@ class NuageRedirectTarget(BaseNuagePlugin):
 
     @log_helpers.log_method_call
     def get_nuage_redirect_target(self, context, rtarget_id, fields=None):
-        rtarget_resp = self.nuageclient.get_nuage_redirect_target(rtarget_id)
+        rtarget_resp = self.vsdclient.get_nuage_redirect_target(rtarget_id)
         if not rtarget_resp:
             raise nuage_exc.NuageNotFound(resource='nuage_redirect_target',
                                           resource_id=rtarget_id)
-        vports = self.nuageclient.get_redirect_target_vports(rtarget_id) or []
+        vports = self.vsdclient.get_redirect_target_vports(rtarget_id) or []
         port_ids = [vport['externalID'].split('@')[0] for vport in vports]
         rtarget_resp['ports'] = port_ids
         return self._make_redirect_target_dict(rtarget_resp, context=context,
@@ -76,7 +76,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 return []
             if (subnet_mapping['nuage_managed_subnet'] or
                     not subnet_mapping['nuage_l2dom_tmplt_id']):
-                domain_id = self.nuageclient.get_router_by_domain_subnet_id(
+                domain_id = self.vsdclient.get_router_by_domain_subnet_id(
                     subnet_mapping['nuage_subnet_id'])
                 if domain_id:
                     params['parentID'] = domain_id
@@ -99,7 +99,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
         elif filters.get('name'):
             params['name'] = filters.get('name')[0]
 
-        rtargets = self.nuageclient.get_nuage_redirect_targets(params)
+        rtargets = self.vsdclient.get_nuage_redirect_targets(params)
         return [self._make_redirect_target_dict(rtarget, context, fields)
                 for rtarget in rtargets]
 
@@ -110,7 +110,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
         ports = self.core_plugin.get_ports(context, filters=filters)
         for vip_port in ports:
             self.core_plugin.delete_port(context, vip_port['id'])
-        self.nuageclient.delete_nuage_redirect_target(rtarget_id)
+        self.vsdclient.delete_nuage_redirect_target(rtarget_id)
 
     @log_helpers.log_method_call
     def get_nuage_redirect_targets_count(self, context, filters=None):
@@ -151,7 +151,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             raise ext_rtarget.RedirectTargetNoDomainOrL2Domain()
 
         try:
-            nuage_redirect_target = self.nuageclient\
+            nuage_redirect_target = self.vsdclient\
                 .create_nuage_redirect_target(
                     redirect_target,
                     subnet_id=subnet_mapping.get('nuage_subnet_id'),
@@ -214,7 +214,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             raise n_exc.BadRequest(
                 resource='nuage-redirect-target', msg=msg)
 
-        vip_resp = self.nuageclient.create_virtual_ip(
+        vip_resp = self.vsdclient.create_virtual_ip(
             redirect_target['redirect_target_id'],
             redirect_target['virtual_ip_address'],
             vip_port['id'])
@@ -241,7 +241,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
         remote_ip_prefix = None
         remote_group_id = None
         if redirect_target_rule['networkType'] == 'ENTERPRISE_NETWORK':
-            nuage_net_macro = self.nuageclient.get_nuage_prefix_macro(
+            nuage_net_macro = self.vsdclient.get_nuage_prefix_macro(
                 redirect_target_rule['networkID'])
             remote_ip_prefix = netaddr.IPNetwork(nuage_net_macro['address'] +
                                                  '/' +
@@ -333,7 +333,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
         self._validate_nuage_redirect_target_rule(rtarget_rule)
         if remote_sg:
             rtarget_rule['remote_group_name'] = remote_sg['name']
-        rtarget_rule_resp = self.nuageclient.create_nuage_redirect_target_rule(
+        rtarget_rule_resp = self.vsdclient.create_nuage_redirect_target_rule(
             rtarget_rule)
 
         return self._make_redirect_target_rule_dict(rtarget_rule_resp,
@@ -345,7 +345,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                                        fields=None):
         try:
             rtarget_rule_resp = (
-                self.nuageclient.get_nuage_redirect_target_rule(
+                self.vsdclient.get_nuage_redirect_target_rule(
                     rtarget_rule_id))
         except Exception:
             raise nuage_exc.NuageNotFound(
@@ -358,7 +358,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def delete_nuage_redirect_target_rule(self, context, rtarget_rule_id):
-        self.nuageclient.delete_nuage_redirect_target_rule(rtarget_rule_id)
+        self.vsdclient.delete_nuage_redirect_target_rule(rtarget_rule_id)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -386,7 +386,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             resource_id = params['id']
 
         try:
-            rtarget_rules = self.nuageclient.get_nuage_redirect_target_rules(
+            rtarget_rules = self.vsdclient.get_nuage_redirect_target_rules(
                 params)
         except Exception:
             raise nuage_exc.NuageNotFound(
@@ -421,7 +421,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 nuage_rtarget_id = rtarget
                 nuage_rtargets_ids.append(rtarget)
             # validate rtarget is in the same subnet as port
-            rtarget_resp = self.nuageclient.get_nuage_redirect_target(
+            rtarget_resp = self.vsdclient.get_nuage_redirect_target(
                 nuage_rtarget_id)
             if not rtarget_resp:
                 msg = (_("Redirect target %s does not exist on VSD ") %
@@ -435,7 +435,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 'nuage_subnet_id': subnet_mapping['nuage_subnet_id']
             }
             if subnet_mapping and (
-                    not self.nuageclient.validate_port_create_redirect_target(
+                    not self.vsdclient.validate_port_create_redirect_target(
                         validate_params)):
                 msg = ("Redirect Target belongs to subnet %s that is "
                        "different from port subnet %s" %
@@ -463,12 +463,12 @@ class NuageRedirectTarget(BaseNuagePlugin):
                     'l3dom_id': l3dom_id
                 }
 
-                nuage_port = self.nuageclient.get_nuage_vport_by_neutron_id(
+                nuage_port = self.vsdclient.get_nuage_vport_by_neutron_id(
                     params)
                 nuage_port['l2dom_id'] = l2dom_id
                 nuage_port['l3dom_id'] = l3dom_id
                 if nuage_port and nuage_port.get('ID'):
-                    self.nuageclient.update_nuage_vport_redirect_target(
+                    self.vsdclient.update_nuage_vport_redirect_target(
                         n_rtarget_id, nuage_port.get('ID'))
             except Exception:
                 raise
@@ -490,7 +490,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 'l2dom_id': l2dom_id,
                 'l3dom_id': l3dom_id
             }
-            self.nuageclient.delete_port_redirect_target_bindings(params)
+            self.vsdclient.delete_port_redirect_target_bindings(params)
 
     def _validate_create_redirect_target_vip(self, context, redirect_target,
                                              subnet_mapping, vip):
@@ -546,7 +546,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
         if not port or not vport or \
                 fields and REDIRECTTARGETS not in fields:
             return
-        policy_groups = self.nuageclient.get_nuage_vport_redirect_targets(
+        policy_groups = self.vsdclient.get_nuage_vport_redirect_targets(
             vport['ID'])
         port[REDIRECTTARGETS] = [policy_group['ID']
                                  for policy_group in policy_groups]
