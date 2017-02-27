@@ -129,6 +129,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         nuage_subnet_id = subnet['nuagenet']
         original_gateway = subnet['gateway_ip']
         nuage_npid = self._validate_net_partition(subnet, context)
+        if not self.nuageclient.check_if_l2Dom_in_correct_ent(
+                nuage_subnet_id, {'id': nuage_npid}):
+            msg = ("Provided Nuage subnet not in the provided"
+                   " Nuage net-partition")
+            raise NuageBadRequest(msg=msg)
         nuage_subnet, shared_subnet = self._get_nuage_subnet(nuage_subnet_id)
         self._validate_cidr(subnet, nuage_subnet, shared_subnet)
         self._set_gateway_from_vsd(nuage_subnet, shared_subnet, subnet)

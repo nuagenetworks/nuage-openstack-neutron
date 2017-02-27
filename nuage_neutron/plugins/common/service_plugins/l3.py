@@ -459,7 +459,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             context,
             id,
             copy.deepcopy(router))
-        if len(updates) == 1 and 'external_gateway_info' in updates:
+        if (len(updates) == 1 and 'external_gateway_info' in updates and
+                'enable_snat' not in updates['external_gateway_info']):
             return router_updated
         if 'routes' in updates:
             self._update_nuage_router_static_routes(
