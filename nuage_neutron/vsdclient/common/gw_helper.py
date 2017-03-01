@@ -119,11 +119,11 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
         resource_url = nuage_vport.post_vport_for_l2domain()
 
     # create the vport
-    vport_response = restproxy_serv.rest_call('POST', resource_url,
-                                              nuage_vport.post_vport_data())
-    if not nuage_vport.get_validate(vport_response):
-        raise restproxy.RESTProxyError(nuage_vport.error_msg)
-    vport = nuage_vport.get_response_obj(vport_response)
+    vport = restproxy_serv.post(
+        resource_url,
+        nuage_vport.post_vport_data(),
+        on_res_exists=restproxy_serv.retrieve_by_external_id,
+        ignore_err_codes=[restproxy.REST_VLAN_IN_USE_ERR_CODE])[0]
 
     # create the interface
     nuage_vport_id = vport['ID']
@@ -146,14 +146,12 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
             extra_params=extra_params)
         resource_url = nuage_interface.post_resource_by_vport()
 
-    intf_response = restproxy_serv.rest_call(
-        'POST',
+    vport_intf = restproxy_serv.post(
         resource_url,
-        nuage_interface.post_iface_data())
-    if not nuage_interface.get_validate(intf_response):
-        raise restproxy.RESTProxyError(nuage_interface.error_msg)
+        nuage_interface.post_iface_data(),
+        on_res_exists=restproxy_serv.retrieve_by_external_id,
+        ignore_err_codes=[restproxy.REST_IFACE_EXISTS_ERR_CODE])[0]
 
-    vport_intf = nuage_vport.get_response_obj(intf_response)
     if (not params.get('nuage_managed_subnet') and
             params.get('port_security_enabled')):
         if subn_type == constants.SUBNET:

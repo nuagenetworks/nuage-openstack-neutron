@@ -405,6 +405,9 @@ class VsdClient(object):
     def create_gateway_port_vlan(self, vlan_dict):
         pass
 
+    def create_gateway_vlan(self, vlan_dict):
+        pass
+
     def delete_gateway_port_vlan(self, vlan_id):
         pass
 
@@ -543,4 +546,19 @@ class VsdClient(object):
     # Plugin stats
 
     def get_nuage_plugin_stats(self):
+        pass
+
+    def create_trunk(self, os_trunk, subnet_mapping):
+        pass
+
+    def delete_trunk(self, os_trunk, subnet_mapping):
+        pass
+
+    def add_subport(self, os_trunk_id, os_subport, data):
+        pass
+
+    def remove_subport(self, os_port, subnet_mapping):
+        pass
+
+    def update_subport(self, os_port, vport, params):
         pass

@@ -38,9 +38,44 @@ class NuageNotAuthorized(n_exc.NotAuthorized):
     message = _("Not authorized for this operation: %(msg)s")
 
 
+class NuagePortBound(n_exc.InUse):
+    message = _("Unable to complete operation on port %(port_id)s, "
+                "port is already bound, port type: %(vif_type)s, "
+                "old_ips %(old_ips)s, new_ips %(new_ips)s.")
+
+
 class VsdSubnetNotFound(n_exc.BadRequest):
     message = _("Vsd subnet with id '%(id)s' not found")
 
 
 class SubnetMappingNotFound(n_exc.BadRequest):
     message = _("Vsd subnet mapping not found for %(resource)s '%(id)s'")
+
+
+class NuageDriverNotFound(n_exc.NotFound):
+    message = _("Could not find the following driver(s): %(driver_name)s.")
+
+
+class PhysnetVlanConflict(n_exc.Conflict):
+    message = _("Subnet %(subnet)s cannot use multiple vlans %(vlans)s in a "
+                "single physical network")
+
+
+class TrunkVlanConflict(n_exc.Conflict):
+    message = _("Subnet %(subnet)s cannot use multiple vlans %(vlans)s in a "
+                "single trunk")
+
+
+class SubPortParentPortConflict(n_exc.Conflict):
+    message = _("Subport %(subport)s cannot be in the same network as the "
+                "trunk's parent port.")
+
+
+class TrunkVnicTypeConflict(n_exc.Conflict):
+    message = _("Subport %(subport)s has vnic_type '%(vnic_type_sub)s' and "
+                "parent port %(parent)s has vnic_type '%(vnic_type_parent)s'")
+
+
+class SubPortNetpartitionConflict(n_exc.Conflict):
+    message = _("Subport %(subport)s cannot be in the different enterprise "
+                "than the trunk's parent port.")

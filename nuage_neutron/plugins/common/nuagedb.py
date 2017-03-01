@@ -19,6 +19,7 @@ from neutron.db.models import external_net as external_net_db
 from neutron.db.models import l3 as l3_db
 from neutron.db.models import securitygroup as securitygroups_db
 from neutron.db import models_v2
+from neutron.plugins.ml2 import models as ml2_models
 from neutron_lib import constants as os_constants
 
 from nuage_neutron.plugins.common import constants as nuage_constants
@@ -482,3 +483,10 @@ def count_allowedaddresspairs_for_subnet(session, subnet_id):
         .filter(
             models_v2.Subnet.id == subnet_id
         )).count()
+
+
+def get_port_bindings(session, port_ids):
+    return (
+        session.query(ml2_models.PortBinding)
+        .filter(ml2_models.PortBinding.port_id.in_(port_ids))
+    ).all()
