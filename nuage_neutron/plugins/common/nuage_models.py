@@ -80,3 +80,26 @@ class SubnetL2Domain(model_base.BASEV2):
     nuage_group_id = sa.Column(sa.String(36))
     nuage_managed_subnet = sa.Column(sa.Boolean())
     ip_version = sa.Column(sa.Integer(), nullable=False)
+
+
+class NuageSwitchportMapping(model_base.BASEV2, model_base.HasId):
+    __tablename__ = 'nuage_switchport_mapping'
+    switch_info = sa.Column(sa.String(255), nullable=False)
+    switch_id = sa.Column(sa.String(36), nullable=False)
+    redundant = sa.Column(sa.Boolean())
+    port_id = sa.Column(sa.String(255), nullable=False)
+    port_uuid = sa.Column(sa.String(36), nullable=False)
+    pci_slot = sa.Column(sa.String(36), nullable=False)
+    host_id = sa.Column(sa.String(255), nullable=False)
+    __table_args__ = (sa.PrimaryKeyConstraint('id'),
+                      sa.UniqueConstraint('host_id', 'pci_slot'))
+
+
+class NuageSwitchportBinding(model_base.BASEV2, model_base.HasId):
+    __tablename__ = 'nuage_switchport_binding'
+    neutron_port_id = sa.Column(sa.String(36), nullable=False)
+    nuage_vport_id = sa.Column(sa.String(36), nullable=False)
+    switchport_uuid = sa.Column(sa.String(36), nullable=False)
+    segmentation_id = sa.Column(sa.Integer, nullable=False)
+    sa.ForeignKeyConstraint(['neutron_port_id'],
+                            ['ports.id'], ondelete="CASCADE")
