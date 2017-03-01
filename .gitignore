@@ -6,6 +6,7 @@ cover/
 covhtml/
 dist/
 doc/build
+*.orig
 *.DS_Store
 *.pyc
 nuage_openstack_neutron.egg-info/

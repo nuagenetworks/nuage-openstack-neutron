@@ -27,18 +27,19 @@ from neutron.db import db_base_plugin_v2
 from neutron.extensions import external_net
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
+from neutron.services.trunk import constants as t_consts
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as os_constants
+from neutron_lib.exceptions import PortInUse
 from neutron_lib.plugins import directory
-
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
-from nuage_neutron.plugins.common import extensions
+from nuage_neutron.plugins.common.exceptions import NuagePortBound
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils
@@ -50,12 +51,16 @@ from nuage_neutron.plugins.common.validation import IsSet
 from nuage_neutron.plugins.common.validation import require
 from nuage_neutron.plugins.common.validation import validate
 
-from nuage_neutron.plugins.nuage_ml2 import extensions  # noqa
+from nuage_neutron.plugins.nuage_ml2 import extensions
 from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageML2Wrapper
 from nuage_neutron.plugins.nuage_ml2.securitygroup import NuageSecurityGroup
+from nuage_neutron.plugins.nuage_ml2 import trunk_driver
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 
+
 LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCERV2
+PORT_UNPLUGGED_TYPES = (portbindings.VIF_TYPE_BINDING_FAILED,
+                        portbindings.VIF_TYPE_UNBOUND)
 
 LOG = log.getLogger(__name__)
 
@@ -70,14 +75,18 @@ class NuageMechanismDriver(NuageML2Wrapper):
         self._wrap_vsdclient()
         self._core_plugin = None
         self._default_np_id = None
+
         NuageSecurityGroup().register()
         NuageAddressPair().register()
         db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
             constants.DEVICE_OWNER_DHCP_NUAGE]
+        self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
+
         if nuage_config.is_enabled(constants.DEBUG_TIMING_STATS):
             TimeTracker.start()
         if nuage_config.is_enabled(constants.FEATURE_EXPERIMENTAL_TEST):
             LOG.info("Have a nice day.")
+
         LOG.debug('Initializing complete')
 
     @property
@@ -594,7 +603,24 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                              is_network_external)
         if not subnet_mapping:
             return
+        self._check_subport_in_use(original, port)
         nuage_vport = self._get_nuage_vport(port, subnet_mapping)
+
+        ips_changed = self._check_ip_update_allowed(original, port)
+        mac_changed = original['mac_address'] != port['mac_address']
+        if ips_changed or mac_changed:
+            fixed_ips = port['fixed_ips']
+            ips = {4: None, 6: None}
+            for fixed_ip in fixed_ips:
+                subnet = self.core_plugin.get_subnet(db_context,
+                                                     fixed_ip['subnet_id'])
+                ips[subnet['ip_version']] = fixed_ip['ip_address']
+            data = {
+                'mac': port['mac_address'],
+                'ipv4': ips[4],
+                'ipv6': ips[6]
+            }
+            self.vsdclient.update_subport(port, nuage_vport, data)
 
         device_added = device_removed = False
         if not original['device_owner'] and port['device_owner']:
@@ -958,6 +984,27 @@ class NuageMechanismDriver(NuageML2Wrapper):
                       % (db_context.tenant, nuage_npid, nuage_subnet_id))
             raise e
 
+    def _check_ip_update_allowed(self, orig_port, port):
+        new_ips = port.get('fixed_ips')
+        vif_type = orig_port.get(portbindings.VIF_TYPE)
+        ips_change = (new_ips is not None and
+                      orig_port.get('fixed_ips') != new_ips)
+        if ips_change and vif_type not in PORT_UNPLUGGED_TYPES:
+            raise NuagePortBound(port_id=orig_port['id'],
+                                 vif_type=vif_type,
+                                 old_ips=orig_port['fixed_ips'],
+                                 new_ips=port['fixed_ips'])
+        return ips_change
+
+    def _check_subport_in_use(self, orig_port, port):
+        is_sub = t_consts.TRUNK_SUBPORT_OWNER == orig_port.get('device_owner')
+        if is_sub:
+            vif_orig = orig_port.get(portbindings.VIF_TYPE)
+            if vif_orig not in PORT_UNPLUGGED_TYPES and port.get('device_id'):
+                raise PortInUse(port_id=port['id'],
+                                net_id=port['network_id'],
+                                device_id='trunk:subport')
+
     def _validate_port(self, db_context, port, event,
                        is_network_external=False):
         if 'fixed_ips' not in port or len(port.get('fixed_ips', [])) == 0:
@@ -1008,8 +1055,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
             return subnet_mapping
 
     def _port_should_have_vm(self, port):
-        device_owner = port['device_owner']
-        return (port.get('device_owner') != constants.DEVICE_OWNER_IRONIC and
+        device_owner = port.get('device_owner')
+        return (device_owner != constants.DEVICE_OWNER_IRONIC and
+                device_owner != t_consts.TRUNK_SUBPORT_OWNER and
                 constants.NOVA_PORT_OWNER_PREF in device_owner or
                 LB_DEVICE_OWNER_V2 in device_owner)
 
@@ -1229,3 +1277,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _supported_vnic_types(self):
         return [portbindings.VNIC_NORMAL]
+
+    def check_vlan_transparency(self, context):
+        """Nuage driver vlan transparency support."""
+        return True
