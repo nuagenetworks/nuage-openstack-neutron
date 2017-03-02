@@ -40,6 +40,7 @@ from neutron.callbacks import registry
 from neutron.common import constants as os_constants
 from neutron.common import exceptions as n_exc
 from neutron.common import utils
+from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
@@ -92,13 +93,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                   sg_db.SecurityGroupDbMixin,
                   portbindings_db.PortBindingMixin,
                   ps_db_common.PortSecurityDbCommon,
-                  extradhcpopt_db.ExtraDhcpOptMixin):
+                  extradhcpopt_db.ExtraDhcpOptMixin,
+                  agentschedulers_db.AgentSchedulerDbMixin):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
                          "vsd-resource", "allowed-address-pairs",
                          "nuage-external-security-group", "extra_dhcp_opt",
-                         "port-security"]
+                         "port-security", "agent"]
 
     binding_view = "extension:port_binding:view"
 
