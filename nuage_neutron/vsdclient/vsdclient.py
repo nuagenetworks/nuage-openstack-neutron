@@ -408,6 +408,9 @@ class VsdClient(object):
     def create_gateway_port_vlan(self, vlan_dict):
         pass
 
+    def create_gateway_vlan(self, vlan_dict):
+        pass
+
     def delete_gateway_port_vlan(self, vlan_id):
         pass
 
@@ -417,7 +420,13 @@ class VsdClient(object):
     def create_gateway_vport(self, tenant_id, vport_dict):
         pass
 
+    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict):
+        pass
+
     def delete_nuage_gateway_vport(self, tenant_id, id, def_netpart_id):
+        pass
+
+    def delete_nuage_gateway_vport_no_usergroup(self, tenant_id, vport):
         pass
 
     def get_gateway_vport(self, tenant_id, netpart_id, nuage_vport_id):

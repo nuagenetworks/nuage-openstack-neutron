@@ -44,3 +44,7 @@ class VsdSubnetNotFound(n_exc.BadRequest):
 
 class SubnetMappingNotFound(n_exc.BadRequest):
     message = _("Vsd subnet mapping not found for %(resource)s '%(id)s'")
+
+
+class NuageDriverNotFound(n_exc.NotFound):
+    message = _("Could not find the following driver(s): %(driver_name)s.")
