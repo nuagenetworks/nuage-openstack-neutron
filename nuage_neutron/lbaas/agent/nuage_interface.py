@@ -185,7 +185,8 @@ class NuageVMDriver(object):
 
     @classmethod
     def plug(cls, network_id, port_id, device_name, mac_address,
-             bridge=None, namespace=None, prefix=None, user_helper=None):
+             bridge=None, namespace=None, prefix=None, user_helper=None,
+             mtu=None):
         xml_data = NuageVMDriver.nuage_xml(port_id, mac_address, device_name,
                                            bridge)
         define_msg = NuageVMDriver._send_vm_event_to_ovs(
