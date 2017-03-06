@@ -15,6 +15,7 @@
 
 from oslo_log import log as logging
 
+from neutron.common import utils
 from neutron.db.models import external_net
 from neutron.plugins.ml2 import driver_api as api
 from nuage_neutron.plugins.common import base_plugin
@@ -52,14 +53,11 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
         result['underlay'] = data['underlay']
         result['nuage_uplink'] = data['nuage_uplink']
 
+    @utils.exception_logger()
     def extend_subnet_dict(self, session, db_data, result):
         if self._is_network_external(session, db_data['network_id']):
-            try:
-                nuage_subnet = self.get_vsd_shared_subnet_attributes(
-                    result['id'])
-            except Exception as e:
-                LOG.exception(e)
-                raise
+            nuage_subnet = self.get_vsd_shared_subnet_attributes(
+                result['id'])
             if nuage_subnet:
                 result['underlay'] = nuage_subnet['underlay']
                 result['nuage_uplink'] = nuage_subnet['sharedResourceParentID']
