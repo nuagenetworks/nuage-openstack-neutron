@@ -120,8 +120,8 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         if subnet_mapping['nuage_managed_subnet']:
             return
 
-        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
-            subnet_mapping['nuage_subnet_id'])
+        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
+
         if port[ext_sg.SECURITYGROUPS]:
             self._process_port_security_group(context,
                                               port,
@@ -141,8 +141,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         if subnet_mapping['nuage_managed_subnet']:
             return
 
-        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
-            subnet_mapping['nuage_subnet_id'])
+        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
         self._process_port_security_group(context,
                                           updated_port,
                                           kwargs['vport'],

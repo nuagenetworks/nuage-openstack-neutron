@@ -214,6 +214,9 @@ class VsdClient(object):
     def get_subnet_or_domain_subnet_by_id(self, nuage_id, required=False):
         pass
 
+    def get_nuage_subnet_by_id(self, subnet_mapping, required=False):
+        pass
+
     def get_gw_from_dhcp_l2domain(self, nuage_id):
         pass
 
