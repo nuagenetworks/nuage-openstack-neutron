@@ -358,6 +358,19 @@ class VsdClientImpl(VsdClient):
         if response[3]:
             return response[3][0]['parentID']
 
+    def get_nuage_subnet_by_id(self, subnet_mapping, required=False):
+        nuage_id = subnet_mapping['nuage_subnet_id']
+        try:
+            if subnet_mapping['nuage_l2dom_tmplt_id']:
+                return self.get_l2domain_by_id(nuage_id)
+            else:
+                return self.get_domain_subnet_by_id(nuage_id)
+        except restproxy.ResourceNotFoundException:
+            if required:
+                raise
+            else:
+                return None
+
     def get_subnet_or_domain_subnet_by_id(self, nuage_id, required=False):
         try:
             return self.get_l2domain_by_id(nuage_id)
