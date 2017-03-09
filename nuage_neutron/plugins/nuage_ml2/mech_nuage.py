@@ -344,9 +344,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     @log_helpers.log_method_call
     def _delete_port_gateway(self, context, ports):
         for port in ports:
-            db_base_plugin_v2.NeutronDbPluginV2.delete_port(self.core_plugin,
-                                                            context,
-                                                            port['id'])
+            if not port.get('fixed_ips'):
+                db_base_plugin_v2.NeutronDbPluginV2.delete_port(
+                    self.core_plugin,
+                    context,
+                    port['id'])
 
     @utils.context_log
     def delete_subnet_precommit(self, context):
@@ -361,8 +363,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         context.nuage_mapping = nuagedb.get_subnet_l2dom_by_id(
             db_context.session, subnet['id'])
         filters = {
-            'fixed_ips': {'subnet_id': [subnet['id']]},
-            'device_owner': constants.DEVICE_OWNER_DHCP_NUAGE
+            'network_id': [subnet['network_id']],
+            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
         }
         context.nuage_ports = self.get_ports(db_context, filters)
 
@@ -383,7 +385,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             self._cleanup_group(db_context, mapping['net_partition_id'],
                                 mapping['nuage_subnet_id'], subnet)
 
-        self._delete_port_gateway(context, context.nuage_ports)
+        self._delete_port_gateway(db_context, context.nuage_ports)
 
     @handle_nuage_api_errorcode
     @utils.context_log
