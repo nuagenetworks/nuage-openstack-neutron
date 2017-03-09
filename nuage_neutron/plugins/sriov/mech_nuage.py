@@ -21,6 +21,7 @@ from neutron import context as neutron_context
 from neutron.extensions import portbindings
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
+from neutron.services.trunk import constants as t_consts
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants as nuage_const
@@ -30,6 +31,7 @@ from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
+from nuage_neutron.plugins.sriov import trunk_driver
 
 
 LOG = logging.getLogger(__name__)
@@ -46,6 +48,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         LOG.debug('Initializing driver')
         self.init_vsd_client()
         self._wrap_vsdclient()
+        self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         self.vif_details = {portbindings.CAP_PORT_FILTER: True}
         LOG.debug('Initializing complete')
 
@@ -141,11 +144,20 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
             if self._check_segment(segment, context):
                 if not self._can_bind(context):
                     return
-                # get a vlan segment or allocate dynamic
-                next_segment = self._allocate_segment(context)
+                if (context.current.get('device_owner') in
+                        [t_consts.TRUNK_SUBPORT_OWNER]):
+                    next_segment = segment
+                    profile = context.current.get(portbindings.PROFILE)
+                    # get vlan id from binding profile
+                    segmentation_id = profile.get('vlan')
+                else:
+                    # get a vlan segment or allocate dynamic
+                    next_segment = self._allocate_segment(context)
 
-                # get vlan id from segment or 0 for flat nets
-                segmentation_id = next_segment.get(api.SEGMENTATION_ID) or 0
+                    # get vlan id from segment or 0 for flat nets
+                    segmentation_id = (next_segment.get(api.SEGMENTATION_ID) or
+                                       0)
+
                 port_status = n_const.PORT_STATUS_ACTIVE
                 # create a VPort at TOR level
                 host_id = context.current['binding:host_id']
@@ -159,11 +171,13 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                             self.vif_details)
                         LOG.error("Failed to bind port")
                         return
-                    if (context.current.get(portbindings.VNIC_TYPE, "")
-                            in [portbindings.VNIC_BAREMETAL]):
-                        context.set_binding(next_segment[api.ID],
+                    if (context.current.get('device_owner') in
+                            [t_consts.TRUNK_SUBPORT_OWNER]):
+                        vif_binding = self.vif_details
+                        vif_binding['vlan'] = segmentation_id
+                        context.set_binding(segment[api.ID],
                                             vif_type,
-                                            self.vif_details,
+                                            vif_binding,
                                             status=port_status)
                         LOG.debug("port bind using segment for port %(port)s :"
                                   " %(vif_type)s",
@@ -269,10 +283,11 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
 
     def _can_bind(self, context):
         """Check that all required binding info is present"""
-        binding_profile = self._get_binding_profile(context.current)
         vnic_type = context.current.get(portbindings.VNIC_TYPE, "")
-        if (vnic_type
-                not in self._supported_vnic_types() or not binding_profile):
+        if vnic_type not in self._supported_vnic_types():
+            return False
+        binding_profile = self._get_binding_profile(context.current)
+        if not binding_profile:
             return False
         return True
 
