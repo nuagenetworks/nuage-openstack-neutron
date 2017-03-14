@@ -213,7 +213,7 @@ class NuageVMDriver(object):
 
 class NuageInterfaceDriver(OVSInterfaceDriver):
     def plug(self, network_id, port_id, device_name, mac_address,
-             bridge=None, namespace=None, prefix=None):
+             bridge=None, namespace=None, prefix=None, mtu=None):
         super(NuageInterfaceDriver, self).plug(network_id, port_id,
                                                device_name, mac_address,
                                                bridge, namespace, prefix)
