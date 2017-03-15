@@ -1186,3 +1186,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     def _supported_vnic_types(self):
         return [portbindings.VNIC_NORMAL]
+
+    def check_vlan_transparency(self, context):
+        """Nuage driver vlan transparency support."""
+        return True
