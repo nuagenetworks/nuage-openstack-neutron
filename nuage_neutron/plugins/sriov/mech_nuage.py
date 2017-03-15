@@ -464,3 +464,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 LOG.error("Failed to delete vport from vsd {vport id: %s}"
                           % vport['ID'])
                 raise e
+
+    def check_vlan_transparency(self, context):
+        """Nuage driver vlan transparency support."""
+        return True
