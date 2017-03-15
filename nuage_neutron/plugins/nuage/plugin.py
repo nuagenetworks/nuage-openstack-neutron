@@ -2147,14 +2147,16 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 super(NuagePlugin, self).update_router, context, id,
                 {'router': copy.deepcopy(curr_router)}))
 
-            new_routes = updates.get('routes', curr_router.get('routes'))
-            self._update_nuage_router_static_routes(id, nuage_domain_id,
-                                                    old_routes, new_routes)
-            cleanups.append(functools.partial(
-                self._update_nuage_router_static_routes, id, nuage_domain_id,
-                new_routes, old_routes))
-            self._update_nuage_router(nuage_domain_id, curr_router, updates,
-                                      ent_rtr_mapping)
+            if 'routes' in updates:
+                self._update_nuage_router_static_routes(id,
+                                                        nuage_domain_id,
+                                                        old_routes,
+                                                        updates['routes'])
+                cleanups.append(functools.partial(
+                    self._update_nuage_router_static_routes, id,
+                    nuage_domain_id, updates['routes'], old_routes))
+            self._update_nuage_router(nuage_domain_id, curr_router,
+                                      updates, ent_rtr_mapping)
         except Exception:
             with excutils.save_and_reraise_exception():
                 for cleanup in cleanups:
