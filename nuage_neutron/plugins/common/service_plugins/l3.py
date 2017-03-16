@@ -607,15 +607,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             self.nuageclient.delete_group(group_id)
 
     @log_helpers.log_method_call
-    def _check_router_subnet_for_tenant(self, context, tenant_id):
-        # Search router and subnet tables.
-        # If no entry left delete user and group from VSD
-        filters = {'tenant_id': [tenant_id]}
-        routers = self.get_routers(context, filters=filters)
-        subnets = self.core_plugin.get_subnets(context, filters=filters)
-        return bool(routers or subnets)
-
-    @log_helpers.log_method_call
     def _check_floatingip_update(self, context, port,
                                  vport_type=constants.VM_VPORT,
                                  vport_id=None):

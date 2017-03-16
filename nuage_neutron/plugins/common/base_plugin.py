@@ -21,6 +21,8 @@ from oslo_log import helpers as log_helpers
 from neutron._i18n import _
 from neutron.api.v2 import attributes
 from neutron.extensions import portsecurity as psec
+from neutron.manager import NeutronManager
+from neutron.plugins.common import constants as plugin_constants
 from neutron.plugins.common import utils as plugin_utils
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
@@ -44,6 +46,21 @@ class RootNuagePlugin(object):
         config.nuage_register_cfg_opts()
         self.nuage_callbacks = callback_manager.get_callback_manager()
         self.nuageclient = None  # deferred initialization
+        self._l2_plugin = None
+        self._l3_plugin = None
+
+    @property
+    def core_plugin(self):
+        if self._l2_plugin is None:
+            self._l2_plugin = NeutronManager.get_plugin()
+        return self._l2_plugin
+
+    @property
+    def l3_plugin(self):
+        if self._l3_plugin is None:
+            self._l3_plugin = NeutronManager.get_service_plugins()[
+                plugin_constants.L3_ROUTER_NAT]
+        return self._l3_plugin
 
     def init_vsd_client(self):
         cms_id = cfg.CONF.RESTPROXY.cms_id
@@ -81,6 +98,15 @@ class RootNuagePlugin(object):
             return self.nuageclient.get_sharedresource(neutron_id)
         except restproxy.ResourceNotFoundException:
             pass
+
+    @log_helpers.log_method_call
+    def _check_router_subnet_for_tenant(self, context, tenant_id):
+        # Search router and subnet tables.
+        # If no entry left delete user and group from VSD
+        filters = {'tenant_id': [tenant_id]}
+        routers = self.l3_plugin.get_routers(context, filters=filters)
+        subnets = self.core_plugin.get_subnets(context, filters=filters)
+        return bool(routers or subnets)
 
     def _validate_vmports_same_netpartition(self, core_plugin, db_context,
                                             current_port, np_id):
