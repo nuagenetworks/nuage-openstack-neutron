@@ -15,10 +15,12 @@
 from neutron_lib.api import validators
 
 from nuage_neutron.plugins.common import exceptions
+import six
 
 
 def validate(name, dict, requirements):
-    for key, requirement in requirements.iteritems():
+    requirements_it = six.iteritems(requirements)
+    for key, requirement in requirements_it:
         if not requirement.matches(dict.get(key)):
             raise exceptions.NuageBadRequest(msg=requirement.msg(key, name))
 

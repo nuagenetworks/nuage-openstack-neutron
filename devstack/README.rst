@@ -25,12 +25,6 @@ Required settings
 
 ::
 
-    # nuagenetlib repository
-    NUAGENETLIB_REPO=http://github.mv.usa.alcatel.com/OpenStack/nuagenetlib.git
-
-    # branch to use
-    NUAGENETLIB_BRANCH=master
-
     # IP Address and Port of VSD
     NUAGE_VSD_SERVERS=172.31.4.211:8443
 

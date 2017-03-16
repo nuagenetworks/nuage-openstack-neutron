@@ -21,11 +21,7 @@ DIR_NUAGE=$DEST/nuage-openstack-neutron
 source $DIR_NUAGE/devstack/functions
 if [[ "$1" == "stack" ]]; then
     source $DIR_NUAGE/devstack/lib/$Q_PLUGIN
-    if [[ "$2" == "pre-install" ]]; then
-        source $DIR_NUAGE/devstack/lib/nuagenetlib
-        echo_summary "Installing nuagenetlib"
-        install_nuagenetlib
-    elif [[ "$2" == "install" ]]; then
+    if [[ "$2" == "install" ]]; then
         echo_summary "Installing Nuage plugin"
         setup_develop $DIR_NUAGE
 

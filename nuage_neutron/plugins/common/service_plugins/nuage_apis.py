@@ -30,7 +30,7 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage import externalsg
 from nuage_neutron.plugins.nuage_ml2 import extensions  # noqa
-from nuagenetlib.restproxy import RESTProxyError
+from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
 
 LOG = logging.getLogger(__name__)
@@ -75,11 +75,11 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             "name": net_part_name,
             "fp_quota": str(cfg.CONF.RESTPROXY.default_floatingip_quota)
         }
-        nuage_net_partition = self.nuageclient.create_net_partition(params)
+        nuage_net_partition = self.vsdclient.create_net_partition(params)
         net_partitioninst = None
         if nuage_net_partition:
             with session.begin(subtransactions=True):
-                self.nuageclient.set_external_id_for_netpart_rel_elems(
+                self.vsdclient.set_external_id_for_netpart_rel_elems(
                     nuage_net_partition)
                 net_partitioninst = NuageApi._add_net_partition(
                     session,
@@ -93,7 +93,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     def _validate_create_net_partition(self,
                                        net_part_name,
                                        session):
-        nuage_netpart = self.nuageclient.get_netpartition_data(
+        nuage_netpart = self.vsdclient.get_netpartition_data(
             net_part_name)
         netpart_db = nuagedb.get_net_partition_by_name(session, net_part_name)
 
@@ -184,9 +184,9 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             'l2template': l2template
         }
         (np_id, l3dom_tid,
-         l2dom_tid) = self.nuageclient.link_default_netpartition(params)
+         l2dom_tid) = self.vsdclient.link_default_netpartition(params)
         # verify that the provided zones have been created already
-        shared_match, isolated_match = self.nuageclient.validate_zone_create(
+        shared_match, isolated_match = self.vsdclient.validate_zone_create(
             l3dom_tid, l3isolated, l3shared)
         if not shared_match or not isolated_match:
             msg = ('Default zone names must be provided for '
@@ -274,7 +274,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             raise nuage_exc.NuageNotFound(resource='net_partition',
                                           resource_id=id)
         self._validate_delete_net_partition(context, id, net_partition['name'])
-        self.nuageclient.delete_net_partition(net_partition['id'])
+        self.vsdclient.delete_net_partition(net_partition['id'])
         with context.session.begin(subtransactions=True):
             nuagedb.delete_net_partition(context.session,
                                          net_partition)
@@ -302,7 +302,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_vsd_subnet(self, context, id, fields=None):
-        subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             id, required=True)
         vsd_subnet = {'id': subnet['ID'],
                       'name': subnet['name'],
@@ -310,13 +310,13 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                       'gateway': subnet['gateway'],
                       'ip_version': subnet['IPType']}
         if subnet['type'] == constants.L3SUBNET:
-            domain_id = self.nuageclient.get_router_by_domain_subnet_id(
+            domain_id = self.vsdclient.get_router_by_domain_subnet_id(
                 vsd_subnet['id'])
-            netpart_id = self.nuageclient.get_router_np_id(domain_id)
+            netpart_id = self.vsdclient.get_router_np_id(domain_id)
         else:
             netpart_id = subnet['parentID']
 
-        net_partition = self.nuageclient.get_net_partition_name_by_id(
+        net_partition = self.vsdclient.get_net_partition_name_by_id(
             netpart_id)
         vsd_subnet['net_partition'] = net_partition
         return self._fields(vsd_subnet, fields)
@@ -327,7 +327,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         if 'vsd_zone_id' not in filters:
             msg = _('vsd_zone_id is a required filter parameter for this API.')
             raise n_exc.BadRequest(resource='vsd-subnets', msg=msg)
-        l3subs = self.nuageclient.get_domain_subnet_by_zone_id(
+        l3subs = self.vsdclient.get_domain_subnet_by_zone_id(
             filters['vsd_zone_id'][0])
         vsd_to_os = {
             'ID': 'id',
@@ -347,7 +347,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
 
         shared_id = subnet['associatedSharedNetworkResourceID']
         if shared_id:
-            subnet = self.nuageclient.get_nuage_sharedresource(shared_id)
+            subnet = self.vsdclient.get_nuage_sharedresource(shared_id)
         if subnet.get('address'):
             ip = netaddr.IPNetwork(subnet['address'] + '/' +
                                    subnet['netmask'])
@@ -371,7 +371,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                     'API.')
             raise n_exc.BadRequest(resource='vsd-zones', msg=msg)
         try:
-            vsd_zones = self.nuageclient.get_zone_by_domainid(
+            vsd_zones = self.vsdclient.get_zone_by_domainid(
                 filters['vsd_domain_id'][0])
         except RESTProxyError as e:
             if e.code == 404:
@@ -396,9 +396,9 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             msg = _('vsd_organisation_id is a required filter parameter for '
                     'this API.')
             raise n_exc.BadRequest(resource='vsd-domains', msg=msg)
-        vsd_domains = self.nuageclient.get_routers_by_netpart(
+        vsd_domains = self.vsdclient.get_routers_by_netpart(
             filters['vsd_organisation_id'][0])
-        vsd_l2domains = self.nuageclient.get_subnet_by_netpart(
+        vsd_l2domains = self.vsdclient.get_subnet_by_netpart(
             filters['vsd_organisation_id'][0])
         if vsd_domains:
             vsd_domains = [self._update_dict(vsd_domain, 'type', 'L3')
@@ -436,7 +436,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def get_vsd_organisations(self, context, filters=None, fields=None):
-        netpartitions = self.nuageclient.get_net_partitions()
+        netpartitions = self.vsdclient.get_net_partitions()
         vsd_to_os = {
             'net_partition_id': 'id',
             'net_partition_name': 'name'

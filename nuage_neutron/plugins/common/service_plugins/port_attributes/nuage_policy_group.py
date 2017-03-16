@@ -27,7 +27,7 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.service_plugins \
     import vsd_passthrough_resource
 from nuage_neutron.plugins.common import utils as nuage_utils
-from nuagenetlib.restproxy import ResourceNotFoundException
+from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 
 
 def external_to_scope(vsd, os):
@@ -79,12 +79,12 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
     @log_helpers.log_method_call
     def get_nuage_policy_group(self, context, id, fields=None):
         try:
-            policy_group = self.nuageclient.get_nuage_policy_group(
+            policy_group = self.vsdclient.get_nuage_policy_group(
                 id, externalID=None)
             if not policy_group:
                 raise exceptions.NuageNotFound(resource="nuage-policy-group",
                                                resource_id=id)
-            vports = self.nuageclient.get_nuage_policy_group_vports(id) or []
+            vports = self.vsdclient.get_nuage_policy_group_vports(id) or []
             port_ids = [vport['externalID'].split('@')[0] for vport in vports]
             policy_group['ports'] = port_ids
             return self.map_vsd_to_os(policy_group, fields=fields)
@@ -115,8 +115,8 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
 
     def get_all_nuage_policy_groups(self, context, filters=None):
         vsd_filters = self.osfilters_to_vsdfilters(filters)
-        return self.nuageclient.get_nuage_policy_groups(externalID=None,
-                                                        **vsd_filters)
+        return self.vsdclient.get_nuage_policy_groups(externalID=None,
+                                                      **vsd_filters)
 
     def get_ports_nuage_policy_groups(self, context, filters=None):
         ports = filters.pop('ports')
@@ -137,11 +137,11 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
                                       vsd_filters):
         vsd_mapping = nuagedb.get_subnet_l2dom_by_port_id(context.session,
                                                           port_id)
-        vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+        vport = self.vsdclient.get_nuage_vport_by_neutron_id(
             {'neutron_port_id': port_id,
              'l2dom_id': vsd_mapping['nuage_subnet_id'],
              'l3dom_id': vsd_mapping['nuage_subnet_id']})
-        return self.nuageclient.get_nuage_vport_policy_groups(
+        return self.vsdclient.get_nuage_vport_policy_groups(
             vport['ID'], externalID=None, **vsd_filters)
 
     def get_port_available_nuage_policy_groups(self, context, filters=None):
@@ -166,16 +166,16 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
     def _get_available_nuage_policy_groups(self, vsd_mapping, vsd_filters):
         vsd_filters['externalID'] = None
         vsd_id = vsd_mapping['nuage_subnet_id']
-        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(vsd_id)
+        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(vsd_id)
         if not vsd_subnet:
             raise exceptions.VsdSubnetNotFound(id=vsd_id)
         if vsd_subnet['type'] == constants.L2DOMAIN:
-            return self.nuageclient.get_nuage_l2domain_policy_groups(
+            return self.vsdclient.get_nuage_l2domain_policy_groups(
                 vsd_subnet['ID'], **vsd_filters)
         else:
-            domain_id = self.nuageclient.get_router_by_domain_subnet_id(
+            domain_id = self.vsdclient.get_router_by_domain_subnet_id(
                 vsd_subnet['ID'])
-            return self.nuageclient.get_nuage_domain_policy_groups(
+            return self.vsdclient.get_nuage_domain_policy_groups(
                 domain_id, **vsd_filters)
 
     def post_port_update(self, resource, event, trigger, **kwargs):
@@ -213,15 +213,15 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
         if (event == constants.AFTER_UPDATE and
                 NUAGE_POLICY_GROUPS in original_port):
             rollbacks.append(
-                (self.nuageclient.update_vport_policygroups,
+                (self.vsdclient.update_vport_policygroups,
                  [vport['ID'], original_port[NUAGE_POLICY_GROUPS]], {})
             )
-        self.nuageclient.update_vport_policygroups(vport['ID'],
-                                                   policy_group_ids)
+        self.vsdclient.update_vport_policygroups(vport['ID'],
+                                                 policy_group_ids)
 
     def validate_policy_group(self, policy_group_id):
-        policy_group = self.nuageclient.get_nuage_policy_group(policy_group_id,
-                                                               required=True)
+        policy_group = self.vsdclient.get_nuage_policy_group(policy_group_id,
+                                                             required=True)
         if policy_group['externalID']:
             msg = _("Policy group %s has externalID, it can't be used with "
                     "this API.") % policy_group['ID']
@@ -237,7 +237,7 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
             port[NUAGE_POLICY_GROUPS] = None
             return
 
-        policy_groups = self.nuageclient.get_nuage_vport_policy_groups(
+        policy_groups = self.vsdclient.get_nuage_vport_policy_groups(
             vport['ID'], externalID=None)
         port[NUAGE_POLICY_GROUPS] = [policy_group['ID']
                                      for policy_group in policy_groups]

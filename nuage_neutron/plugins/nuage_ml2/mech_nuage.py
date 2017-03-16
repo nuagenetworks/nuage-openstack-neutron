@@ -66,7 +66,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         LOG.debug('Initializing driver')
         neutron_extensions.append_api_extensions_path(extensions.__path__)
         self.init_vsd_client()
-        self._wrap_nuageclient()
+        self._wrap_vsdclient()
         self._core_plugin = None
         self._default_np_id = None
         NuageSecurityGroup().register()
@@ -88,7 +88,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 constants.NUAGE_APIS).default_np_id
         return self._default_np_id
 
-    def _wrap_nuageclient(self):
+    def _wrap_vsdclient(self):
         """Wraps nuagecient methods with try-except to ignore certain errors.
 
         When updating an entity on the VSD and there is nothing to actually
@@ -102,13 +102,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         having None returned is easier to work with than RESTProxy exceptions.
         """
 
-        methods = inspect.getmembers(self.nuageclient,
+        methods = inspect.getmembers(self.vsdclient,
                                      lambda x: inspect.ismethod(x))
         for m in methods:
             wrapped = ignore_no_update(m[1])
             if m[0].startswith('get_') or m[0].startswith('delete_'):
                 wrapped = ignore_not_found(wrapped)
-            setattr(self.nuageclient, m[0], wrapped)
+            setattr(self.vsdclient, m[0], wrapped)
 
     @handle_nuage_api_errorcode
     def create_subnet_postcommit(self, context):
@@ -129,7 +129,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         nuage_subnet_id = subnet['nuagenet']
         original_gateway = subnet['gateway_ip']
         nuage_npid = self._validate_net_partition(subnet, context)
-        if not self.nuageclient.check_if_l2Dom_in_correct_ent(
+        if not self.vsdclient.check_if_l2Dom_in_correct_ent(
                 nuage_subnet_id, {'id': nuage_npid}):
             msg = ("Provided Nuage subnet not in the provided"
                    " Nuage net-partition")
@@ -137,7 +137,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         nuage_subnet, shared_subnet = self._get_nuage_subnet(nuage_subnet_id)
         self._validate_cidr(subnet, nuage_subnet, shared_subnet)
         self._set_gateway_from_vsd(nuage_subnet, shared_subnet, subnet)
-        result = self.nuageclient.attach_nuage_group_to_nuagenet(
+        result = self.vsdclient.attach_nuage_group_to_nuagenet(
             context.tenant, nuage_npid, nuage_subnet_id,
             subnet.get('shared'))
         (nuage_uid, nuage_gid) = result
@@ -226,8 +226,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             params['dhcp_ip'] = None
 
         try:
-            nuage_subnet = self.nuageclient.create_subnet(neutron_subnet,
-                                                          params)
+            nuage_subnet = self.vsdclient.create_subnet(
+                neutron_subnet, params)
         except Exception:
             with excutils.save_and_reraise_exception():
                 if gw_port:
@@ -275,7 +275,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             subnet['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
             params['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
 
-        self.nuageclient.create_nuage_sharedresource(params)
+        self.vsdclient.create_nuage_sharedresource(params)
 
     @utils.context_log
     def update_subnet_precommit(self, context):
@@ -329,7 +329,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             }
             gw_ports = self.core_plugin.get_ports(db_context, filters=filters)
             self._delete_port_gateway(db_context, gw_ports)
-        self.nuageclient.update_subnet(updated_subnet, params)
+        self.vsdclient.update_subnet(updated_subnet, params)
 
     def _update_ext_network_subnet(self, id, net_id, subnet):
         nuage_params = {
@@ -337,8 +337,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             'net_id': net_id,
             'gateway_ip': subnet.get('gateway_ip')
         }
-        self.nuageclient.update_nuage_sharedresource(id, nuage_params)
-        nuage_subnet = self.nuageclient.get_sharedresource(id)
+        self.vsdclient.update_nuage_sharedresource(id, nuage_params)
+        nuage_subnet = self.vsdclient.get_sharedresource(id)
         subnet['underlay'] = nuage_subnet['underlay']
 
     @log_helpers.log_method_call
@@ -376,10 +376,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             subnet['network_id'])
 
         if network_external:
-            self.nuageclient.delete_nuage_sharedresource(subnet['id'])
+            self.vsdclient.delete_nuage_sharedresource(subnet['id'])
         elif mapping:
             if not mapping['nuage_managed_subnet']:
-                self.nuageclient.delete_subnet(subnet['id'])
+                self.vsdclient.delete_subnet(subnet['id'])
             self._cleanup_group(db_context, mapping['net_partition_id'],
                                 mapping['nuage_subnet_id'], subnet)
 
@@ -421,7 +421,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         "(please do not edit)")
                 nuage_vport = self._create_nuage_vport(port, nuage_subnet,
                                                        desc)
-                np_name = self.nuageclient.get_net_partition_name_by_id(np_id)
+                np_name = self.vsdclient.get_net_partition_name_by_id(np_id)
                 require(np_name, "netpartition", np_id)
                 nuage_vm = self._create_nuage_vm(
                     core_plugin, db_context, port, np_name, subnet_mapping,
@@ -433,7 +433,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self._delete_nuage_vm(core_plugin, db_context, port, np_name,
                                       subnet_mapping)
             if nuage_vport:
-                self.nuageclient.delete_nuage_vport(nuage_vport.get('ID'))
+                self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
             raise
         rollbacks = []
         try:
@@ -479,7 +479,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             device_removed = True
 
         if device_added or device_removed:
-            np_name = self.nuageclient.get_net_partition_name_by_id(
+            np_name = self.vsdclient.get_net_partition_name_by_id(
                 subnet_mapping['net_partition_id'])
             require(np_name, "netpartition",
                     subnet_mapping['net_partition_id'])
@@ -524,7 +524,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return
 
         if self._port_should_have_vm(port):
-            np_name = self.nuageclient.get_net_partition_name_by_id(
+            np_name = self.vsdclient.get_net_partition_name_by_id(
                 subnet_mapping['net_partition_id'])
             require(np_name, "netpartition",
                     subnet_mapping['net_partition_id'])
@@ -535,7 +535,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                             required=False)
         if nuage_vport and nuage_vport.get('type') == constants.VM_VPORT:
             try:
-                self.nuageclient.delete_nuage_vport(
+                self.vsdclient.delete_nuage_vport(
                     nuage_vport['ID'])
             except Exception as e:
                 LOG.error("Failed to delete vport from vsd {vport id: %s}"
@@ -646,7 +646,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     def _validate_net_partition(self, subnet, db_context):
         netpartition_db = nuagedb.get_net_partition_by_name(
             db_context.session, subnet['net_partition'])
-        netpartition = self.nuageclient.get_netpartition_by_name(
+        netpartition = self.vsdclient.get_netpartition_by_name(
             subnet['net_partition'])
         require(netpartition, "netpartition", subnet['net_partition'])
         if netpartition_db:
@@ -665,13 +665,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             netpartition['name'], None, None)
 
     def _get_nuage_subnet(self, nuage_subnet_id):
-        nuage_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        nuage_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             nuage_subnet_id)
         require(nuage_subnet, 'subnet or domain', nuage_subnet_id)
         shared = nuage_subnet['associatedSharedNetworkResourceID']
         shared_subnet = None
         if shared:
-            shared_subnet = self.nuageclient.get_nuage_sharedresource(shared)
+            shared_subnet = self.vsdclient.get_nuage_sharedresource(shared)
             require(shared_subnet, 'sharednetworkresource', shared)
             shared_subnet['subnet_id'] = shared
         return nuage_subnet, shared_subnet
@@ -680,7 +680,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         gateway_subnet = shared_subnet or nuage_subnet
         if subnet['enable_dhcp']:
             if nuage_subnet['type'] == constants.L2DOMAIN:
-                gw_ip = self.nuageclient.get_gw_from_dhcp_l2domain(
+                gw_ip = self.vsdclient.get_gw_from_dhcp_l2domain(
                     gateway_subnet['ID'])
             else:
                 gw_ip = gateway_subnet['gateway']
@@ -736,7 +736,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 tenants = [db_context.tenant]
             else:
                 tenants = [db_context.tenant, subnet['tenant_id']]
-            self.nuageclient.detach_nuage_group_to_nuagenet(
+            self.vsdclient.detach_nuage_group_to_nuagenet(
                 tenants, nuage_subnet_id,
                 subnet.get('shared'))
         except Exception as e:
@@ -797,10 +797,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         network_details = core_plugin.get_network(db_context,
                                                   port['network_id'])
         if network_details['shared']:
-            self.nuageclient.create_usergroup(
+            self.vsdclient.create_usergroup(
                 port['tenant_id'],
                 subnet_mapping['net_partition_id'])
-        return self.nuageclient.create_vms(params)
+        return self.vsdclient.create_vms(params)
 
     def _get_port_num_and_vm_id_of_device(self, core_plugin, db_context, port):
         # upstream neutron_lbaas assigns a constant device_id to all the
@@ -834,7 +834,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3dom_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = (self.nuageclient.
+                rtr_id = (self.vsdclient.
                           get_nuage_domain_id_from_subnet(l3dom_id))
 
             params = {
@@ -845,21 +845,21 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 'type': constants.VM_VPORT,
                 'sg_type': constants.SOFTWARE
             }
-            nuage_port = self.nuageclient.get_nuage_vport_for_port_sec(params)
+            nuage_port = self.vsdclient.get_nuage_vport_for_port_sec(params)
             if nuage_port:
                 nuage_vport_id = nuage_port.get('ID')
                 if port.get(portsecurity.PORTSECURITY):
-                    self.nuageclient.update_vport_policygroups(
+                    self.vsdclient.update_vport_policygroups(
                         nuage_vport_id, policygroup_ids)
                 else:
-                    sg_id = (self.nuageclient.
+                    sg_id = (self.vsdclient.
                              create_nuage_sec_grp_for_port_sec(params))
                     if sg_id:
                         params['sg_id'] = sg_id
-                        (self.nuageclient.
+                        (self.vsdclient.
                          create_nuage_sec_grp_rule_for_port_sec(params))
                         policygroup_ids.append(sg_id)
-                        self.nuageclient.update_vport_policygroups(
+                        self.vsdclient.update_vport_policygroups(
                             nuage_vport_id, policygroup_ids)
 
     def _is_port_vxlan_normal(self, port, core_plugin, db_context):
@@ -881,7 +881,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         # Check if l2domain/subnet exist. In case of router_interface_delete,
         # subnet is deleted and then call comes to delete_port. In that
         # case, we just return
-        vsd_subnet = self.nuageclient.get_subnet_or_domain_subnet_by_id(
+        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             subnet_mapping['nuage_subnet_id'])
         if not vsd_subnet:
             return
@@ -894,12 +894,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
             else:
                 port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-        nuage_vport = self.nuageclient.get_nuage_vport_by_neutron_id(
+        nuage_vport = self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=False)
         if nuage_vport and (nuage_vport['type'] == constants.HOST_VPORT):
             def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
             netpart = nuagedb.get_default_net_partition(context, def_netpart)
-            self.nuageclient.delete_nuage_gateway_vport(
+            self.vsdclient.delete_nuage_gateway_vport(
                 context.tenant_id,
                 nuage_vport.get('ID'),
                 netpart['id'])
@@ -911,9 +911,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         if is_port_device_owner_removed:
             # In case of device removed, this number should be the amount of
-            # vminterfaces on VSD. If it's >1, nuagenetlib knows there are
+            # vminterfaces on VSD. If it's >1, vsdclient knows there are
             # still other vminterfaces using the VM, and it will not delete the
-            # vm. If it's 1 or less. Nuagenetlib will also automatically delete
+            # vm. If it's 1 or less. VsdClient will also automatically delete
             # the vm. Because the port count is determined on a database count
             # of ports with device_id X, AND because the update already
             # happened by ml2plugin, AND because we're in the same database
@@ -922,7 +922,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             no_of_ports += 1
 
         subn = core_plugin.get_subnet(db_context, subnet_mapping['subnet_id'])
-        nuage_port = self.nuageclient.get_nuage_port_by_id(
+        nuage_port = self.vsdclient.get_nuage_port_by_id(
             {'neutron_port_id': port['id']})
         if not nuage_port:
             return
@@ -940,7 +940,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         else:
             params['l3dom_id'] = subnet_mapping['nuage_subnet_id'],
         try:
-            self.nuageclient.delete_vms(params)
+            self.vsdclient.delete_vms(params)
         except Exception:
             LOG.error("Failed to delete vm from vsd {vm id: %s}"
                       % vm_id)
@@ -952,7 +952,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             'l2dom_id': subnet_mapping['nuage_subnet_id'],
             'l3dom_id': subnet_mapping['nuage_subnet_id']
         }
-        return self.nuageclient.get_nuage_vport_by_neutron_id(
+        return self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 
     def _check_segment(self, segment):
