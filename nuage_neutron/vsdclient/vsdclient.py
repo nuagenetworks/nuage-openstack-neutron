@@ -457,7 +457,7 @@ class VsdClient(object):
         pass
 
     def change_perm_of_subns(self, nuage_npid, nuage_subnetid, shared,
-                             tenant_id):
+                             tenant_id, remove_everybody=False):
         pass
 
     def update_mac_spoofing_on_vport(self, nuage_vport_id, status):

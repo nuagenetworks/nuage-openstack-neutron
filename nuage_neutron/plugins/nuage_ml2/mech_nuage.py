@@ -25,6 +25,7 @@ from neutron._i18n import _
 from neutron.api import extensions as neutron_extensions
 from neutron.callbacks import resources
 from neutron.db import db_base_plugin_v2
+from neutron.extensions import external_net
 from neutron.extensions import portbindings
 from neutron.extensions import portsecurity
 from neutron.ipam.drivers.neutrondb_ipam import driver
@@ -76,12 +77,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         LOG.debug('Initializing complete')
 
     @property
-    def core_plugin(self):
-        if self._core_plugin is None:
-            self._core_plugin = directory.get_plugin()
-        return self._core_plugin
-
-    @property
     def default_np_id(self):
         if self._default_np_id is None:
             self._default_np_id = directory.get_plugin(
@@ -109,6 +104,72 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             if m[0].startswith('get_') or m[0].startswith('delete_'):
                 wrapped = ignore_not_found(wrapped)
             setattr(self.vsdclient, m[0], wrapped)
+
+    @handle_nuage_api_errorcode
+    @utils.context_log
+    def update_network_precommit(self, context):
+        updated_network = context.current
+        original_network = context.original
+        db_context = context._plugin_context
+        _no_action, _is_external_set, _is_shared_set = self._network_no_action(
+            original_network, updated_network)
+        if _no_action:
+            return
+        self._validate_update_network(db_context, _is_external_set,
+                                      _is_shared_set, updated_network)
+
+    @handle_nuage_api_errorcode
+    @utils.context_log
+    def update_network_postcommit(self, context):
+        updated_network = context.current
+        original_network = context.original
+        db_context = context._plugin_context
+        _no_action, _is_external_set, _is_shared_set = self._network_no_action(
+            original_network, updated_network)
+        if _no_action:
+            return
+        subnets = self.get_subnets_by_network(db_context,
+                                              updated_network['id'])
+        if not subnets:
+            return
+        else:
+            subn = subnets[0]
+        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(db_context.session,
+                                                      subn['id'])
+        if subnet_l2dom and _is_external_set:
+            LOG.debug("Found subnet %(subn_id)s to l2 domain mapping"
+                      " %(nuage_subn_id)s",
+                      {'subn_id': subn['id'],
+                       'nuage_subn_id':
+                           subnet_l2dom['nuage_subnet_id']})
+            self.vsdclient.delete_subnet(subn['id'])
+            nuagedb.delete_subnetl2dom_mapping(db_context.session,
+                                               subnet_l2dom)
+            # delete the neutron port that was reserved with IP of
+            # the dhcp server that is reserved.
+            # Now, this port is not reqd.
+            filters = {
+                'fixed_ips': {'subnet_id': [subn['id']]},
+                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+            }
+            gw_ports = self.get_ports(db_context, filters=filters)
+            self._delete_port_gateway(db_context, gw_ports)
+
+            self._add_nuage_sharedresource(subn,
+                                           updated_network['id'],
+                                           constants.SR_TYPE_FLOATING)
+
+        if _is_shared_set and not updated_network.get(external_net.EXTERNAL):
+            for subnet in subnets:
+                nuage_subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
+                    db_context.session, subnet['id'])
+                if nuage_subnet_l2dom['nuage_l2dom_tmplt_id']:
+                    # change of perm only reqd in l2dom case
+                    self.vsdclient.change_perm_of_subns(
+                        nuage_subnet_l2dom['net_partition_id'],
+                        nuage_subnet_l2dom['nuage_subnet_id'],
+                        updated_network['shared'],
+                        subnet['tenant_id'], remove_everybody=True)
 
     @handle_nuage_api_errorcode
     def create_subnet_postcommit(self, context):
@@ -170,8 +231,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             subnet['network_id'])
 
         if network_external:
-            return self._create_nuage_sharedresource(
-                context, subnet, constants.SR_TYPE_FLOATING)
+            net_id = subnet['network_id']
+            self._validate_nuage_sharedresource(context, net_id)
+            return self._add_nuage_sharedresource(subnet, subnet['network_id'],
+                                                  constants.SR_TYPE_FLOATING)
 
         net_partition = self._get_net_partition_for_subnet(context, subnet)
         self._create_nuage_subnet(context, subnet, net_partition['id'], None)
@@ -194,6 +257,28 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     'default net_partition is not created at the start')
             raise NuageBadRequest(resource='subnet', msg=msg)
         return net_partition
+
+    @log_helpers.log_method_call
+    def _add_nuage_sharedresource(self, subnet, net_id, fip_type):
+        net = netaddr.IPNetwork(subnet['cidr'])
+        params = {
+            'neutron_subnet': subnet,
+            'net': net,
+            'type': fip_type,
+            'net_id': net_id,
+            'underlay_config': cfg.CONF.RESTPROXY.nuage_fip_underlay
+        }
+        if subnet.get('underlay') in [True, False]:
+            params['underlay'] = subnet.get('underlay')
+        else:
+            subnet['underlay'] = params['underlay_config']
+        if subnet.get('nuage_uplink'):
+            params['nuage_uplink'] = subnet.get('nuage_uplink')
+        elif cfg.CONF.RESTPROXY.nuage_uplink:
+            subnet['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
+            params['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
+
+        self.vsdclient.create_nuage_sharedresource(params)
 
     @log_helpers.log_method_call
     def _create_nuage_subnet(self, context, neutron_subnet, netpart_id,
@@ -249,33 +334,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                 nuage_group_id=group_id)
             neutron_subnet['net_partition'] = netpart_id
             neutron_subnet['nuagenet'] = nuage_id
-
-    def _create_nuage_sharedresource(self, context, subnet, type):
-        net_id = subnet['network_id']
-        self._validate_nuage_sharedresource(context, net_id)
-
-        net = netaddr.IPNetwork(subnet['cidr'])
-        params = {
-            'neutron_subnet': subnet,
-            'net': net,
-            'type': type,
-            'net_id': net_id,
-            'underlay_config': cfg.CONF.RESTPROXY.nuage_fip_underlay
-        }
-        if subnet.get('underlay') in [True, False]:
-            params['underlay'] = subnet.get('underlay')
-            subnet['underlay'] = subnet.get('underlay')
-        else:
-            subnet['underlay'] = params['underlay_config']
-
-        if subnet.get('nuage_uplink'):
-            params['nuage_uplink'] = subnet.get('nuage_uplink')
-            subnet['nuage_uplink'] = subnet.get('nuage_uplink')
-        elif cfg.CONF.RESTPROXY.nuage_uplink:
-            subnet['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
-            params['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
-
-        self.vsdclient.create_nuage_sharedresource(params)
 
     @utils.context_log
     def update_subnet_precommit(self, context):
@@ -571,6 +629,59 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                     portbindings.VIF_TYPE_OVS,
                                     {portbindings.CAP_PORT_FILTER: False},
                                     os_constants.PORT_STATUS_ACTIVE)
+
+    def _network_no_action(self, original_network, updated_network):
+        _is_external_set = original_network.get(
+            external_net.EXTERNAL) != updated_network.get(
+            external_net.EXTERNAL)
+        _is_shared_set = original_network.get(
+            'shared') != updated_network.get('shared')
+        if not (_is_external_set or _is_shared_set):
+            return True, _is_external_set, _is_shared_set
+        else:
+            return False, _is_external_set, _is_shared_set
+
+    def _validate_update_network(self, context, _is_external_set,
+                                 _is_shared_set, updated_network):
+        subnets = self.get_subnets(
+            context, filters={'network_id': [updated_network['id']]})
+        for subn in subnets:
+            subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
+                context.session, subn['id'])
+            if subnet_l2dom and subnet_l2dom.get('nuage_managed_subnet'):
+                msg = _('Network %s has a VSD-Managed subnet associated'
+                        ' with it') % updated_network['id']
+                raise NuageBadRequest(msg=msg)
+        if (_is_external_set and subnets
+                and not updated_network.get(external_net.EXTERNAL)):
+            msg = _('External network with subnets can not be '
+                    'changed to non-external network')
+            raise NuageBadRequest(msg=msg)
+        if (len(subnets) > 1 and _is_external_set
+                and updated_network.get(external_net.EXTERNAL)):
+            msg = _('Non-external network with more than one subnet '
+                    'can not be changed to external network')
+            raise NuageBadRequest(msg=msg)
+
+        ports = self.get_ports(context, filters={
+            'network_id': [updated_network['id']]})
+        for p in ports:
+            if _is_external_set and updated_network.get(
+                    external_net.EXTERNAL) and p['device_owner'].startswith(
+                    constants.NOVA_PORT_OWNER_PREF):
+                # Check if there are vm ports attached to this network
+                # If there are, then updating the network router:external
+                # is not possible.
+                msg = (_("Network %s cannot be updated. "
+                         "There are one or more ports still in"
+                         " use on the network.") % updated_network['id'])
+                raise NuageBadRequest(msg=msg)
+            elif (p['device_owner'].endswith(
+                    resources.ROUTER_INTERFACE) and _is_shared_set):
+                msg = (_("Cannot update the shared attribute value"
+                         " since subnet with id %s is attached to a"
+                         " router.") % p['fixed_ips']['subnet_id'])
+                raise NuageBadRequest(msg=msg)
 
     def _validate_create_subnet(self, context, network, subnet):
         net_partition = subnet.get('net_partition')

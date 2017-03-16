@@ -834,7 +834,7 @@ def get_vport_assoc_with_fip(restproxy_serv, nuage_fip_id):
 
 
 def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
-                         shared, tenant_id):
+                         shared, tenant_id, remove_everybody=False):
     if shared:
         params = {
             'net_partition_id': nuage_npid
@@ -849,6 +849,24 @@ def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
     else:
         nuage_userid, nuage_groupid = \
             create_usergroup(restproxy_serv, tenant_id, nuage_npid)
+        if remove_everybody:
+            params = {
+                'l2dom_id': nuage_subnetid
+            }
+            nuagepermission = nuagelib.NuagePermission(create_params=params)
+            resource = nuagepermission.get_resource_by_l2dom_id()
+            response = restproxy_serv.rest_call('GET', resource, '')
+            if not nuagepermission.validate(response):
+                if response[0] == constants.RES_NOT_FOUND:
+                    return
+                raise restproxy.RESTProxyError(nuagepermission.error_msg,
+                                               nuagepermission.vsd_error_code)
+            permissions = response[3]
+            for permission in permissions:
+                if permission['permittedEntityName'] == "Everybody":
+                    restproxy_serv.delete(
+                        nuagepermission.delete_resource(permission['ID']))
+                    break
 
     nuage_permission = nuagelib.NuagePermission()
     post_data = nuage_permission.perm_create_data(
@@ -860,8 +878,8 @@ def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
         nuage_permission.post_resource_by_parent_id(
             'l2domains', nuage_subnetid), post_data)
     if not nuage_permission.validate(resp):
-        if (nuage_permission.get_error_code(response
-                                            ) != constants.CONFLICT_ERR_CODE):
+        if (nuage_permission.get_error_code(resp)
+                != constants.CONFLICT_ERR_CODE):
             raise restproxy.RESTProxyError(
                 nuage_permission.error_msg)
 
