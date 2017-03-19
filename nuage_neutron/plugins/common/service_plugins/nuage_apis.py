@@ -16,8 +16,8 @@ import netaddr
 
 from neutron._i18n import _
 from neutron.db import api as db
-from neutron.services import service_base
 from neutron_lib import exceptions as n_exc
+from neutron_lib.services import base as service_base
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging

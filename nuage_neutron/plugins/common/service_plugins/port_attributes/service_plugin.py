@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.services import service_base
+from neutron_lib.services import base as service_base
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.service_plugins.port_attributes \
     import nuage_floatingip
