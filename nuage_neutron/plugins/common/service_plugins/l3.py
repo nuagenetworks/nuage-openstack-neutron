@@ -452,50 +452,54 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         curr_router = self.get_router(context, id)
         old_routes = self._get_extra_routes_by_router_id(context, id)
+        with nuage_utils.rollback() as on_exc:
+            router_updated = super(NuageL3Plugin, self).update_router(
+                context,
+                id,
+                copy.deepcopy(router))
 
-        router_updated = super(NuageL3Plugin, self).update_router(
-            context,
-            id,
-            copy.deepcopy(router))
-        if (len(updates) == 1 and 'external_gateway_info' in updates and
-                'enable_snat' not in updates['external_gateway_info']):
-            return router_updated
-        if 'routes' in updates:
-            self._update_nuage_router_static_routes(
-                id, nuage_domain_id,
-                old_routes,
-                updates['routes'])
-        try:
+            on_exc(super(NuageL3Plugin, self).update_router,
+                   context,
+                   id,
+                   {'router': copy.deepcopy(original_router)})
+
+            if (len(updates) == 1 and 'external_gateway_info' in updates and
+                    'enable_snat' not in updates['external_gateway_info']):
+                    return router_updated
+
+            if 'routes' in updates:
+                    self._update_nuage_router_static_routes(
+                        id, nuage_domain_id,
+                        old_routes,
+                        updates['routes'])
+                    on_exc(self._update_nuage_router_static_routes, id,
+                           nuage_domain_id, updates['routes'], old_routes)
+
             if 'routes' in updates and len(updates) == 1:
                 pass
             else:
                 self._update_nuage_router(nuage_domain_id, curr_router,
                                           updates,
                                           ent_rtr_mapping)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                if 'routes' in updates:
-                    self._update_nuage_router_static_routes(
-                        id,
-                        nuage_domain_id,
-                        updates['routes'],
-                        old_routes)
-        nuage_router = self.vsdclient.get_router_by_external(id)
-        self._add_nuage_router_attributes(router_updated, nuage_router)
+                on_exc(self._update_nuage_router, updates,
+                       curr_router, ent_rtr_mapping)
 
-        rollbacks = []
-        try:
-            self.nuage_callbacks.notify(
-                resources.ROUTER, constants.AFTER_UPDATE, self,
-                context=context, updated_router=router_updated,
-                original_router=original_router,
-                request_router=updates, domain=nuage_router,
-                rollbacks=rollbacks)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                for rollback in reversed(rollbacks):
-                    rollback[0](*rollback[1], **rollback[2])
-        return router_updated
+            nuage_router = self.vsdclient.get_router_by_external(id)
+            self._add_nuage_router_attributes(router_updated, nuage_router)
+
+            rollbacks = []
+            try:
+                self.nuage_callbacks.notify(
+                    resources.ROUTER, constants.AFTER_UPDATE, self,
+                    context=context, updated_router=router_updated,
+                    original_router=original_router,
+                    request_router=updates, domain=nuage_router,
+                    rollbacks=rollbacks)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    for rollback in reversed(rollbacks):
+                        rollback[0](*rollback[1], **rollback[2])
+            return router_updated
 
     def _validate_update_router(self, context, id, router):
         if 'ecmp_count' in router and not context.is_admin:
