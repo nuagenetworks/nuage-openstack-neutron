@@ -67,7 +67,7 @@ class RootNuagePlugin(object):
             raise cfg.ConfigFileValueError(
                 _('Missing cms_id in configuration.'))
 
-        self.vsdclient = VsdClientFactory().new_vsd_client(
+        self.vsdclient = VsdClientFactory.new_vsd_client(
             cms_id,
             server=cfg.CONF.RESTPROXY.server,
             base_uri=cfg.CONF.RESTPROXY.base_uri,
