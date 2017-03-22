@@ -16,6 +16,7 @@ from neutron.api import extensions
 from neutron.api.v2 import base
 from neutron import manager
 from neutron.quota import resource_registry
+from neutron_lib.api import converters as lib_converters
 from nuage_neutron.plugins.common import constants as nuage_constants
 
 
@@ -30,6 +31,7 @@ RESOURCE_ATTRIBUTE_MAP = {
         'floating_ip_address': {'allow_post': False, 'allow_put': False,
                                 'is_visible': True},
         'assigned': {'allow_post': False, 'allow_put': False,
+                     'convert_to': lib_converters.convert_to_boolean,
                      'is_visible': True}
     },
 }
