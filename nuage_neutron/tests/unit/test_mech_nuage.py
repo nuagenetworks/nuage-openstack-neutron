@@ -16,6 +16,7 @@
 # python -m testtools.run nuage_neutron/tests/unit/test_mech_nuage.py
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
+from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from oslo_context import context
 
@@ -76,6 +77,21 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
                   'ip_version': '4'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    @mock.patch('nuage_neutron.plugins.nuage_ml2.mech_nuage.LOG')
+    def test_experimental_feature(self, logger, root_plugin):
+        config.nuage_register_cfg_opts()
+        conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
+
+        conf.config(group='PLUGIN', experimental_features='EXPERIMENTAL_TEST')
+        NuageMechanismDriver().initialize()
+        logger.info.assert_called_once_with('Have a nice day.')
+
+        logger.info.reset_mock()
+        conf.config(group='PLUGIN', experimental_features='')
+        NuageMechanismDriver().initialize()
+        logger.info.assert_not_called()
 
 
 class Context(context.RequestContext):

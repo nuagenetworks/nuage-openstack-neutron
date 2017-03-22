@@ -105,6 +105,8 @@ plugin_opts = [
                 help=_("Set to true to enable statistics collecting on all "
                        "policy entries. Changing this does not affect "
                        "existing policy entries.")),
+    cfg.ListOpt('experimental_features', default=[],
+                help=_("List of experimental features to be enabled."))
 ]
 
 
