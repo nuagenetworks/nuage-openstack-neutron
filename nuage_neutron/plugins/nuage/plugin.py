@@ -458,9 +458,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             if subnet_mapping:
                 LOG.debug("Found subnet mapping for neutron subnet %s",
                           subnet_id)
-                vsd_subnet = self.vsdclient \
-                    .get_subnet_or_domain_subnet_by_id(
-                        subnet_mapping['nuage_subnet_id'])
+                vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                    subnet_mapping)
 
                 if result['device_owner'].startswith(port_prefix):
                     # This request is coming from nova
@@ -771,8 +770,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     subnet_mapping['nuage_subnet_id'])
             elif subnet_mapping:
                 vsd_subnet = self.vsdclient \
-                    .get_subnet_or_domain_subnet_by_id(
-                        subnet_mapping['nuage_subnet_id'])
+                    .get_nuage_subnet_by_id(subnet_mapping)
             if (p_data.get('device_owner', '').startswith(
                     constants.NOVA_PORT_OWNER_PREF) or create_vm or
                     lbaas_device_owner_added):
@@ -858,12 +856,14 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         if not subnet_mapping:
             LOG.debug(_("No subnet mapping found for subnet %s") % subnet_id)
             return None
+        params = {'neutron_port_id': port['id']}
+        if subnet_mapping['nuage_l2dom_tmplt_id']:
+            params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
+        else:
+            params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
 
-        vport = self.vsdclient.get_nuage_vport_by_neutron_id(
-            {'neutron_port_id': port['id'],
-             'l2dom_id': subnet_mapping['nuage_subnet_id'],
-             'l3dom_id': subnet_mapping['nuage_subnet_id']},
-            required=False)
+        vport = self.vsdclient.get_nuage_vport_by_neutron_id(params,
+                                                             required=False)
         if not vport:
             LOG.warning(_("No vport found for port %s") % id)
             return None
@@ -1630,8 +1630,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         if vsd_subnet['type'] == constants.L3SUBNET:
             ns_dict['nuage_l2dom_tmplt_id'] = None
         with context.session.begin(subtransactions=True):
-            nuagedb.update_subnetl2dom_mapping(subnet_l2dom,
-                                               ns_dict)
+            nuagedb.update_subnetl2dom_mapping(
+                subnet_l2dom, ns_dict)
         return neutron_subnet
 
     @db.retry_if_session_inactive()
@@ -1848,11 +1848,18 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             port = super(NuagePlugin, self)._get_port(context, port_id)
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
+
+            params = {}
+            params['neutron_port_id'] = port['id']
+
+            if subnet_l2dom:
+                if subnet_l2dom['nuage_l2dom_tmplt_id']:
+                    params['l2dom_id'] = subnet_l2dom['nuage_subnet_id']
+                else:
+                    params['l3dom_id'] = subnet_l2dom['nuage_subnet_id']
+
             vport = self.vsdclient.get_nuage_vport_by_neutron_id(
-                {'neutron_port_id': port['id'],
-                 'l2dom_id': subnet_l2dom['nuage_subnet_id'],
-                 'l3dom_id': subnet_l2dom['nuage_subnet_id']},
-                required=False)
+                params, required=False)
             if vport:
                 self.vsdclient.delete_nuage_vport(vport['ID'])
         else:
@@ -3059,9 +3066,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
-        params = {
-            'neutron_port_id': port_id,
-        }
+        params['neutron_port_id'] = port_id
+
         if subnet_mapping['nuage_l2dom_tmplt_id']:
             params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:

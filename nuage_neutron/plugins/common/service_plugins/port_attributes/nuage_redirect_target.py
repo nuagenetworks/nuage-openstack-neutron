@@ -457,12 +457,12 @@ class NuageRedirectTarget(BaseNuagePlugin):
             l2dom_id = subnet_mapping['nuage_subnet_id']
             l3dom_id = subnet_mapping['nuage_subnet_id']
             try:
-                params = {
-                    'neutron_port_id': port['id'],
-                    'l2dom_id': l2dom_id,
-                    'l3dom_id': l3dom_id
-                }
+                params = {'neutron_port_id': port['id']}
 
+                if subnet_mapping['nuage_l2dom_tmplt_id']:
+                    params['l2dom_id'] = l2dom_id
+                else:
+                    params['l3dom_id'] = l3dom_id
                 nuage_port = self.vsdclient.get_nuage_vport_by_neutron_id(
                     params)
                 nuage_port['l2dom_id'] = l2dom_id

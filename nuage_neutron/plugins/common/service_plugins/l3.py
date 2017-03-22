@@ -153,11 +153,17 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             port = self.core_plugin._get_port(context, port_id)
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
+            port_params = {'neutron_port_id': port['id']}
+
+            if subnet_l2dom['nuage_l2dom_tmplt_id']:
+                port_params['l2dom_id'] = subnet_l2dom['nuage_subnet_id']
+            else:
+                port_params['l3dom_id'] = subnet_l2dom['nuage_subnet_id']
+
             vport = self.vsdclient.get_nuage_vport_by_neutron_id(
-                {'neutron_port_id': port['id'],
-                 'l2dom_id': subnet_l2dom['nuage_subnet_id'],
-                 'l3dom_id': subnet_l2dom['nuage_subnet_id']},
+                port_params,
                 required=False)
+
             if vport:
                 self.vsdclient.delete_nuage_vport(vport['ID'])
         else:
@@ -1136,13 +1142,13 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
-        params = {
-            'neutron_port_id': port_id,
-        }
-        if subnet_mapping and subnet_mapping['nuage_l2dom_tmplt_id']:
+        params['neutron_port_id'] = port['id']
+
+        if subnet_mapping['nuage_l2dom_tmplt_id']:
             params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-        elif subnet_mapping:
+        else:
             params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+
         return self.vsdclient.get_nuage_vport_by_neutron_id(
             params, required=required)
 

@@ -34,7 +34,6 @@ from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import validate
-
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient_fac import VsdClientFactory
 
@@ -69,7 +68,7 @@ class RootNuagePlugin(object):
             raise cfg.ConfigFileValueError(
                 _('Missing cms_id in configuration.'))
 
-        self.vsdclient = VsdClientFactory().new_vsd_client(
+        self.vsdclient = VsdClientFactory.new_vsd_client(
             cms_id,
             server=cfg.CONF.RESTPROXY.server,
             base_uri=cfg.CONF.RESTPROXY.base_uri,

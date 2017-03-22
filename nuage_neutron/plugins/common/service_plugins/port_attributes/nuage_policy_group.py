@@ -135,12 +135,16 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
 
     def _get_port_nuage_policy_groups(self, context, port_id,
                                       vsd_filters):
+        port_params = {'neutron_port_id': port_id}
+
         vsd_mapping = nuagedb.get_subnet_l2dom_by_port_id(context.session,
                                                           port_id)
-        vport = self.vsdclient.get_nuage_vport_by_neutron_id(
-            {'neutron_port_id': port_id,
-             'l2dom_id': vsd_mapping['nuage_subnet_id'],
-             'l3dom_id': vsd_mapping['nuage_subnet_id']})
+        if vsd_mapping['nuage_l2dom_tmplt_id']:
+            port_params['l2dom_id'] = vsd_mapping['nuage_subnet_id']
+        else:
+            port_params['l3dom_id'] = vsd_mapping['nuage_subnet_id']
+
+        vport = self.vsdclient.get_nuage_vport_by_neutron_id(port_params)
         return self.vsdclient.get_nuage_vport_policy_groups(
             vport['ID'], externalID=None, **vsd_filters)
 

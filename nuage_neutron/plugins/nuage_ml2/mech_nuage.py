@@ -1071,18 +1071,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             raise
 
     def _get_nuage_vport(self, port, subnet_mapping, required=True):
-        port_params = {
-            'neutron_port_id': port['id'],
-        }
+        port_params = {'neutron_port_id': port['id']}
         if subnet_mapping['nuage_l2dom_tmplt_id']:
-            port_params.update(
-                {'l2dom_id': subnet_mapping['nuage_subnet_id']}
-            )
+            port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
-            port_params.update(
-                {'l3dom_id': subnet_mapping['nuage_subnet_id']}
-            )
-
+            port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
         return self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 

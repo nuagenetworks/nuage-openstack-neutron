@@ -154,9 +154,8 @@ class NuagegatewayMixin(object):
             raise nuage_exc.NuageBadRequest(msg=msg)
 
         try:
-            vsd_subnet = self.vsdclient \
-                .get_subnet_or_domain_subnet_by_id(
-                    subnet_mapping['nuage_subnet_id'])
+            vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                subnet_mapping)
             params['vsd_subnet'] = vsd_subnet
             resp = self.vsdclient.create_gateway_vport(context.tenant_id,
                                                        params)
@@ -412,8 +411,7 @@ class NuagegatewayMixin(object):
         # Check if l2domain/subnet exist. In case of router_interface_delete,
         # subnet is deleted and then call comes to delete_port. In that
         # case, we just return
-        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
-            subnet_mapping['nuage_subnet_id'])
+        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
         if not vsd_subnet:
             return
 
