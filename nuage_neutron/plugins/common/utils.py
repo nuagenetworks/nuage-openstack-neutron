@@ -17,12 +17,12 @@ import functools
 import sys
 
 from neutron._i18n import _
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
-from oslo_log import log as logging
 
 
 def handle_nuage_api_error(fn):
@@ -190,3 +190,7 @@ def rollback():
             except Exception:
                 log.exception("Rollback failed.")
         raise
+
+
+def is_supported(name):
+    return name in cfg.CONF.PLUGIN.experimental_features
