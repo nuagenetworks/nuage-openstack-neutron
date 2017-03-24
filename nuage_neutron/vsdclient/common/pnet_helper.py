@@ -362,7 +362,7 @@ def delete_resources_created_for_domainsubnet_providernet(
         if nuage_policygroups:
             nuage_policygroup_id = nuage_policygroups[0]['ID']
             if nuage_policygroup_id:
-                pg_obj._delete_policy_group(nuage_policygroup_id)
+                pg_obj.delete_nuage_policy_group(nuage_policygroup_id)
 
 
 def delete_vlan_for_gw_port(restproxy_serv, vport):

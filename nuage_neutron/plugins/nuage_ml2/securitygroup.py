@@ -139,7 +139,6 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
     @TimeTracker.tracked
     def post_port_update(self, resource, event, trigger, **kwargs):
-        update_sg = True
         context = kwargs['context']
         updated_port = kwargs['updated_port']
         original_port = kwargs['original_port']
@@ -149,11 +148,8 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             return
         new_sg = (set(updated_port.get(ext_sg.SECURITYGROUPS)) if
                   updated_port.get(ext_sg.SECURITYGROUPS) else set())
-        orig_sg = (set(original_port.get(ext_sg.SECURITYGROUPS)) if
-                   original_port.get(ext_sg.SECURITYGROUPS) else set())
-        if not new_sg and new_sg == orig_sg:
-            update_sg = False
-        if update_sg:
+        if (updated_port.get(ext_sg.SECURITYGROUPS)
+                != original_port.get(ext_sg.SECURITYGROUPS)):
             vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
             self._process_port_security_group(context,
                                               updated_port,

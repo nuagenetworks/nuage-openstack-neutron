@@ -47,6 +47,12 @@ class VsdClient(object):
     def create_net_partition(self, params):
         pass
 
+    def get_l2domain_fields_for_pg(self, parent_id, fields):
+        pass
+
+    def get_l3domain_np_id(self, parent_id):
+        pass
+
     def set_external_id_for_netpart_rel_elems(self, net_partition_dict):
         pass
 
@@ -251,6 +257,9 @@ class VsdClient(object):
     def create_security_group_rules(self, policygroup, security_group_rules):
         pass
 
+    def update_vports_in_policy_group(self, pg_id, vport_list):
+        pass
+
     def update_vport_policygroups(self, vport_id, policygroup_ids):
         pass
 
@@ -270,6 +279,9 @@ class VsdClient(object):
     def delete_nuage_secgroup(self, id):
         pass
 
+    def delete_nuage_policy_group(self, policy_id):
+        pass
+
     def validate_nuage_sg_rule_definition(self, sg_rule):
         pass
 
@@ -277,6 +289,24 @@ class VsdClient(object):
         pass
 
     def create_nuage_sgrule(self, params):
+        pass
+
+    def create_in_adv_fwd_policy_template(self, parent_type,
+                                          parent_id, params):
+        pass
+
+    def update_in_adv_fwd_policy_template(self, nuage_id, params):
+        pass
+
+    def delete_in_adv_fwd_policy_template(self, tmplt_id):
+        pass
+
+    def get_in_adv_fwd_policy_by_cmsid(self, parent_type, parent_id):
+        pass
+
+    def get_in_adv_fwd_policy_by_externalid(self, parent_type,
+                                            parent_id,
+                                            portchain_id):
         pass
 
     def create_nuage_redirect_target(self, redirect_target, subnet_id=None,
@@ -289,6 +319,10 @@ class VsdClient(object):
     def get_nuage_redirect_targets(self, params):
         pass
 
+    def get_nuage_redirect_targets_by_single_filter(self, filters,
+                                                    required=False):
+        pass
+
     def delete_nuage_redirect_target(self, rtarget_id):
         pass
 
@@ -296,6 +330,10 @@ class VsdClient(object):
         pass
 
     def update_nuage_vport_redirect_target(self, rtarget_id, vport_id):
+        pass
+
+    def update_redirect_target_vports(self, redirect_target_id,
+                                      nuage_port_id_list):
         pass
 
     def create_virtual_ip(self, rtarget_id, vip, vip_port_id):
@@ -307,7 +345,13 @@ class VsdClient(object):
     def create_nuage_redirect_target_rule(self, params):
         pass
 
+    def add_nuage_sfc_rule(self, tmplt, rule_params, np_id):
+        pass
+
     def get_nuage_redirect_target_rules(self, params):
+        pass
+
+    def get_nuage_redirect_target_rules_by_external_id(self, neutron_id):
         pass
 
     def get_nuage_redirect_target_rule(self, rtarget_rule_id):
@@ -323,6 +367,12 @@ class VsdClient(object):
         pass
 
     def create_nuage_sec_grp_for_port_sec(self, params):
+        pass
+
+    def create_nuage_sec_grp_for_sfc(self, params):
+        pass
+
+    def get_policygroup_vport_mapping_by_port_id(self, vport_id):
         pass
 
     def create_nuage_sec_grp_rule_for_port_sec(self, params):
@@ -485,13 +535,16 @@ class VsdClient(object):
     def get_nuage_domain_id_from_subnet(self, dom_subn_id):
         pass
 
-    def get_nuage_vport_for_port_sec(self, params):
+    def get_nuage_vport_for_port_sec(self, params, required=True):
         pass
 
     def get_nuage_policy_group(self, id, required=False, **filters):
         pass
 
     def get_nuage_policy_groups(self, required=False, **filters):
+        pass
+
+    def get_policy_groups_by_single_filter(self, filters, required=False):
         pass
 
     def get_nuage_vport_policy_groups(self, vport_id, required=False,

@@ -22,6 +22,7 @@ try:
 except ImportError:
     from neutron.i18n import _
 
+from nuage_neutron.vsdclient.common.cms_id_helper import extra_headers_get
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
@@ -201,6 +202,32 @@ def create_usergroup(restproxy_serv, tenant, net_partition_id):
         restproxy_serv.rest_call('PUT', nuageuser.group_post_resource(), data)
 
         return user_id, group_id
+
+
+def create_in_adv_fwd_policy_template(rest_proxy, parent_type,
+                                      parent_id, params):
+    params['externalID'] = get_vsd_external_id(params['externalID'])
+    adv_fwd_tmplt = nuagelib.NuageInAdvFwdTemplate()
+    if parent_type == constants.L2DOMAIN:
+        response = rest_proxy.post(adv_fwd_tmplt.post_resource_l2(parent_id),
+                                   params)
+    else:
+        response = rest_proxy.post(adv_fwd_tmplt.post_resource_l3(parent_id),
+                                   params)
+    return response[0]
+
+
+def update_in_adv_fwd_policy_template(rest_proxy, nuage_id, params):
+    adv_fwd_tmplt = nuagelib.NuageInAdvFwdTemplate()
+    return rest_proxy.put(
+        adv_fwd_tmplt.get_resource(nuage_id) + '?responseChoice=1',
+        params)
+
+
+def delete_in_adv_fwd_policy_template(rest_proxy, tmplt_id, required=False):
+    adv_fwd_tmplt = nuagelib.NuageInAdvFwdTemplate()
+    rest_proxy.delete(adv_fwd_tmplt.get_resource(
+        tmplt_id) + '?responseChoice=1', required)
 
 
 def get_user_list(restproxy_serv, group_id, net_partition_id):
@@ -740,6 +767,36 @@ def get_in_adv_fwd_policy(restproxy_serv, parent_type, parent_id):
         raise restproxy.RESTProxyError(msg)
 
     return nuageadvfwdtmplt.get_response_objid(response)
+
+
+def get_in_adv_fwd_policy_by_cmsid(restproxy_serv, parent_type, parent_id):
+    nuageadvfwdtmplt = nuagelib.NuageInAdvFwdTemplate()
+    if parent_type == constants.L2DOMAIN:
+        response = restproxy_serv.get(
+            nuageadvfwdtmplt.get_resource_l2(parent_id),
+            extra_headers=extra_headers_get())
+    else:
+        response = restproxy_serv.get(
+            nuageadvfwdtmplt.get_resource_l3(parent_id),
+            extra_headers=extra_headers_get())
+    return response
+
+
+def get_in_adv_fwd_policy_by_externalid(restproxy_serv, parent_type, parent_id,
+                                        neutron_id):
+    headers = {'X-NUAGE-FilterType': "predicate",
+               'X-Nuage-Filter':
+                   "externalID IS '%s'" % get_vsd_external_id(neutron_id)}
+    nuageadvfwdtmplt = nuagelib.NuageInAdvFwdTemplate()
+    if parent_type == constants.L2DOMAIN:
+        response = restproxy_serv.get(
+            nuageadvfwdtmplt.get_resource_l2(parent_id),
+            extra_headers=headers)
+    else:
+        response = restproxy_serv.get(
+            nuageadvfwdtmplt.get_resource_l3(parent_id),
+            extra_headers=headers)
+    return response
 
 
 def get_nuage_prefix_macro(restproxy_serv, net_macro_id):
