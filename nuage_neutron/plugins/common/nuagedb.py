@@ -11,6 +11,8 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from sqlalchemy import func
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm import exc as sql_exc
 
 from neutron.db import common_db_mixin
@@ -489,3 +491,22 @@ def get_port_bindings(session, port_ids):
         session.query(ml2_models.PortBinding)
         .filter(ml2_models.PortBinding.port_id.in_(port_ids))
     ).all()
+
+
+def check_ports_to_router_mapping(context, port_ids):
+    device_owner_router_itf_port = aliased(models_v2.Port)
+    session = context.session
+    result = (
+        session.query(l3_db.Router)
+        .join(l3_db.RouterPort)
+        .join(device_owner_router_itf_port)
+        .join(models_v2.Network)
+        .join((models_v2.Port,
+               models_v2.Port.network_id == models_v2.Network.id))
+        .filter(
+            models_v2.Port.id.in_(port_ids),
+        )
+        .group_by(l3_db.Router)
+        .having(func.count(models_v2.Port.id) == len(port_ids))
+    ).all()
+    return result

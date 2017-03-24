@@ -63,7 +63,7 @@ def _create_policygroup_for_vport(gw_type, subn_id, rtr_id, neutron_subn_id,
                                     'policygroup': nuage_policygroup_id})
         if create_policygroup:
             # Delete the policygroup in case of an exception.
-            pg_obj._delete_policy_group(nuage_policygroup_id)
+            pg_obj.delete_nuage_policy_group(nuage_policygroup_id)
         raise
 
 

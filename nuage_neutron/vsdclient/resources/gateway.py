@@ -778,7 +778,7 @@ class NuageGateway(object):
                                                           policygroup_id)
         if vport_list:
             if len(vport_list) == 1:
-                self.policygroup._delete_policy_group(policygroup_id)
+                self.policygroup.delete_nuage_policy_group(policygroup_id)
                 LOG.debug("Deleted policygroup associated with "
                           "interface %s", interface)
 
