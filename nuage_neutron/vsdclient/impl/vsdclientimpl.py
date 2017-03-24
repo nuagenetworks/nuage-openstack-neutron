@@ -700,9 +700,11 @@ class VsdClientImpl(VsdClient):
         self.vm.process_deleted_addr_pair(params)
 
     def change_perm_of_subns(self, nuage_npid, nuage_subnetid, shared,
-                             tenant_id):
+                             tenant_id, remove_everybody=False):
         helper.change_perm_of_subns(self.restproxy, nuage_npid,
-                                    nuage_subnetid, shared, tenant_id)
+                                    nuage_subnetid, shared,
+                                    tenant_id,
+                                    remove_everybody=remove_everybody)
 
     def update_mac_spoofing_on_vport(self, nuage_vport_id, status):
         self.vm.update_mac_spoofing_on_vport({'vport_id': nuage_vport_id},
