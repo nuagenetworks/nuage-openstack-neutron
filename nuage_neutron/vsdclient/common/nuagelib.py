@@ -124,6 +124,19 @@ class NuageServerBaseClass(object):
             filter += "%s IS %s" % (field, value)
         return {'X-Nuage-Filter': filter} if filter else None
 
+    def single_filter_header(self, **filters):
+        filter = ''
+        field = filters.keys()[0]
+        for value in filters[field]:
+            if isinstance(value, six.string_types):
+                value = "'%s'" % value
+            if value is None:
+                value = 'null'
+            if filter:
+                filter += " or "
+            filter += "%s IS %s" % (field, value)
+        return {'X-Nuage-Filter': filter} if filter else None
+
 
 class NuageL3DomTemplate(NuageServerBaseClass):
     def post_resource(self):
@@ -1441,6 +1454,9 @@ class NuagePolicygroup(NuageServerBaseClass):
         return '/vports/%s/%s' % (self.create_params['vport_id'],
                                   self.resource)
 
+    def get_policygroups(self, pg_id):
+        return '/%s/%s' % (self.resource, pg_id)
+
     def get_policygroup_id(self, response):
         return self.get_response_objid(response)
 
@@ -2162,6 +2178,13 @@ class NuageRedirectTarget(NuageServerBaseClass):
 
 
 class NuageInAdvFwdTemplate(NuageServerBaseClass):
+
+    def list_resource(self):
+        return '/ingressadvfwdtemplates/'
+
+    def get_resource(self, tmplt_id):
+        return '/ingressadvfwdtemplates/%s' % tmplt_id
+
     def get_resource_l2(self, l2dom_id):
         return '/l2domains/%s/ingressadvfwdtemplates' % l2dom_id
 
@@ -2198,6 +2221,9 @@ class NuageAdvFwdRule(NuageServerBaseClass):
 
     def in_get_resource(self, rule_id):
         return '/ingressadvfwdentrytemplates/%s' % rule_id
+
+    def in_get_all_resources(self):
+        return '/ingressadvfwdentrytemplates/'
 
     def in_delete_resource(self, rule_id):
         return '/ingressadvfwdentrytemplates/%s?responseChoice=1' % rule_id
