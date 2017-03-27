@@ -1625,7 +1625,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         ns_dict = {}
         ns_dict['nuage_user_id'] = nuage_uid
         ns_dict['nuage_group_id'] = nuage_gid
-        if vsd_subnet['type'] == 'Subnet':
+        if vsd_subnet['type'] == constants.L3SUBNET:
             ns_dict['nuage_l2dom_tmplt_id'] = None
         with context.session.begin(subtransactions=True):
             nuagedb.update_subnetl2dom_mapping(subnet_l2dom,
