@@ -279,20 +279,22 @@ class RESTProxyServer(object):
         else:
             raise self._error_response(response)
 
-    def retrieve_by_external_id(self, resource, data):
+    @staticmethod
+    def retrieve_by_external_id(restproxy, resource, data):
         if not data.get('externalID'):
             return None
         headers = {'X-NUAGE-FilterType': "predicate",
                    'X-Nuage-Filter':
                        "externalID IS '%s'" % data.get('externalID')}
-        return self.get(resource, extra_headers=headers)
+        return restproxy.get(resource, extra_headers=headers)
 
-    def retrieve_by_name(self, resource, data):
+    @staticmethod
+    def retrieve_by_name(restproxy, resource, data):
         if not data.get('name'):
             return None
         headers = {'X-NUAGE-FilterType': "predicate",
                    'X-Nuage-Filter': "name IS '%s'" % data.get('name')}
-        return self.get(resource, extra_headers=headers)
+        return restproxy.get(resource, extra_headers=headers)
 
     def post(self, resource, data, extra_headers=None,
              on_res_exists=retrieve_by_external_id,
