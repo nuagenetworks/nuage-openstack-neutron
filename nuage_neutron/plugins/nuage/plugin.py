@@ -244,7 +244,6 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         filters = {'device_id': [port.get('device_id')]}
         ports = self.get_ports(context, filters)
         no_of_ports = len(ports)
-        subn = self.get_subnet(context, port['fixed_ips'][0]['subnet_id'])
         vm_id = port['device_id']
         # upstream neutron_lbaas assigns a constant device_id to all the
         # lbaas_ports (which is a bug), hence we use port ID as vm_id
@@ -259,24 +258,41 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         if no_of_ports > 1:
             self._validate_create_nuage_vport(context.session, ports, np_name,
                                               port['id'])
+        subnets = {4: {}, 6: {}}
+        ips = {4: None, 6: None}
+        for fixed_ip in port['fixed_ips']:
+            subnet = self.get_subnet(context, fixed_ip['subnet_id'])
+            subnets[subnet['ip_version']] = subnet
+            ips[subnet['ip_version']] = fixed_ip['ip_address']
+
+        # Only when the tenant who creates the port is different from both
+        # ipv4 and ipv6 tenant, we have to add extra permissions on the subnet.
+        # If one of the 2 subnet tenants matches, permissions will already
+        # exist from subnet-create.
+        if port['tenant_id'] not in (subnets[4].get('tenant_id'),
+                                     subnets[6].get('tenant_id')):
+            subnet_tenant_id = subnets[4].get('tenant_id')
+        else:
+            subnet_tenant_id = port['tenant_id']
+
+        shared = subnets[4].get('shared') or subnets[6].get('shared', False)
+
         params = {
             'port_id': port['id'],
             'id': vm_id,
             'mac': port['mac_address'],
             'netpart_name': np_name,
-            'ip': port['fixed_ips'][0]['ip_address'],
+            'ipv4': ips[4],
+            'ipv6': ips[6],
             'no_of_ports': no_of_ports,
             'tenant': port['tenant_id'],
             'netpart_id': subnet_mapping['net_partition_id'],
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'vport_id': nuage_port.get('ID'),
-            'subn_tenant': subn['tenant_id'],
-            'portOnSharedSubn': subn['shared'],
-            'address_spoof': (constants.INHERITED
-                              if port[psec.PORTSECURITY]
-                              else constants.ENABLED),
-            'vsd_subnet': vsd_subnet,
-            'dhcp_enabled': subn['enable_dhcp']
+            'subn_tenant': subnet_tenant_id,
+            'portOnSharedSubn': shared,
+            'dhcp_enabled': subnets[4].get('enable_dhcp'),
+            'vsd_subnet': vsd_subnet
         }
         self._resolve_tenant_for_shared_network(
             context, port, subnet_mapping['net_partition_id'])
@@ -1450,6 +1466,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                 neutron_subnet['id'],
                                                 id,
                                                 netpart_id,
+                                                neutron_subnet['ip_version'],
                                                 l2dom_id=l2dom_id,
                                                 nuage_user_id=user_id,
                                                 nuage_group_id=group_id)
@@ -1484,8 +1501,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
         if nuagedb.get_subnet_l2dom_by_nuage_id(
                 context.session, nuage_subn_id):
-            msg = ("Multiple Openstack subnets cannot be linked to the "
-                   "same VSD network")
+            msg = ("Multiple Openstack subnets of the same ip_type cannot be "
+                   "linked to the same VSD network")
             raise n_exc.BadRequest(resource='subnet', msg=msg)
 
         nuage_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
@@ -1596,6 +1613,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 subnet_l2dom = nuagedb.add_subnetl2dom_mapping(
                     context.session, neutron_subnet['id'],
                     nuage_subn_id, nuage_netpart['id'],
+                    neutron_subnet['ip_version'],
                     l2dom_id=str(nuage_tmplt_id), managed=True)
         except db_exc.DBError as e:
             if isinstance(e.inner_exception, sql_exc.IntegrityError):
