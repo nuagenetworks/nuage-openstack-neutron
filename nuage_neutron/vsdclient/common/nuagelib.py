@@ -911,8 +911,10 @@ class NuageVM(NuageServerBaseClass):
                 self.create_params['attachedNetworkID'])
         if self.create_params.get('vport_id'):
             interface['VPortID'] = self.create_params['vport_id']
-        if self.create_params['ip'] is not None:
-            interface['IPAddress'] = self.create_params['ip']
+        if self.create_params['ipv4'] is not None:
+            interface['IPAddress'] = self.create_params['ipv4']
+        if self.create_params['ipv6'] is not None:
+            interface['IPv6Address'] = self.create_params['ipv6']
 
         data = {
             'name': 'vm-' + self.create_params['mac'].replace(':', ''),
@@ -1003,8 +1005,10 @@ class NuageVMInterface(NuageServerBaseClass):
                 self.create_params['attachedNetworkID'])
         if self.create_params.get('vport_id'):
             data['VPortID'] = self.create_params['vport_id']
-        if self.create_params['ip'] is not None:
-            data['IPAddress'] = self.create_params['ip']
+        if self.create_params['ipv4'] is not None:
+            data['IPAddress'] = self.create_params['ipv4']
+        if self.create_params['ipv6'] is not None:
+            data['IPv6Address'] = self.create_params['ipv6']
         return data
 
     def extra_headers(self):

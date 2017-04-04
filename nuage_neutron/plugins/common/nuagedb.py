@@ -152,6 +152,7 @@ def update_entrouter_mapping(ent_rtr_mapping, new_dict):
 def add_subnetl2dom_mapping(session, neutron_subnet_id,
                             nuage_sub_id,
                             np_id,
+                            ip_version,
                             l2dom_id=None,
                             nuage_user_id=None,
                             nuage_group_id=None,
@@ -162,7 +163,8 @@ def add_subnetl2dom_mapping(session, neutron_subnet_id,
                                                nuage_l2dom_tmplt_id=l2dom_id,
                                                nuage_user_id=nuage_user_id,
                                                nuage_group_id=nuage_group_id,
-                                               nuage_managed_subnet=managed)
+                                               nuage_managed_subnet=managed,
+                                               ip_version=ip_version)
     session.add(subnet_l2dom)
     return subnet_l2dom
 
@@ -218,6 +220,15 @@ def get_subnet_l2dom_by_port_id(session, port_id):
         raise exceptions.SubnetMappingNotFound(resource='port', id=port_id)
     except sql_exc.MultipleResultsFound:
         return query.first()
+
+
+def get_subnet_l2dom_by_network_id(session, network_id):
+    return (
+        session.query(nuage_models.SubnetL2Domain)
+        .join(models_v2.Subnet)
+        .filter(
+            models_v2.Subnet.network_id == network_id)
+    ).all()
 
 
 def get_nuage_subnet_info(session, subnet, fields):

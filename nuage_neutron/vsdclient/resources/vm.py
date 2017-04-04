@@ -141,7 +141,8 @@ class NuageVM(object):
         req_params = {
             'id': params['id'],
             'mac': params['mac'],
-            'ip': params['ip'],
+            'ipv4': params['ipv4'],
+            'ipv6': params['ipv6'],
             'externalID': get_vsd_external_id(params['port_id'])
         }
         # if vport_id passed in VMInterface and attachedNetworkId is not set,
@@ -192,7 +193,8 @@ class NuageVM(object):
         req_params = {
             'vm_id': vm_id,
             'mac': params['mac'],
-            'ip': params['ip'],
+            'ipv4': params['ipv4'],
+            'ipv6': params['ipv6'],
             'externalID': get_vsd_external_id(params['port_id'])
         }
 
@@ -231,12 +233,15 @@ class NuageVM(object):
         shared_resource_id = domain.get(
             'associatedSharedNetworkResourceID')
         if not dhcp_enabled:
-            req_params['ip'] = None
+            req_params['ipv4'] = None
+            req_params['ipv6'] = None
         elif (not domain['DHCPManaged']) and (not shared_resource_id):
-            req_params['ip'] = None
+            req_params['ipv4'] = None
+            req_params['ipv6'] = None
         elif shared_resource_id:
             if not self.is_shared_l2_domain_managed(shared_resource_id):
-                req_params['ip'] = None
+                req_params['ipv4'] = None
+                req_params['ipv6'] = None
 
     def is_shared_l2_domain_managed(self, shared_nuage_id):
         nuage_sharedresource = nuagelib.NuageSharedResources()
@@ -450,13 +455,13 @@ class NuageVM(object):
                      "private ip %(ip)s is same as vip ip",
                      {'vip': params['vip'],
                       'mac': params['mac'],
-                      'ip': params['port_ip']})
+                      'ip': params['port_ips']})
         elif args['key'] == (1, 0, 0, 0):
             LOG.warn("No VIP is created for vip %(vip)s and mac %(mac)s "
                      "as vip and private ip %(ip)s belong to different "
                      "subnets", {'vip': params['vip'],
                                  'mac': params['mac'],
-                                 'ip': params['port_ip']})
+                                 'ip': params['port_ips']})
 
     def _create_vip(self, params, args):
         if args['subn_type'] == constants.SUBNET:
@@ -482,7 +487,7 @@ class NuageVM(object):
     @staticmethod
     def _check_cidr(params):
         ip = IPNetwork(params['vip'])
-        if str(ip.cidr) != (str(ip.ip) + '/' + '32'):
+        if ip.size != 1:
             LOG.info("No VIP will be created for %s", str(ip.cidr))
             return False
 
@@ -492,9 +497,10 @@ class NuageVM(object):
     def _compare_ip(params):
         vip_addr = params['vip']
         if '/' in vip_addr:
-            ip = vip_addr.split('/')
-            vip_addr = ip[0]
-        if vip_addr == params['port_ip']:
+            vip_ip = vip_addr.split('/')
+            vip_addr = vip_ip[0]
+        if IPNetwork(vip_addr) in [IPNetwork(ip) for ip in
+                                   params['port_ips']]:
             LOG.info("No VIP will be created for %s as it is same as the"
                      "ip of the port", params['vip'])
             return True
@@ -535,9 +541,10 @@ class NuageVM(object):
         if '/' in vip_addr:
             ip = vip_addr.split('/')
             vip_addr = ip[0]
-        if IPAddress(vip_addr) in IPNetwork(ipcidr):
-            return True
-        return False
+        vip_address = IPAddress(vip_addr)
+        return (vip_address in IPNetwork(ipcidr) or
+                (nuage_subnet['IPType'] == 'DUALSTACK' and
+                 vip_address in IPNetwork(nuage_subnet['IPv6Address'])))
 
     def process_vip(self, params):
         key, action = self._find_vip_action(params)
@@ -582,6 +589,10 @@ class NuageVM(object):
 
         key = (full_cidr, diff_mac, same_ip, same_subn)
         action = self._get_vip_action(key)
+        if action == ACTION_VIP and IPNetwork(params['vip']).version == 6:
+            LOG.debug("Allowed address pair is ipv6. Will allow spoofing "
+                      "instead of creating VIP.")
+            action = ACTION_MACSPOOFING
         LOG.debug("Key is %s and action is %s", key, action)
         return key, action
 

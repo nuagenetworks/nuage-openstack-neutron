@@ -32,6 +32,7 @@ from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common.utils import compare_cidr
 from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.vsdclient import restproxy
@@ -123,19 +124,29 @@ class RootNuagePlugin(object):
                 raise NuageBadRequest(msg=msg)
 
     def _validate_cidr(self, subnet, nuage_subnet, shared_subnet):
-        shared_subnet = shared_subnet or {}
-        if (not nuage_subnet['address']) and (
-                not shared_subnet.get('address')):
-            nuage_ip = None
+        nuage_subnet = shared_subnet or nuage_subnet
+        if nuage_subnet.get('DHCPManaged', True) is False:
+            subnet_validate = {'enable_dhcp': Is(False)}
         else:
-            if shared_subnet.get('address'):
-                nuage_subnet = shared_subnet
-            nuage_ip = netaddr.IPNetwork(nuage_subnet['address'] + '/' +
-                                         nuage_subnet['netmask'])
+            if subnet['ip_version'] == 4:
+                nuage_cidr = netaddr.IPNetwork(nuage_subnet['address'] + '/' +
+                                               nuage_subnet['netmask'])
+                subnet_validate = {'enable_dhcp': Is(nuage_cidr is not None)}
+            else:
+                if nuage_subnet['IPType'] == constants.IP_TYPE_IPV4:
+                    msg = (_("Subnet with ip_version %(ip_version)s can't be "
+                             "linked to vsd subnet with IPType %(ip_type)s.")
+                           % {'ip_version': subnet['ip_version'],
+                              'ip_type': nuage_subnet['IPType']})
+                    raise NuageBadRequest(msg=msg)
+                nuage_cidr = netaddr.IPNetwork(nuage_subnet['IPv6Address'])
+                subnet_validate = {'enable_dhcp': Is(False)}
 
-        subnet_validate = {'enable_dhcp': Is(nuage_ip is not None)}
-        if nuage_ip:
-            subnet_validate['cidr'] = Is(str(nuage_ip))
+            if not compare_cidr(subnet['cidr'], nuage_cidr):
+                msg = 'OSP cidr %s and NuageVsd cidr %s do not match' % \
+                      (subnet['cidr'], nuage_cidr)
+                raise NuageBadRequest(msg=msg)
+
         validate("subnet", subnet, subnet_validate)
 
     @log_helpers.log_method_call

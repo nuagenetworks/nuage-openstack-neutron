@@ -16,11 +16,11 @@
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from neutron.db import model_base
 from neutron.db import models_v2
+from neutron_lib.db import model_base
 
 
-class NetPartition(model_base.BASEV2, models_v2.HasId):
+class NetPartition(model_base.BASEV2, model_base.HasId):
     __tablename__ = 'nuage_net_partitions'
     name = sa.Column(sa.String(64))
     l3dom_tmplt_id = sa.Column(sa.String(36))
@@ -62,14 +62,21 @@ class ProviderNetBinding(model_base.BASEV2):
 
 class SubnetL2Domain(model_base.BASEV2):
     __tablename__ = 'nuage_subnet_l2dom_mapping'
+    __table_args__ = (
+        sa.UniqueConstraint(
+            'nuage_subnet_id', 'ip_version',
+            name='uniq_nuage_subnet_l2dom_mapping0nuage_subnet_id0ip_version'),
+        model_base.BASEV2.__table_args__
+    )
     subnet_id = sa.Column(sa.String(36),
                           sa.ForeignKey('subnets.id', ondelete="CASCADE"),
                           primary_key=True)
     net_partition_id = sa.Column(sa.String(36),
                                  sa.ForeignKey('nuage_net_partitions.id',
                                  ondelete="CASCADE"))
-    nuage_subnet_id = sa.Column(sa.String(36), unique=True)
+    nuage_subnet_id = sa.Column(sa.String(36))
     nuage_l2dom_tmplt_id = sa.Column(sa.String(36))
     nuage_user_id = sa.Column(sa.String(36))
     nuage_group_id = sa.Column(sa.String(36))
     nuage_managed_subnet = sa.Column(sa.Boolean())
+    ip_version = sa.Column(sa.Integer(), nullable=False)
