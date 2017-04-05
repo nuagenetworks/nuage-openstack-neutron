@@ -862,7 +862,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
              'l3dom_id': subnet_mapping['nuage_subnet_id']},
             required=False)
         if not vport:
-            LOG.warning(_("No vport found for port %s") % id)
+            LOG.warning(_("No vport found for port %s"), port['id'])
             return None
         return vport
 
