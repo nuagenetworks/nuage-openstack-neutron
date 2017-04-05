@@ -446,8 +446,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         elif mapping:
             if not mapping['nuage_managed_subnet']:
                 self.vsdclient.delete_subnet(subnet['id'])
-            self._cleanup_group(db_context, mapping['net_partition_id'],
-                                mapping['nuage_subnet_id'], subnet)
+            else:
+                self._cleanup_group(db_context, mapping['net_partition_id'],
+                                    mapping['nuage_subnet_id'], subnet)
 
         self._delete_port_gateway(db_context, context.nuage_ports)
 
