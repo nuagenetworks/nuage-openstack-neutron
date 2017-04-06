@@ -128,9 +128,6 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                               kwargs['vport'],
                                               port[ext_sg.SECURITYGROUPS],
                                               vsd_subnet)
-        else:
-            self._process_port_create_secgrp_for_no_port_sec(port,
-                                                             subnet_mapping)
 
     def post_port_update(self, resource, event, trigger, **kwargs):
         context = kwargs['context']
@@ -193,41 +190,3 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
         self.vsdclient.update_vport_policygroups(
             vport['ID'], policygroup_ids)
-
-    @log_helpers.log_method_call
-    def _process_port_create_secgrp_for_no_port_sec(self, port,
-                                                    subnet_mapping):
-        l2dom_id = None
-        l3dom_id = None
-        rtr_id = None
-        policygroup_ids = []
-        port_id = port['id']
-
-        if subnet_mapping:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                l2dom_id = subnet_mapping['nuage_subnet_id']
-            else:
-                l3dom_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = (self.vsdclient.
-                          get_nuage_domain_id_from_subnet(l3dom_id))
-
-            params = {
-                'neutron_port_id': port_id,
-                'l2dom_id': l2dom_id,
-                'l3dom_id': l3dom_id,
-                'rtr_id': rtr_id,
-                'type': constants.VM_VPORT,
-                'sg_type': constants.SOFTWARE
-            }
-            nuage_port = self.vsdclient.get_nuage_vport_for_port_sec(params)
-            if nuage_port:
-                nuage_vport_id = nuage_port.get('ID')
-                sg_id = (self.vsdclient.
-                         create_nuage_sec_grp_for_port_sec(params))
-                if sg_id:
-                    params['sg_id'] = sg_id
-                    (self.vsdclient.
-                     create_nuage_sec_grp_rule_for_port_sec(params))
-                    policygroup_ids.append(sg_id)
-                    self.vsdclient.update_vport_policygroups(
-                        nuage_vport_id, policygroup_ids)
