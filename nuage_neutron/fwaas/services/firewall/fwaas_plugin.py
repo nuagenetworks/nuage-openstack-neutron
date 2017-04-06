@@ -249,15 +249,17 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
                               updated_fw['firewall_policy_id'])
             with utils.rollback() as on_exc:
                 if policy_updated:
+                    l3domains_ids_old_policy = self.l3domain_ids_by_policy_id(
+                        context, original_fw['firewall_policy_id'])
                     self.nuageclient.update_firewall(self.enterprise_id,
                                                      original_fw,
-                                                     [])
+                                                     l3domains_ids_old_policy)
                     on_exc(self.nuageclient.update_firewall,
                            self.enterprise_id, original_fw, original_l3domains)
-                l3domain_ids = self.l3domain_ids_by_policy_id(
+                l3domains_ids_new_policy = self.l3domain_ids_by_policy_id(
                     context, updated_fw['firewall_policy_id'])
                 self.nuageclient.update_firewall(
-                    self.enterprise_id, updated_fw, l3domain_ids)
+                    self.enterprise_id, updated_fw, l3domains_ids_new_policy)
                 self._update_firewall_status(context, updated_fw)
                 return updated_fw
 
