@@ -31,6 +31,7 @@ from neutron.extensions import portsecurity
 from neutron.manager import NeutronManager
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
+from neutron.services.trunk import constants as t_consts
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as os_constants
 
@@ -51,6 +52,8 @@ from nuage_neutron.plugins.common.validation import require
 from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.plugins.nuage_ml2 import extensions  # noqa
 from nuage_neutron.plugins.nuage_ml2.securitygroup import NuageSecurityGroup
+from nuage_neutron.plugins.nuage_ml2 import trunk_driver
+
 
 LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCERV2
 
@@ -72,6 +75,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         NuageAddressPair().register()
         db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
             constants.DEVICE_OWNER_DHCP_NUAGE]
+        self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         LOG.debug('Initializing complete')
 
     @property
@@ -574,8 +578,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                           np_name, subnet_mapping,
                                           is_port_device_owner_removed=True)
             elif device_added:
-                if port['device_owner'].startswith(
-                        constants.NOVA_PORT_OWNER_PREF):
+                if (port['device_owner'].startswith(
+                        constants.NOVA_PORT_OWNER_PREF) and
+                        port['device_owner'] != t_consts.TRUNK_SUBPORT_OWNER):
                     nuage_subnet, _ = self._get_nuage_subnet(
                         subnet_mapping, subnet_mapping['nuage_subnet_id'])
                     self._create_nuage_vm(core_plugin, db_context, port,

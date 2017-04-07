@@ -2363,3 +2363,15 @@ class FirewallAcl(VsdChildResource):
 
 class Job(VsdChildResource):
     resource = 'jobs'
+
+
+class Trunk(VsdChildResource):
+    resource = 'trunks'
+
+
+class TrunkPort(VsdChildResource):
+    resource = 'vports'
+
+
+class TrunkInterface(VsdChildResource):
+    resource = 'vminterfaces'
