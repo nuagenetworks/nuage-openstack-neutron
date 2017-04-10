@@ -580,6 +580,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         session = context.session
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(session,
                                                                id)
+        # Can probably be removed after blueprint enginefacade-switch reaches
+        # router-delete code upstream.
+        # https://blueprints.launchpad.net/neutron/+spec/enginefacade-switch
+        session.expunge(ent_rtr_mapping)
+
         if ent_rtr_mapping:
             LOG.debug("Enterprise to router mapping found for router %s", id)
             filters = {

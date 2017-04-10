@@ -52,10 +52,11 @@ from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import external_net
 from neutron.extensions import l3
-from neutron.extensions import portbindings
 from neutron.extensions import portsecurity as psec
 from neutron.extensions import providernet as pnet
 from neutron.extensions import securitygroup as ext_sg
+from neutron_lib.api.definitions import portbindings
+from neutron_lib.api.definitions import provider_net as pnet_lib
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
@@ -1075,15 +1076,15 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                             net_binding=None):
         binding = net_db.pnetbinding if net_db else net_binding
         if binding:
-            network[pnet.NETWORK_TYPE] = binding.network_type
-            network[pnet.PHYSICAL_NETWORK] = binding.physical_network
-            network[pnet.SEGMENTATION_ID] = binding.vlan_id
+            network[pnet_lib.NETWORK_TYPE] = binding.network_type
+            network[pnet_lib.PHYSICAL_NETWORK] = binding.physical_network
+            network[pnet_lib.SEGMENTATION_ID] = binding.vlan_id
 
     @log_helpers.log_method_call
     def _process_provider_create(self, context, attrs):
-        network_type = attrs.get(pnet.NETWORK_TYPE)
-        physical_network = attrs.get(pnet.PHYSICAL_NETWORK)
-        segmentation_id = attrs.get(pnet.SEGMENTATION_ID)
+        network_type = attrs.get(pnet_lib.NETWORK_TYPE)
+        physical_network = attrs.get(pnet_lib.PHYSICAL_NETWORK)
+        segmentation_id = attrs.get(pnet_lib.SEGMENTATION_ID)
 
         network_type_set = lib_validators.is_attr_set(network_type)
         physical_network_set = lib_validators.is_attr_set(physical_network)
