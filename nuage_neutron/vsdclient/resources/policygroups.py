@@ -1001,8 +1001,9 @@ class NuagePolicyGroups(object):
             if not ext_policygroup.get_validate(ext_policygroup_resp):
                 raise restproxy.RESTProxyError(ext_policygroup.error_msg)
         elif params.get('subnet'):
-            l2dom_id = helper.get_nuage_l2dom_or_subnet(self.restproxy,
-                                                        params.get('subnet'))
+            subnet_mapping = params.get('subnet_mapping')
+            l2dom_id = helper.get_nuage_subnet(
+                self.restproxy, subnet_mapping)['ID']
             req_params = {
                 'domain_id': l2dom_id
             }
@@ -1572,8 +1573,9 @@ class NuageRedirectTargets(object):
     def get_nuage_redirect_target_rules(self, params):
         rtarget_rule = nuagelib.NuageAdvFwdRule()
         if params.get('subnet'):
-            parent = helper.get_nuage_l2dom_or_subnet(self.restproxy,
-                                                      params.get('subnet'))
+            subnet_mapping = params.get('subnet_mapping')
+            parent = helper.get_nuage_subnet(
+                self.restproxy, subnet_mapping)['ID']
             parent_type = constants.L2DOMAIN
         elif params.get('router'):
             parent = helper.get_l3domid_by_router_id(self.restproxy,

@@ -620,8 +620,8 @@ class NuageVM(object):
         return key, action
 
     def process_deleted_addr_pair(self, params):
-        params['vsd_subnet'] = helper.get_nuage_subnet(self.restproxy,
-                                                       params['subnet_id'])
+        params['vsd_subnet'] = helper.get_nuage_subnet(
+            self.restproxy, params['subnet_mapping'])
         _, action = self._find_vip_action(params)
         if action == ACTION_MACSPOOFING or action == ACTION_VIP:
             self.update_mac_spoofing_on_vport(params, constants.INHERITED)

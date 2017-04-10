@@ -22,7 +22,7 @@ from nuage_neutron.plugins.common.extensions import nuage_router
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
-
+from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 from oslo_config import cfg
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
@@ -1182,10 +1182,9 @@ class NuageL3Plugin(NuageL3Wrapper):
                                                         subnet_id)
         params['neutron_port_id'] = port['id']
 
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
-            params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-        else:
-            params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        l2_id, l3_id = get_l2_and_l3_sub_id(subnet_mapping)
+        params['l2dom_id'] = l2_id
+        params['l3dom_id'] = l3_id
 
         return self.vsdclient.get_nuage_vport_by_neutron_id(
             params, required=required)
