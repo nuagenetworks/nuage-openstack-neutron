@@ -99,7 +99,8 @@ class NuageAddressPair(BaseNuagePlugin):
                     'subnet_id': subnet_mapping['nuage_subnet_id'],
                     'vport_id': nuage_vport['ID'],
                     'port_ips': [ip['ip_address'] for ip in port['fixed_ips']],
-                    'port_mac': port['mac_address']
+                    'port_mac': port['mac_address'],
+                    'subnet_mapping': subnet_mapping
                 }
                 self.vsdclient.process_deleted_addr_pair(params)
 
