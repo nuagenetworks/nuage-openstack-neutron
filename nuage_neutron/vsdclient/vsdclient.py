@@ -111,7 +111,7 @@ class VsdClient(object):
         pass
 
     def attach_nuage_group_to_nuagenet(self, tenant, nuage_npid,
-                                       nuage_subnetid, shared):
+                                       subnet_mapping, shared):
         pass
 
     def detach_nuage_group_to_nuagenet(
@@ -414,13 +414,14 @@ class VsdClient(object):
     def create_gateway_vport(self, tenant_id, vport_dict):
         pass
 
-    def delete_nuage_gateway_vport(self, tenant_id, id, def_netpart_id):
+    def delete_nuage_gateway_vport(self, context, id, def_netpart_id):
         pass
 
-    def get_gateway_vport(self, tenant_id, netpart_id, nuage_vport_id):
+    def get_gateway_vport(self, context, tenant_id, netpart_id,
+                          nuage_vport_id):
         pass
 
-    def get_gateway_vports(self, tenant_id, netpart_id, filters):
+    def get_gateway_vports(self, context, tenant_id, netpart_id, filters):
         pass
 
     def get_host_and_bridge_vports(self, subnet_id, subnet_type):

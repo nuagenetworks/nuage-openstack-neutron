@@ -525,30 +525,23 @@ def get_l3subnet(restproxy_serv, nuage_id, required=False):
         return subnets[0]
 
 
-def get_nuage_l2dom_or_subnet(restproxy_serv, neutron_subnetid):
+def get_nuage_subnet(restproxy_serv, subnet_mapping):
+    if subnet_mapping is None:
+        return None
     params = {
-        'externalID': get_vsd_external_id(neutron_subnetid)
+        'externalID': get_vsd_external_id(subnet_mapping["subnet_id"])
     }
-    nuagel2dom = nuagelib.NuageL2Domain(create_params=params)
-    response = restproxy_serv.rest_call(
-        'GET',
-        nuagel2dom.get_resource_with_ext_id(),
-        '',
-        extra_headers=nuagel2dom.extra_headers_get())
-
-    if not nuagel2dom.get_validate(response):
-        nuagesubnet = nuagelib.NuageSubnet(create_params=params)
-        response = restproxy_serv.rest_call(
-            'GET',
-            nuagesubnet.get_resource_with_ext_id(),
-            '',
-            extra_headers=nuagel2dom.extra_headers_get())
-
-        if not nuagesubnet.get_validate(response):
-            raise restproxy.RESTProxyError(nuagesubnet.error_msg)
-        return nuagesubnet.get_subnetid(response)
+    nuage_subnet_id = subnet_mapping["nuage_subnet_id"]
+    if subnet_mapping['nuage_l2dom_tmplt_id']:
+        resource_class = nuagelib.NuageL2Domain(create_params=params)
     else:
-        return nuagel2dom.get_domainid(response)
+        resource_class = nuagelib.NuageSubnet(create_params=params)
+    try:
+        response = restproxy_serv.get(resource_class.get_resource(
+            nuage_subnet_id))
+        return response[0]
+    except restproxy.RESTProxyError:
+        return None
 
 
 def get_subnet_by_externalID(restproxy_serv, subnet_id):
@@ -583,23 +576,6 @@ def get_l3_subnets(restproxy_serv, **filters):
     headers = nuagesubnet.extra_header_filter(**filters)
     return restproxy_serv.get(nuagesubnet.get_all_resources(),
                               extra_headers=headers)
-
-
-def get_nuage_subnet(restproxy_serv, nuage_subnet_id):
-    nuage_l2_domain = nuagelib.NuageL2Domain()
-    response = restproxy_serv.rest_call(
-        'GET',
-        nuage_l2_domain.get_resource(nuage_subnet_id), '')
-
-    if nuage_l2_domain.get_validate(response):
-        nuage_subnet = nuage_l2_domain.get_response_obj(response)
-    else:
-        nuage_domainsubn = nuagelib.NuageSubnet()
-        response = restproxy_serv.rest_call(
-            'GET',
-            nuage_domainsubn.get_resource(nuage_subnet_id), '')
-        nuage_subnet = nuage_domainsubn.get_response_obj(response)
-    return nuage_subnet
 
 
 def _get_nuage_domain_id_from_subnet(restproxy_serv, nuage_subnet_id):
@@ -921,3 +897,13 @@ def rollback():
             except Exception:
                 log.exception("Rollback failed.")
         raise e
+
+
+def get_l2_and_l3_sub_id(subnet_mapping):
+    if subnet_mapping['nuage_l2dom_tmplt_id']:
+        l2_id = subnet_mapping['nuage_subnet_id']
+        l3_id = None
+    else:
+        l2_id = None
+        l3_id = subnet_mapping['nuage_subnet_id']
+    return l2_id, l3_id

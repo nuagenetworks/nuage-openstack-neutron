@@ -23,6 +23,7 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils
+from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 
 LOG = logging.getLogger(__name__)
 
@@ -199,7 +200,7 @@ class NuagegatewayMixin(object):
     def delete_nuage_gateway_vport(self, context, id):
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
         netpart = nuagedb.get_default_net_partition(context, def_netpart)
-        self.vsdclient.delete_nuage_gateway_vport(context.tenant_id,
+        self.vsdclient.delete_nuage_gateway_vport(context,
                                                   id,
                                                   netpart['id'])
 
@@ -236,7 +237,8 @@ class NuagegatewayMixin(object):
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
         netpart = nuagedb.get_default_net_partition(context, def_netpart)
 
-        resp = self.vsdclient.get_gateway_vport(fetch_tenant,
+        resp = self.vsdclient.get_gateway_vport(context,
+                                                fetch_tenant,
                                                 netpart['id'],
                                                 id)
         if resp:
@@ -268,7 +270,8 @@ class NuagegatewayMixin(object):
             msg = 'No neutron subnet to nuage subnet mapping found'
             raise nuage_exc.NuageBadRequest(msg=msg)
 
-        resp = self.vsdclient.get_gateway_vports(fetch_tenant,
+        resp = self.vsdclient.get_gateway_vports(context,
+                                                 fetch_tenant,
                                                  netpart['id'],
                                                  filters)
         if resp:
@@ -418,16 +421,15 @@ class NuagegatewayMixin(object):
             port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
             port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-            else:
-                port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+            l2_id, l3_id = get_l2_and_l3_sub_id(subnet_mapping)
+            port_params['l2dom_id'] = l2_id
+            port_params['l3dom_id'] = l3_id
         nuage_vport = self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=False)
         if nuage_vport and (nuage_vport['type'] == constants.HOST_VPORT):
             def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
             netpart = nuagedb.get_default_net_partition(context, def_netpart)
             self.vsdclient.delete_nuage_gateway_vport(
-                context.tenant_id,
+                context,
                 nuage_vport.get('ID'),
                 netpart['id'])
