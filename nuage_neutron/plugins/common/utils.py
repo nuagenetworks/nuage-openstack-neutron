@@ -96,6 +96,7 @@ class Ignored(object):
 
 
 def handle_nuage_api_errorcode(fn):
+    @functools.wraps(fn)
     def wrapped(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
