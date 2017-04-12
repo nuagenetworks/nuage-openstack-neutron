@@ -97,6 +97,14 @@ plugin_opts = [
     cfg.ListOpt('device_owner_prefix', default=[],
                 help=_("List of device_owners prefix for which vports are "
                        "not created in VSD.")),
+    cfg.BoolOpt('flow_logging_enabled', default=False,
+                help=_("Set to true to enable flow logging on all policy "
+                       "entries. Changing this does not affect existing "
+                       "policy entries.")),
+    cfg.BoolOpt('stats_collection_enabled', default=False,
+                help=_("Set to true to enable statistics collecting on all "
+                       "policy entries. Changing this does not affect "
+                       "existing policy entries.")),
 ]
 
 
