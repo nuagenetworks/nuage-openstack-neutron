@@ -876,3 +876,6 @@ class VsdClientImpl(VsdClient):
         }
         vport = self.get_nuage_vport_by_neutron_id(params, required=True)
         self.trunk.remove_subport(os_port, vport)
+
+    def update_subport(self, os_port, vport, data):
+        self.trunk.update_subport(os_port, vport, data)

@@ -38,6 +38,12 @@ class NuageNotAuthorized(n_exc.NotAuthorized):
     message = _("Not authorized for this operation: %(msg)s")
 
 
+class NuagePortBound(n_exc.InUse):
+    message = _("Unable to complete operation on port %(port_id)s, "
+                "port is already bound, port type: %(vif_type)s, "
+                "old_ips %(old_ips)s, new_ips %(new_ips)s.")
+
+
 class VsdSubnetNotFound(n_exc.BadRequest):
     message = _("Vsd subnet with id '%(id)s' not found")
 

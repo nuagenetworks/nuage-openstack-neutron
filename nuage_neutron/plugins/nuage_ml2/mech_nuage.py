@@ -40,6 +40,7 @@ from nuage_neutron.plugins.common.addresspair import NuageAddressPair
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
+from nuage_neutron.plugins.common.exceptions import NuagePortBound
 from nuage_neutron.plugins.common import extensions
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils
@@ -560,6 +561,22 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return
         nuage_vport = self._get_nuage_vport(port, subnet_mapping)
 
+        ips_changed = self._check_ip_update_allowed(original, port)
+        mac_changed = original['mac_address'] != port['mac_address']
+        if ips_changed or mac_changed:
+            fixed_ips = port['fixed_ips']
+            ips = {4: None, 6: None}
+            for fixed_ip in fixed_ips:
+                subnet = self.core_plugin.get_subnet(db_context,
+                                                     fixed_ip['subnet_id'])
+                ips[subnet['ip_version']] = fixed_ip['ip_address']
+            data = {
+                'mac': port['mac_address'],
+                'ipv4': ips[4],
+                'ipv6': ips[6]
+            }
+            self.vsdclient.update_subport(port, nuage_vport, data)
+
         device_added = device_removed = False
         if not original['device_owner'] and port['device_owner']:
             device_added = True
@@ -909,6 +926,20 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                       " netpartition: %s, vsd subnet: %s}"
                       % (db_context.tenant, nuage_npid, nuage_subnet_id))
             raise e
+
+    def _check_ip_update_allowed(self, orig_port, port):
+        unplugged_types = (portbindings.VIF_TYPE_BINDING_FAILED,
+                           portbindings.VIF_TYPE_UNBOUND)
+        new_ips = port.get('fixed_ips')
+        vif_type = orig_port.get(portbindings.VIF_TYPE)
+        ips_change = (new_ips is not None and
+                      orig_port.get('fixed_ips') != new_ips)
+        if (ips_change and vif_type not in unplugged_types):
+            raise NuagePortBound(port_id=orig_port['id'],
+                                 vif_type=vif_type,
+                                 old_ips=orig_port['fixed_ips'],
+                                 new_ips=port['fixed_ips'])
+        return ips_change
 
     def _validate_port(self, db_context, port, event):
         if 'fixed_ips' not in port or len(port.get('fixed_ips', [])) == 0:
