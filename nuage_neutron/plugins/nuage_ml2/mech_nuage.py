@@ -511,6 +511,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     nuage_vport, nuage_subnet)
             else:
                 nuage_vport = self._create_nuage_vport(port, nuage_subnet)
+
+            if not port[portsecurity.PORTSECURITY]:
+                self._process_port_create_secgrp_for_port_sec(db_context, port)
         except Exception:
             if nuage_vm:
                 self._delete_nuage_vm(core_plugin, db_context, port, np_name,
@@ -582,7 +585,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                           np_name, subnet_mapping, nuage_vport,
                                           nuage_subnet)
         if not subnet_mapping['nuage_managed_subnet']:
-            self._process_port_create_secgrp_for_port_sec(db_context, port)
+            if (original.get(portsecurity.PORTSECURITY)
+                    != port.get(portsecurity.PORTSECURITY)):
+                self._process_port_create_secgrp_for_port_sec(db_context, port)
         rollbacks = []
         try:
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
