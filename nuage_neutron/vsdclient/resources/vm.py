@@ -282,10 +282,10 @@ class NuageVM(object):
 
     def _delete_extra_perm_attached(self, tenant, l2dom_id=None,
                                     l3dom_id=None):
-        try:
+        if l2dom_id:
             create_params = {'l2dom_id': l2dom_id}
             self._delete_vsd_permission_of_tenant(create_params, tenant)
-        except restproxy.RESTProxyError:
+        else:
             nuagesubnet = nuagelib.NuageSubnet()
             response = self.restproxy.rest_call(
                 'GET', nuagesubnet.get_resource(l3dom_id), '')
@@ -323,8 +323,8 @@ class NuageVM(object):
         if (not params['portOnSharedSubn'] and
                 (params['subn_tenant'] != params['tenant'])):
             self._delete_extra_perm_attached(params['tenant'],
-                                             params['l2dom_id'],
-                                             params['l3dom_id'])
+                                             params.get('l2dom_id'),
+                                             params.get('l3dom_id'))
 
     def _delete_nuage_vm_if(self, params):
         LOG.debug("vsdclient._delete_nuage_vm_if() called")
@@ -348,8 +348,8 @@ class NuageVM(object):
         if (not params['portOnSharedSubn'] and
                 (params['subn_tenant'] != params['tenant'])):
             self._delete_extra_perm_attached(params['tenant'],
-                                             params['l2dom_id'],
-                                             params['l3dom_id'])
+                                             params.get('l2dom_id'),
+                                             params.get('l3dom_id'))
 
     def delete_vms(self, params):
         LOG.debug("vsdclient.delete_vms() called")
