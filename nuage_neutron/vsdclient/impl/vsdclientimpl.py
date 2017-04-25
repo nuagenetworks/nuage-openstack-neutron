@@ -14,6 +14,9 @@
 
 import logging
 
+from nuage_neutron.plugins.common import constants as plugin_constants
+from nuage_neutron.plugins.common import utils
+
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import gw_helper
@@ -812,4 +815,7 @@ class VsdClientImpl(VsdClient):
         self.fwaas.delete_firewall(enterprise_id, os_firewall, l3domain_ids)
 
     def get_nuage_plugin_stats(self):
-        return {}
+        stats = {}
+        if utils.is_enabled(plugin_constants.DEBUG_API_STATS):
+            stats['api_count'] = self.restproxy.api_count
+        return stats
