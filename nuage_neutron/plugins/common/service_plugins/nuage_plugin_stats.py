@@ -17,8 +17,8 @@ from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 
 
-class NuagePluginStatsServicePlugin(service_base.ServicePluginBase,
-                                    BaseNuagePlugin):
+class NuagePluginStats(service_base.ServicePluginBase,
+                       BaseNuagePlugin):
 
     supported_extension_aliases = ['nuage-plugin-stats']
 
