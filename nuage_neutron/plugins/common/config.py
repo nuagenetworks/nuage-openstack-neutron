@@ -106,7 +106,9 @@ plugin_opts = [
                        "policy entries. Changing this does not affect "
                        "existing policy entries.")),
     cfg.ListOpt('experimental_features', default=[],
-                help=_("List of experimental features to be enabled."))
+                help=_("List of experimental features to be enabled.")),
+    cfg.ListOpt('enable_debug', default=[],
+                help=_("List of debug features to be enabled."))
 ]
 
 

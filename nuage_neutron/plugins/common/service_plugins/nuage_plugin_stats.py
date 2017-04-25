@@ -17,19 +17,19 @@ from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 
 
-class NuagePluginStatsServicePlugin(service_base.ServicePluginBase,
-                                    BaseNuagePlugin):
+class NuagePluginStats(service_base.ServicePluginBase,
+                       BaseNuagePlugin):
 
     supported_extension_aliases = ['nuage-plugin-stats']
 
     def __init__(self):
-        super(NuagePluginStatsServicePlugin, self).__init__()
+        super(NuagePluginStats, self).__init__()
 
     def get_plugin_type(self):
         return constants.NUAGE_PLUGIN_STATS
 
     def get_plugin_description(self):
-        return ("Nuage Plugin Providing Statistics")
+        return ("Nuage Plugin Statistics")
 
     def get_nuage_plugin_stats(self, context, filters=None, fields=None):
-        return self.vsdclient.get_nuage_plugin_stats_dict()
+        return [self.vsdclient.get_nuage_plugin_stats()]

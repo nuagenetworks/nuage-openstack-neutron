@@ -79,7 +79,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
             constants.DEVICE_OWNER_DHCP_NUAGE]
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
-        if utils.is_supported(constants.FEATURE_EXPERIMENTAL_TEST):
+        if utils.is_enabled(constants.FEATURE_EXPERIMENTAL_TEST):
             LOG.info("Have a nice day.")
         LOG.debug('Initializing complete')
 

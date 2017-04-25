@@ -37,7 +37,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 
-class Pluginstats(extensions.ExtensionDescriptor):
+class Nuage_plugin_stats(extensions.ExtensionDescriptor):
     @classmethod
     def get_name(cls):
         return "nuage plugin stats"
@@ -48,7 +48,7 @@ class Pluginstats(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_description(cls):
-        return "The Nuage Plugin Statistics"
+        return "Nuage Plugin Statistics"
 
     @classmethod
     def get_namespace(cls):

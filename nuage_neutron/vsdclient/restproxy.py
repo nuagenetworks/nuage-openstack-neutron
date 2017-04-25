@@ -140,7 +140,7 @@ class RESTProxyServer(object):
 
     def _rest_call(self, action, resource, data, extra_headers=None,
                    ignore_marked_for_deletion=False):
-        self.api_count = self.api_count + 1
+        self.api_count += 1
         uri = self.base_uri + resource
         body = json.dumps(data)
         headers = {'Content-type': 'application/json',

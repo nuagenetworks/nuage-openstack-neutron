@@ -190,5 +190,9 @@ def rollback():
         raise
 
 
-def is_supported(name):
-    return name in cfg.CONF.PLUGIN.experimental_features
+def is_enabled(name):
+    if name in cfg.CONF.PLUGIN.experimental_features:
+        return True
+    if name in cfg.CONF.PLUGIN.enable_debug:
+        return True
+    return False

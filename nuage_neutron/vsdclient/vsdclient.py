@@ -553,8 +553,10 @@ class VsdClient(object):
 
     # Plugin stats
 
-    def get_nuage_plugin_stats_dict(self):
+    def get_nuage_plugin_stats(self):
         pass
+
+    # Trunk
 
     def create_trunk(self, os_trunk, subnet_mapping):
         pass

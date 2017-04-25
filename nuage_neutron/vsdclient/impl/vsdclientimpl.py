@@ -14,6 +14,9 @@
 
 import logging
 
+from nuage_neutron.plugins.common import constants as plugin_constants
+from nuage_neutron.plugins.common import utils
+
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import gw_helper
@@ -825,25 +828,26 @@ class VsdClientImpl(VsdClient):
     def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
         self.fwaas.delete_firewall(enterprise_id, os_firewall, l3domain_ids)
 
-    def create_dict_nuage_stats(self):
-        restproxy = self.restproxy
-        dict = [{
-            "server": restproxy.server,
-            "serverauth": restproxy.serverauth,
-            "serverssl": restproxy.serverssl,
-            "server_timeout": restproxy.timeout,
-            "server_max_retries": restproxy.max_retries,
-            "base_uri": restproxy.base_uri,
-            "organization": restproxy.organization,
-            "auth_resource": restproxy.auth_resource,
-            "api_count": restproxy.api_count,
-            "default-net-partition":
-                cfg.CONF.RESTPROXY.default_net_partition_name
-        }]
-        return dict
+    # Plugin stats
 
-    def get_nuage_plugin_stats_dict(self):
-        return self.create_dict_nuage_stats()
+    def get_nuage_plugin_stats(self):
+        stats = {
+            'server': self.restproxy.server,
+            'serverauth': self.restproxy.serverauth,
+            'serverssl': self.restproxy.serverssl,
+            'server_timeout': self.restproxy.timeout,
+            'server_max_retries': self.restproxy.max_retries,
+            'base_uri': self.restproxy.base_uri,
+            'organization': self.restproxy.organization,
+            'auth_resource': self.restproxy.auth_resource,
+            'default-net-partition':
+                cfg.CONF.RESTPROXY.default_net_partition_name
+        }
+        if utils.is_enabled(plugin_constants.DEBUG_API_STATS):
+            stats['api_count'] = self.restproxy.api_count
+        return stats
+
+    # Trunk
 
     def create_trunk(self, os_trunk, subnet_mapping):
         params = {
