@@ -24,6 +24,7 @@ from neutron_lib.api import validators as lib_validators
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 LOG = logging.getLogger(__name__)
 
@@ -263,6 +264,7 @@ class NuageAddressPair(BaseNuagePlugin):
             if vport:
                 self.create_allowed_address_pairs(context, port, port, vport)
 
+    @TimeTracker.tracked
     def post_port_create(self, resource, event, plugin, **kwargs):
         port = kwargs.get('port')
         request_port = kwargs.get('request_port')
@@ -275,6 +277,7 @@ class NuageAddressPair(BaseNuagePlugin):
         except SubnetMappingNotFound:
             pass
 
+    @TimeTracker.tracked
     def post_port_update(self, resource, event, plugin, **kwargs):
         updated_port = kwargs.get('updated_port')
         vport = kwargs.get('vport')
@@ -288,6 +291,7 @@ class NuageAddressPair(BaseNuagePlugin):
                           [context, original_port, request_port,
                            updated_port, vport], {}))
 
+    @TimeTracker.tracked
     def post_router_interface_create(self, resource, event, plugin, **kwargs):
         context = kwargs['context']
         subnet_mapping = kwargs['subnet_mapping']
@@ -295,6 +299,7 @@ class NuageAddressPair(BaseNuagePlugin):
                                              subnet_mapping,
                                              constants.L3SUBNET)
 
+    @TimeTracker.tracked
     def post_router_interface_delete(self, resource, event, plugin, **kwargs):
         context = kwargs['context']
         subnet_mapping = kwargs['subnet_mapping']
