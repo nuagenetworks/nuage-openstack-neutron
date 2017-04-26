@@ -1776,7 +1776,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
             super(NuagePlugin, self).delete_subnet(context, id)
             return self._delete_nuage_sharedresource(id)
 
-        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session, id)
+        subnet_l2dom = copy.deepcopy(
+            nuagedb.get_subnet_l2dom_by_id(context.session, id))
+
         if subnet_l2dom:
             LOG.debug("Found l2domain mapping for subnet %s", id)
             try:
