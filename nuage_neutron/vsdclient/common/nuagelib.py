@@ -1670,6 +1670,13 @@ class NuageGatewayBase(NuageServerBaseClass):
         headers['X-Nuage-Filter'] = "name IS '%s'" % self.extra_params['name']
         return headers
 
+    def extra_headers_by_system_id(self):
+        headers = {}
+        headers['X-NUAGE-FilterType'] = "predicate"
+        headers['X-Nuage-Filter'] = "systemID IS '%s'" %\
+            self.extra_params['system_id']
+        return headers
+
 
 class NuageGateway(NuageGatewayBase):
     def get_resource(self):

@@ -645,6 +645,9 @@ class VsdClientImpl(VsdClient):
         resp = self.nuagegw.create_gateway_port_vlan(vlan_dict)
         return gw_helper.make_gw_vlan_dict(resp[0])
 
+    def create_gateway_vlan(self, vlan_dict):
+        return self.nuagegw.create_gateway_vlan(vlan_dict)
+
     def delete_gateway_port_vlan(self, vlan_id):
         return self.nuagegw.delete_gateway_port_vlan(vlan_id)
 
@@ -654,10 +657,18 @@ class VsdClientImpl(VsdClient):
     def create_gateway_vport(self, tenant_id, vport_dict):
         return self.nuagegw.create_gateway_vport(tenant_id, vport_dict)
 
+    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict):
+        return self.nuagegw.create_gateway_vport_no_usergroup(tenant_id,
+                                                              vport_dict)
+
     def delete_nuage_gateway_vport(self, tenant_id, id, def_netpart_id):
         return self.nuagegw.delete_nuage_gateway_vport(tenant_id,
                                                        id,
                                                        def_netpart_id)
+
+    def delete_nuage_gateway_vport_no_usergroup(self, tenant_id, vport):
+        return self.nuagegw.delete_nuage_gateway_vport_no_usergroup(tenant_id,
+                                                                    vport)
 
     def get_gateway_vport(self, tenant_id, netpart_id, nuage_vport_id):
         return self.nuagegw.get_gateway_vport(tenant_id, netpart_id,
