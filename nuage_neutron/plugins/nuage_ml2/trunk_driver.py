@@ -35,16 +35,12 @@ from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb as db
 from nuage_neutron.plugins.common import trunk_db
 
+
 LOG = logging.getLogger(__name__)
 
-# TODO(gridinv): in ocata defines finally moved
-# to portbindings
-VIF_TYPE_HW_VEB = 'hw_veb'
-VIF_TYPE_HOSTDEV_PHY = 'hostdev_physical'
-
 SUPPORTED_INTERFACES = (
-    VIF_TYPE_HW_VEB,
-    VIF_TYPE_HOSTDEV_PHY,
+    portbindings.VIF_TYPE_OVS,
+    portbindings.VIF_TYPE_VHOST_USER,
 )
 
 SUPPORTED_SEGMENTATION_TYPES = (
@@ -82,12 +78,14 @@ class NuageTrunkHandler(object):
             LOG.debug("Ignoring trunk status change for port"
                       " %s due to unsupported VNIC type",
                       updated_port.get('id'))
+            return
 
         context = kwargs['context']
         if trunk_details.get('trunk_id'):
             trunk = trunk_objects.Trunk.get_object(
                 context, id=trunk_details.get('trunk_id'))
             if trunk:
+                LOG.info("wiring trunk %(tr)s", {'tr': trunk})
                 self.wire_trunk(context, trunk)
                 return
 
@@ -118,6 +116,47 @@ class NuageTrunkHandler(object):
             updated_ports[trunk_id].extend(trunk_updated_ports)
         return updated_ports
 
+    def _validate_same_netpartion(self, context, trunk_port, trunk_subports):
+
+        parent_netpart = db.get_subnet_l2dom_by_port_id(
+            context.session,
+            trunk_port['id']).get('net_partition_id')
+        bad_subport = next((port for port in trunk_subports
+                            if db.get_subnet_l2dom_by_port_id(
+                                context.session,
+                                port.id).get('net_partition_id') !=
+                            parent_netpart), None)
+        if bad_subport:
+            raise nuage_exc.SubPortNetpartitionConflict(subport=bad_subport.id)
+
+    def _validate_subports_vlan(self, context, trunk):
+        """Validates if a subnet only uses a single vlan within a trunk"""
+        context = context.elevated()
+        all_subports_in_trunk = trunk_db.get_vlan_subports_of_trunk(
+            context.session,
+            trunk.id)
+
+        vlans_per_subnet = collections.defaultdict(list)
+        for port in all_subports_in_trunk:
+            subnet_id = port['fixed_ips'][0]['subnet_id']
+            vlans_per_subnet[subnet_id].append(
+                port.sub_port.segmentation_id)
+
+        bad_subnet = next((subnet for subnet, vlans in vlans_per_subnet.items()
+                           if len(vlans) > 1), None)
+        if bad_subnet:
+            raise nuage_exc.TrunkVlanConflict(
+                subnet=bad_subnet,
+                vlans=vlans_per_subnet[bad_subnet])
+        return all_subports_in_trunk
+
+    def _validate_subports_not_trunk_net(self, trunk_port, trunk_subports):
+        """Validates if a subport is not in the trunk network"""
+        bad_port = next((port for port in trunk_subports
+                         if port.network_id == trunk_port['network_id']), None)
+        if bad_port:
+            raise nuage_exc.SubPortParentPortConflict(subport=bad_port.id)
+
     def _process_binding(self, context, trunk, subports):
         updated_ports = []
         trunk_port_id = trunk.port_id
@@ -125,18 +164,16 @@ class NuageTrunkHandler(object):
         trunk_host = trunk_port.get(portbindings.HOST_ID)
         trunk_profile = trunk_port.get(portbindings.PROFILE)
         trunk.update(status=t_consts.BUILD_STATUS)
-        trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_profile else
+        trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_host else
                               t_consts.DOWN_STATUS)
-
         for port in subports:
             try:
-                if trunk_profile:
-                    trunk_profile['vlan'] = port.segmentation_id
+                data = {'port': {portbindings.HOST_ID: trunk_host,
+                                 portbindings.PROFILE: trunk_profile,
+                                 'device_owner': t_consts.TRUNK_SUBPORT_OWNER}}
+                LOG.info("updating port: %(data)s", {'data': data})
                 updated_port = self.core_plugin.update_port(
-                    context, port.port_id,
-                    {'port': {portbindings.HOST_ID: trunk_host,
-                              portbindings.PROFILE: trunk_profile,
-                              'device_owner': t_consts.TRUNK_SUBPORT_OWNER}})
+                    context, port.port_id, data)
                 vif_type = updated_port.get(portbindings.VIF_TYPE)
                 if vif_type == portbindings.VIF_TYPE_BINDING_FAILED:
                     raise t_exc.SubPortBindingError(port_id=port.port_id,
@@ -154,39 +191,6 @@ class NuageTrunkHandler(object):
         else:
             trunk.update(status=trunk_target_state)
         return updated_ports
-
-    def _validate_subports_vlan(self, context, trunk):
-        """Validates if a subnet only uses a single vlan within a physnet"""
-        LOG.debug("validating vlans in trunk %s", trunk['id'])
-        context = context.elevated()
-
-        all_subports_in_physnet = trunk_db.get_vlan_subports_of_trunk_physnet(
-            context.session,
-            trunk.id)
-        vlans_per_subnet = collections.defaultdict(list)
-        all_subports_in_trunk = []
-        for port in all_subports_in_physnet:
-            subnet_id = port['fixed_ips'][0]['subnet_id']
-            vlans_per_subnet[subnet_id].append(
-                port.sub_port.segmentation_id)
-            if port.sub_port.trunk_id == trunk['id']:
-                all_subports_in_trunk.append(port)
-
-        bad_subnet = next((subnet for subnet, vlans in vlans_per_subnet.items()
-                           if len(vlans) > 1), None)
-        if bad_subnet:
-            raise nuage_exc.PhysnetVlanConflict(
-                subnet=bad_subnet,
-                vlans=vlans_per_subnet[bad_subnet])
-
-        return all_subports_in_trunk
-
-    def _validate_subports_not_trunk_net(self, trunk_port, trunk_subports):
-        """Validates if a subport is not in the trunk network"""
-        bad_port = next((port for port in trunk_subports
-                         if port.network_id != trunk_port['network_id']), None)
-        if bad_port:
-            raise nuage_exc.SubPortParentPortConflict(subport=bad_port.id)
 
     def _validate_subports_vnic_type(self, context, trunk, trunk_port,
                                      subports):
@@ -208,17 +212,72 @@ class NuageTrunkHandler(object):
                 vnic_type_parent=parent_vnic)
 
     def _set_sub_ports(self, trunk_id, subports):
+        _vsdclient = self.plugin_driver.vsdclient
         ctx = n_ctx.get_admin_context()
-        LOG.debug("updating subport bindings for trunk %s", trunk_id)
+        for port in subports:
+            LOG.debug('setting port id %(id)s  vlan %(vlan)s',
+                      {'id': port.port_id, 'vlan': port.segmentation_id})
+            os_port = self.core_plugin.get_port(ctx, port.port_id)
+            subnet_mapping = db.get_subnet_l2dom_by_port_id(ctx.session,
+                                                            port.port_id)
+            fixed_ips = os_port['fixed_ips']
+            subnets = {4: {}, 6: {}}
+            ips = {4: None, 6: None}
+            for fixed_ip in fixed_ips:
+                subnet = self.core_plugin.get_subnet(ctx,
+                                                     fixed_ip['subnet_id'])
+                subnets[subnet['ip_version']] = subnet
+                ips[subnet['ip_version']] = fixed_ip['ip_address']
+
+            network_details = self.core_plugin.get_network(
+                ctx,
+                os_port['network_id'])
+            if network_details['shared']:
+                _vsdclient.create_usergroup(
+                    os_port['tenant_id'],
+                    subnet_mapping['net_partition_id'])
+
+            np_name = _vsdclient.get_net_partition_name_by_id(
+                subnet_mapping['net_partition_id'])
+
+            data = {
+                'id': os_port['id'],
+                'mac': os_port['mac_address'],
+                'ipv4': ips[4],
+                'ipv6': ips[6],
+                'net_partition_id': subnet_mapping['net_partition_id'],
+                'net_partition_name': np_name,
+                'nuage_subnet_id': subnet_mapping.get('nuage_subnet_id')
+            }
+            nuage_subnet, _ = self.plugin_driver._get_nuage_subnet(
+                subnet_mapping, subnet_mapping['nuage_subnet_id'])
+            # TODO(gridinv): should we handle shared network resources
+            if nuage_subnet['type'] == p_consts.L2DOMAIN:
+                shared_resource_id = nuage_subnet.get(
+                    'associatedSharedNetworkResourceID')
+                if not subnets[4].get('enable_dhcp'):
+                    data['ipv4'] = None
+                    data['ipv6'] = None
+                elif ((not nuage_subnet['DHCPManaged']) and
+                      (not shared_resource_id)):
+                    data['ipv4'] = None
+                    data['ipv6'] = None
+            try:
+                _vsdclient.add_subport(trunk_id, port, data)
+            except Exception as ex:
+                LOG.error("Failed to create subport: %s", ex)
+                self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
         updated_ports = self._update_subport_bindings(ctx,
                                                       trunk_id,
                                                       subports)
-        if len(subports) != len(updated_ports):
+        if len(subports) != len(updated_ports[trunk_id]):
             LOG.error("Updated: %(up)s, subports: %(sub)s",
-                      {'up': len(updated_ports), 'sub': len(subports)})
+                      {'up': len(updated_ports[trunk_id]),
+                       'sub': len(subports)})
             self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
 
     def _unset_sub_ports(self, trunk_id, subports):
+        _vsdclient = self.plugin_driver.vsdclient
         ctx = n_ctx.get_admin_context()
         updated_ports = []
         for port in subports:
@@ -235,6 +294,9 @@ class NuageTrunkHandler(object):
                     raise t_exc.SubPortBindingError(port_id=port.port_id,
                                                     trunk_id=trunk_id)
                 updated_ports.append(updated_port)
+                subnet_mapping = db.get_subnet_l2dom_by_port_id(ctx.session,
+                                                                port.port_id)
+                _vsdclient.remove_subport(updated_port, subnet_mapping)
             except t_exc.SubPortBindingError as e:
                 LOG.error("Failed to clear binding for subport: %s", e)
                 self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
@@ -243,6 +305,30 @@ class NuageTrunkHandler(object):
         if len(subports) != len(updated_ports):
             self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
 
+    def _set_trunk(self, trunk):
+        _vsdclient = self.plugin_driver.vsdclient
+        ctx = n_ctx.get_admin_context()
+        subnet_mapping = db.get_subnet_l2dom_by_port_id(ctx.session,
+                                                        trunk.port_id)
+        try:
+            _vsdclient.create_trunk(trunk, subnet_mapping)
+        except Exception as ex:
+            LOG.error("Failed to create trunk: %s", ex)
+            trunk.update(status=t_consts.ERROR_STATUS)
+            raise t_exc.TrunkInErrorState(trunk_id=trunk.id)
+
+    def _unset_trunk(self, trunk):
+        _vsdclient = self.plugin_driver.vsdclient
+        ctx = n_ctx.get_admin_context()
+        subnet_mapping = db.get_subnet_l2dom_by_port_id(ctx.session,
+                                                        trunk.port_id)
+        try:
+            _vsdclient.delete_trunk(trunk, subnet_mapping)
+        except Exception as ex:
+            LOG.error("Failed to delete trunk: %s", ex)
+            trunk.update(status=t_consts.ERROR_STATUS)
+            raise t_exc.TrunkInErrorState(trunk_id=trunk.id)
+
     def trunk_created(self, trunk):
         ctx = n_ctx.get_admin_context()
         # handle trunk with parent port supported by
@@ -250,7 +336,9 @@ class NuageTrunkHandler(object):
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
         if (trunk_port.get(portbindings.VNIC_TYPE) in
                 self.plugin_driver._supported_vnic_types()):
-            LOG.debug('trunk_created: %(trunk)s', {'trunk': trunk})
+
+            LOG.debug('trunk_created callback: %(trunk)s', {'trunk': trunk})
+            self._set_trunk(trunk)
             self._set_sub_ports(trunk.id, trunk.sub_ports)
 
     def trunk_deleted(self, trunk):
@@ -260,8 +348,9 @@ class NuageTrunkHandler(object):
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
         if (trunk_port.get(portbindings.VNIC_TYPE) in
                 self.plugin_driver._supported_vnic_types()):
-            LOG.debug('trunk_deleted: %(trunk)s', {'trunk': trunk})
+            LOG.debug('trunk_deleted callback: %(trunk)s', {'trunk': trunk})
             self._unset_sub_ports(trunk.id, trunk.sub_ports)
+            self._unset_trunk(trunk)
 
     def subports_pre_create(self, context, trunk, subports):
         LOG.debug('subport_pre_create: %(trunk)s subports : %(sp)s',
@@ -272,25 +361,30 @@ class NuageTrunkHandler(object):
                 self.plugin_driver._supported_vnic_types()):
             trunk_subports = self._validate_subports_vlan(context, trunk)
             self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
+            self._validate_same_netpartion(context, trunk_port, trunk_subports)
             self._validate_subports_vnic_type(context, trunk,
                                               trunk_port, subports)
 
     def subports_added(self, trunk, subports):
-        LOG.debug('subport_added: %(trunk)s subports : %(sp)s',
-                  {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
+        # handle trunk with parent port supported by
+        # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
         if (trunk_port.get(portbindings.VNIC_TYPE) in
                 self.plugin_driver._supported_vnic_types()):
+            LOG.debug('subport_added callback: %(trunk)s subports : %(sp)s',
+                      {'trunk': trunk, 'sp': subports})
             self._set_sub_ports(trunk.id, subports)
 
     def subports_deleted(self, trunk, subports):
-        LOG.debug('subport_deleted: %(trunk)s subports : %(sp)s',
-                  {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
+        # handle trunk with parent port supported by
+        # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
         if (trunk_port.get(portbindings.VNIC_TYPE) in
                 self.plugin_driver._supported_vnic_types()):
+            LOG.debug('subport_deleted callback: %(trunk)s subports : %(sp)s',
+                      {'trunk': trunk, 'sp': subports})
             self._unset_sub_ports(trunk.id, subports)
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
@@ -316,7 +410,7 @@ class NuageTrunkDriver(trunk_base.DriverBase):
     @property
     def is_loaded(self):
         try:
-            return (p_consts.NUAGE_ML2_SRIOV_DRIVER_NAME in
+            return (p_consts.NUAGE_ML2_DRIVER_NAME in
                     cfg.CONF.ml2.mechanism_drivers)
         except cfg.NoSuchOptError:
             return False
@@ -342,8 +436,8 @@ class NuageTrunkDriver(trunk_base.DriverBase):
     @classmethod
     def create(cls, plugin_driver):
         cls.plugin_driver = plugin_driver
-        return cls(p_consts.NUAGE_ML2_SRIOV_DRIVER_NAME,
+        return cls(p_consts.NUAGE_ML2_DRIVER_NAME,
                    SUPPORTED_INTERFACES,
                    SUPPORTED_SEGMENTATION_TYPES,
                    None,
-                   can_trunk_bound_port=True)
+                   can_trunk_bound_port=False)

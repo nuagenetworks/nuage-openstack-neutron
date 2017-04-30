@@ -27,6 +27,7 @@ from nuage_neutron.vsdclient.resources import gateway
 from nuage_neutron.vsdclient.resources import l2domain
 from nuage_neutron.vsdclient.resources import netpartition
 from nuage_neutron.vsdclient.resources import policygroups
+from nuage_neutron.vsdclient.resources import trunk
 from nuage_neutron.vsdclient.resources import vm
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient import VsdClient
@@ -60,6 +61,7 @@ class VsdClientImpl(VsdClient):
         self.nuagegw = gateway.NuageGateway(self.restproxy,
                                             self.policygroups)
         self.fwaas = fwaas.NuageFwaas(self.restproxy)
+        self.trunk = trunk.NuageTrunk(self.restproxy)
 
     def create_cms(self, name):
         cms = nuagelib.NuageCms(create_params={'name': name})
@@ -842,3 +844,35 @@ class VsdClientImpl(VsdClient):
 
     def get_nuage_plugin_stats_dict(self):
         return self.create_dict_nuage_stats()
+
+    def create_trunk(self, os_trunk, subnet_mapping):
+        params = {
+            'neutron_port_id': os_trunk.port_id,
+            'l2dom_id': subnet_mapping.get('nuage_subnet_id'),
+            'l3dom_id': subnet_mapping.get('nuage_subnet_id')
+        }
+        vport = self.get_nuage_vport_by_neutron_id(params, required=True)
+        subnet_mapping['nuage_vport_id'] = vport['ID']
+        self.trunk.create_trunk(os_trunk, subnet_mapping)
+
+    def delete_trunk(self, os_trunk, subnet_mapping):
+        self.trunk.delete_trunk(os_trunk, subnet_mapping)
+
+    def add_subport(self, os_trunk_id, os_subport, data):
+        params = {
+            'neutron_port_id': os_subport.port_id,
+            'l2dom_id': data.get('nuage_subnet_id'),
+            'l3dom_id': data.get('nuage_subnet_id')
+        }
+        vport = self.get_nuage_vport_by_neutron_id(params, required=True)
+        self.trunk.add_subport(os_trunk_id, os_subport,
+                               vport['ID'], data)
+
+    def remove_subport(self, os_port, subnet_mapping):
+        params = {
+            'neutron_port_id': os_port['id'],
+            'l2dom_id': subnet_mapping.get('nuage_subnet_id'),
+            'l3dom_id': subnet_mapping.get('nuage_subnet_id')
+        }
+        vport = self.get_nuage_vport_by_neutron_id(params, required=True)
+        self.trunk.remove_subport(os_port, vport)
