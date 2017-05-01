@@ -34,7 +34,7 @@ from neutron.plugins.ml2 import driver_api as api
 from neutron.services.trunk import constants as t_consts
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as os_constants
-
+from neutron_lib.exceptions import PortInUse
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
 from nuage_neutron.plugins.common import base_plugin
@@ -57,6 +57,8 @@ from nuage_neutron.plugins.nuage_ml2 import trunk_driver
 
 
 LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCERV2
+PORT_UNPLUGGED_TYPES = (portbindings.VIF_TYPE_BINDING_FAILED,
+                        portbindings.VIF_TYPE_UNBOUND)
 
 LOG = log.getLogger(__name__)
 
@@ -573,6 +575,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if (not subnet_mapping or
                 port.get('device_owner') == constants.DEVICE_OWNER_IRONIC):
             return
+        self._check_subport_in_use(original, port)
         nuage_vport = self._get_nuage_vport(port, subnet_mapping)
 
         ips_changed = self._check_ip_update_allowed(original, port)
@@ -944,18 +947,25 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             raise e
 
     def _check_ip_update_allowed(self, orig_port, port):
-        unplugged_types = (portbindings.VIF_TYPE_BINDING_FAILED,
-                           portbindings.VIF_TYPE_UNBOUND)
         new_ips = port.get('fixed_ips')
         vif_type = orig_port.get(portbindings.VIF_TYPE)
         ips_change = (new_ips is not None and
                       orig_port.get('fixed_ips') != new_ips)
-        if (ips_change and vif_type not in unplugged_types):
+        if ips_change and vif_type not in PORT_UNPLUGGED_TYPES:
             raise NuagePortBound(port_id=orig_port['id'],
                                  vif_type=vif_type,
                                  old_ips=orig_port['fixed_ips'],
                                  new_ips=port['fixed_ips'])
         return ips_change
+
+    def _check_subport_in_use(self, orig_port, port):
+        is_sub = t_consts.TRUNK_SUBPORT_OWNER == orig_port.get('device_owner')
+        if is_sub:
+            vif_orig = orig_port.get(portbindings.VIF_TYPE)
+            if vif_orig not in PORT_UNPLUGGED_TYPES and port.get('device_id'):
+                raise PortInUse(port_id=port['id'],
+                                net_id=port['network_id'],
+                                device_id='trunk:subport')
 
     def _validate_port(self, db_context, port, event):
         if 'fixed_ips' not in port or len(port.get('fixed_ips', [])) == 0:
