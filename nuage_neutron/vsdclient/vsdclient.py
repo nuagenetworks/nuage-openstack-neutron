@@ -567,3 +567,6 @@ class VsdClient(object):
 
     def remove_subport(self, os_port, subnet_mapping):
         pass
+
+    def update_subport(self, os_port, vport, params):
+        pass

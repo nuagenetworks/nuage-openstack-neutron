@@ -147,6 +147,15 @@ class NuageTrunk(NuageTrunkBase):
         data = {'associatedTrunkID': None}
         self.put(TrunkPort, vport['ID'], data)
 
+    def update_subport(self, os_port, vport, params):
+        vm_interface = self._get_by_openstack_id(TrunkInterface,
+                                                 os_port['id'],
+                                                 parent='vports',
+                                                 parent_id=vport.get('ID'))
+        if vm_interface:
+            data = self.map_port_to_interface(params)
+            self.put(TrunkInterface, vm_interface.get('ID'), data)
+
     # TrunkInterface
     def add_subport_interface(self, nuage_vport_id, params):
 

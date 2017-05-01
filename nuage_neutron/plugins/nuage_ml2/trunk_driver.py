@@ -116,7 +116,8 @@ class NuageTrunkHandler(object):
             updated_ports[trunk_id].extend(trunk_updated_ports)
         return updated_ports
 
-    def _validate_same_netpartion(self, context, trunk_port, trunk_subports):
+    def _validate_same_netpartition(self, context,
+                                    trunk_port, trunk_subports):
 
         parent_netpart = db.get_subnet_l2dom_by_port_id(
             context.session,
@@ -361,7 +362,8 @@ class NuageTrunkHandler(object):
                 self.plugin_driver._supported_vnic_types()):
             trunk_subports = self._validate_subports_vlan(context, trunk)
             self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
-            self._validate_same_netpartion(context, trunk_port, trunk_subports)
+            self._validate_same_netpartition(context, trunk_port,
+                                             trunk_subports)
             self._validate_subports_vnic_type(context, trunk,
                                               trunk_port, subports)
 
