@@ -544,5 +544,5 @@ class VsdClient(object):
 
     # Plugin stats
 
-    def get_nuage_plugin_stats_dict(self):
+    def get_nuage_plugin_stats(self):
         pass

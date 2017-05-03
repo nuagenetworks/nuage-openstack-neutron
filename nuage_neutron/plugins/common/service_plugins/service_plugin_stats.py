@@ -26,7 +26,7 @@ class NuagePluginStatsServicePlugin(service_base.ServicePluginBase,
         return constants.NUAGE_PLUGIN_STATS
 
     def get_plugin_description(self):
-        return ("Nuage Plugin Providing Statistics")
+        return ("Nuage Plugin Statistics")
 
     def get_nuage_plugin_stats(self, context, filters=None, fields=None):
-        return self.vsdclient.get_nuage_plugin_stats_dict()
+        return [self.vsdclient.get_nuage_plugin_stats()]
