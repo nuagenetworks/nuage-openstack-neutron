@@ -29,7 +29,8 @@ VSD_PRIORITY_CONFLICT_ERR_CODE = '2591'
 PROTO_NAME_TO_NUM = {
     'tcp': 6,
     'udp': 17,
-    'icmp': 1
+    'icmp': 1,
+    'icmpv6': 58
 }
 NUAGE_ACL_INGRESS = 'ingress'
 NUAGE_ACL_EGRESS = 'egress'
@@ -58,10 +59,11 @@ DEF_L2DOM_TEMPLATE_PFIX = '_def_L2_Template'
 TEMPLATE_ISOLATED_ZONE = 'openstack-isolated'
 TEMPLATE_SHARED_ZONE = 'openstack-shared'
 
-NUAGE_NOTSUPPORTED_ETHERTYPE = ['IPv6']
-NUAGE_NOTSUPPORTED_ACL_MATCH = ['ethertype value IPv6']
+NUAGE_SUPPORTED_ETHERTYPES = ['IPv4', 'IPv6']
+NUAGE_NOTSUPPORTED_ACL_MATCH = ['ethertype value']
 NOT_SUPPORTED_ACL_ATTR_MSG = (','.join(NUAGE_NOTSUPPORTED_ACL_MATCH) +
-                              " attribute(s) not supported by nuage plugin")
+                              ": %s attribute(s) not supported by nuage" +
+                              " plugin")
 NUAGE_ACL_PROTOCOL_ANY_MAPPING = ['tcp', 'udp']
 RES_POLICYGROUPS = 'policygroups'
 
