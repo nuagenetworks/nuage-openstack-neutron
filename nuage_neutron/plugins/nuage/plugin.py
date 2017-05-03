@@ -37,18 +37,9 @@ from neutron.callbacks import events
 from neutron.callbacks import exceptions as cb_exc
 from neutron.callbacks import registry
 from neutron.callbacks import resources
-from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
-from neutron.db import external_net_db
-from neutron.db import extradhcpopt_db
-from neutron.db import extraroute_db
-from neutron.db import l3_gwmode_db
 from neutron.db import models_v2
-from neutron.db import portbindings_db
-from neutron.db import portsecurity_db_common as ps_db_common
-from neutron.db import quota_db  # noqa
-from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron.extensions import external_net
 from neutron.extensions import l3
@@ -69,29 +60,18 @@ from nuage_neutron.plugins.common import extensions as common_extensions
 from nuage_neutron.plugins.common.extensions import nuage_router
 from nuage_neutron.plugins.common import gateway
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common import port_dhcp_options
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
+
 from nuage_neutron.plugins.nuage import extensions
-from nuage_neutron.plugins.nuage import externalsg
+from nuage_neutron.plugins.nuage.nuage_core_wrapper import NuageCoreWrapper
 from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
 LOG = logging.getLogger(__name__)
 
 
-class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
-                  addresspair.NuageAddressPair,
-                  db_base_plugin_v2.NeutronDbPluginV2,
-                  addr_pair_db.AllowedAddressPairsMixin,
-                  external_net_db.External_net_db_mixin,
-                  extraroute_db.ExtraRoute_db_mixin,
-                  l3_gwmode_db.L3_NAT_db_mixin,
-                  gateway.NuagegatewayMixin,
-                  externalsg.NuageexternalsgMixin,
-                  sg_db.SecurityGroupDbMixin,
-                  portbindings_db.PortBindingMixin,
-                  ps_db_common.PortSecurityDbCommon,
-                  extradhcpopt_db.ExtraDhcpOptMixin):
+class NuagePlugin(NuageCoreWrapper):
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
@@ -121,6 +101,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
         self.init_fip_rate_log()
         addresspair.NuageAddressPair.register(self)
         gateway.NuagegatewayMixin.__init__(self)
+        if nuage_utils.is_enabled(constants.DEBUG_TIMING_STATS):
+            TimeTracker.start()
         LOG.debug("NuagePlugin initialization done")
 
     db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
@@ -391,6 +373,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                  policygroup_ids)
 
     @db.retry_if_session_inactive()
+    @TimeTracker.tracked
     def get_port(self, context, id, fields=None):
         port = super(NuagePlugin, self).get_port(context, id, fields=None)
         self.extend_port_dict(context, port, fields=fields)
@@ -439,6 +422,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def create_port(self, context, port):
         session = context.session
         net_partition = None
@@ -710,6 +694,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def update_port(self, context, id, port):
         create_vm = False
         p_data = port['port']
@@ -1011,6 +996,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_port(self, context, id, l3_port_check=True):
         self._pre_delete_port(context, id, l3_port_check)
         port = self._get_port(context, id)
@@ -1135,6 +1121,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def create_network(self, context, network):
         data = network['network']
         (network_type, physical_network,
@@ -1203,6 +1190,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def update_network(self, context, id, network):
         data = network['network']
         pnet._raise_if_updates_provider_attributes(data)
@@ -1269,6 +1257,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_network(self, context, id):
         with context.session.begin(subtransactions=True):
             self._process_l3_delete(context, id)
@@ -1652,6 +1641,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_subnet(self, context, id, fields=None):
         subnet = super(NuagePlugin, self).get_subnet(context, id, None)
         subnet = nuagedb.get_nuage_subnet_info(context.session, subnet, fields)
@@ -1667,6 +1657,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
                     limit=None, marker=None, page_reverse=False):
         subnets = super(NuagePlugin, self).get_subnets(context, filters, None,
@@ -1681,6 +1672,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def create_subnet(self, context, subnet):
         subn = subnet['subnet']
         net_id = subn['network_id']
@@ -1723,6 +1715,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def update_subnet(self, context, id, subnet):
         subn = copy.deepcopy(subnet['subnet'])
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(context.session, id)
@@ -1775,6 +1768,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_subnet(self, context, id):
         subnet = self.get_subnet(context, id)
 
@@ -1837,6 +1831,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def add_router_interface(self, context, router_id, interface_info):
         session = context.session
         rtr_if_info = super(NuagePlugin, self).add_router_interface(
@@ -1948,6 +1943,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def remove_router_interface(self, context, router_id, interface_info):
         if 'subnet_id' in interface_info:
             subnet_id = interface_info['subnet_id']
@@ -2058,6 +2054,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_router(self, context, id, fields=None):
         router = super(NuagePlugin, self).get_router(context, id, fields)
         nuage_router = self.vsdclient.get_router_by_external(id)
@@ -2089,6 +2086,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def create_router(self, context, router):
         req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_router(context,
@@ -2144,6 +2142,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def update_router(self, context, id, router):
         updates = router['router']
         original_router = self.get_router(context, id)
@@ -2267,6 +2266,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_router(self, context, id):
         neutron_router = self.get_router(context, id)
         session = context.session
@@ -2486,6 +2486,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
         return self._validate_create_net_partition(ent["name"],
@@ -2510,6 +2511,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_net_partition(self, context, id):
         net_partition = nuagedb.get_net_partition_by_id(context.session, id)
         if not net_partition:
@@ -2523,6 +2525,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_net_partition(self, context, id, fields=None):
         net_partition = nuagedb.get_net_partition_by_id(context.session,
                                                         id)
@@ -2533,6 +2536,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_net_partitions(self, context, filters=None, fields=None):
         net_partitions = nuagedb.get_net_partitions(context.session,
                                                     filters=filters,
@@ -2723,6 +2727,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuagePlugin, self).get_floatingip(context, id)
 
@@ -2748,6 +2753,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def create_floatingip(self, context, floatingip):
         fip = floatingip['floatingip']
         with context.session.begin(subtransactions=True):
@@ -2783,6 +2789,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def disassociate_floatingips(self, context, port_id, do_notify=True):
         fips = self.get_floatingips(context, filters={'port_id': [port_id]})
         router_ids = super(NuagePlugin, self).disassociate_floatingips(
@@ -2866,6 +2873,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def update_floatingip(self, context, id, floatingip):
         fip = floatingip['floatingip']
         orig_fip = self._get_floatingip(context, id)
@@ -2999,6 +3007,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_floatingip(self, context, fip_id):
         fip = self._get_floatingip(context, fip_id)
         port_id = fip['fixed_port_id']
@@ -3098,6 +3107,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_security_group(self, context, id):
         filters = {'security_group_id': [id]}
         ports = self._get_port_security_group_bindings(context,
@@ -3112,6 +3122,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def create_security_group_rule(self, context, security_group_rule):
         remote_sg = None
         sg_rule = security_group_rule['security_group_rule']
@@ -3146,6 +3157,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_security_group_rule(self, context, id):
         local_sg_rule = self.get_security_group_rule(context, id)
         super(NuagePlugin, self).delete_security_group_rule(context, id)
@@ -3155,6 +3167,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_vsd_subnet(self, context, id, fields=None):
         subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
             id, required=True)
@@ -3177,6 +3190,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_vsd_subnets(self, context, filters=None, fields=None):
         if 'vsd_zone_id' not in filters:
             msg = _('vsd_zone_id is a required filter parameter for this API.')

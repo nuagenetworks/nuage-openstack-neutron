@@ -25,8 +25,8 @@ from oslo_utils import excutils
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
-
 
 LOG = logging.getLogger(__name__)
 
@@ -65,11 +65,13 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def pre_delete_security_group(self, resource, event, trigger, **kwargs):
         self.vsdclient.delete_nuage_secgroup(kwargs['security_group_id'])
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def pre_create_security_group_rule(self, resource, event, trigger,
                                        **kwargs):
         self.vsdclient.validate_nuage_sg_rule_definition(
@@ -77,6 +79,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def post_create_security_group_rule(self, resource, event, trigger,
                                         **kwargs):
         remote_sg = None
@@ -106,6 +109,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def pre_delete_security_group_rule(self, resource, event, trigger,
                                        **kwargs):
         context = kwargs['context']
@@ -113,6 +117,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         local_sg_rule = self.core_plugin.get_security_group_rule(context, id)
         self.vsdclient.delete_nuage_sgrule([local_sg_rule])
 
+    @TimeTracker.tracked
     def post_port_create(self, resource, event, trigger, **kwargs):
         context = kwargs['context']
         port = kwargs['port']
@@ -129,6 +134,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                               port[ext_sg.SECURITYGROUPS],
                                               vsd_subnet)
 
+    @TimeTracker.tracked
     def post_port_update(self, resource, event, trigger, **kwargs):
         context = kwargs['context']
         updated_port = kwargs['updated_port']
@@ -152,6 +158,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                           set(updated_port[ext_sg.SECURITYGROUPS]))
         self.vsdclient.check_unused_policygroups(deleted_sg_ids)
 
+    @TimeTracker.tracked
     def post_port_delete(self, resource, event, trigger, **kwargs):
         port = kwargs['port']
         subnet_mapping = kwargs['subnet_mapping']

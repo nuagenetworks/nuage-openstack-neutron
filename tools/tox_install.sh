@@ -5,7 +5,7 @@
 set -ex
 
 ZUUL_CLONER=/usr/zuul-env/bin/zuul-cloner
-NEUTRON_BRANCH=${NEUTRON_BRANCH:-master}
+NEUTRON_BRANCH=${NEUTRON_BRANCH:-stable/ocata}
 UPPER_CONSTRAINTS_FILE=${UPPER_CONSTRAINTS_FILE:-unconstrained}
 
 install_cmd="pip install"

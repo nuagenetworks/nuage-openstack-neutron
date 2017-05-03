@@ -15,6 +15,7 @@
 import logging
 
 from nuage_neutron.plugins.common import constants as plugin_constants
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils
 
 from nuage_neutron.vsdclient.common import cms_id_helper
@@ -818,4 +819,10 @@ class VsdClientImpl(VsdClient):
         stats = {}
         if utils.is_enabled(plugin_constants.DEBUG_API_STATS):
             stats['api_count'] = self.restproxy.api_count
+        if utils.is_enabled(plugin_constants.DEBUG_TIMING_STATS):
+            stats['time_spent_in_nuage'] = TimeTracker.get_time_tracked()
+            stats['time_spent_in_core'] = TimeTracker.get_time_not_tracked()
+            stats["total_time_spent"] = TimeTracker.get_time_tracked() + \
+                TimeTracker.get_time_not_tracked()
+
         return stats
