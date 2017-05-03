@@ -30,7 +30,6 @@ from nuage_neutron.vsdclient.resources import policygroups
 from nuage_neutron.vsdclient.resources import vm
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient import VsdClient
-from oslo_config import cfg
 
 LOG = logging.getLogger(__name__)
 
@@ -812,22 +811,5 @@ class VsdClientImpl(VsdClient):
     def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
         self.fwaas.delete_firewall(enterprise_id, os_firewall, l3domain_ids)
 
-    def create_dict_nuage_stats(self):
-        restproxy = self.restproxy
-        dict = [{
-            "server": restproxy.server,
-            "serverauth": restproxy.serverauth,
-            "serverssl": restproxy.serverssl,
-            "server_timeout": restproxy.timeout,
-            "server_max_retries": restproxy.max_retries,
-            "base_uri": restproxy.base_uri,
-            "organization": restproxy.organization,
-            "auth_resource": restproxy.auth_resource,
-            "api_count": restproxy.api_count,
-            "default-net-partition":
-                cfg.CONF.RESTPROXY.default_net_partition_name
-        }]
-        return dict
-
-    def get_nuage_plugin_stats_dict(self):
-        return self.create_dict_nuage_stats()
+    def get_nuage_plugin_stats(self):
+        return {}
