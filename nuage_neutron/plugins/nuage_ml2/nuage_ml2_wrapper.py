@@ -23,9 +23,9 @@ from neutron_lib import constants as lib_constants
 from neutron_lib.services import base as service_base
 
 from nuage_neutron.plugins.common import base_plugin
+from nuage_neutron.plugins.common import externalsg
 from nuage_neutron.plugins.common import gateway
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
-from nuage_neutron.plugins.nuage import externalsg
 
 
 class NuageML2Wrapper(base_plugin.RootNuagePlugin,
