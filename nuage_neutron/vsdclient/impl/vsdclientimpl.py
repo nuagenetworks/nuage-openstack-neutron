@@ -34,7 +34,6 @@ from nuage_neutron.vsdclient.resources import trunk
 from nuage_neutron.vsdclient.resources import vm
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient import VsdClient
-from oslo_config import cfg
 
 LOG = logging.getLogger(__name__)
 
@@ -831,18 +830,7 @@ class VsdClientImpl(VsdClient):
     # Plugin stats
 
     def get_nuage_plugin_stats(self):
-        stats = {
-            'server': self.restproxy.server,
-            'serverauth': self.restproxy.serverauth,
-            'serverssl': self.restproxy.serverssl,
-            'server_timeout': self.restproxy.timeout,
-            'server_max_retries': self.restproxy.max_retries,
-            'base_uri': self.restproxy.base_uri,
-            'organization': self.restproxy.organization,
-            'auth_resource': self.restproxy.auth_resource,
-            'default-net-partition':
-                cfg.CONF.RESTPROXY.default_net_partition_name
-        }
+        stats = {}
         if utils.is_enabled(plugin_constants.DEBUG_API_STATS):
             stats['api_count'] = self.restproxy.api_count
         return stats
