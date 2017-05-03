@@ -16,12 +16,13 @@ import copy
 from logging import handlers
 
 import netaddr
-from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common.extensions import nuage_router
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
+
 from oslo_config import cfg
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
@@ -32,24 +33,19 @@ from sqlalchemy.orm import exc
 from neutron._i18n import _
 from neutron.callbacks import resources
 from neutron.db import api as db
-from neutron.db.common_db_mixin import CommonDbMixin
-from neutron.db import extraroute_db
-from neutron.db import l3_gwmode_db
 from neutron.extensions import l3
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
-from neutron_lib.services import base as service_base
 from neutron_lib.utils import helpers
+
+from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageL3Wrapper
+
 
 LOG = logging.getLogger(__name__)
 
 
-class NuageL3Plugin(base_plugin.BaseNuagePlugin,
-                    service_base.ServicePluginBase,
-                    CommonDbMixin,
-                    extraroute_db.ExtraRoute_db_mixin,
-                    l3_gwmode_db.L3_NAT_db_mixin):
+class NuageL3Plugin(NuageL3Wrapper):
     supported_extension_aliases = ['router',
                                    'nuage-router',
                                    'nuage-floatingip',
@@ -124,6 +120,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def add_router_interface(self, context, router_id, interface_info):
         session = context.session
         rtr_if_info = super(NuageL3Plugin, self).add_router_interface(
@@ -239,6 +236,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def remove_router_interface(self, context, router_id, interface_info):
         if 'subnet_id' in interface_info:
             subnet_id = interface_info['subnet_id']
@@ -363,6 +361,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_router(self, context, id, fields=None):
         router = super(NuageL3Plugin, self).get_router(context, id, fields)
         nuage_router = self.vsdclient.get_router_by_external(id)
@@ -394,6 +393,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def create_router(self, context, router):
         req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_router(
@@ -415,6 +415,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             'tenant_id': neutron_router['tenant_id'],
             'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
         }
+        nuage_router = None
         try:
             nuage_router = self.vsdclient.create_router(
                 neutron_router, req_router, params)
@@ -449,6 +450,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def update_router(self, context, id, router):
         updates = router['router']
         original_router = self.get_router(context, id)
@@ -581,6 +583,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_router(self, context, id):
         neutron_router = self.get_router(context, id)
         session = context.session
@@ -616,6 +619,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             self.vsdclient.delete_group(group_id)
 
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def _check_floatingip_update(self, context, port,
                                  vport_type=constants.VM_VPORT,
                                  vport_id=None):
@@ -792,6 +796,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuageL3Plugin, self).get_floatingip(context, id)
 
@@ -817,7 +822,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
-    def create_floatingip(self, context, floatingip):
+    @TimeTracker.tracked
+    def create_floatingip(self, context, floatingip,
+                          initial_status=lib_constants.
+                          FLOATINGIP_STATUS_ACTIVE):
         fip = floatingip['floatingip']
         neutron_fip = super(NuageL3Plugin, self).create_floatingip(
             context, floatingip,
@@ -851,6 +859,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def disassociate_floatingips(self, context, port_id, do_notify=True):
         fips = self.get_floatingips(context, filters={'port_id': [port_id]})
         router_ids = super(NuageL3Plugin, self).disassociate_floatingips(
@@ -934,6 +943,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def update_floatingip(self, context, id, floatingip):
         fip = floatingip['floatingip']
         orig_fip = self._get_floatingip(context, id)
@@ -1067,6 +1077,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
+    @TimeTracker.tracked
     def delete_floatingip(self, context, fip_id):
         fip = self._get_floatingip(context, fip_id)
         port_id = fip['fixed_port_id']

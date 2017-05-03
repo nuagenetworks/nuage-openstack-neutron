@@ -18,8 +18,11 @@ from oslo_log import log as logging
 from neutron.common import utils
 from neutron.db.models import external_net
 from neutron.plugins.ml2 import driver_api as api
+
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
+
 from sqlalchemy.orm import exc
 
 
@@ -54,6 +57,7 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
         result['nuage_uplink'] = data['nuage_uplink']
 
     @utils.exception_logger()
+    @TimeTracker.tracked
     def extend_subnet_dict(self, session, db_data, result):
         if self._is_network_external(session, db_data['network_id']):
             nuage_subnet = self.get_vsd_shared_subnet_attributes(

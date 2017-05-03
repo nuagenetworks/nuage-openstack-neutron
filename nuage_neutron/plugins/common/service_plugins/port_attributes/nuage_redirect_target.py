@@ -33,6 +33,7 @@ from nuage_neutron.plugins.common.extensions import (
 from nuage_neutron.plugins.common.extensions.nuage_redirect_target \
     import REDIRECTTARGETS
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 
 
@@ -510,6 +511,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                        subnet_mapping['subnet_id'])
                 raise nuage_exc.NuageBadRequest(msg=msg)
 
+    @TimeTracker.tracked
     def post_port_update(self, resource, event, trigger, **kwargs):
         request_port = kwargs.get('request_port')
         if ext_rtarget.REDIRECTTARGETS not in request_port:
@@ -526,6 +528,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             context, updated_port, request_port[ext_rtarget.REDIRECTTARGETS],
             nuage_rtargets_ids)
 
+    @TimeTracker.tracked
     def post_port_create(self, resource, event, trigger, **kwargs):
         request_port = kwargs.get('request_port')
         if ext_rtarget.REDIRECTTARGETS not in request_port:
@@ -539,6 +542,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             context, port, request_port[ext_rtarget.REDIRECTTARGETS],
             n_rtarget_ids)
 
+    @TimeTracker.tracked
     def post_port_show(self, resource, event, trigger, **kwargs):
         port = kwargs.get('port')
         fields = kwargs.get('fields')

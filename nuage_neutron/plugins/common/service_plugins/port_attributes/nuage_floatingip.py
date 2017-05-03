@@ -25,6 +25,7 @@ from nuage_neutron.plugins.common.extensions.nuagefloatingip \
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.service_plugins \
     import vsd_passthrough_resource
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.common.validation import require
 from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
@@ -117,9 +118,11 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         return self.vsdclient.get_nuage_domain_floatingips(
             domain_id, assigned=False, externalID=None, **vsd_filters)
 
+    @TimeTracker.tracked
     def post_port_update(self, resource, event, trigger, **kwargs):
         self.process_port_nuage_floatingip(resource, event, trigger, **kwargs)
 
+    @TimeTracker.tracked
     def post_port_create(self, resource, event, trigger, **kwargs):
         if kwargs['vport'] and kwargs['request_port'].get(NUAGE_FLOATINGIP):
             self.process_port_nuage_floatingip(resource, event, trigger,
@@ -161,6 +164,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
             vport['ID'],
             {'associatedFloatingIPID': request_fip.get('id')})
 
+    @TimeTracker.tracked
     def _post_port_show(self, resource, event, trigger, **kwargs):
         port = kwargs.get('port')
         vport = kwargs.get('vport')

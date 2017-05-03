@@ -135,3 +135,4 @@ NUAGE_CORE_PLUGIN = 'NuagePlugin'
 FEATURE_EXPERIMENTAL_TEST = 'experimental_test'
 
 DEBUG_API_STATS = "api_stats"
+DEBUG_TIMING_STATS = "timing_stats"
