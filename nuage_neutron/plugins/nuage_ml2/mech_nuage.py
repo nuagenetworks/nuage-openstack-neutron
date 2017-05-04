@@ -1036,8 +1036,12 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _create_nuage_vm(self, core_plugin, db_context, port, np_name,
                          subnet_mapping, nuage_port, nuage_subnet):
-        no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
-            core_plugin, db_context, port)
+        if port.get('device_owner') == LB_DEVICE_OWNER_V2:
+            no_of_ports = 1
+            vm_id = port['id']
+        else:
+            no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
+                core_plugin, db_context, port)
 
         fixed_ips = port['fixed_ips']
         subnets = {4: {}, 6: {}}
@@ -1086,13 +1090,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return self.vsdclient.create_vms(params)
 
     def _get_port_num_and_vm_id_of_device(self, core_plugin, db_context, port):
-        # upstream neutron_lbaas assigns a constant device_id to all the
-        # lbaas_ports (which is a bug), hence we use port ID as vm_id
-        # instead of device_id for lbaas dummy VM
-        # as get_ports by device_id would return multiple vip_ports,
-        # as workaround set no_of_ports = 1
-        if port.get('device_owner') == LB_DEVICE_OWNER_V2:
-            return 1, port['id']
         filters = {'device_id': [port.get('device_id')]}
         ports = core_plugin.get_ports(db_context, filters)
         ports = [p for p in ports
@@ -1189,10 +1186,17 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _delete_nuage_vm(self, core_plugin, db_context, port, np_name,
                          subnet_mapping, is_port_device_owner_removed=False):
-        no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
-            core_plugin, db_context, port)
-
-        if is_port_device_owner_removed:
+        # upstream neutron_lbaas assigns a constant device_id to all the
+        # lbaas_ports (which is a bug), hence we use port ID as vm_id
+        # instead of device_id for lbaas dummy VM
+        # as get_ports by device_id would return multiple vip_ports,
+        # as workaround set no_of_ports = 1
+        if port.get('device_owner') == LB_DEVICE_OWNER_V2:
+            no_of_ports = 1
+            vm_id = port['id']
+        else:
+            no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
+                core_plugin, db_context, port)
             # In case of device removed, this number should be the amount of
             # vminterfaces on VSD. If it's >1, nuagenetlib knows there are
             # still other vminterfaces using the VM, and it will not delete the
@@ -1202,7 +1206,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             # happened by ml2plugin, AND because we're in the same database
             # transaction, the count here would return 1 less (as the updated
             # port will not be counted because the device_id is already cleared
-            no_of_ports += 1
+            if is_port_device_owner_removed:
+                no_of_ports += 1
 
         fixed_ips = port['fixed_ips']
         subnets = {4: {}, 6: {}}
