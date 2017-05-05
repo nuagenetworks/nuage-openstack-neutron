@@ -41,13 +41,13 @@ class NuageNoOpAgent(original.FirewallAgentApi):
     def __init__(self):
         pass
 
-    def update_firewall(self, context, firewall):
+    def update_firewall(self, *args, **kwargs):
         pass
 
-    def delete_firewall(self, context, firewall):
+    def delete_firewall(self, *args, **kwargs):
         pass
 
-    def create_firewall(self, context, firewall):
+    def create_firewall(self, *args, **kwargs):
         pass
 
 
