@@ -57,7 +57,8 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
                    'provider:network_type': 'vxlan',
                    'router:external': False}
         subnet = {'id': '10',
-                  'network_id': '1'}
+                  'network_id': '1',
+                  'ip_version': '4'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
@@ -72,7 +73,8 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
         subnet = {'id': '10',
                   'network_id': '1',
                   'nuagenet': '0x100',
-                  'net_partition': 'partyland'}
+                  'net_partition': 'partyland',
+                  'ip_version': '4'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
@@ -101,6 +103,10 @@ class Context(context.RequestContext):
         self.db_context = context.RequestContext()
         self._plugin_context = context.RequestContext()
 
+        class Network(object):
+            def __init__(self, network):
+                self.current = network
+
         class CorePlugin(object):
             def __init__(self, _network):
                 self.network = _network
@@ -109,3 +115,4 @@ class Context(context.RequestContext):
                 return self.network
 
         self._plugin = CorePlugin(network)
+        self.network = Network(network)
