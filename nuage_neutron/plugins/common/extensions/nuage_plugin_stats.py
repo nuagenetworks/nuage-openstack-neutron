@@ -23,15 +23,6 @@ NUAGE_PLUGIN_STATS = 'nuage_plugin_stats'
 resource = {}
 RESOURCE_ATTRIBUTE_MAP = {
     NUAGE_PLUGIN_STATS: {
-        'server': {'is_visible': True},
-        'serverauth': {'is_visible': False},
-        'serverssl': {'is_visible': False},
-        'server_timeout': {'is_visible': False},
-        'server_max_retries': {'is_visible': False},
-        'base_uri': {'is_visible': False},
-        'organization': {'is_visible': False},
-        'auth_resource': {'is_visible': False},
-        'default-net-partition': {'is_visible': False},
         'api_count': {'is_visible': True},
         'time_spent_in_nuage': {'is_visible': True},
         'time_spent_in_core': {'is_visible': True},
