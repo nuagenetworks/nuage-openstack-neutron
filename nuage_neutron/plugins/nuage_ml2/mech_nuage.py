@@ -172,6 +172,17 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         subnet['tenant_id'], remove_everybody=True)
 
     @handle_nuage_api_errorcode
+    def create_subnet_precommit(self, context):
+        subnet = context.current
+        network = context.network.current
+        if 'nuagenet' not in subnet and 'net_partition' not in subnet:
+            self._validate_network_segment(network)
+            if subnet['ip_version'] == 6:
+                msg = _("Subnet with ip_version 6 is currently not supported "
+                        "for OpenStack managed subnets.")
+                raise NuageBadRequest(msg=msg)
+
+    @handle_nuage_api_errorcode
     def create_subnet_postcommit(self, context):
         subnet = context.current
         network = context.network.current
