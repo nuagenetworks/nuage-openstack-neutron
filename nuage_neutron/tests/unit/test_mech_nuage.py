@@ -84,7 +84,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
         config.nuage_register_cfg_opts()
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
 
-        conf.config(group='PLUGIN', experimental_features='EXPERIMENTAL_TEST')
+        conf.config(group='PLUGIN', experimental_features='experimental_test')
         NuageMechanismDriver().initialize()
         logger.info.assert_called_once_with('Have a nice day.')
 

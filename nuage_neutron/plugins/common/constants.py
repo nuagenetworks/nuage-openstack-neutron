@@ -134,4 +134,6 @@ BEFORE_CREATE = 'before_create_nuage'
 
 NUAGE_CORE_PLUGIN = 'NuagePlugin'
 
-FEATURE_EXPERIMENTAL_TEST = 'EXPERIMENTAL_TEST'
+FEATURE_EXPERIMENTAL_TEST = 'experimental_test'
+
+DEBUG_API_STATS = "api_stats"
