@@ -28,6 +28,7 @@ from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 LOG = logging.getLogger(__name__)
 
@@ -172,6 +173,7 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
             LOG.error(_("Port Update failed due to: %s") % e.message)
             raise e
 
+    @TimeTracker.tracked
     def _validate_port_dhcp_opts(self, resource, event, trigger, **kwargs):
         request_port = kwargs.get('request_port')
         if not request_port or \
@@ -184,6 +186,7 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
             self._translate_dhcp_option(dhcp_option)
         self._validate_extra_dhcp_opt_for_neutron(dhcp_options)
 
+    @TimeTracker.tracked
     def _create_port_dhcp_opts(self, resource, event, trigger, **kwargs):
         request_port = kwargs.get('request_port')
         port = kwargs.get('port')
@@ -207,6 +210,7 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
         self._create_update_extra_dhcp_options(
             dhcp_options, vport, port['id'])
 
+    @TimeTracker.tracked
     def _update_port_dhcp_opts(self, resource, event, trigger, **kwargs):
         request_port = kwargs.get('request_port')
         original_port = kwargs.get('original_port')

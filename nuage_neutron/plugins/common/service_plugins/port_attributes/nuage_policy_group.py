@@ -26,6 +26,7 @@ from nuage_neutron.plugins.common.extensions.nuagepolicygroup \
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.service_plugins \
     import vsd_passthrough_resource
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 
@@ -182,12 +183,14 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
             return self.vsdclient.get_nuage_domain_policy_groups(
                 domain_id, **vsd_filters)
 
+    @TimeTracker.tracked
     def post_port_update(self, resource, event, trigger, **kwargs):
         return self.process_port_nuage_policy_group(resource,
                                                     event,
                                                     trigger,
                                                     **kwargs)
 
+    @TimeTracker.tracked
     def post_port_create(self, resource, event, trigger, **kwargs):
         self.process_port_nuage_policy_group(
             resource, event, trigger, **kwargs)
@@ -231,6 +234,7 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
                     "this API.") % policy_group['ID']
             raise exceptions.NuageBadRequest(msg=msg)
 
+    @TimeTracker.tracked
     def post_port_show(self, resource, event, trigger, **kwargs):
         port = kwargs.get('port')
         fields = kwargs.get('fields')

@@ -1,4 +1,4 @@
-# Copyright 2015 Alcatel-Lucent USA Inc.
+# Copyright 2017 Nokia
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -37,12 +37,12 @@ from neutron_lib import constants as os_constants
 from neutron_lib.exceptions import PortInUse
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
-from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common.exceptions import NuagePortBound
 from nuage_neutron.plugins.common import extensions
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
@@ -51,7 +51,9 @@ from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import IsSet
 from nuage_neutron.plugins.common.validation import require
 from nuage_neutron.plugins.common.validation import validate
+
 from nuage_neutron.plugins.nuage_ml2 import extensions  # noqa
+from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageML2Wrapper
 from nuage_neutron.plugins.nuage_ml2.securitygroup import NuageSecurityGroup
 from nuage_neutron.plugins.nuage_ml2 import trunk_driver
 
@@ -63,9 +65,7 @@ PORT_UNPLUGGED_TYPES = (portbindings.VIF_TYPE_BINDING_FAILED,
 LOG = log.getLogger(__name__)
 
 
-class NuageMechanismDriver(base_plugin.RootNuagePlugin,
-                           api.MechanismDriver,
-                           db_base_plugin_v2.NeutronDbPluginV2):
+class NuageMechanismDriver(NuageML2Wrapper):
 
     def initialize(self):
         LOG.debug('Initializing driver')
@@ -81,6 +81,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         if utils.is_enabled(constants.FEATURE_EXPERIMENTAL_TEST):
             LOG.info("Have a nice day.")
+        if utils.is_enabled(constants.DEBUG_TIMING_STATS):
+            TimeTracker.start()
         LOG.debug('Initializing complete')
 
     @property
@@ -114,6 +116,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     @handle_nuage_api_errorcode
     @utils.context_log
+    @TimeTracker.tracked
     def update_network_precommit(self, context):
         updated_network = context.current
         original_network = context.original
@@ -127,6 +130,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     @handle_nuage_api_errorcode
     @utils.context_log
+    @TimeTracker.tracked
     def update_network_postcommit(self, context):
         updated_network = context.current
         original_network = context.original
@@ -179,6 +183,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         subnet['tenant_id'], remove_everybody=True)
 
     @handle_nuage_api_errorcode
+    @TimeTracker.tracked
     def create_subnet_precommit(self, context):
         subnet = context.current
         network = context.network.current
@@ -190,6 +195,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 raise NuageBadRequest(msg=msg)
 
     @handle_nuage_api_errorcode
+    @TimeTracker.tracked
     def create_subnet_postcommit(self, context):
         subnet = context.current
         network = context.network.current
@@ -335,6 +341,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                           " for unmanaged subnet "))
             params['dhcp_ip'] = None
 
+        nuage_subnet = None
         try:
             nuage_subnet = self.vsdclient.create_subnet(neutron_subnet,
                                                         params)
@@ -362,6 +369,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             neutron_subnet['nuagenet'] = nuage_id
 
     @utils.context_log
+    @TimeTracker.tracked
     def update_subnet_precommit(self, context):
         updated_subnet = context.current
         original_subnet = context.original
@@ -435,6 +443,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     port['id'])
 
     @utils.context_log
+    @TimeTracker.tracked
     def delete_subnet_precommit(self, context):
         """Get subnet_l2dom_mapping for later.
 
@@ -453,6 +462,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         context.nuage_ports = self.get_ports(db_context, filters)
 
     @handle_nuage_api_errorcode
+    @TimeTracker.tracked
     def delete_subnet_postcommit(self, context):
         db_context = context._plugin_context
         subnet = context.current
@@ -490,6 +500,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     @handle_nuage_api_errorcode
     @utils.context_log
+    @TimeTracker.tracked
     def create_port_postcommit(self, context):
         db_context = context._plugin_context
         core_plugin = context._plugin
@@ -561,6 +572,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     @handle_nuage_api_errorcode
     @utils.context_log
+    @TimeTracker.tracked
     def update_port_precommit(self, context):
         db_context = context._plugin_context
         core_plugin = context._plugin
@@ -641,6 +653,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     rollback[0](*rollback[1], **rollback[2])
 
     @utils.context_log
+    @TimeTracker.tracked
     def delete_port_postcommit(self, context):
         db_context = context._plugin_context
         core_plugin = context._plugin

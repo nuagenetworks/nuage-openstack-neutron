@@ -32,4 +32,5 @@ class NuagePluginStats(service_base.ServicePluginBase,
         return ("Nuage Plugin Statistics")
 
     def get_nuage_plugin_stats(self, context, filters=None, fields=None):
-        return [self.vsdclient.get_nuage_plugin_stats()]
+        return [self.vsdclient.get_nuage_plugin_stats()] if context.is_admin \
+            else []
