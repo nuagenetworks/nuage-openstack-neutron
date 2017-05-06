@@ -98,7 +98,9 @@ plugin_opts = [
                 help=_("List of device_owners prefix for which vports are "
                        "not created in VSD.")),
     cfg.ListOpt('experimental_features', default=[],
-                help=_("List of experimental features to be enabled."))
+                help=_("List of experimental features to be enabled.")),
+    cfg.ListOpt('enable_debug', default=[],
+                help=_("List of debug features to be enabled."))
 ]
 
 
