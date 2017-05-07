@@ -848,7 +848,7 @@ class NuagePlugin(NuageCoreWrapper):
         vport = self.vsdclient.get_nuage_vport_by_neutron_id(params,
                                                              required=False)
         if not vport:
-            LOG.warning(_("No vport found for port %s") % id)
+            LOG.warning(_("No vport found for port %s"), port['id'])
             return None
         return vport
 
