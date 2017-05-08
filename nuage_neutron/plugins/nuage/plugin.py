@@ -3027,20 +3027,16 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
                     context.session,
                     router_id)
-                if not ent_rtr_mapping:
-                    msg = _('router %s is not associated with '
-                            'any net-partition') % router_id
-                    raise n_exc.BadRequest(resource='floatingip',
-                                           msg=msg)
-                params = {
-                    'router_id': ent_rtr_mapping['nuage_router_id'],
-                    'fip_id': fip_id
-                }
-                nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
-                if nuage_fip:
-                    self.nuageclient.delete_nuage_floatingip(
-                        nuage_fip['nuage_fip_id'])
-                    LOG.debug('Floating-ip %s deleted from VSD', fip_id)
+                if ent_rtr_mapping:
+                    params = {
+                        'router_id': ent_rtr_mapping['nuage_router_id'],
+                        'fip_id': fip_id
+                    }
+                    nuage_fip = self.nuageclient.get_nuage_fip_by_id(params)
+                    if nuage_fip:
+                        self.nuageclient.delete_nuage_floatingip(
+                            nuage_fip['nuage_fip_id'])
+                        LOG.debug('Floating-ip %s deleted from VSD', fip_id)
 
             super(NuagePlugin, self).delete_floatingip(context, fip_id)
             self.fip_rate_log.info('FIP %s (owned by tenant %s) deleted' %
