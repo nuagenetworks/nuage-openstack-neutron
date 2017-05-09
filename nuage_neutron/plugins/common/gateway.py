@@ -160,10 +160,9 @@ class NuagegatewayMixin(object):
                                                        params)
             vport = resp['vport']
         except Exception as ex:
-            if hasattr(ex, 'code'):
-                if ex.code == constants.RES_CONFLICT:
-                    # gridinv - do not map resource in conflict to 500
-                    raise nuage_exc.NuageBadRequest(msg=ex.message)
+            if ex.code == constants.RES_CONFLICT:
+                # gridinv - do not map resource in conflict to 500
+                raise nuage_exc.NuageBadRequest(msg=ex.message)
             raise
         if port_id and not subnet_mapping['nuage_managed_subnet']:
             port = params['port']
