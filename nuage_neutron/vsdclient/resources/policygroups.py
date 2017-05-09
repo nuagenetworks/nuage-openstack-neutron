@@ -28,7 +28,7 @@ from oslo_utils import excutils
 
 VSD_RESP_OBJ = constants.VSD_RESP_OBJ
 PROTO_NAME_TO_NUM = constants.PROTO_NAME_TO_NUM
-NUAGE_SUPPORTED_ETHERTYPES = constants.NUAGE_SUPPORTED_ETHERTYPES
+NUAGE_NOTSUPPORTED_ETHERTYPE = constants.NUAGE_NOTSUPPORTED_ETHERTYPE
 NUAGE_NOTSUPPORTED_ACL_MATCH = constants.NUAGE_NOTSUPPORTED_ACL_MATCH
 NOT_SUPPORTED_ACL_ATTR_MSG = constants.NOT_SUPPORTED_ACL_ATTR_MSG
 NUAGE_ACL_PROTOCOL_ANY_MAPPING = constants.NUAGE_ACL_PROTOCOL_ANY_MAPPING
@@ -128,22 +128,12 @@ class NuagePolicyGroups(object):
 
     def validate_nuage_sg_rule_definition(self, sg_rule):
         if 'ethertype' in sg_rule.keys():
-            if str(sg_rule['ethertype']) not in NUAGE_SUPPORTED_ETHERTYPES:
-                raise restproxy.RESTProxyError(NOT_SUPPORTED_ACL_ATTR_MSG %
-                                               sg_rule['ethertype'])
+            if str(sg_rule['ethertype']) in NUAGE_NOTSUPPORTED_ETHERTYPE:
+                raise restproxy.RESTProxyError(NOT_SUPPORTED_ACL_ATTR_MSG)
         if (sg_rule['port_range_min'] is None and
                 sg_rule['port_range_max'] is None):
             return
         self._validate_nuage_port_range(sg_rule)
-
-    def _get_ethertype(self, ethertype):
-        if ethertype == 'IPv4':
-            return '0x0800'
-        elif ethertype == 'IPv6':
-            return '0x86DD'
-        else:
-            raise restproxy.RESTProxyError(NOT_SUPPORTED_ACL_ATTR_MSG %
-                                           ethertype)
 
     def _map_nuage_sgrule(self, params):
         sg_rule = params['neutron_sg_rule']
@@ -170,8 +160,7 @@ class NuagePolicyGroups(object):
         for key in sg_rule.keys():
             if sg_rule[key] is not None:
                 if str(key) == 'ethertype':
-                    nuage_match_info['etherType'] = self._get_ethertype(
-                        sg_rule['ethertype'])
+                    nuage_match_info['etherType'] = '0x0800'
                 elif str(key) == 'protocol':
                     try:
                         # protocol passed in rule create is integer
@@ -188,11 +177,8 @@ class NuagePolicyGroups(object):
                         # representation
                         if sg_rule[key] == "ANY":
                             continue
-                        proto = str(sg_rule[key])
-                        if proto == 'icmp' and sg_rule['ethertype'] == 'IPv6':
-                            proto = 'icmpv6'
                         nuage_match_info['protocol'] = \
-                            PROTO_NAME_TO_NUM[proto]
+                            PROTO_NAME_TO_NUM[str(sg_rule[key])]
                         if sg_rule[key] in ['tcp', 'udp']:
                             nuage_match_info['sourcePort'] = '*'
                             nuage_match_info['destinationPort'] = '*'
@@ -279,9 +265,8 @@ class NuagePolicyGroups(object):
                         'policygroup': policygroup,
                         'neutron_sg_rule': rule,
                     }
-                    if ('ethertype' in rule.keys() and
-                            str(rule['ethertype']) not in
-                            NUAGE_SUPPORTED_ETHERTYPES):
+                    if 'ethertype' in rule.keys() and str(rule['ethertype']) \
+                            in NUAGE_NOTSUPPORTED_ETHERTYPE:
                         continue
                     self.create_nuage_sgrule(params)
                 except Exception:
@@ -925,7 +910,7 @@ class NuagePolicyGroups(object):
         }
         neutron_sg_rule = {
             'direction': 'ingress',
-            'ethertype': 'IPv4'
+            'ethertype': 'ipv4'
         }
         params = {
             'policygroup': policygroup,
@@ -937,7 +922,7 @@ class NuagePolicyGroups(object):
 
         neutron_sg_rule = {
             'direction': 'egress',
-            'ethertype': 'IPv4'
+            'ethertype': 'ipv4'
         }
         params = {
             'policygroup': policygroup,
