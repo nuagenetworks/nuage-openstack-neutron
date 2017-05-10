@@ -137,6 +137,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
     @TimeTracker.tracked
     def post_port_update(self, resource, event, trigger, **kwargs):
+        update_sg = True
         context = kwargs['context']
         updated_port = kwargs['updated_port']
         original_port = kwargs['original_port']
@@ -144,20 +145,27 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         subnet_mapping = kwargs['subnet_mapping']
         if subnet_mapping['nuage_managed_subnet']:
             return
-
-        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
-        self._process_port_security_group(context,
-                                          updated_port,
-                                          kwargs['vport'],
-                                          updated_port[ext_sg.SECURITYGROUPS],
-                                          vsd_subnet)
-        rollbacks.append((self._process_port_security_group,
-                          [context, updated_port, kwargs['vport'],
-                           original_port[ext_sg.SECURITYGROUPS], vsd_subnet],
-                          {}))
-        deleted_sg_ids = (set(original_port[ext_sg.SECURITYGROUPS]) -
-                          set(updated_port[ext_sg.SECURITYGROUPS]))
-        self.vsdclient.check_unused_policygroups(deleted_sg_ids)
+        new_sg = (set(updated_port.get(ext_sg.SECURITYGROUPS)) if
+                  updated_port.get(ext_sg.SECURITYGROUPS) else set())
+        orig_sg = (set(original_port.get(ext_sg.SECURITYGROUPS)) if
+                   original_port.get(ext_sg.SECURITYGROUPS) else set())
+        if not new_sg and new_sg == orig_sg:
+            update_sg = False
+        if update_sg:
+            vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
+            self._process_port_security_group(context,
+                                              updated_port,
+                                              kwargs['vport'],
+                                              new_sg,
+                                              vsd_subnet)
+            rollbacks.append((self._process_port_security_group,
+                              [context, updated_port, kwargs['vport'],
+                               original_port[ext_sg.SECURITYGROUPS],
+                               vsd_subnet],
+                              {}))
+            deleted_sg_ids = (set(original_port[ext_sg.SECURITYGROUPS]) -
+                              set(updated_port[ext_sg.SECURITYGROUPS]))
+            self.vsdclient.check_unused_policygroups(deleted_sg_ids)
 
     @TimeTracker.tracked
     def post_port_delete(self, resource, event, trigger, **kwargs):
