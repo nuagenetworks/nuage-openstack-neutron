@@ -308,7 +308,9 @@ class NuageApi(NuageApiWrapper):
         vsd_subnet = {'id': subnet['ID'],
                       'name': subnet['name'],
                       'cidr': self._calc_cidr(subnet),
+                      'ipv6_cidr': self._calc_ipv6_cidr(subnet),
                       'gateway': subnet['gateway'],
+                      'ipv6_gateway': subnet['IPv6Gateway'],
                       'ip_version': subnet['IPType']}
         if subnet['type'] == constants.L3SUBNET:
             domain_id = self.vsdclient.get_router_by_domain_subnet_id(
@@ -335,7 +337,9 @@ class NuageApi(NuageApiWrapper):
             'ID': 'id',
             'name': 'name',
             self._calc_cidr: 'cidr',
+            self._calc_ipv6_cidr: 'ipv6_cidr',
             'gateway': 'gateway',
+            'IPv6Gateway': 'ipv6_gateway',
             'IPType': 'ip_version',
             functools.partial(
                 self._return_val, filters['vsd_zone_id'][0]): 'vsd_zone_id'
@@ -354,6 +358,16 @@ class NuageApi(NuageApiWrapper):
             ip = netaddr.IPNetwork(subnet['address'] + '/' +
                                    subnet['netmask'])
             return str(ip)
+
+    def _calc_ipv6_cidr(self, subnet):
+        if (not subnet['IPv6Address']) and (
+                not subnet['associatedSharedNetworkResourceID']):
+            return None
+
+        shared_id = subnet['associatedSharedNetworkResourceID']
+        if shared_id:
+            subnet = self.vsdclient.get_nuage_sharedresource(shared_id)
+        return subnet.get('IPv6Address')
 
     @log_helpers.log_method_call
     def _get_default_net_partition(self, context):
