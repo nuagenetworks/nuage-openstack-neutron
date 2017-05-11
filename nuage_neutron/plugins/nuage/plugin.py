@@ -353,24 +353,39 @@ class NuagePlugin(NuageCoreWrapper):
 
         if not port.get('fixed_ips'):
             return
-        policygroup_ids = []
-        for sg_id in sg_ids:
-            sg = self._get_security_group(context, sg_id)
-            sg_rules = self.get_security_group_rules(
-                context,
-                {'security_group_id': [sg_id]})
-            sg_params = {
-                'vsd_subnet': vsd_subnet,
-                'sg': sg,
-                'sg_rules': sg_rules
-            }
-            vsd_policygroup_id = (
-                self.vsdclient.process_port_create_security_group(
-                    sg_params))
-            policygroup_ids.append(vsd_policygroup_id)
 
-        self.vsdclient.update_vport_policygroups(vport['ID'],
-                                                 policygroup_ids)
+        successful = False
+        attempt = 1
+        while not successful:
+            try:
+                policygroup_ids = []
+                for sg_id in sg_ids:
+                    sg = self._get_security_group(context, sg_id)
+                    sg_rules = self.get_security_group_rules(
+                        context,
+                        {'security_group_id': [sg_id]})
+                    sg_params = {
+                        'vsd_subnet': vsd_subnet,
+                        'sg': sg,
+                        'sg_rules': sg_rules
+                    }
+                    vsd_policygroup_id = (
+                        self.vsdclient.process_port_create_security_group(
+                            sg_params))
+                    policygroup_ids.append(vsd_policygroup_id)
+
+                self.vsdclient.update_vport_policygroups(vport['ID'],
+                                                         policygroup_ids)
+                successful = True
+            except RESTProxyError as e:
+                msg = e.msg.lower()
+                if (e.code not in (404, 409) and 'policygroup' not in msg and
+                        'policy group' not in msg):
+                    raise
+                elif attempt < 3:
+                    attempt += 1
+                else:
+                    raise
 
     @db.retry_if_session_inactive()
     @TimeTracker.tracked
