@@ -602,17 +602,12 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                           np_name, subnet_mapping,
                                           is_port_device_owner_removed=True)
             elif device_added:
-                if port['device_owner'].startswith(
-                        constants.NOVA_PORT_OWNER_PREF):
+                if self._port_should_have_vm(port):
                     nuage_subnet, _ = self._get_nuage_subnet(
                         subnet_mapping, subnet_mapping['nuage_subnet_id'])
                     self._create_nuage_vm(core_plugin, db_context, port,
                                           np_name, subnet_mapping, nuage_vport,
                                           nuage_subnet)
-        if not subnet_mapping['nuage_managed_subnet']:
-            if (original.get(portsecurity.PORTSECURITY)
-                    != port.get(portsecurity.PORTSECURITY)):
-                self._process_port_create_secgrp_for_port_sec(db_context, port)
         rollbacks = []
         try:
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
@@ -622,6 +617,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                         request_port=request_port,
                                         vport=nuage_vport, rollbacks=rollbacks,
                                         subnet_mapping=subnet_mapping)
+            if not subnet_mapping['nuage_managed_subnet']:
+                new_sg = port.get('security_groups')
+                prt_sec_updt_rqd = (original.get(portsecurity.PORTSECURITY) !=
+                                    port.get(portsecurity.PORTSECURITY))
+                if prt_sec_updt_rqd and not new_sg:
+                    self._process_port_create_secgrp_for_port_sec(db_context,
+                                                                  port)
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
