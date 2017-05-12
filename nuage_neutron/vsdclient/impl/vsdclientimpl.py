@@ -947,9 +947,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             nuagelib.NuageVPort.resource, vport_id, required=required,
             **filters)
 
-    def create_nuage_fip_for_vpnaas(self, params):
-        return self.domain.create_nuage_fip_for_vpnaas(params)
-
     # Firewall
 
     def create_firewall_rule(self, enterprise_id, os_rule):
