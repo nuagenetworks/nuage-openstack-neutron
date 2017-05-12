@@ -547,17 +547,6 @@ class NuageDomain(object):
                 return True
         return False
 
-    def create_nuage_fip_for_vpnaas(self, params):
-        req_params = {
-            'domain_id': params['nuage_rtr_id'],
-            'shared_netid': params['nuage_fippool_id'],
-            'externalID': params['vpn_id']
-        }
-        nuage_fip = nuagelib.NuageFloatingIP(create_params=req_params)
-        fips = self.restproxy.post(nuage_fip.post_resource(),
-                                   nuage_fip.post_fip_data())
-        return fips[0] if fips else None
-
 
 class NuageDomainSubnet(object):
     def __init__(self, restproxy_serv, policygroups):

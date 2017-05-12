@@ -625,9 +625,6 @@ class VsdClient(object):
                                          **filters):
         pass
 
-    def create_nuage_fip_for_vpnaas(self, params):
-        pass
-
     # Firewall
 
     def create_firewall_rule(self, enterprise_id, os_rule):
