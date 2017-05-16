@@ -2900,7 +2900,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                     with excutils.save_and_reraise_exception():
                         super(NuagePlugin, self).delete_floatingip(
                             context, id)
-            elif 'port_id' in fip:
+            elif 'port_id' in fip or \
+                 port_id != neutron_fip["port_id"]:
                 # This happens when {'port_id': null} is in request.
                 # Disassociate
                 if fip_rate_configured:
