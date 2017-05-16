@@ -151,10 +151,15 @@ class NuageFwaasMapper(NuageFwaasBase):
         if os_policy.get('firewall_rules') is not None:
             vsd_rules = self.get(FirewallRule, parent='enterprises',
                                  parent_id=enterprise_id)
-            vsd_rule_ids = [rule['ID'] for rule in vsd_rules
-                            if rule.get('externalID', '').split('@')[0]
-                            in os_policy['firewall_rules']]
-            vsd_dict['ruleIds'] = vsd_rule_ids
+            rule_map = {rule.get('externalID', '').split('@')[0]: rule['ID']
+                        for rule in vsd_rules}
+            vsd_dict['ruleIds'] = []
+            for os_rule_id in os_policy.get('firewall_rules'):
+                try:
+                    vsd_dict['ruleIds'].append(rule_map[os_rule_id])
+                except KeyError:
+                    # A rule can not exist on VSD when it's disabled.
+                    pass
         if post:
             vsd_dict.update({
                 "defaultAllowIP": False,
