@@ -192,7 +192,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
             policy = super(NuageFWaaSPlugin, self).update_firewall_policy(
                 context, id, firewall_policy)
             self.vsdclient.update_firewall_policy(self.enterprise_id,
-                                                  id, firewall_policy)
+                                                  id, policy)
         return policy
 
     @log_helpers.log_method_call
