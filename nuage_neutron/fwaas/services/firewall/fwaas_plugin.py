@@ -192,12 +192,13 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
 
     @log.log
     def update_firewall_policy(self, context, id, firewall_policy):
+        request = copy.deepcopy(firewall_policy)
         with lockutils.lock('fw_lock'),\
                 self.db_lock_by_policy(context, id):
             policy = super(NuageFWaaSPlugin, self).update_firewall_policy(
                 context, id, firewall_policy)
-            self.nuageclient.update_firewall_policy(self.enterprise_id,
-                                                    id, firewall_policy)
+            self.nuageclient.update_firewall_policy(
+                self.enterprise_id, id, request['firewall_policy'])
         return policy
 
     @log.log
