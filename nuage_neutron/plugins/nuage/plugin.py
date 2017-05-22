@@ -1062,7 +1062,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
     def get_ports_count(self, context, filters=None):
         if filters.get('tenant_id', None):
             query = context.session.query(func.count(models_v2.Port.id))
-            query = query.filter_by(tenant_id=str(filters['tenant_id']))
+            query = query.filter_by(tenant_id=str(filters['tenant_id'][0]))
             return query.scalar()
         else:
             return super(NuagePlugin, self).get_ports_count(context, filters)
