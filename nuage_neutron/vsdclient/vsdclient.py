@@ -146,9 +146,6 @@ class VsdClient(object):
                                   subnet_mapping, pnet_binding):
         pass
 
-    def remove_router_interface(self, params):
-        pass
-
     def create_nuage_floatingip(self, params):
         pass
 

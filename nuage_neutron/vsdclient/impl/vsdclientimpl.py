@@ -237,45 +237,6 @@ class VsdClientImpl(VsdClient):
                                                  self.policygroups,
                                                  pnet_params)
 
-    def remove_router_interface(self, params):
-        try:
-            self.domain.confirm_router_interface_not_in_use(
-                params['neutron_router_id'], params['neutron_subnet'])
-        except restproxy.ResourceNotFoundException:
-            pass
-        pnet_binding = params.get('pnet_binding')
-
-        req_params = {
-            'tenant_id': params['tenant_id'],
-            'net': params['net'],
-            'netpart_id': params['netpart_id'],
-            'pnet_binding': None,
-            'dhcp_ip': params['dhcp_ip'],
-            'shared': params['shared']
-        }
-
-        nuage_subnet = self.l2domain.create_subnet(
-            params['neutron_subnet'],
-            req_params)
-
-        self.domain.domainsubnet.delete_domain_subnet(
-            params['nuage_subn_id'],
-            params['neutron_subnet']['id'],
-            pnet_binding)
-
-        if pnet_binding:
-            pnet_params = {
-                'pnet_binding': pnet_binding,
-                'netpart_id': params['netpart_id'],
-                'l2domain_id': nuage_subnet['nuage_l2domain_id'],
-                'neutron_subnet_id': params['neutron_subnet']['id']
-            }
-            pnet_helper.process_provider_network(self.restproxy,
-                                                 self.policygroups,
-                                                 pnet_params)
-
-        return nuage_subnet
-
     def create_nuage_floatingip(self, params):
         return self.domain.create_nuage_floatingip(params)
 
