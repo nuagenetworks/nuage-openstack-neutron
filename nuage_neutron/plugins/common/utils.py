@@ -32,15 +32,10 @@ def handle_nuage_api_error(fn):
         try:
             return fn(*args, **kwargs)
         except RESTProxyError as ex:
-            et, ei, tb = sys.exc_info()
-
-            # converting python-2 style code
-            # raise nuage_exc.NuageAPIException, \
-            #    nuage_exc.NuageAPIException(msg=ex), tb
-            e = nuage_exc.NuageAPIException(msg=ex)
-            e.__traceback__ = tb
-            raise e
-
+            _, _, tb = sys.exc_info()
+            six.reraise(nuage_exc.NuageAPIException,
+                        nuage_exc.NuageAPIException(msg=ex.message),
+                        tb)
     return wrapped
 
 
