@@ -1062,7 +1062,22 @@ class NuagePlugin(NuageCoreWrapper):
                                      subnet_mapping, port_delete=True)
             securitygroups = port.get(ext_sg.SECURITYGROUPS, [])
             securitygroup_ids = [sg.security_group_id for sg in securitygroups]
-            self.vsdclient.check_unused_policygroups(securitygroup_ids)
+            successful = False
+            attempt = 1
+            while not successful:
+                try:
+                    self.vsdclient.check_unused_policygroups(securitygroup_ids)
+                    successful = True
+                except RESTProxyError as e:
+                    msg = e.msg.lower()
+                    if (e.code not in (404, 409) and
+                            'policygroup' not in msg and
+                            'policy group' not in msg):
+                        raise
+                    elif attempt < 3:
+                        attempt += 1
+                    else:
+                        raise
             # Check and delete gateway host vport associated with the port
         self.delete_gw_host_vport(context, port, subnet_mapping)
 
