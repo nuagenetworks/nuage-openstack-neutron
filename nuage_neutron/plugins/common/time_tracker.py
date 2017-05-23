@@ -12,19 +12,22 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from eventlet.semaphore import Semaphore
+from greenlet import greenlet
 import six
 import time
 
 
 class TimeTracker(object):
     time_tracker = None
+    sem = Semaphore()
 
     def __init__(self):
         self.time_tracked = 0
         self.time_not_tracked = 0
         self.enable_tracking = False
-        self.curr_pos_tracking = False
-        self.curr_neg_tracking = False
+        self.curr_pos_tracking = {}
+        self.curr_neg_tracking = {}
 
     @staticmethod
     def start():
@@ -41,16 +44,18 @@ class TimeTracker(object):
         return TimeTracker.tracker().enable_tracking
 
     @staticmethod
-    def currently_pos_tracking(curr_pos_tracking=None):
+    def currently_pos_tracking(thread_id, curr_pos_tracking=None):
         if curr_pos_tracking is not None:
-            TimeTracker.tracker().curr_pos_tracking = curr_pos_tracking
-        return TimeTracker.tracker().curr_pos_tracking
+            TimeTracker.tracker().curr_pos_tracking[thread_id] = \
+                curr_pos_tracking
+        return TimeTracker.tracker().curr_pos_tracking.get(thread_id)
 
     @staticmethod
-    def currently_neg_tracking(curr_neg_tracking=None):
+    def currently_neg_tracking(thread_id, curr_neg_tracking=None):
         if curr_neg_tracking is not None:
-            TimeTracker.tracker().curr_neg_tracking = curr_neg_tracking
-        return TimeTracker.tracker().curr_neg_tracking
+            TimeTracker.tracker().curr_neg_tracking[thread_id] = \
+                curr_neg_tracking
+        return TimeTracker.tracker().curr_neg_tracking.get(thread_id)
 
     @staticmethod
     def get_time_tracked():
@@ -68,46 +73,53 @@ class TimeTracker(object):
 
     @staticmethod
     def track_time(t, positive=True):
-        if positive:
-            TimeTracker.tracker().time_tracked += t
-        else:
-            TimeTracker.tracker().time_tracked -= t
-            TimeTracker.tracker().time_not_tracked += t
+        with TimeTracker.sem:
+            if positive:
+                TimeTracker.tracker().time_tracked += t
+            else:
+                TimeTracker.tracker().time_tracked -= t
+                TimeTracker.tracker().time_not_tracked += t
 
     @staticmethod
     def track(func, positive=True, *args, **kwargs):
-        if not TimeTracker.tracking_enabled():
-            return func(*args, **kwargs)
-        # else :
+        thread_id = id(greenlet.getcurrent())
         start = None
         negative = not positive
-        nested_pos_tracking = positive and TimeTracker.currently_pos_tracking()
-        nested_neg_tracking = negative and TimeTracker.currently_neg_tracking()
-        if positive and not TimeTracker.currently_pos_tracking():
-            TimeTracker.currently_pos_tracking(True)
+        nested_pos_tracking = positive and \
+            TimeTracker.currently_pos_tracking(thread_id)
+        nested_neg_tracking = negative and \
+            TimeTracker.currently_neg_tracking(thread_id)
+        if positive and not TimeTracker.currently_pos_tracking(thread_id):
+            TimeTracker.currently_pos_tracking(thread_id, True)
             start = time.time()
-        elif negative and not TimeTracker.currently_neg_tracking():
-            TimeTracker.currently_neg_tracking(True)
+        elif negative and not TimeTracker.currently_neg_tracking(thread_id):
+            TimeTracker.currently_neg_tracking(thread_id, True)
             start = time.time()
         f = func(*args, **kwargs)
         if positive and not nested_pos_tracking:
             TimeTracker.track_time(time.time() - start, positive)
-            TimeTracker.currently_pos_tracking(False)
+            TimeTracker.currently_pos_tracking(thread_id, False)
         elif negative and not nested_neg_tracking:
             TimeTracker.track_time(time.time() - start, positive)
-            TimeTracker.currently_neg_tracking(False)
+            TimeTracker.currently_neg_tracking(thread_id, False)
         return f
 
     @staticmethod
     def tracked(func):
         @six.wraps(func)
         def func_wrapper(*args, **kwargs):
-            return TimeTracker.track(func, True, *args, **kwargs)
+            if TimeTracker.tracking_enabled():
+                return TimeTracker.track(func, True, *args, **kwargs)
+            else:
+                return func(*args, **kwargs)
         return func_wrapper
 
     @staticmethod
     def untracked(func):
         @six.wraps(func)
         def func_wrapper(*args, **kwargs):
-            return TimeTracker.track(func, False, *args, **kwargs)
+            if TimeTracker.tracking_enabled():
+                return TimeTracker.track(func, False, *args, **kwargs)
+            else:
+                return func(*args, **kwargs)
         return func_wrapper
