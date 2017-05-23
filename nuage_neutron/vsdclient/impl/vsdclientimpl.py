@@ -14,9 +14,9 @@
 
 import logging
 
+from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
-from nuage_neutron.plugins.common import utils
 
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common import constants
@@ -42,14 +42,13 @@ LOG = logging.getLogger(__name__)
 class VsdClientImpl(VsdClient):
     __metaclass__ = helper.MemoizeClass   # noqa H236
 
-    def __init__(self, cms_id=None, **kwargs):
+    def __init__(self, cms_id, **kwargs):
         super(VsdClientImpl, self).__init__()
         self.restproxy = restproxy.RESTProxyServer(**kwargs)
+
         self.restproxy.generate_nuage_auth()
-        if cms_id:
-            # Make sure cms_id is valid
-            self.get_cms(cms_id)
-            cms_id_helper.CMS_ID = cms_id
+        self.get_cms(cms_id)
+        cms_id_helper.CMS_ID = cms_id
 
         self.net_part = netpartition.NuageNetPartition(self.restproxy)
         self.policygroups = policygroups.NuagePolicyGroups(self.restproxy)
@@ -785,9 +784,9 @@ class VsdClientImpl(VsdClient):
 
     def get_nuage_plugin_stats(self):
         stats = {}
-        if utils.is_enabled(plugin_constants.DEBUG_API_STATS):
+        if nuage_config.is_enabled(plugin_constants.DEBUG_API_STATS):
             stats['api_count'] = self.restproxy.api_count
-        if utils.is_enabled(plugin_constants.DEBUG_TIMING_STATS):
+        if nuage_config.is_enabled(plugin_constants.DEBUG_TIMING_STATS):
             stats['time_spent_in_nuage'] = TimeTracker.get_time_tracked()
             stats['time_spent_in_core'] = TimeTracker.get_time_not_tracked()
             stats["total_time_spent"] = TimeTracker.get_time_tracked() + \

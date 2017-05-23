@@ -54,6 +54,7 @@ from neutron_lib.utils import helpers
 
 
 from nuage_neutron.plugins.common import addresspair
+from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import extensions as common_extensions
@@ -75,6 +76,7 @@ LOG = logging.getLogger(__name__)
 class NuagePlugin(NuageCoreWrapper):
 
     """Class that implements Nuage Networks' hybrid plugin functionality."""
+
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
                          "vsd-resource", "allowed-address-pairs",
@@ -103,7 +105,7 @@ class NuagePlugin(NuageCoreWrapper):
         self.init_fip_rate_log()
         addresspair.NuageAddressPair.register(self)
         gateway.NuagegatewayMixin.__init__(self)
-        if nuage_utils.is_enabled(constants.DEBUG_TIMING_STATS):
+        if nuage_config.is_enabled(constants.DEBUG_TIMING_STATS):
             TimeTracker.start()
         LOG.debug("NuagePlugin initialization done")
 

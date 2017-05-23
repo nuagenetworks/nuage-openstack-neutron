@@ -36,6 +36,7 @@ from neutron_lib.exceptions import PortInUse
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
+from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common.exceptions import NuagePortBound
@@ -79,10 +80,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
         db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
             constants.DEVICE_OWNER_DHCP_NUAGE]
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
-        if utils.is_enabled(constants.FEATURE_EXPERIMENTAL_TEST):
-            LOG.info("Have a nice day.")
-        if utils.is_enabled(constants.DEBUG_TIMING_STATS):
+        if nuage_config.is_enabled(constants.DEBUG_TIMING_STATS):
             TimeTracker.start()
+        if nuage_config.is_enabled(constants.FEATURE_EXPERIMENTAL_TEST):
+            LOG.info("Have a nice day.")
         LOG.debug('Initializing complete')
 
     @property

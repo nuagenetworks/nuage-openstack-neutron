@@ -19,7 +19,6 @@ import six
 import sys
 
 from neutron._i18n import _
-from oslo_config import cfg
 from oslo_log import log as logging
 
 from nuage_neutron.plugins.common import constants
@@ -83,6 +82,7 @@ class Ignored(object):
     But it's still possible to raise the original exception by doing
     raise x.exception
     """
+
     def __init__(self, exception):
         self.exception = exception
 
@@ -186,11 +186,3 @@ def rollback():
             except Exception:
                 log.exception("Rollback failed.")
         raise
-
-
-def is_enabled(name):
-    if name in cfg.CONF.PLUGIN.experimental_features:
-        return True
-    if name in cfg.CONF.PLUGIN.enable_debug:
-        return True
-    return False
