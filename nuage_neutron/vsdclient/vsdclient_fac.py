@@ -18,5 +18,5 @@ from nuage_neutron.vsdclient.impl.vsdclientimpl import VsdClientImpl
 class VsdClientFactory(object):
 
     @staticmethod
-    def new_vsd_client(cms_id=None, **kwargs):
+    def new_vsd_client(cms_id, **kwargs):
         return VsdClientImpl(cms_id, **kwargs)

@@ -25,6 +25,9 @@ import ssl
 import time
 
 from neutron._i18n import _
+from nuage_neutron.plugins.common import config as nuage_config
+from nuage_neutron.plugins.common import constants as plugin_constants
+
 
 LOG = logging.getLogger(__name__)
 
@@ -164,7 +167,8 @@ class RESTProxyServer(object):
 
     def _rest_call(self, action, resource, data, extra_headers=None,
                    ignore_marked_for_deletion=False):
-        self.api_count += 1
+        if nuage_config.is_enabled(plugin_constants.DEBUG_API_STATS):
+            self.api_count += 1
         uri = self.base_uri + resource
         body = json.dumps(data)
         headers = {'Content-type': 'application/json',

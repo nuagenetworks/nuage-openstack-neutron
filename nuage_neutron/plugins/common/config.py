@@ -101,3 +101,11 @@ def nuage_register_cfg_opts():
     cfg.CONF.register_opts(restproxy_opts, "RESTPROXY")
     cfg.CONF.register_opts(fiprate_opts, "FIPRATE")
     cfg.CONF.register_opts(plugin_opts, "PLUGIN")
+
+
+def is_enabled(name):
+    if name in cfg.CONF.PLUGIN.experimental_features:
+        return True
+    if name in cfg.CONF.PLUGIN.enable_debug:
+        return True
+    return False
