@@ -15,6 +15,8 @@
 import logging
 import random
 
+from oslo_config import cfg
+
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper
@@ -42,6 +44,9 @@ LOG = logging.getLogger(__name__)
 class NuagePolicyGroups(object):
     def __init__(self, restproxy):
         self.restproxy = restproxy
+        self.flow_logging_enabled = cfg.CONF.PLUGIN.flow_logging_enabled
+        self.stats_collection_enabled = (cfg.CONF.PLUGIN.
+                                         stats_collection_enabled)
 
     def _create_nuage_secgroup(self, params):
         rtr_id = params['nuage_router_id']
@@ -147,6 +152,8 @@ class NuagePolicyGroups(object):
             'action': 'FORWARD',
             'stateful': True,
             'DSCP': '*',
+            'flowLoggingEnabled': self.flow_logging_enabled,
+            'statsLoggingEnabled': self.stats_collection_enabled,
             'priority': random.randint(MIN_SG_PRI, MAX_SG_PRI)
         }
         min_port = max_port = None
@@ -1238,7 +1245,10 @@ class NuagePolicyGroups(object):
         out_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(
             out_parameters)
         req_params = {'acl_id': nuage_ibacl_id}
-        extra_params = {'locationID': pg_id, 'externalID': external_id}
+        extra_params = {'locationID': pg_id,
+                        'externalID': external_id,
+                        'flowLoggingEnabled': self.flow_logging_enabled,
+                        'statsLoggingEnabled': self.stats_collection_enabled}
         if len(in_sec_rule) == 0:
             nuage_ib_aclrule = nuagelib.NuageACLRule(create_params=req_params,
                                                      extra_params=extra_params)
@@ -1279,6 +1289,9 @@ class NuagePolicyGroups(object):
 class NuageRedirectTargets(object):
     def __init__(self, restproxy):
         self.restproxy = restproxy
+        self.flow_logging_enabled = cfg.CONF.PLUGIN.flow_logging_enabled
+        self.stats_collection_enabled = (cfg.CONF.PLUGIN.
+                                         stats_collection_enabled)
 
     def create_nuage_redirect_target(self, redirect_target, subnet_id=None,
                                      domain_id=None):
@@ -1464,7 +1477,9 @@ class NuageRedirectTargets(object):
             'action': rtarget_rule.get('action'),
             'DSCP': '*',
             'protocol': 'ANY',
-            'priority': rtarget_rule.get('priority')
+            'priority': rtarget_rule.get('priority'),
+            'flowLoggingEnabled': self.flow_logging_enabled,
+            'statsLoggingEnabled': self.stats_collection_enabled,
         }
         min_port = max_port = None
         for key in rtarget_rule.keys():
