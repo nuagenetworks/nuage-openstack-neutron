@@ -20,8 +20,8 @@ from oslo_log import helpers as log_helpers
 
 from neutron._i18n import _
 from neutron.api.v2 import attributes
-from neutron.extensions import portsecurity as psec
 from neutron.plugins.common import utils as plugin_utils
+from neutron_lib.api.definitions import port_security as psec
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory

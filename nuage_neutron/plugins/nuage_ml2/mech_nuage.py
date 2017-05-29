@@ -26,9 +26,9 @@ from neutron.api import extensions as neutron_extensions
 from neutron.callbacks import resources
 from neutron.db import db_base_plugin_v2
 from neutron.extensions import external_net
-from neutron.extensions import portsecurity
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
+from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as os_constants
