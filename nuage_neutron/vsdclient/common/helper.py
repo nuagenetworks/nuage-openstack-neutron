@@ -638,7 +638,8 @@ def get_nuage_zone_by_id(restproxy_serv, id):
     if len(response[3]) > 0:
         ret = {
             'nuage_zone_id': response[3][0]['ID'],
-            'nuage_parent_id': response[3][0]['parentID']
+            'nuage_parent_id': response[3][0]['parentID'],
+            'nuage_external_id': response[3][0]['externalID']
         }
 
         return ret
@@ -820,8 +821,8 @@ def is_vlan_valid(vlan_val):
         LOG.error("Vlan value %s is not valid", vlan_val)
         return False
 
-    if vlan_val not in range(0, 4095):
-        LOG.error("Vlan value %s is not in 0-4094 range", vlan_val)
+    if vlan_val not in range(0, 4096):
+        LOG.error("Vlan value %s is not in 0-4095 range", vlan_val)
         return False
     return True
 

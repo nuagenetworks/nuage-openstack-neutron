@@ -493,6 +493,21 @@ def get_port_bindings(session, port_ids):
     ).all()
 
 
+def get_port_bindings_for_sg(session, sg_ids, vnic_types, bound_only=False):
+    query = (
+        session.query(ml2_models.PortBinding)
+        .join(models_v2.Port)
+        .join(securitygroups_db.SecurityGroupPortBinding)
+        .filter(
+            securitygroups_db.SecurityGroupPortBinding.security_group_id.in_(
+                sg_ids),
+            ml2_models.PortBinding.vnic_type.in_(vnic_types)
+        ))
+    if bound_only:
+        query = query.filter(ml2_models.PortBinding.host.notin_(['']))
+    return query.all()
+
+
 def check_ports_to_router_mapping(context, port_ids):
     device_owner_router_itf_port = aliased(models_v2.Port)
     session = context.session
