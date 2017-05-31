@@ -366,8 +366,8 @@ class VsdClientImpl(VsdClient):
     def delete_port_security_group_bindings(self, params):
         self.policygroups.delete_port_security_group_bindings(params)
 
-    def check_unused_policygroups(self, securitygroup_ids):
-        self.policygroups.check_unused_policygroups(securitygroup_ids)
+    def check_unused_policygroups(self, securitygroup_ids, sg_type='SOFTWARE'):
+        self.policygroups.check_unused_policygroups(securitygroup_ids, sg_type)
 
     def get_zone_by_domainid(self, domain_id):
         return self.domain.get_zone_by_domainid(domain_id)
@@ -542,8 +542,8 @@ class VsdClientImpl(VsdClient):
         self.policygroups.delete_rate_limiting(
             vport_id, neutron_fip_id)
 
-    def delete_nuage_sgrule(self, sg_rules):
-        self.policygroups.delete_nuage_sgrule(sg_rules)
+    def delete_nuage_sgrule(self, sg_rules, sg_type='SOFTWARE'):
+        self.policygroups.delete_nuage_sgrule(sg_rules, sg_type)
 
     def delete_nuage_secgroup(self, id):
         self.policygroups.delete_policy_group(id)
@@ -554,8 +554,9 @@ class VsdClientImpl(VsdClient):
     def validate_nuage_sg_rule_definition(self, sg_rule):
         self.policygroups.validate_nuage_sg_rule_definition(sg_rule)
 
-    def get_sg_policygroup_mapping(self, sg_id):
-        return self.policygroups.get_sg_policygroup_mapping(sg_id)
+    def get_sg_policygroup_mapping(self, sg_id, sg_type='SOFTWARE'):
+        return self.policygroups.get_sg_policygroup_mapping(sg_id,
+                                                            sg_type=sg_type)
 
     def create_in_adv_fwd_policy_template(self, parent_type, parent_id,
                                           params):
@@ -586,6 +587,11 @@ class VsdClientImpl(VsdClient):
 
     def create_nuage_sgrule(self, params):
         return self.policygroups.create_nuage_sgrule(params)
+
+    def check_interconnect_rules(self, domain_id, domain_type, policygroup_id):
+        return self.policygroups.check_interconnect_rules(domain_id,
+                                                          domain_type,
+                                                          policygroup_id)
 
     def create_nuage_redirect_target(self, redirect_target, subnet_id=None,
                                      domain_id=None):
@@ -941,6 +947,18 @@ class VsdClientImpl(VsdClient):
         return helper.get_child_vports(
             self.restproxy, nuagelib.NuagePolicygroup.resource,
             policygroup_id, required=required, **filters)
+
+    def get_policy_groups(self, securitygroup_ids, vsd_subnet,
+                          sg_type=None, required=False):
+        if vsd_subnet['type'] == constants.SUBNET:
+            domain_id = self.get_router_by_domain_subnet_id(
+                vsd_subnet['ID'])
+        else:
+            domain_id = vsd_subnet['ID']
+        return self.policygroups.get_pgs(
+            securitygroup_ids,
+            domain_id, vsd_subnet['type'], sg_type=sg_type,
+            required=required)
 
     def get_nuage_vport_redirect_targets(self, vport_id, required=False,
                                          **filters):

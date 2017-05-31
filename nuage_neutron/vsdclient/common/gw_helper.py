@@ -87,7 +87,7 @@ def _add_policy_group_for_port_sec(gw_type, subn_id, rtr_id, pg_obj,
 
 
 def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
-                            subn_type, vport_type, params):
+                            subn_type, vport_type, policy_group, params):
     gw_type = params.get('gw_type')
     nuage_vlan_id = params.get('nuage_vlan_id')
 
@@ -100,8 +100,9 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
     if vport_type == constants.BRIDGE_VPORT_TYPE:
         extra_params['type'] = constants.BRIDGE_VPORT_TYPE
         extra_params['name'] = 'Bridge Vport ' + nuage_vlan_id
-        extra_params['externalID'] = get_vsd_external_id(
-            params['neutron_subnet_id'])
+        if policy_group:
+            extra_params['externalID'] = get_vsd_external_id(
+                params['neutron_subnet_id'])
     else:
         extra_params['type'] = constants.HOST_VPORT_TYPE
         extra_params['name'] = 'Host Vport ' + nuage_vlan_id
@@ -153,33 +154,34 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
         on_res_exists=restproxy_serv.retrieve_by_external_id,
         ignore_err_codes=[restproxy.REST_IFACE_EXISTS_ERR_CODE])[0]
 
-    if (not params.get('nuage_managed_subnet') and
-            params.get('port_security_enabled')):
-        if subn_type == constants.SUBNET:
-            # Get rtr id from nuage_subnet_id
-            nuage_rtr_id = helper._get_nuage_domain_id_from_subnet(
-                restproxy_serv,
-                subnet_id)
-            _create_policygroup_for_vport(gw_type, None, nuage_rtr_id,
-                                          params.get('neutron_subnet_id'),
-                                          pg_obj, restproxy_serv, vport,
-                                          subn_type)
-        else:
-            _create_policygroup_for_vport(gw_type, subnet_id, None,
-                                          params.get('neutron_subnet_id'),
-                                          pg_obj, restproxy_serv, vport,
-                                          subn_type)
-    if (not params.get('nuage_managed_subnet') and
-            not params.get('port_security_enabled')):
-        if subn_type == constants.SUBNET:
-            nuage_rtr_id = helper._get_nuage_domain_id_from_subnet(
-                restproxy_serv,
-                subnet_id)
-            _add_policy_group_for_port_sec(gw_type, None, nuage_rtr_id, pg_obj,
-                                           nuage_vport_id)
-        else:
-            _add_policy_group_for_port_sec(gw_type, subnet_id, None, pg_obj,
-                                           nuage_vport_id)
+    if policy_group:
+        if (not params.get('nuage_managed_subnet') and
+                params.get('port_security_enabled')):
+            if subn_type == constants.SUBNET:
+                # Get rtr id from nuage_subnet_id
+                nuage_rtr_id = helper._get_nuage_domain_id_from_subnet(
+                    restproxy_serv,
+                    subnet_id)
+                _create_policygroup_for_vport(gw_type, None, nuage_rtr_id,
+                                              params.get('neutron_subnet_id'),
+                                              pg_obj, restproxy_serv, vport,
+                                              subn_type)
+            else:
+                _create_policygroup_for_vport(gw_type, subnet_id, None,
+                                              params.get('neutron_subnet_id'),
+                                              pg_obj, restproxy_serv, vport,
+                                              subn_type)
+        if (not params.get('nuage_managed_subnet') and
+                not params.get('port_security_enabled')):
+            if subn_type == constants.SUBNET:
+                nuage_rtr_id = helper._get_nuage_domain_id_from_subnet(
+                    restproxy_serv,
+                    subnet_id)
+                _add_policy_group_for_port_sec(gw_type, None, nuage_rtr_id,
+                                               pg_obj, nuage_vport_id)
+            else:
+                _add_policy_group_for_port_sec(gw_type, subnet_id, None,
+                                               pg_obj, nuage_vport_id)
 
     ret = {
         'vport': vport,
@@ -188,7 +190,8 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
     return ret
 
 
-def create_vport_interface(restproxy_serv, pg_obj, params, vport_type):
+def create_vport_interface(restproxy_serv, pg_obj, params,
+                           vport_type, create_policy_group=True):
     l2domain_id = params.get('l2domain_id')
     nuage_subnet_id = params.get('nuage_subnet_id')
 
@@ -198,12 +201,14 @@ def create_vport_interface(restproxy_serv, pg_obj, params, vport_type):
                                            pg_obj, restproxy_serv,
                                            constants.L2DOMAIN,
                                            constants.BRIDGE_VPORT_TYPE,
+                                           create_policy_group,
                                            params)
         else:
             return _create_vport_interface(nuage_subnet_id,
                                            pg_obj, restproxy_serv,
                                            constants.SUBNET,
                                            constants.BRIDGE_VPORT_TYPE,
+                                           create_policy_group,
                                            params)
     else:
         if l2domain_id:
@@ -211,12 +216,14 @@ def create_vport_interface(restproxy_serv, pg_obj, params, vport_type):
                                            pg_obj, restproxy_serv,
                                            constants.L2DOMAIN,
                                            constants.HOST_VPORT_TYPE,
+                                           create_policy_group,
                                            params)
         else:
             return _create_vport_interface(nuage_subnet_id,
                                            pg_obj, restproxy_serv,
                                            constants.SUBNET,
                                            constants.HOST_VPORT_TYPE,
+                                           create_policy_group,
                                            params)
 
 

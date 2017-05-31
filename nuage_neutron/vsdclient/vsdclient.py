@@ -187,7 +187,7 @@ class VsdClient(object):
     def validate_port_create_redirect_target(self, params):
         pass
 
-    def check_unused_policygroups(self, securitygroup_ids):
+    def check_unused_policygroups(self, securitygroup_ids, sg_type='SOFTWARE'):
         pass
 
     def get_zone_by_domainid(self, domain_id):
@@ -285,7 +285,7 @@ class VsdClient(object):
     def delete_rate_limiting(self, vport_id, neutron_fip_id):
         pass
 
-    def delete_nuage_sgrule(self, sg_rules):
+    def delete_nuage_sgrule(self, sg_rules, sg_type='SOFTWARE'):
         pass
 
     def delete_nuage_secgroup(self, id):
@@ -297,7 +297,7 @@ class VsdClient(object):
     def validate_nuage_sg_rule_definition(self, sg_rule):
         pass
 
-    def get_sg_policygroup_mapping(self, sg_id):
+    def get_sg_policygroup_mapping(self, sg_id, sg_type='SOFTWARE'):
         pass
 
     def create_nuage_sgrule(self, params):
@@ -578,11 +578,18 @@ class VsdClient(object):
                                       **filters):
         pass
 
+    def check_interconnect_rules(self, domain_id, domain_type, policygroup_id):
+        pass
+
     def get_nuage_vport_redirect_targets(self, vport_id, required=False,
                                          **filters):
         pass
 
     def create_nuage_fip_for_vpnaas(self, params):
+        pass
+
+    def get_policy_groups(self, securitygroup_id, vsd_subnet,
+                          sg_type=None, required=False):
         pass
 
     # Firewall

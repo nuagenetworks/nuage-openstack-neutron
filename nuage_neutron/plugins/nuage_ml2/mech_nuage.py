@@ -28,6 +28,7 @@ from neutron.db import db_base_plugin_v2
 from neutron.extensions import external_net
 from neutron.extensions import portbindings
 from neutron.extensions import portsecurity
+from neutron.extensions import securitygroup as ext_sg
 from neutron.manager import NeutronManager
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
@@ -886,15 +887,31 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     if e.vsd_code != vsd_constants.VSD_VM_ALREADY_RESYNC:
                         raise
 
-        device_added = device_removed = False
-        if not original['device_owner'] and port['device_owner']:
-            device_added = True
-        elif original['device_owner'] and not port['device_owner']:
-            device_removed = True
+        host_added = host_removed = False
+        if not original['binding:host_id'] and port['binding:host_id']:
+            host_added = True
+        elif original['binding:host_id'] and not port['binding:host_id']:
+            host_removed = True
 
-        self._port_device_change(db_context, nuage_vport, original, port,
-                                 subnet_mapping, device_added=device_added,
-                                 device_removed=device_removed)
+        if host_added or host_removed:
+            np_name = self.vsdclient.get_net_partition_name_by_id(
+                subnet_mapping['net_partition_id'])
+            require(np_name, "netpartition",
+                    subnet_mapping['net_partition_id'])
+
+            if host_removed:
+                if self._port_should_have_vm(original):
+                    self._delete_nuage_vm(db_context, original,
+                                          np_name, subnet_mapping,
+                                          is_port_device_owner_removed=True)
+            elif host_added:
+                self._validate_security_groups(context)
+                if self._port_should_have_vm(port):
+                    nuage_subnet, _ = self._get_nuage_subnet(
+                        subnet_mapping, subnet_mapping['nuage_subnet_id'])
+                    self._create_nuage_vm(db_context, port,
+                                          np_name, subnet_mapping, nuage_vport,
+                                          nuage_subnet)
         rollbacks = []
         try:
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
@@ -1174,6 +1191,23 @@ class NuageMechanismDriver(NuageML2Wrapper):
         else:
             self._add_net_partition(db_context.session, netpartition)
         return netpartition['id']
+
+    def _validate_security_groups(self, context):
+        port = context.current
+        db_context = context._plugin_context
+        sg_ids = port[ext_sg.SECURITYGROUPS]
+        if not sg_ids:
+            return
+
+        baremetal_ports = nuagedb.get_port_bindings_for_sg(
+            db_context.session,
+            sg_ids,
+            [portbindings.VNIC_BAREMETAL],
+            bound_only=True)
+        if len(baremetal_ports) > 0:
+            msg = ("Security Groups for baremetal and normal ports "
+                   "are mutualy exclusive")
+            raise NuageBadRequest(msg=msg)
 
     @staticmethod
     def _add_net_partition(session, netpartition):

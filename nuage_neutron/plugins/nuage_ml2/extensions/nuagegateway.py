@@ -21,7 +21,7 @@ from nuage_neutron.plugins.common import constants
 
 
 class GatewayInvalidVlanValue(nexception.InvalidInput):
-    message = _("Invalid value for vlan %(vlan)s. It must be 0 to 4094.")
+    message = _("Invalid value for vlan %(vlan)s. It must be 0 to 4095.")
 
 
 def convert_validate_vlan_value(vlan):
@@ -32,7 +32,7 @@ def convert_validate_vlan_value(vlan):
     except (ValueError, TypeError):
         raise GatewayInvalidVlanValue(vlan=vlan)
 
-    if 0 <= val <= 4094:
+    if 0 <= val <= 4095:
         return val
     else:
         raise GatewayInvalidVlanValue(vlan=val)

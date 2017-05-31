@@ -405,11 +405,17 @@ class NuageGateway(object):
         nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
         data = nuage_ent_perm.perm_update(netpart_id)
         data.update({'externalID': netpart_id + '@openstack'})
-        self.restproxy.post(
-            nuage_ent_perm.get_resource_by_vlan(),
-            data,
-            on_res_exists=self.restproxy.retrieve_by_external_id,
-            ignore_err_codes=[restproxy.REST_ENT_PERMS_EXISTS_ERR_CODE])[0]
+        try:
+            self.restproxy.post(
+                nuage_ent_perm.get_resource_by_vlan(),
+                data,
+                on_res_exists=self.restproxy.retrieve_by_external_id,
+                ignore_err_codes=[restproxy.REST_ENT_PERMS_EXISTS_ERR_CODE])[0]
+        except Exception as e:
+            if not self._check_parent_permissions(tenant_id,
+                                                  vlan_id,
+                                                  netpart_id):
+                raise e
 
     def _check_parent_permissions(self, tenant_id, vlan_id, netpart_id):
         req_params = {
@@ -734,7 +740,8 @@ class NuageGateway(object):
             'nuage_vlan_id': params['gatewayinterface'],
             'neutron_subnet_id': subn_id,
             'nuage_managed_subnet': params.get('nuage_managed_subnet'),
-            'gw_type': params['personality']
+            'gw_type': params['personality'],
+            'externalid': get_vsd_external_id(port['id'])
         }
         if nuage_subnet['parentType'] == 'zone':
             req_params['nuage_subnet_id'] = nuage_subnet['ID']
@@ -752,7 +759,8 @@ class NuageGateway(object):
             req_params[constants.PORTSECURITY] = True
             resp = gw_helper.create_vport_interface(self.restproxy,
                                                     self.policygroup,
-                                                    req_params, type)
+                                                    req_params, type,
+                                                    False)
         else:
             ips = {}
             for fixed_ip in port.get('fixed_ips', []):
@@ -771,7 +779,8 @@ class NuageGateway(object):
             req_params[constants.PORTSECURITY] = port[constants.PORTSECURITY]
             resp = gw_helper.create_vport_interface(self.restproxy,
                                                     self.policygroup,
-                                                    req_params, type)
+                                                    req_params, type,
+                                                    False)
 
         ret = resp
         # Determine the vport_gw_type

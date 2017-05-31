@@ -27,16 +27,18 @@ VSD_RESP_OBJ = constants.VSD_RESP_OBJ
 LOG = logging.getLogger(__name__)
 
 
-def get_l3dom_policygroup_by_sgid(restproxy_serv, l3dom_id, sg_id):
+def get_l3dom_policygroup_by_sgid(restproxy_serv, l3dom_id,
+                                  sg_id, sg_type=constants.SOFTWARE):
+    prefix = 'hw:' if sg_type == constants.HARDWARE else ''
     req_params = {
         'domain_id': l3dom_id,
-        'externalID': get_vsd_external_id(sg_id)
+        'externalID': get_vsd_external_id(prefix + sg_id)
     }
 
     nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
     response = restproxy_serv.rest_call(
         'GET', nuage_policygroup.post_resource(), '',
-        extra_headers=nuage_policygroup.extra_headers_get())
+        extra_headers=nuage_policygroup.extra_headers_get_type_and_id(sg_type))
 
     if not nuage_policygroup.validate(response):
         raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
@@ -47,16 +49,18 @@ def get_l3dom_policygroup_by_sgid(restproxy_serv, l3dom_id, sg_id):
         return nuage_policygroup.get_policygroup_id(response)
 
 
-def get_l2dom_policygroup_by_sgid(restproxy_serv, l2dom_id, sg_id):
+def get_l2dom_policygroup_by_sgid(restproxy_serv, l2dom_id,
+                                  sg_id, sg_type=constants.SOFTWARE):
+    prefix = 'hw:' if sg_type == constants.HARDWARE else ''
     req_params = {
         'domain_id': l2dom_id,
-        'externalID': get_vsd_external_id(sg_id)
+        'externalID': get_vsd_external_id(prefix + sg_id)
     }
 
     nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
     response = restproxy_serv.rest_call(
         'GET', nuage_policygroup.post_resource_l2dom(), '',
-        extra_headers=nuage_policygroup.extra_headers_get())
+        extra_headers=nuage_policygroup.extra_headers_get_type_and_id(sg_type))
 
     if not nuage_policygroup.validate(response):
         raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
@@ -180,11 +184,14 @@ def get_inbound_acl_details(restproxy_serv, dom_id, type=constants.SUBNET):
 
 def get_remote_policygroup_id(restproxy_serv, sg_id, resourcetype,
                               resource_id, sg_name):
+    ext_id = (get_vsd_external_id('hw:' + sg_id) if
+              str(sg_name).endswith('_HARDWARE') else
+              get_vsd_external_id(sg_id))
     req_params = {
         'name': sg_name,
         'domain_id': resource_id,
         'sg_id': sg_id,
-        'externalID': get_vsd_external_id(sg_id)
+        'externalID': ext_id
     }
 
     nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
@@ -192,6 +199,7 @@ def get_remote_policygroup_id(restproxy_serv, sg_id, resourcetype,
         url = nuage_policygroup.post_resource()
     else:
         url = nuage_policygroup.post_resource_l2dom()
+
     policygroups = restproxy_serv.get(
         url, extra_headers=nuage_policygroup.extra_headers_get(),
         required=True)

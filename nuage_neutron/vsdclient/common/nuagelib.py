@@ -1098,6 +1098,8 @@ class NuageInboundACL(NuageServerBaseClass):
         data['active'] = True
         data['defaultAllowNonIP'] = self.def_allow_non_ip
         data['externalID'] = self.create_params['externalID']
+        if self.create_params.get('priority'):
+            data['priority'] = self.create_params.get('priority')
         return data
 
     def post_data_l2(self):
@@ -1111,6 +1113,8 @@ class NuageInboundACL(NuageServerBaseClass):
         data['active'] = True
         data['defaultAllowNonIP'] = self.def_allow_non_ip
         data['externalID'] = self.create_params['externalID']
+        if self.create_params.get('priority'):
+            data['priority'] = self.create_params.get('priority')
         return data
 
     def post_data_default_l3rule(self):
@@ -1149,6 +1153,14 @@ class NuageInboundACL(NuageServerBaseClass):
         headers['X-Nuage-Filter'] = "name IS '%s'" % name
         return headers
 
+    def extra_headers_get_by_externalID(self):
+        headers = {}
+        headers['X-NUAGE-FilterType'] = "predicate"
+        headers['X-Nuage-Filter'] = "externalID IS '%s'" % \
+                                    get_vsd_external_id(
+                                        self.create_params['externalID'])
+        return headers
+
 
 class NuageOutboundACL(NuageServerBaseClass):
 
@@ -1179,6 +1191,8 @@ class NuageOutboundACL(NuageServerBaseClass):
         data['defaultAllowNonIP'] = self.def_allow_non_ip
         data['defaultInstallACLImplicitRules'] = False
         data['externalID'] = self.create_params['externalID']
+        if self.create_params.get('priority'):
+            data['priority'] = self.create_params.get('priority')
         return data
 
     def post_data_l2(self):
@@ -1193,6 +1207,8 @@ class NuageOutboundACL(NuageServerBaseClass):
         data['defaultAllowNonIP'] = self.def_allow_non_ip
         data['defaultInstallACLImplicitRules'] = False
         data['externalID'] = self.create_params['externalID']
+        if self.create_params.get('priority'):
+            data['priority'] = self.create_params.get('priority')
         return data
 
     def post_data_default_l3rule(self):
@@ -1229,6 +1245,14 @@ class NuageOutboundACL(NuageServerBaseClass):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
         headers['X-Nuage-Filter'] = "name IS '%s'" % name
+        return headers
+
+    def extra_headers_get_by_externalID(self):
+        headers = {}
+        headers['X-NUAGE-FilterType'] = "predicate"
+        headers['X-Nuage-Filter'] = "externalID IS '%s'" % \
+                                    get_vsd_external_id(
+                                        self.create_params['externalID'])
         return headers
 
 
@@ -1502,18 +1526,26 @@ class NuagePolicygroup(NuageServerBaseClass):
         return '/l2domains/%s/%s' % (self.create_params['domain_id'],
                                      self.resource)
 
+    def _get_name(self):
+        if self.create_params.get('sg_id'):
+            sg_type = self.create_params.get('sg_type', constants.SOFTWARE)
+            if sg_type == constants.HARDWARE:
+                return "%s_%s" % (self.create_params.get('sg_id'), sg_type)
+            return self.create_params.get('sg_id')
+        else:
+            return self.create_params.get('name')
+
     def post_data(self):
+        sg_type = self.create_params.get('sg_type', constants.SOFTWARE)
         data = {
             'description': self.create_params['name'],
-            'name': self.create_params['sg_id'],
+            'name': self._get_name(),
             'externalID': get_vsd_external_id(
                 self.create_params['externalID']),
-            'type': 'SOFTWARE'
+            'type': sg_type
         }
         if not data['name']:
             data['name'] = self.create_params['name']
-        if self.create_params.get('sg_type') == 'HARDWARE':
-            data['type'] = 'HARDWARE'
         if self.extra_params:
             data.update(self.extra_params)
         return data
@@ -1522,7 +1554,7 @@ class NuagePolicygroup(NuageServerBaseClass):
         data = {
             'description': self.create_params['description'],
             'name': self.create_params['name'],
-            'type': 'SOFTWARE',
+            'type': constants.SOFTWARE,
             'external': "true",
             'EVPNCommunityTag': self.create_params['extended_community'],
             'externalID': self.create_params['externalID']
@@ -1562,6 +1594,15 @@ class NuagePolicygroup(NuageServerBaseClass):
         headers['X-Nuage-Filter'] = "name IS '%s' and external IS '%s'" %\
                                     (name, is_external)
 
+        return headers
+
+    def extra_headers_get_type_and_id(self, sg_type):
+        headers = {}
+        headers['X-NUAGE-FilterType'] = "predicate"
+        headers['X-Nuage-Filter'] = "type IS '%s' and externalID IS '%s'" %\
+                                    (sg_type,
+                                     get_vsd_external_id(
+                                         self.create_params['externalID']))
         return headers
 
 

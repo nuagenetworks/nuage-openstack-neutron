@@ -50,22 +50,32 @@ class NuagePolicyGroups(object):
         self.stats_collection_enabled = (cfg.CONF.PLUGIN.
                                          stats_collection_enabled)
 
+    def _get_vsd_external_id(self, id, pg_type):
+        if pg_type == constants.HARDWARE:
+            prefix = 'hw:'
+        elif pg_type == constants.INTERCONNECT:
+            prefix = 'ic:'
+        else:
+            prefix = ''
+        return get_vsd_external_id(prefix + id)
+
     def _create_nuage_secgroup(self, params):
         rtr_id = params['nuage_router_id']
         l2dom_id = params['nuage_l2dom_id']
+        sg_type = params.get('sg_type', constants.SOFTWARE)
 
+        prefix = 'hw:' if sg_type == 'HARDWARE' else ''
         req_params = {
             'name': params['name'],
             'sg_id': params.get('sg_id'),
-            'externalID': params.get('externalID',
-                                     get_vsd_external_id(params.get('sg_id')))
+            'externalID': prefix + params.get(
+                'externalID', get_vsd_external_id(params.get('sg_id')))
         }
         if rtr_id:
             req_params['domain_id'] = rtr_id
         elif l2dom_id:
             req_params['domain_id'] = l2dom_id
-        if params.get('sg_type') == 'HARDWARE':
-            req_params['sg_type'] = 'HARDWARE'
+        req_params['sg_type'] = sg_type
 
         response = None
         nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
@@ -87,13 +97,14 @@ class NuagePolicyGroups(object):
                 if rtr_id:
                     nuage_policygroup_id = (
                         pg_helper.get_l3dom_policygroup_by_sgid(
-                            self.restproxy, rtr_id, params.get('sg_id')))
+                            self.restproxy, rtr_id,
+                            params.get('sg_id'), sg_type))
                 # l2 domain
                 else:
                     nuage_policygroup_id = (
                         pg_helper.get_l2dom_policygroup_by_sgid(
                             self.restproxy,
-                            l2dom_id, params.get('sg_id')))
+                            l2dom_id, params.get('sg_id'), sg_type))
                 return nuage_policygroup_id
 
         nuage_policygroup_id = nuage_policygroup.get_policygroup_id(response)
@@ -154,8 +165,11 @@ class NuagePolicyGroups(object):
         np_id = params['np_id']
         policygroup_id = params['policygroup_id']
         l2dom_dhcp_managed = params.get('dhcp_managed')
+        sg_type = params.get('sg_type', constants.SOFTWARE)
+        legacy = params.get('legacy', False)
         network_type = 'ENDPOINT_DOMAIN'
-        if l2dom_dhcp_managed == 'unmanaged':
+        if (not legacy and (l2dom_dhcp_managed == 'unmanaged' or
+                            sg_type == constants.HARDWARE)):
             network_type = 'ANY'
         nuage_match_info = {
             'etherType': constants.IPV4_ETHERTYPE,
@@ -222,8 +236,9 @@ class NuagePolicyGroups(object):
                                 self.restproxy,
                                 sg_rule[key], constants.L2DOMAIN, l2dom_id,
                                 params.get('remote_group_name')))
-                    nuage_match_info['networkID'] = remote_policygroup_id
-                    nuage_match_info['networkType'] = "POLICYGROUP"
+                    if sg_type != constants.HARDWARE:
+                        nuage_match_info['networkID'] = remote_policygroup_id
+                        nuage_match_info['networkType'] = "POLICYGROUP"
                 elif str(key) == 'remote_external_group':
                     nuage_match_info['networkID'] = sg_rule[key]
                     nuage_match_info['networkType'] = "POLICYGROUP"
@@ -249,7 +264,8 @@ class NuagePolicyGroups(object):
                 nuage_match_info['stateful'] = False
         if params.get('sg_type') == 'HARDWARE':
             nuage_match_info['stateful'] = False
-
+            nuage_match_info['flowLoggingEnabled'] = False
+            nuage_match_info['statsLoggingEnabled'] = False
         return nuage_match_info
 
     def _get_ingress_egress_ids(self, rtr_id=None, l2dom_id=None):
@@ -304,7 +320,8 @@ class NuagePolicyGroups(object):
             for rule in sg_rules:
                 params = {
                     'policygroup': policygroup,
-                    'neutron_sg_rule': rule
+                    'neutron_sg_rule': rule,
+                    'sg_type': params.get('sg_type', constants.SOFTWARE),
                 }
                 if ('ethertype' in rule.keys() and
                         str(rule['ethertype']) not in
@@ -320,6 +337,7 @@ class NuagePolicyGroups(object):
         sg_type = params.get('sg_type')
         remote_group_name = params.get('remote_group_name')
         external_id = params.get('externalID')
+        legacy = params.get('legacy', False)
         for l3dom_policygroup in l3dom_policygroup_list:
             nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
                 rtr_id=l3dom_policygroup['l3dom_id'])
@@ -344,7 +362,8 @@ class NuagePolicyGroups(object):
                 'policygroup_id': l3dom_policygroup['policygroup_id'],
                 'rule_id': sg_rule.get('id'),
                 'l3dom_id': l3dom_policygroup['l3dom_id'],
-                'externalID': external_id
+                'externalID': external_id,
+                'legacy': legacy
             }
             if sg_type:
                 params['sg_type'] = sg_type
@@ -381,7 +400,8 @@ class NuagePolicyGroups(object):
                 'rule_id': sg_rule.get('id'),
                 'dhcp_managed': dhcp_managed,
                 'l2dom_id': l2dom_policygroup['l2dom_id'],
-                'externalID': external_id
+                'externalID': external_id,
+                'legacy': legacy
             }
             if sg_type:
                 params['sg_type'] = sg_type
@@ -390,34 +410,44 @@ class NuagePolicyGroups(object):
             self._create_nuage_sgrule_process(params)
 
     def _create_nuage_sgrule_process(self, params):
-        if params.get('sg_type') == 'HARDWARE':
-            self._create_nuage_sgrule(params)
+        sg_rule = params['neutron_sg_rule']
+        if params.get('sg_type') == constants.HARDWARE:
+            if params.get('legacy', False):
+                self._create_nuage_sgrule(params)
+            else:
+                if not sg_rule.get('remote_ip_prefix'):
+                    params['neutron_sg_rule']['remote_ip_prefix'] = (
+                        ANY_IPV6_IP if
+                        sg_rule.get('ethertype') == constants.OS_IPV6
+                        else ANY_IPV4_IP)
+                if not sg_rule.get('protocol'):
+                    params['neutron_sg_rule']['protocol'] = "ANY"
+                self._create_nuage_sgrule(params)
         else:
-            rule = params['neutron_sg_rule']
-            if (not rule.get('remote_group_id') and
-                    not rule.get('remote_ip_prefix')):
-                if rule.get('ethertype') == constants.OS_IPV6:
-                    rule['remote_ip_prefix'] = ANY_IPV6_IP
-                else:
-                    rule['remote_ip_prefix'] = ANY_IPV4_IP
-            if not rule.get('protocol'):
-                rule['protocol'] = "ANY"
+            if (not sg_rule.get('remote_group_id') and
+                    not sg_rule.get('remote_ip_prefix')):
+                params['neutron_sg_rule']['remote_ip_prefix'] = (
+                    ANY_IPV6_IP if
+                    sg_rule.get('ethertype') == constants.OS_IPV6
+                    else ANY_IPV4_IP)
+            if not sg_rule.get('protocol'):
+                params['neutron_sg_rule']['protocol'] = "ANY"
             # As VSP does not support stateful icmp with ICMPtype not in
             # [8,13,15,17], to be compatible with upstream openstack, create 2
             # non stateful icmp rules in egress and ingress direction for such
             # #types, for valid icmptypes create single stateful icmp rule
-            if rule.get('protocol') == 'icmp':
-                port_min = rule.get('port_range_min')
-                port_max = rule.get('port_range_max')
+            if sg_rule.get('protocol') == 'icmp':
+                port_min = sg_rule.get('port_range_min')
+                port_max = sg_rule.get('port_range_max')
                 if ((not port_min and not port_max) or
                         port_min not in STATEFUL_ICMP_TYPES):
                     self._create_nuage_sgrule(params)
-                    if rule['direction'] == 'ingress':
-                        rule['direction'] = 'egress'
+                    if sg_rule['direction'] == 'ingress':
+                        sg_rule['direction'] = 'egress'
                         params['direction'] = 'egress'
                         self._create_nuage_sgrule(params)
-                    elif rule['direction'] == 'egress':
-                        rule['direction'] = 'ingress'
+                    elif sg_rule['direction'] == 'egress':
+                        sg_rule['direction'] = 'ingress'
                         params['direction'] = 'ingress'
                         self._create_nuage_sgrule(params)
                 elif port_min in STATEFUL_ICMP_TYPES:
@@ -436,9 +466,10 @@ class NuagePolicyGroups(object):
         }
         nuage_aclrule = nuagelib.NuageACLRule(create_params=req_params)
         nuage_match_info = self._map_nuage_sgrule(params)
-        nuage_match_info['externalID'] = get_vsd_external_id(
-            params.get('rule_id')) if params.get('rule_id') else params.get(
-            'externalID')
+        nuage_match_info['externalID'] = (self._get_vsd_external_id(
+            params.get('rule_id'), params.get('sg_type', constants.SOFTWARE))
+            if params.get('rule_id') else
+            params.get('externalID'))
 
         # neutron ingress is nuage egress and vice versa
         if params['neutron_sg_rule']['direction'] == 'ingress':
@@ -479,11 +510,12 @@ class NuagePolicyGroups(object):
             self.restproxy.rest_call('DELETE',
                                      nuage_aclrule.in_delete_resource(id), '')
 
-    def delete_nuage_sgrule(self, sg_rules):
+    def delete_nuage_sgrule(self, sg_rules, sg_type):
         for rule in sg_rules:
             params = {
                 'rule_id': rule['id'],
-                'direction': rule['direction']
+                'direction': rule['direction'],
+                'sg_type': sg_type
             }
             sgrule_acl = self.get_sgrule_acl_mapping_for_ruleid(params)
             if sgrule_acl:
@@ -492,17 +524,20 @@ class NuagePolicyGroups(object):
             # this handles the case where, rule with protocol icmp and
             # ICMPTYpe not in [8,13,15,17] with ingress direction
             # has an icmp rule in egress and vice versa
-            if (rule.get('protocol') == 'icmp' and
-                    rule.get('port_range_min') not in STATEFUL_ICMP_TYPES):
+            if ((rule.get('protocol') == 'icmp' and
+                    rule.get('port_range_min') not in STATEFUL_ICMP_TYPES) or
+                    (rule.get('protocol') and sg_type == constants.HARDWARE)):
                 if rule['direction'] == 'egress':
                     params = {
                         'rule_id': rule['id'],
-                        'direction': 'ingress'
+                        'direction': 'ingress',
+                        'sg_type': sg_type
                     }
                 else:
                     params = {
                         'rule_id': rule['id'],
-                        'direction': 'egress'
+                        'direction': 'egress',
+                        'sg_type': sg_type
                     }
                 sgrule_acl = self.get_sgrule_acl_mapping_for_ruleid(params)
                 # To do(Divya): try to use rule['direction'] instead of
@@ -612,9 +647,9 @@ class NuagePolicyGroups(object):
         if not qos.validate(response):
             raise restproxy.RESTProxyError(qos.error_msg)
 
-    def get_sg_policygroup_mapping(self, sg_id):
+    def get_sg_policygroup_mapping(self, sg_id, sg_type=constants.SOFTWARE):
         req_params = {
-            'externalID': get_vsd_external_id(sg_id)
+            'externalID': self._get_vsd_external_id(sg_id, sg_type)
         }
         nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
         nuage_policygroup_extra_headers = nuage_policygroup.extra_headers_get()
@@ -653,45 +688,19 @@ class NuagePolicyGroups(object):
             }
         return result
 
-    def get_sgrule_acl_mapping_for_ruleid(self, params):
-        acl_list = []
+    def get_sgrule_acl_mapping_for_ruleid(self, params, **filters):
+        filters['externalID'] = self._get_vsd_external_id(params['rule_id'],
+                                                          params['sg_type'])
+        nuage_aclrule = nuagelib.NuageACLRule()
+        headers = nuage_aclrule.extra_header_filter(**filters)
         # neutron ingress is egress on nuage and vice versa
         if params['direction'] == 'ingress':
-            req_params = {
-                'externalID': get_vsd_external_id(params['rule_id'])
-            }
-            nuage_aclrule = nuagelib.NuageACLRule(create_params=req_params)
-            nuage_aclrule_extra_headers = nuage_aclrule.extra_headers_get()
-
-            response = self.restproxy.rest_call(
-                'GET', nuage_aclrule.eg_get_all_resources(), '',
-                nuage_aclrule_extra_headers)
-            if not nuage_aclrule.validate(response):
-                raise restproxy.RESTProxyError(nuage_aclrule.error_msg)
-
-            if response[3]:
-                for nuage_acl in response[3]:
-                    nuage_acl_id = nuage_acl['ID']
-                    acl_list.append(nuage_acl_id)
+            url = nuage_aclrule.eg_get_all_resources()
         else:
-            req_params = {
-                'externalID': get_vsd_external_id(params['rule_id'])
-            }
-            nuage_aclrule = nuagelib.NuageACLRule(create_params=req_params)
-            nuage_aclrule_extra_headers = nuage_aclrule.extra_headers_get()
+            url = nuage_aclrule.in_get_all_resources()
 
-            response = self.restproxy.rest_call(
-                'GET', nuage_aclrule.in_get_all_resources(), '',
-                nuage_aclrule_extra_headers)
-            if not nuage_aclrule.validate(response):
-                raise restproxy.RESTProxyError(nuage_aclrule.error_msg)
-
-            if response[3]:
-                for nuage_acl in response[3]:
-                    nuage_acl_id = nuage_acl['ID']
-                    acl_list.append(nuage_acl_id)
-
-        return acl_list
+        acls = self.restproxy.get(url, extra_headers=headers)
+        return [acl['ID'] for acl in acls]
 
     def _get_ingressacl_by_policygroup_id(self, inaclid, policygroup_id):
         req_params = {
@@ -792,24 +801,27 @@ class NuagePolicyGroups(object):
         vsd_subnet = params['vsd_subnet']
         sg = params['sg']
         sg_rules = params['sg_rules']
+        sg_type = params.get('sg_type', constants.SOFTWARE)
         l3dom_id = None
-
         if vsd_subnet['type'] == constants.SUBNET:
             zone = helper.get_nuage_zone_by_id(
                 self.restproxy, vsd_subnet['parentID'])
             l3dom_id = zone['nuage_parent_id']
+            ext_id = 'hw:%s' % zone['nuage_external_id']
             nuage_policygroup_id = pg_helper.get_l3dom_policygroup_by_sgid(
-                self.restproxy, l3dom_id, sg['id'])
+                self.restproxy, l3dom_id, sg['id'], sg_type)
         else:
             nuage_policygroup_id = pg_helper.get_l2dom_policygroup_by_sgid(
-                self.restproxy, vsd_subnet['ID'], sg['id'])
+                self.restproxy, vsd_subnet['ID'], sg['id'], sg_type)
+            ext_id = 'hw:%s' % vsd_subnet['externalID']
 
         create_params = {
             'nuage_router_id': l3dom_id,
             'nuage_l2dom_id': vsd_subnet['ID'],
             'name': sg['name'],
             'sg_id': sg['id'],
-            'sg_rules': sg_rules
+            'sg_rules': sg_rules,
+            'sg_type': sg_type
         }
         if not nuage_policygroup_id:
             try:
@@ -822,10 +834,95 @@ class NuagePolicyGroups(object):
                 to_rollback.append(rollback_resource)
                 create_params['nuage_policygroup_id'] = nuage_policygroup_id
                 self._create_nuage_sgrules_bulk(create_params)
+                if sg_type == constants.HARDWARE:
+                    if vsd_subnet['type'] == constants.SUBNET:
+                        parent_id = l3dom_id
+                        parent_type = constants.NETWORK_TYPE_L3
+                    else:
+                        parent_id = vsd_subnet['ID']
+                        parent_type = constants.NETWORK_TYPE_L2
+                    acl_tmpl_name = 'hw:%s' % parent_id
+                    deny_all_tmpl = self.create_nuage_acl_tmplt(
+                        parent_id,
+                        parent_type,
+                        ext_id,
+                        constants.NUAGE_ACL_EGRESS,
+                        name=acl_tmpl_name,
+                        priority=1)[0]
+                    self.create_default_deny_rule(parent_id,
+                                                  parent_type,
+                                                  deny_all_tmpl,
+                                                  constants.NUAGE_ACL_EGRESS,
+                                                  nuage_policygroup_id)
+                    # TODO(gridinv): do we need rollback for it?
             except Exception:
                 with excutils.save_and_reraise_exception():
                     helper.process_rollback(self.restproxy, to_rollback)
         return nuage_policygroup_id
+
+    def create_nuage_acl_tmplt(self, parent_id, parent_type, os_resource_id,
+                               direction, name=None, priority=None):
+        req_params = {
+            'parent_id': parent_id,
+            'name': name if name is not None else parent_id,
+            'externalID': get_vsd_external_id(os_resource_id)
+        }
+        if priority:
+            req_params['priority'] = priority
+        if direction == constants.NUAGE_ACL_EGRESS:
+            nuageacl = nuagelib.NuageOutboundACL(create_params=req_params)
+        else:
+            nuageacl = nuagelib.NuageInboundACL(create_params=req_params)
+        if parent_type == constants.NETWORK_TYPE_L2:
+            rest_path = nuageacl.post_resource_l2()
+            rest_data = nuageacl.post_data_default_l2()
+        else:
+            rest_path = nuageacl.post_resource_l3()
+            rest_data = nuageacl.post_data_default_l3()
+        return self.restproxy.post(
+            rest_path, rest_data,
+            on_res_exists=self.restproxy.retrieve_by_external_id,
+            ignore_err_codes=['2533'])
+
+    def create_default_deny_rule(self, parent_id, parent_type,
+                                 acl_tpml_id, direction, pg_id):
+        req_params = {
+            'acl_id': acl_tpml_id['ID'],
+        }
+        nuage_aclrule = nuagelib.NuageACLRule(create_params=req_params)
+        nuage_match_info = {
+            'etherType': '0x0800',
+            'protocol': 'ANY',
+            'networkType': 'ANY',
+            'locationType': 'POLICYGROUP',
+            'locationID': pg_id,
+            'action': 'DROP',
+            'stateful': False,
+            'DSCP': '*',
+            'flowLoggingEnabled': False,
+            'statsLoggingEnabled': False,
+            'priority': random.randint(MIN_SG_PRI, MAX_SG_PRI)
+        }
+        if direction == constants.NUAGE_ACL_EGRESS:
+            url = nuage_aclrule.eg_post_resource()
+        else:
+            url = nuage_aclrule.in_post_resource()
+
+        attempts = 3
+        for i in range(attempts):
+            try:
+                return self.restproxy.post(url, nuage_match_info)[0]['ID']
+            except restproxy.RESTProxyError as e:
+                if (e.code == restproxy.REST_CONFLICT and
+                        e.vsd_code ==
+                        constants.VSD_PRIORITY_CONFLICT_ERR_CODE):
+                    nuage_match_info['priority'] = random.randint(MIN_SG_PRI,
+                                                                  MAX_SG_PRI)
+                else:
+                    raise
+        raise restproxy.RESTProxyError("Failed to create aclentrytemplate "
+                                       "after %s attempts due to priority "
+                                       "conflict" % attempts)
 
     def get_policygroup_vport_mapping_by_port_id(self, vport_id):
         nuage_vport = nuagelib.NuageVPort()
@@ -878,14 +975,14 @@ class NuagePolicyGroups(object):
                         self.delete_nuage_policy_group(
                             pg_vport['nuage_policygroup_id'])
 
-    def check_unused_policygroups(self, securitygroup_ids):
+    def check_unused_policygroups(self, securitygroup_ids, sg_type):
         if not securitygroup_ids:
             return
         vsd_policygroup = nuagelib.NuagePolicygroup()
-        filters = ["externalID IS '%s'" % get_vsd_external_id(sg_id)
+        filters = ["externalID IS '%s'" % self._get_vsd_external_id(sg_id,
+                                                                    sg_type)
                    for sg_id in securitygroup_ids]
         header = {'X-Nuage-Filter': " or ".join(filters)}
-
         policygroups = self.restproxy.get(vsd_policygroup.get_all_resources(),
                                           extra_headers=header)
         for policygroup in policygroups:
@@ -900,9 +997,9 @@ class NuagePolicyGroups(object):
     def create_policygroup_default_allow_any_rule(self, l2dom_id, rtr_id,
                                                   neutron_subnet_id, gw_type,
                                                   pg_name=None):
-        sg_type = "SOFTWARE"
+        sg_type = constants.SOFTWARE
         if gw_type == "VSG":
-            sg_type = "HARDWARE"
+            sg_type = constants.HARDWARE
         params = {
             'nuage_router_id': rtr_id,
             'nuage_l2dom_id': l2dom_id,
@@ -944,8 +1041,9 @@ class NuagePolicyGroups(object):
                 params = {
                     'policygroup': policygroup,
                     'neutron_sg_rule': neutron_sg_rule,
-                    'sg_type': 'HARDWARE',
-                    'externalID': get_vsd_external_id(neutron_subnet_id)
+                    'sg_type': constants.HARDWARE,
+                    'externalID': get_vsd_external_id(neutron_subnet_id),
+                    'legacy': True
                 }
                 self.create_nuage_sgrule(params)
         return nuage_policygroup_id
@@ -1248,13 +1346,16 @@ class NuagePolicyGroups(object):
         pg_id = params['sg_id']
         l2dom_id = params['l2dom_id']
         rtr_id = params['rtr_id']
+        sg_type = params.get('sg_type', constants.SOFTWARE)
         in_parameters = {
             'rule_id': None,
             'direction': 'ingress',
+            'sg_type': sg_type
         }
         out_parameters = {
             'rule_id': None,
             'direction': 'egress',
+            'sg_type': sg_type
         }
         if l2dom_id:
             nuage_ibacl_details = pg_helper.get_inbound_acl_details(
@@ -1271,9 +1372,10 @@ class NuagePolicyGroups(object):
         if external_id:
             in_parameters['rule_id'] = external_id.split('@')[0]
             out_parameters['rule_id'] = external_id.split('@')[0]
-        in_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(in_parameters)
-        out_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(
-            out_parameters)
+        in_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(in_parameters,
+                                                             locationID=pg_id)
+        out_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(out_parameters,
+                                                              locationID=pg_id)
         req_params = {'acl_id': nuage_ibacl_id}
         extra_params = {'locationID': pg_id,
                         'externalID': external_id,
@@ -1327,6 +1429,57 @@ class NuagePolicyGroups(object):
             policy_group.get_child_resource(parent_resource, parent_id),
             extra_headers=policy_group.extra_header_filter(**filters),
             required=required)
+
+    def get_pgs(self, securitygroup_ids, domain_id,
+                domain_type, sg_type=None, required=False):
+        if not securitygroup_ids:
+            return
+        if sg_type:
+            filters = ["externalID IS '%s'" %
+                       self._get_vsd_external_id(sg_id, sg_type)
+                       for sg_id in securitygroup_ids]
+        else:
+            filters = ["externalID IS '%s'" %
+                       get_vsd_external_id(sg_id, constants.SOFTWARE)
+                       for sg_id in securitygroup_ids]
+            filters += ["externalID IS '%s'" %
+                        get_vsd_external_id(sg_id, constants.HARDWARE)
+                        for sg_id in securitygroup_ids]
+        header = {'X-Nuage-Filter': " or ".join(filters)}
+        if domain_type == constants.L2DOMAIN:
+            resource = nuagelib.NuageL2Domain.resource
+        else:
+            resource = nuagelib.NuageL3Domain.resource
+        policy_group = nuagelib.NuagePolicygroup()
+        pgs = self.restproxy.get(
+            policy_group.get_child_resource(resource, domain_id),
+            extra_headers=header,
+            required=required)
+        l3dom_policygroup_list = []
+        l2dom_policygroup_list = []
+        if pgs:
+            for policygroup in pgs:
+                if policygroup['parentType'] == 'domain':
+                    l3dom_policygroup = {
+                        'l3dom_id': policygroup['parentID'],
+                        'policygroup_id': policygroup['ID']
+                    }
+                    l3dom_policygroup_list.append(l3dom_policygroup)
+                elif policygroup['parentType'] == constants.L2DOMAIN:
+                    l2dom_policygroup = {
+                        'l2dom_id': policygroup['parentID'],
+                        'policygroup_id': policygroup['ID']
+                    }
+                    l2dom_policygroup_list.append(l2dom_policygroup)
+
+        if not l3dom_policygroup_list and not l2dom_policygroup_list:
+            result = None
+        else:
+            result = {
+                'l3dom_policygroups': l3dom_policygroup_list,
+                'l2dom_policygroups': l2dom_policygroup_list
+            }
+        return result
 
 
 class NuageRedirectTargets(object):
