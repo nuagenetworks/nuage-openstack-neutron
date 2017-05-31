@@ -22,6 +22,7 @@ from neutron.db import models_v2
 from neutron.db import securitygroups_db
 from neutron_lib import constants as os_constants
 
+from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import nuage_models
 
@@ -262,6 +263,27 @@ def get_nuage_subnets_info(session, subnets, fields, filters):
             if fields and field not in fields:
                 del subnet[field]
     return filtered
+
+
+def get_floatingip_per_vip_in_network(session, network_id):
+    result = (
+        session.query(l3_db.FloatingIP, models_v2.Port)
+        .join(
+            (models_v2.Port,
+             l3_db.FloatingIP.fixed_port_id == models_v2.Port.id))
+        .filter(
+            models_v2.Port.network_id == network_id,
+            models_v2.Port.device_owner ==
+            nuage_constants.DEVICE_OWNER_VIP_NUAGE
+        )
+    ).all()
+    fips_per_vip = {}
+    for row in result:
+        fip = row[0]
+        vip_port = row[1]
+        for fixed_ip in vip_port.fixed_ips:
+            fips_per_vip[fixed_ip.ip_address] = fip
+    return fips_per_vip
 
 
 def get_subnet_l2dom_by_nuage_id(session, id):
