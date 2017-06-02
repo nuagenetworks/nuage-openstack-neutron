@@ -357,7 +357,7 @@
         rps: {{rps_value or 1}}
       context:
         network:
-           "start_cidr": "1.0.0.0/8"
+           "start_cidr": "1.0.0.0/24"
         users:
           tenants: 2
           users_per_tenant: 2
