@@ -59,7 +59,7 @@ class VsdClientImpl(VsdClient):
                                                self.policygroups)
         self.domain = domain.NuageDomain(self.restproxy,
                                          self.policygroups)
-        self.vm = vm.NuageVM(self.restproxy)
+        self.vm = vm.NuageVM(self.restproxy, self)
         self.dhcp_options = dhcpoptions.NuageDhcpOptions(self.restproxy)
         self.nuagegw = gateway.NuageGateway(self.restproxy,
                                             self.policygroups)
