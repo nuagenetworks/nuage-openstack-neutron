@@ -108,7 +108,7 @@ class NetworkPlugin(utils.NeutronScenario):
         """
 
         network = self._create_network(network_create_args or {})
-        self._create_subnets(network, subnet_create_args, "1.0.0.0/8", 1)
+        self._create_subnets(network, subnet_create_args, "1.0.0.0/24", 1)
         for i in range(routers_per_subnet):
             router = self._create_router(router_create_args or {})
             port = self._create_port(network, port_create_args or {})
