@@ -4,13 +4,14 @@ Devstack external plugin
 
 Add and set the following in your local.conf/localrc file:
 
-
 enable_plugin nuage-openstack-neutron https://github.com/nuage-networks/nuage-openstack-neutron.git
+
 
 Core plugin
 -----------
 
 Q_PLUGIN=nuage
+
 
 ML2 mechanism driver
 --------------------
@@ -18,37 +19,13 @@ Q_PLUGIN=ml2
 
 Q_ML2_PLUGIN_MECHANISM_DRIVERS=nuage
 
-Q_ML2_PLUGIN_EXT_DRIVERS=nuage_subnet,nuage_port
+Q_ML2_PLUGIN_EXT_DRIVERS=nuage_subnet,nuage_port,port_security
+
 
 Required settings
 =================
 
-::
-
-
-    # IP Address and Port of VSD
-    NUAGE_VSD_SERVERS=172.31.4.211:8443
-
-    # Username and password of VSD for authentication
-    NUAGE_VSD_SERVER_AUTH=uname:psswd
-
-    # Organization name in which VSD will orchestrate network resources using openstack
-    NUAGE_VSD_ORGANIZATION=csp
-
-    # Boolean for SSL connection with VSD server
-    NUAGE_VSD_SERVER_SSL=True
-
-    # Nuage provided base uri to reach out to VSD
-    NUAGE_VSD_BASE_URI=/nuage/api/v4_0
-
-    # Nuage provided uri for initial authorization to access VSD
-    NUAGE_VSD_AUTH_RESOURCE=/me
-
-    # Default Network partition in which VSD will orchestrate network resources using openstack
-    NUAGE_VSD_DEF_NETPART_NAME=test-netpartition
-
-    # OVS bridge to use by nova
-    NOVA_OVS_BRIDGE=alubr0
+Please consult <this repo>/etc/neutron/plugins/nuage/nuage_plugin.ini
 
 
 Enabling LBaaS
