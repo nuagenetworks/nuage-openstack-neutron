@@ -16,7 +16,6 @@ import inspect
 import netaddr
 
 from oslo_config import cfg
-from oslo_db.exception import DBDuplicateEntry
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 from oslo_utils import excutils
@@ -244,12 +243,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     nuage_user_id=nuage_uid, l2dom_id=l2dom_id,
                     nuage_group_id=nuage_gid, managed=True)
                 subnet['vsd_managed'] = True
-        except DBDuplicateEntry:
-            self._cleanup_group(context, nuage_npid, nuage_subnet_id,
-                                subnet)
-            msg = _("Multiple OpenStack Subnets cannot be linked to the same "
-                    "Nuage Subnet")
-            raise NuageBadRequest(msg=msg)
         except Exception:
             self._cleanup_group(context, nuage_npid, nuage_subnet_id,
                                 subnet)
@@ -776,17 +769,23 @@ class NuageMechanismDriver(NuageML2Wrapper):
         self._validate_network_segment(network)
         if subnet.get('nuagenet') and subnet.get('net_partition'):
             self._validate_create_vsd_managed_subnet(network, subnet)
+            # Check for network already linked to VSD subnet
             subnet_mappings = nuagedb.get_subnet_l2dom_by_network_id(
                 context.session,
                 subnet['network_id'])
-
-            vsd_subnet_ids = set()
-            vsd_subnet_ids.add(subnet['nuagenet'])
+            # For loop to guard against inconsistent state -> Should be max 1.
             for mapping in subnet_mappings:
-                vsd_subnet_ids.add(mapping['nuage_subnet_id'])
-            if len(vsd_subnet_ids) > 1:
-                msg = _("The network already has a subnet linked to a "
-                        "different vsd subnet.")
+                if mapping['nuage_subnet_id'] != subnet['nuagenet']:
+                    msg = _("The network already has a subnet linked to a "
+                            "different vsd subnet.")
+                    raise NuageBadRequest(msg=msg)
+
+            # Check for VSD Subnet already linked to OS subnet
+            linked_subnets = nuagedb.get_subnet_l2dom_by_nuage_id(
+                context.session, subnet['nuagenet'])
+            if linked_subnets:
+                msg = _("Multiple OpenStack Subnets cannot be linked to the"
+                        "same Nuage Subnet")
                 raise NuageBadRequest(msg=msg)
 
             vsd_managed = True
