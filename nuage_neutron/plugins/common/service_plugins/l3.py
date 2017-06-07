@@ -945,6 +945,10 @@ class NuageL3Plugin(NuageL3Wrapper):
     @log_helpers.log_method_call
     @TimeTracker.tracked
     def update_floatingip(self, context, id, floatingip):
+        # Upstream Neutron disassociates port from fip if updated with None
+        # so we simulate same behavior in our plugin as well
+        if not floatingip['floatingip']:
+            floatingip['floatingip'] = {'port_id': None}
         fip = floatingip['floatingip']
         orig_fip = self._get_floatingip(context, id)
         port_id = orig_fip['fixed_port_id']
