@@ -18,9 +18,8 @@ from oslo_utils import excutils
 
 from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron import manager
-from neutron.plugins.common import constants as service_constants
 from neutron_lib.api import validators as lib_validators
+from neutron_lib import constants as lib_constants
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
@@ -55,8 +54,7 @@ class NuageAddressPair(BaseNuagePlugin):
     @property
     def l3_plugin(self):
         if not getattr(self, '_l3_plugin', None):
-            self._l3_plugin = manager.NeutronManager.get_service_plugins().get(
-                service_constants.L3_ROUTER_NAT)
+            self._l3_plugin = directory.get_plugin(lib_constants.L3)
         return self._l3_plugin
 
     def _make_fip_dict_with_subnet_id(self, fip):
