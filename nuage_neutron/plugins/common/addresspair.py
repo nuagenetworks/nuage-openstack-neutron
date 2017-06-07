@@ -11,8 +11,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
+import six
 
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -20,10 +19,12 @@ from oslo_utils import excutils
 from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron_lib.api import validators as lib_validators
+from neutron_lib import constants as lib_constants
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
@@ -50,15 +51,39 @@ class NuageAddressPair(BaseNuagePlugin):
             self._core_plugin = directory.get_plugin()
         return self._core_plugin
 
-    def _create_vips(self, subnet_mapping, port, nuage_vport):
+    @property
+    def l3_plugin(self):
+        if not getattr(self, '_l3_plugin', None):
+            self._l3_plugin = directory.get_plugin(lib_constants.L3)
+        return self._l3_plugin
+
+    def _make_fip_dict_with_subnet_id(self, fip):
+        fip_dict = self.l3_plugin._make_floatingip_dict(fip)
+        fip_dict['fip_subnet_id'] = fip.port.fixed_ips[0].subnet_id
+        return fip_dict
+
+    def _create_vips(self, context, subnet_mapping, port, nuage_vport):
         nuage_vip_dict = dict()
         enable_spoofing = False
         vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping,
                                                            required=True)
+        fips_per_vip = nuagedb.get_floatingip_per_vip_in_network(
+            context.session,
+            port['network_id'])
+        fips_per_vip = {vip: self._make_fip_dict_with_subnet_id(fip)
+                        for vip, fip in six.iteritems(fips_per_vip)}
 
         for allowed_addr_pair in port[addr_pair.ADDRESS_PAIRS]:
             vip = allowed_addr_pair['ip_address']
             mac = allowed_addr_pair['mac_address']
+
+            os_fip = fips_per_vip.get(vip)
+            if os_fip:
+                vsd_l3domain_id = nuagedb.get_ent_rtr_mapping_by_rtrid(
+                    context.session,
+                    os_fip['router_id'])['nuage_router_id']
+            else:
+                vsd_l3domain_id = None
 
             params = {
                 'vip': vip,
@@ -68,7 +93,9 @@ class NuageAddressPair(BaseNuagePlugin):
                 'vport_id': nuage_vport['ID'],
                 'port_ips': [ip['ip_address'] for ip in port['fixed_ips']],
                 'port_mac': port['mac_address'],
-                'externalID': port['id']
+                'externalID': port['id'],
+                'os_fip': os_fip,
+                'vsd_l3domain_id': vsd_l3domain_id
             }
 
             try:
@@ -88,7 +115,7 @@ class NuageAddressPair(BaseNuagePlugin):
             nuage_vport['ID'],
             constants.ENABLED if enable_spoofing else constants.INHERITED)
 
-    def _update_vips(self, subnet_mapping, port, nuage_vport,
+    def _update_vips(self, context, subnet_mapping, port, nuage_vport,
                      deleted_addr_pairs):
         if deleted_addr_pairs:
             # If some addr pairs were deleted we might have to undo some
@@ -167,9 +194,10 @@ class NuageAddressPair(BaseNuagePlugin):
                 addr_pair.ADDRESS_PAIRS: vips_add_list,
                 'fixed_ips': port['fixed_ips'],
                 'mac_address': port['mac_address'],
-                'id': port['id']
+                'id': port['id'],
+                'network_id': port['network_id']
             }
-            self._create_vips(subnet_mapping, port_dict, nuage_vport)
+            self._create_vips(context, subnet_mapping, port_dict, nuage_vport)
 
     def _process_allowed_address_pairs(self, context, port, vport,
                                        create=False, delete_addr_pairs=None):
@@ -179,9 +207,9 @@ class NuageAddressPair(BaseNuagePlugin):
         if subnet_mapping:
             if vport:
                 if create:
-                    self._create_vips(subnet_mapping, port, vport)
+                    self._create_vips(context, subnet_mapping, port, vport)
                 else:
-                    self._update_vips(subnet_mapping,
+                    self._update_vips(context, subnet_mapping,
                                       port, vport, delete_addr_pairs)
 
     def _verify_allowed_address_pairs(self, port, port_data):

@@ -31,7 +31,8 @@ ACTION_VIP = "createvip"
 
 
 class NuageVM(object):
-    def __init__(self, restproxy_serv):
+    def __init__(self, restproxy_serv, vsdclient):
+        self.vsdclient = vsdclient
         self.restproxy = restproxy_serv
 
     def vms_on_l2domain(self, l2dom_id):
@@ -467,7 +468,9 @@ class NuageVM(object):
         if args['subn_type'] == constants.SUBNET:
             # Create VIP only for l3 subnet
             try:
-                self.create_vip_on_vport(params)
+                vip = self.create_vip_on_vport(params)
+                if params['os_fip']:
+                    self._add_os_fip_to_vip(params, vip)
             except restproxy.RESTProxyError as e:
                 if e.vsd_code == constants.VSD_IP_IN_USE_ERR_CODE:
                     # Vip address already in use by other vminterface.
@@ -476,6 +479,26 @@ class NuageVM(object):
             return False
         else:
             return True
+
+    def _add_os_fip_to_vip(self, params, vip):
+        os_fip = params['os_fip']
+        vsd_fip = self.vsdclient.get_nuage_fip_by_id(
+            {'fip_id': os_fip['id']})
+        if not vsd_fip:
+            fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(
+                os_fip['fip_subnet_id'])
+            params = {
+                'nuage_rtr_id': params['vsd_l3domain_id'],
+                'nuage_fippool_id': fip_pool['nuage_fip_pool_id'],
+                'neutron_fip_ip': os_fip.floating_ip_address,
+                'neutron_fip_id': os_fip.id
+            }
+            vsd_fip_id = self.vsdclient.create_nuage_floatingip(
+                params)
+        else:
+            vsd_fip_id = vsd_fip['nuage_fip_id']
+        if vsd_fip_id:
+            self._associate_fip_to_vip(vip, vsd_fip_id)
 
     @staticmethod
     def get_net_size(netmask):
