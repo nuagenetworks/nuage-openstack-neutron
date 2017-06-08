@@ -715,6 +715,7 @@ class NuagePlugin(NuageCoreWrapper):
         create_vm = False
         p_data = port['port']
         p_sec_update_reqd = False
+        security_grp_update_req = True
         session = context.session
         original_port = super(NuagePlugin, self).get_port(context, id)
         vport = self._get_vport_for_port(context, original_port)
@@ -770,6 +771,8 @@ class NuagePlugin(NuageCoreWrapper):
             if (original_port.get(psec.PORTSECURITY)
                     != updated_port.get(psec.PORTSECURITY)):
                 p_sec_update_reqd = True
+            if (not new_sg) and (new_sg == orig_sg):
+                security_grp_update_req = False
             self._process_portbindings_create_and_update(
                 context, p_data, updated_port)
             if not updated_port.get('fixed_ips'):
@@ -810,12 +813,6 @@ class NuagePlugin(NuageCoreWrapper):
 
         rollbacks = []
         try:
-            if (subnet_mapping and
-                    subnet_mapping['nuage_managed_subnet'] is False):
-                if p_sec_update_reqd:
-                    self._process_port_create_secgrp_for_port_sec(
-                        context, updated_port)
-
             super(NuagePlugin, self)._update_extra_dhcp_opts_on_port(
                 context, old_port.get('id'), port, updated_port)
 
@@ -826,10 +823,18 @@ class NuagePlugin(NuageCoreWrapper):
                           self)._delete_port_security_group_bindings(context,
                                                                      id)
                     sgids = self._get_security_groups_on_port(context, port)
-                    self._process_port_create_security_group(
-                        context, updated_port, vport, sgids, vsd_subnet)
-                    deleted_sg_ids = orig_sg - new_sg
-                    self.vsdclient.check_unused_policygroups(deleted_sg_ids)
+                    if security_grp_update_req:
+                        self._process_port_create_security_group(
+                            context, updated_port, vport, sgids, vsd_subnet)
+                        deleted_sg_ids = orig_sg - new_sg
+                        self.vsdclient.check_unused_policygroups(
+                            deleted_sg_ids)
+
+            if (subnet_mapping and
+                    subnet_mapping['nuage_managed_subnet'] is False):
+                if p_sec_update_reqd and not new_sg:
+                    self._process_port_create_secgrp_for_port_sec(
+                        context, updated_port)
             if not lbaas_device_owner_added and not lbaas_device_owner_removed:
                 self.nuage_callbacks.notify(
                     resources.PORT, constants.AFTER_UPDATE, self,
