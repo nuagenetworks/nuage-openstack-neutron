@@ -16,21 +16,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# Nuage VSP related settings
-NUAGE_VSD_SERVERS=${NUAGE_VSD_SERVERS:-'localhost:8443'}
-NUAGE_VSD_SERVER_AUTH=${NUAGE_VSD_SERVER_AUTH:-'username:password'}
-NUAGE_VSD_ORGANIZATION=${NUAGE_VSD_ORGANIZATION:-'org'}
-NUAGE_VSD_SERVER_SSL=${NUAGE_VSD_SERVER_SSL:-'True'}
-NUAGE_VSD_BASE_URI=${NUAGE_VSD_BASE_URI:-'/'}
-NUAGE_VSD_AUTH_RESOURCE=${NUAGE_VSD_AUTH_RESOURCE:-'/'}
-NUAGE_VSD_DEF_NETPART_NAME=${NUAGE_VSD_DEF_NETPART_NAME:-''}
-NUAGE_VSD_CMS_ID=${NUAGE_VSD_CMS_ID:-''}
-NUAGE_VSD_CMS_NAME=${NUAGE_VSD_CMS_NAME:-''}
-
-
-# Nuage FIP to underlay
-NUAGE_FIP_UNDERLAY=${NUAGE_FIP_UNDERLAY:-'False'}
-
 # Nova integration bridge
 NOVA_OVS_BRIDGE=${NOVA_OVS_BRIDGE:-"alubr0"}
 
