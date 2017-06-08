@@ -22,32 +22,32 @@ nuage_pat_choices = [constants.NUAGE_PAT_NOT_AVAILABLE,
                      constants.NUAGE_PAT_DEF_DISABLED]
 
 restproxy_opts = [
-    cfg.StrOpt('server', default='localhost:8800',
-               help=_("IP Address and Port of Nuage's VSD server")),
-    cfg.StrOpt('serverauth', default='username:password',
+    cfg.StrOpt('server', default='vsd.example.com:8443',
+               help=_("IP address and port of Nuage's VSD server or cluster")),
+    cfg.StrOpt('serverauth', default='csproot:csproot',
                secret=True,
                help=_("Username and password for authentication")),
-    cfg.BoolOpt('serverssl', default=False,
+    cfg.BoolOpt('serverssl', default=True,
                 help=_("Boolean for SSL connection with VSD server")),
     cfg.IntOpt('server_timeout', default=30,
                help=_("VSD server invocation timeout")),
     cfg.IntOpt('server_max_retries', default=5,
                help=_("Number of retries invoking VSD server")),
-    cfg.StrOpt('base_uri', default='/',
+    cfg.StrOpt('base_uri', default='/nuage/api/v5_0',
                help=_("Nuage provided base uri to reach out to VSD")),
-    cfg.StrOpt('organization', default='system',
+    cfg.StrOpt('organization', default='csp',
                help=_("Organization name in which VSD will orchestrate "
                       "network resources using openstack")),
-    cfg.StrOpt('auth_resource', default='',
+    cfg.StrOpt('auth_resource', default='/me',
                help=_("Nuage provided uri for initial authorization to "
                       "access VSD")),
     cfg.StrOpt('default_net_partition_name',
-               default='OpenStackDefaultNetPartition',
+               default='os-netpartition',
                help=_("Default Network partition in which VSD will "
                       "orchestrate network resources using openstack")),
     cfg.IntOpt('default_floatingip_quota',
                default=254,
-               help=_("Per Net Partition quota of floating ips")),
+               help=_("Per netpartition quota of floating ips")),
     cfg.StrOpt('default_l3domain_template', default=''),
     cfg.StrOpt('default_l2domain_template', default=''),
     cfg.StrOpt('default_isolated_zone', default=''),
@@ -58,30 +58,15 @@ restproxy_opts = [
     cfg.BoolOpt('nuage_fip_underlay', default=False),
     cfg.StrOpt('cms_id', default=None,
                help=_("ID of a Cloud Management System on the VSD which "
-                      "identifies this OpenStack instance")),
+                      "identifies this openstack instance")),
     cfg.StrOpt('nuage_uplink', default=None)
-]
-
-syncmanager_opts = [
-    cfg.BoolOpt('enable_sync', default=False,
-                help=_("Nuage plugin will sync resources between openstack "
-                       "and VSD")),
-    cfg.BoolOpt('enable_audit', default=False,
-                help=_("Nuage plugin will audit resources between openstack "
-                       "and VSD. If 'enable_sync' flag is set to TRUE, "
-                       "plugin will audit and sync resources.")),
-    cfg.IntOpt('sync_interval', default=0,
-               help=_("Sync interval in seconds between openstack and VSD. "
-                      "It defines how often the synchronization is done. "
-                      "If not set, value of 0 is assumed and sync will be "
-                      "performed only once, at the Neutron startup time.")),
 ]
 
 fiprate_opts = [
     cfg.StrOpt('fip_rate_change_log', default=''),
     cfg.IntOpt('default_fip_rate', default=-1,
                help=_("FIP rate limit in egress direction in mbs. "
-                      " This option is deprecated in favor of "
+                      "This option is deprecated in favor of "
                       "default_egress_fip_rate_kbps and "
                       "will be removed in a future release."),
                deprecated_for_removal=True),
@@ -114,6 +99,5 @@ plugin_opts = [
 
 def nuage_register_cfg_opts():
     cfg.CONF.register_opts(restproxy_opts, "RESTPROXY")
-    cfg.CONF.register_opts(syncmanager_opts, "SYNCMANAGER")
     cfg.CONF.register_opts(fiprate_opts, "FIPRATE")
     cfg.CONF.register_opts(plugin_opts, "PLUGIN")
