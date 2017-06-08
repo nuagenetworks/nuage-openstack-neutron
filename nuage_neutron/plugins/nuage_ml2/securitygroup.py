@@ -175,7 +175,21 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             return
 
         securitygroups = port.get(ext_sg.SECURITYGROUPS, [])
-        self.vsdclient.check_unused_policygroups(securitygroups)
+        successful = False
+        attempt = 1
+        while not successful:
+            try:
+                self.vsdclient.check_unused_policygroups(securitygroups)
+                successful = True
+            except restproxy.RESTProxyError as e:
+                msg = e.msg.lower()
+                if (e.code not in (404, 409) and 'policygroup' not in msg and
+                        'policy group' not in msg):
+                    raise
+                elif attempt < 3:
+                    attempt += 1
+                else:
+                    raise
 
     @log_helpers.log_method_call
     def _process_port_security_group(self, context, port, vport, sg_ids,
