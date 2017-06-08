@@ -179,12 +179,18 @@ class NuageMechanismDriver(NuageML2Wrapper):
     def create_subnet_precommit(self, context):
         subnet = context.current
         network = context.network.current
-        if 'nuagenet' not in subnet and 'net_partition' not in subnet:
-            self._validate_network_segment(network)
-            if subnet['ip_version'] == 6:
+        vsd_managed = subnet.get('nuagenet') and subnet.get('net_partition')
+
+        if self.is_vxlan_network(network):
+            if not vsd_managed and subnet['ip_version'] == 6:
                 msg = _("Subnet with ip_version 6 is currently not supported "
                         "for OpenStack managed subnets.")
                 raise NuageBadRequest(msg=msg)
+
+        elif vsd_managed:
+            msg = _("Network should have 'provider:network_type' vxlan or have"
+                    " such a segment")
+            raise NuageBadRequest(msg=msg)
 
     @handle_nuage_api_errorcode
     @TimeTracker.tracked
@@ -192,6 +198,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
         subnet = context.current
         network = context.network.current
         db_context = context._plugin_context
+        if not self.is_vxlan_network(network):
+            if subnet['underlay'] == os_constants.ATTR_NOT_SPECIFIED:
+                subnet['underlay'] = None
+            return
 
         self._validate_create_subnet(db_context, network, subnet)
         if subnet.get('nuagenet') and subnet.get('net_partition'):
@@ -362,14 +372,15 @@ class NuageMechanismDriver(NuageML2Wrapper):
         db_context = context._plugin_context
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
                                                         updated_subnet['id'])
-        if subnet_mapping and subnet_mapping['nuage_managed_subnet']:
-            raise NuageBadRequest(
-                msg=_("Subnet %s is a VSD-managed subnet. Update is not "
-                      "supported") % updated_subnet['id'])
-
         net_id = original_subnet['network_id']
         network_external = self.core_plugin._network_is_external(db_context,
                                                                  net_id)
+        if not subnet_mapping and not network_external:
+            return
+        elif subnet_mapping and subnet_mapping['nuage_managed_subnet']:
+            raise NuageBadRequest(
+                msg=_("Subnet %s is a VSD-managed subnet. Update is not "
+                      "supported") % updated_subnet['id'])
 
         if network_external:
             return self._update_ext_network_subnet(updated_subnet['id'],
@@ -441,6 +452,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         db_context = context._plugin_context
         context.nuage_mapping = nuagedb.get_subnet_l2dom_by_id(
             db_context.session, subnet['id'])
+        if not context.nuage_mapping:
+            return
         filters = {
             'network_id': [subnet['network_id']],
             'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
@@ -456,6 +469,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         network_external = self.core_plugin._network_is_external(
             db_context,
             subnet['network_id'])
+        if not mapping and not network_external:
+            return
 
         if network_external:
             self.vsdclient.delete_nuage_sharedresource(subnet['id'])
@@ -493,6 +508,12 @@ class NuageMechanismDriver(NuageML2Wrapper):
         port = context.current
         if 'request_port' not in port:
             return
+        subnet_mapping = self._validate_port(db_context, port,
+                                             constants.BEFORE_CREATE)
+        if (not subnet_mapping or
+                port.get('device_owner') == constants.DEVICE_OWNER_IRONIC):
+            return
+
         is_network_external = context.network._network.get('router:external')
         if is_network_external and (port.get('device_owner') not in
                                     constants.AUTO_CREATE_PORT_OWNERS):
@@ -500,13 +521,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
             raise NuageBadRequest(resource='port', msg=msg)
         request_port = port['request_port']
         del port['request_port']
-
-        subnet_mapping = self._validate_port(db_context, port,
-                                             constants.BEFORE_CREATE)
-
-        if (not subnet_mapping or
-                port.get('device_owner') == constants.DEVICE_OWNER_IRONIC):
-            return
 
         nuage_vport = nuage_vm = np_name = None
         try:
@@ -742,7 +756,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
             msg = _("Parameter net-partition required when passing nuagenet")
             raise NuageBadRequest(resource='subnet', msg=msg)
 
-        self._validate_network_segment(network)
         if subnet.get('nuagenet') and subnet.get('net_partition'):
             self._validate_create_vsd_managed_subnet(network, subnet)
             # Check for network already linked to VSD subnet
@@ -815,15 +828,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         validate("subnet", subnet, subnet_validate)
         net_validate = {'router:external': Is(False)}
         validate("network", network, net_validate)
-
-    def _validate_network_segment(self, network):
-        net_type = 'provider:network_type'
-        vxlan_segment = [segment for segment in network.get('segments', [])
-                         if str(segment.get(net_type)).lower() == 'vxlan']
-        if str(network.get(net_type)).lower() != 'vxlan' and not vxlan_segment:
-            msg = _("Network should have 'provider:network_type' vxlan or have"
-                    " such a segment")
-            raise NuageBadRequest(msg=msg)
 
     def _validate_net_partition(self, subnet, db_context):
         netpartition_db = nuagedb.get_net_partition_by_name(
@@ -1048,7 +1052,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         filters = {'device_id': [port.get('device_id')]}
         ports = core_plugin.get_ports(db_context, filters)
         ports = [p for p in ports
-                 if self._is_port_vxlan_normal(p, core_plugin, db_context)]
+                 if self._is_port_vxlan_normal(p, db_context)]
         return len(ports), port.get('device_id')
 
     def _process_port_create_secgrp_for_port_sec(self, context, port):
@@ -1097,16 +1101,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
                         self.vsdclient.update_vport_policygroups(
                             nuage_vport_id, policygroup_ids)
 
-    def _is_port_vxlan_normal(self, port, core_plugin, db_context):
+    def _is_port_vxlan_normal(self, port, db_context):
         if port.get('binding:vnic_type') != portbindings.VNIC_NORMAL:
             return False
 
-        network = core_plugin.get_network(db_context, port.get('network_id'))
-        try:
-            self._validate_network_segment(network)
-            return True
-        except Exception:
-            return False
+        return self.is_vxlan_network_by_id(db_context, port.get('network_id'))
 
     def delete_gw_host_vport(self, context, port, subnet_mapping):
         port_params = {

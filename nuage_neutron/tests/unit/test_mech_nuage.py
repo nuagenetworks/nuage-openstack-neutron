@@ -17,6 +17,7 @@
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common import config
+from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from oslo_context import context
 
@@ -49,7 +50,21 @@ class TestNuageMechanismDriverNative(testtools.TestCase):
 class TestNuageMechanismDriverMocked(testtools.TestCase):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_create_subnet_precommit_no_nuage(self, mock):
+    def test_create_subnet_precommit_in_flat_network(self, mock):
+        nmd = NuageMechanismDriver()
+        nmd.initialize()
+
+        network = {'id': '1',
+                   'provider:network_type': 'flat',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'ip_version': 4}
+
+        nmd.create_subnet_precommit(Context(network, subnet))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    def test_create_v6_subnet_precommit(self, mock):
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -58,12 +73,32 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
                    'router:external': False}
         subnet = {'id': '10',
                   'network_id': '1',
-                  'ip_version': '4'}
+                  'ip_version': 6}
+
+        try:
+            nmd.create_subnet_precommit(Context(network, subnet))
+            self.fail()  # should not get here
+        except NuageBadRequest as e:
+            self.assertEqual('Bad request: Subnet with ip_version 6 is '
+                             'currently not supported '
+                             'for OpenStack managed subnets.', str(e))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    def test_create_subnet_precommit_default(self, mock):
+        nmd = NuageMechanismDriver()
+        nmd.initialize()
+
+        network = {'id': '1',
+                   'provider:network_type': 'vxlan',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'ip_version': 4}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_create_subnet_precommit_nuage(self, mock):
+    def test_create_subnet_precommit_with_nuagenet(self, mock):
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -74,7 +109,23 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
                   'network_id': '1',
                   'nuagenet': '0x100',
                   'net_partition': 'partyland',
-                  'ip_version': '4'}
+                  'ip_version': 4}
+
+        nmd.create_subnet_precommit(Context(network, subnet))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    def test_create_v6_subnet_precommit_with_nuagenet(self, mock):
+        nmd = NuageMechanismDriver()
+        nmd.initialize()
+
+        network = {'id': '1',
+                   'provider:network_type': 'vxlan',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'nuagenet': '0x100',
+                  'net_partition': 'partyland',
+                  'ip_version': 6}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
