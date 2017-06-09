@@ -498,7 +498,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                         mapping['net_partition_id'],
                                         mapping['nuage_subnet_id'], subnet)
 
-        self._delete_port_gateway(db_context, context.nuage_ports)
+            self._delete_port_gateway(db_context, context.nuage_ports)
 
     @handle_nuage_api_errorcode
     @utils.context_log
