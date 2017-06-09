@@ -64,6 +64,7 @@ from nuage_neutron.plugins.common import utils as nuage_utils
 
 from nuage_neutron.plugins.nuage import extensions
 from nuage_neutron.plugins.nuage.nuage_core_wrapper import NuageCoreWrapper
+from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
@@ -71,6 +72,7 @@ LOG = logging.getLogger(__name__)
 
 
 class NuagePlugin(NuageCoreWrapper):
+
     """Class that implements Nuage Networks' hybrid plugin functionality."""
     vendor_extensions = ["net-partition", "nuage-router", "nuage-subnet",
                          "ext-gw-mode", "nuage-floatingip", "nuage-gateway",
@@ -307,10 +309,8 @@ class NuagePlugin(NuageCoreWrapper):
             context.session, port['fixed_ips'][0]['subnet_id'])
 
         if subnet_mapping:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                l2dom_id = subnet_mapping['nuage_subnet_id']
-            else:
-                l3dom_id = subnet_mapping['nuage_subnet_id']
+            l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
+            if l3dom_id:
                 rtr_id = (self.vsdclient.
                           get_nuage_domain_id_from_subnet(l3dom_id))
 
@@ -596,10 +596,7 @@ class NuagePlugin(NuageCoreWrapper):
             l2dom_id = subnet_mapping['nuage_subnet_id']
             l3dom_id = subnet_mapping['nuage_subnet_id']
         else:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                l2dom_id = subnet_mapping['nuage_subnet_id']
-            else:
-                l3dom_id = subnet_mapping['nuage_subnet_id']
+            l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
 
         params = {
             'neutron_port_id': port_id,
@@ -876,10 +873,9 @@ class NuagePlugin(NuageCoreWrapper):
             LOG.debug(_("No subnet mapping found for subnet %s") % subnet_id)
             return None
         params = {'neutron_port_id': port['id']}
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
-            params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-        else:
-            params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
+        params['l2dom_id'] = l2dom_id
+        params['l3dom_id'] = l3dom_id
 
         vport = self.vsdclient.get_nuage_vport_by_neutron_id(params,
                                                              required=False)
@@ -902,10 +898,7 @@ class NuagePlugin(NuageCoreWrapper):
             l2dom_id = subnet_mapping['nuage_subnet_id']
             l3dom_id = subnet_mapping['nuage_subnet_id']
         else:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                l2dom_id = subnet_mapping['nuage_subnet_id']
-            else:
-                l3dom_id = subnet_mapping['nuage_subnet_id']
+            l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
 
         port_params = {
             'neutron_port_id': port['id'],
@@ -1650,8 +1643,8 @@ class NuagePlugin(NuageCoreWrapper):
             nuage_npid = nuage_netpart['id']
             (nuage_uid,
              nuage_gid) = self.vsdclient.attach_nuage_group_to_nuagenet(
-                 tenant_id, nuage_npid, nuage_subn_id,
-                 neutron_subnet.get('shared'))
+                tenant_id, nuage_npid, nuage_subn_id,
+                neutron_subnet.get('shared'))
         except Exception:
             filters = {
                 'fixed_ips': {'subnet_id': [neutron_subnet['id']]},
@@ -3126,10 +3119,9 @@ class NuagePlugin(NuageCoreWrapper):
                                                         subnet_id)
         params['neutron_port_id'] = port_id
 
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
-            params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-        else:
-            params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
+        params['l2dom_id'] = l2dom_id
+        params['l3dom_id'] = l3dom_id
         return self.vsdclient.get_nuage_vport_by_neutron_id(
             params, required=required)
 
@@ -3475,10 +3467,8 @@ class NuagePlugin(NuageCoreWrapper):
         netpart_id = subnet_mapping['net_partition_id']
         net_partition = nuagedb.get_net_partition_by_id(
             context.session, netpart_id)
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
-            l2dom_id = subnet_mapping['nuage_subnet_id']
-        else:
-            l3dom_id = subnet_mapping['nuage_subnet_id']
+        l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
+
         port_params = {
             'neutron_port_id': port['id'],
             'l2dom_id': l2dom_id,
