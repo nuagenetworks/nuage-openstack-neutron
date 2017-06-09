@@ -128,6 +128,8 @@ class NuageL3Plugin(NuageL3Wrapper):
         try:
             network = self.core_plugin.get_network(context,
                                                    rtr_if_info['network_id'])
+            if not self.is_vxlan_network(network):
+                return rtr_if_info
             if network['router:external']:
                 msg = _("Subnet in external network cannot be an interface of "
                         "a router.")
@@ -241,6 +243,11 @@ class NuageL3Plugin(NuageL3Wrapper):
         if 'subnet_id' in interface_info:
             subnet_id = interface_info['subnet_id']
             subnet = self.core_plugin.get_subnet(context, subnet_id)
+            if not self.is_vxlan_network_by_id(context, subnet['network_id']):
+                return super(NuageL3Plugin,
+                             self).remove_router_interface(context,
+                                                           router_id,
+                                                           interface_info)
             found = False
             try:
                 filters = {'device_id': [router_id],
@@ -265,6 +272,11 @@ class NuageL3Plugin(NuageL3Wrapper):
         elif 'port_id' in interface_info:
             port_db = self.core_plugin._get_port(context,
                                                  interface_info['port_id'])
+            if not self.is_vxlan_network_by_id(context, port_db['network_id']):
+                return super(NuageL3Plugin,
+                             self).remove_router_interface(context,
+                                                           router_id,
+                                                           interface_info)
             if not port_db:
                 msg = (_("No router interface found for Router %s. "
                          "Router-IF delete failed") % router_id)
@@ -830,6 +842,9 @@ class NuageL3Plugin(NuageL3Wrapper):
         neutron_fip = super(NuageL3Plugin, self).create_floatingip(
             context, floatingip,
             initial_status=lib_constants.FLOATINGIP_STATUS_DOWN)
+        if not self.is_vxlan_network_by_id(context,
+                                           neutron_fip['floating_network_id']):
+            return neutron_fip
         nuage_fip_rate = self._get_values_for_fip_rate(
             fip, for_update='port_id' not in fip)
         fip_rate_configured = nuage_fip_rate.get('cli_configured')
@@ -951,6 +966,11 @@ class NuageL3Plugin(NuageL3Wrapper):
             floatingip['floatingip'] = {'port_id': None}
         fip = floatingip['floatingip']
         orig_fip = self._get_floatingip(context, id)
+        if not self.is_vxlan_network_by_id(context,
+                                           orig_fip['floating_network_id']):
+            return super(NuageL3Plugin, self).update_floatingip(context,
+                                                                id,
+                                                                floatingip)
         port_id = orig_fip['fixed_port_id']
         router_ids = []
         neutron_fip = self._make_floatingip_dict(orig_fip)
@@ -1084,6 +1104,11 @@ class NuageL3Plugin(NuageL3Wrapper):
     @TimeTracker.tracked
     def delete_floatingip(self, context, fip_id):
         fip = self._get_floatingip(context, fip_id)
+
+        if not self.is_vxlan_network_by_id(context,
+                                           fip['floating_network_id']):
+            return super(NuageL3Plugin, self).delete_floatingip(context,
+                                                                fip_id)
         port_id = fip['fixed_port_id']
         if port_id:
             nuage_vport = self._get_vport_for_fip(context, port_id,

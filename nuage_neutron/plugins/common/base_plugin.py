@@ -193,6 +193,19 @@ class RootNuagePlugin(object):
                                             p_data)
         return core_plugin._create_port_db(context, {'port': port})[0]
 
+    def is_vxlan_network(self, network):
+        net_type = 'provider:network_type'
+        if str(network.get(net_type)).lower() == 'vxlan':
+            return True
+        vxlan_segment = [segment for segment in network.get('segments', [])
+                         if str(segment.get(net_type)).lower() == 'vxlan']
+        return len(vxlan_segment) != 0
+
+    def is_vxlan_network_by_id(self, context, network_id):
+        network = self.core_plugin.get_network(context,
+                                               network_id)
+        return self.is_vxlan_network(network)
+
 
 class BaseNuagePlugin(RootNuagePlugin):
 
