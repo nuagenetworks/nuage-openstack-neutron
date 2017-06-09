@@ -1,4 +1,4 @@
-# Copyright 2014 Alcatel-Lucent Inc.
+# Copyright 2017 Nokia
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -13,9 +13,9 @@
 #    under the License.
 #
 
-from neutron._i18n import _LE
-from neutron_lib import exceptions
+from neutron._i18n import _
+from neutron_lib import exceptions as n_exc
 
 
-class NuageDriverException(exceptions.NeutronException):
-    message = _LE('Error: %(msg)s')
+class NuageDriverException(n_exc.NeutronException):
+    message = _("Nuage Driver: %(msg)s")
