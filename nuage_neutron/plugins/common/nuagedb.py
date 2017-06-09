@@ -311,6 +311,12 @@ def get_subnet_l2dom_by_nuage_id(session, id):
     return query.filter_by(nuage_subnet_id=str(id)).first()
 
 
+def get_subnet_l2dom_by_nuage_id_and_ipversion(session, id, ipversion):
+    query = session.query(nuage_models.SubnetL2Domain)
+    return query.filter_by(nuage_subnet_id=str(id)).filter_by(
+        ip_version=str(ipversion)).first()
+
+
 def get_subnet_l2dom_with_lock(session, id):
     query = session.query(nuage_models.SubnetL2Domain)
     subl2dom = query.filter_by(subnet_id=id).with_lockmode('update').one()

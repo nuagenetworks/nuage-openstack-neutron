@@ -795,11 +795,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     raise NuageBadRequest(msg=msg)
 
             # Check for VSD Subnet already linked to OS subnet
-            linked_subnets = nuagedb.get_subnet_l2dom_by_nuage_id(
-                context.session, subnet['nuagenet'])
-            if linked_subnets:
-                msg = _("Multiple OpenStack Subnets cannot be linked to the"
-                        "same Nuage Subnet")
+            linked_subnet = nuagedb.get_subnet_l2dom_by_nuage_id_and_ipversion(
+                context.session, subnet['nuagenet'], subnet['ip_version'])
+            if linked_subnet:
+                msg = _("Multiple OpenStack Subnets with the same ip version "
+                        "cannot be linked to the same Nuage Subnet")
                 raise NuageBadRequest(msg=msg)
 
             vsd_managed = True
