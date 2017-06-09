@@ -42,7 +42,7 @@ restproxy_opts = [
                help=_("Nuage provided uri for initial authorization to "
                       "access VSD")),
     cfg.StrOpt('default_net_partition_name',
-               default='os-netpartition',
+               default='OpenStackDefaultNetPartition',
                help=_("Default Network partition in which VSD will "
                       "orchestrate network resources using openstack")),
     cfg.IntOpt('default_floatingip_quota',
