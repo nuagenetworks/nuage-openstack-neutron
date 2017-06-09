@@ -1,4 +1,4 @@
-# Copyright 2014 Alcatel-Lucent Canada Inc.
+# Copyright 2017 Nokia
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -12,20 +12,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 #
-
 import errno
-import os
-import os.path
-import re
+import json
+import six
 import socket
-import struct
+import sys
 import time
 
 from neutron._i18n import _
 from neutron.agent.linux.interface import OVSInterfaceDriver
-from neutron.agent.linux import utils
 
-import nuage_neutron.lbaas.common.exceptions as exceptions
+import nuage_neutron.lbaas.common.exceptions as nuage_exc
 
 from oslo_log import log as logging
 
@@ -33,221 +30,209 @@ LOG = logging.getLogger(__name__)
 
 
 class NuageVMDriver(object):
-    @classmethod
-    def abs_file_name(cls, dir_, file_name):
-        # If 'file_name' starts with '/', returns a copy of 'file_name'.
-        # Otherwise, returns an absolute path to 'file_name' considering it
-        # relative to 'dir_', which itself must be absolute.  'dir_' may be
-        # None or the empty string, in which case the current working
-        # directory is used.
-        # Returns None if 'dir_' is None and getcwd() fails.
-        # This differs from os.path.abspath() in that it will never change the
-        # meaning of a file name.
-        if file_name.startswith('/'):
-            return file_name
-        else:
-            if dir_ is None or dir_ == "":
-                try:
-                    dir_ = os.getcwd()
-                except OSError:
-                    return None
-
-            if dir_.endswith('/'):
-                return dir_ + file_name
-            else:
-                return "%s/%s" % (dir_, file_name)
 
     @classmethod
     def get_connected_socket(cls):
-        SOCKETNAME = "vm-events.ctl"
-        OVSRUNDIR = "/var/run/openvswitch"
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        server_address = cls.abs_file_name(OVSRUNDIR, SOCKETNAME)
+        OVSDB_IP = "localhost"
+        OVSDB_PORT = 6640
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock.connect(server_address)
-            LOG.debug(_("Connected to the vrs..."))
-        except socket.error:
-            raise exceptions.NuageDriverException(
-                msg='Could not open a socket to VRS')
-
+            sock.connect((OVSDB_IP, OVSDB_PORT))
+            LOG.debug(("Connected to the ovsdb..."))
+        except socket.error as error:
+            _, _, tb = sys.exc_info()
+            six.reraise(nuage_exc.NuageDriverException,
+                        nuage_exc.NuageDriverException(msg=error),
+                        tb)
         return sock
 
     @classmethod
-    def send_msg(cls, msg, sock, max_retries=5):
-        ret = 0
+    def ovsdb_transaction(cls, msg, recv_msg=False, max_retries=5):
+        LOG.debug(_("sending ovsdb-query as: %s"), msg)
         try:
-            ret = sock.sendall(msg)
+            sock = cls.get_connected_socket()
+            sock.sendall(msg)
+            sock.shutdown(socket.SHUT_RDWR)
+            if recv_msg:
+                resp = sock.recv(4096)
+                LOG.debug(_("response from ovsdb-query was: %s"), resp)
+                try:
+                    return json.loads(resp)
+                except ValueError:
+                    return None
+
         except Exception:
             ''' Retry 5 times every second '''
             if (socket.errno in [errno.EBUSY, errno.EAGAIN]
                     and max_retries > 0):
                 time.sleep(1)
-                return cls.send_msg(msg, sock, max_retries=(max_retries - 1))
+                LOG.debug(_("retrying some error"))
+                return cls.ovsdb_transaction(
+                    msg, recv_msg, max_retries=(max_retries - 1))
             else:
                 raise
-        return ret
 
     @classmethod
-    def _send_vm_event_to_ovs(cls, nuage_uuid, eventStr, vm_name,
-                              nuagexml=None):
-        uuidstr = nuage_uuid.replace('-', '')
-        part1 = int(uuidstr[:8], 16)
-        part2 = int(uuidstr[8:16], 16)
-        part3 = int(uuidstr[16:24], 16)
-        part4 = int(uuidstr[24:32], 16)
-        padchar = 0
-        endpoint_type = 0
-        platform_type = 0
-        uuid_length = 128
-        send_xml = None
-        if (eventStr == 'DEFINED' or eventStr == 'STARTED' or eventStr ==
-                'RESUMED'):
-            send_xml = True
-        else:
-            send_xml = False
-        eventtype = 0
-        # Maps from vir-events.h
-        eventStrMap = {'DEFINED': 0, 'UNDEFINED': 1, 'STARTED': 2,
-                       'SUSPENDED': 3, 'RESUMED': 4, 'STOPPED': 5,
-                       'SHUTDOWN': 6}
-        stateStrMap = {'DEFINED': 0, 'UNDEFINED': 0, 'STARTED': 1,
-                       'SUSPENDED': 3, 'RESUMED': 1, 'STOPPED': 4,
-                       'SHUTDOWN': 5}
-        reasonStrMap = {'DEFINED': 1,
-                        'UNDEFINED': 0,
-                        'STARTED': 1,
-                        'SUSPENDED': 0,
-                        'RESUMED': 1,
-                        'STOPPED': 0,
-                        'SHUTDOWN': 0}
-        event = eventStrMap[eventStr]
-        state = stateStrMap[eventStr]
-        reason = reasonStrMap[eventStr]
-        send_msg = None
-        vm_name = vm_name.encode('utf-8')
-        if send_xml:
-            xml_len = len(str(nuagexml)) + 1
-            send_msg = struct.pack('!BBHBBBBIIIIIIII64sHHHHHBBBBBB%ds' %
-                                   xml_len, endpoint_type, platform_type,
-                                   uuid_length, padchar, padchar, padchar,
-                                   padchar, part1, part2, part3, part4,
-                                   padchar, padchar, padchar, padchar,
-                                   vm_name, event, eventtype, state, reason,
-                                   xml_len, padchar, padchar, padchar,
-                                   padchar, padchar, padchar, str(nuagexml))
-        else:
-            xml_len = 0
-            send_msg = struct.pack('!BBHBBBBIIIIIIII64sHHHHHBBBBBB',
-                                   endpoint_type, platform_type, uuid_length,
-                                   padchar, padchar, padchar, padchar,
-                                   part1, part2, part3, part4,
-                                   padchar, padchar, padchar, padchar,
-                                   vm_name, event, eventtype, state, reason,
-                                   xml_len, padchar, padchar, padchar,
-                                   padchar, padchar, padchar)
-        return send_msg
+    def plug(cls, port_id, device_name, mac_address,
+             bridge):
+        LOG.debug(_("Nuage plugging port %(id)s:%(name)s on bridge %(bridge)s "
+                    "in namespace %(namespace)s"),
+                  {'id': port_id,
+                   'name': device_name,
+                   'bridge': bridge,
+                   'namespace': None})
+
+        # Formulate json object
+        query = []
+        # Operation 1
+        query1 = {"id": 1,
+                  "method": "transact",
+                  "params": [
+                      "Open_vSwitch", {
+                          "op": "insert",
+                          "table": "Nuage_Port_Table",
+                          "row": {
+                              "name": device_name
+                          }
+                      }
+                  ]
+                  }
+        # Operation 2
+        query2 = {"id": 2,
+                  "method": "transact",
+                  "params": [
+                      "Open_vSwitch", {
+                          "op": "insert",
+                          "table": "Nuage_VM_Table",
+                          "row": {
+                              "vm_uuid": port_id
+                          }
+                      }
+                  ]
+                  }
+        # Operation 3
+        query3 = {"id": 3,
+                  "method": "transact",
+                  "params": [
+                      "Open_vSwitch", {
+                          "op": "update",
+                          "table": "Nuage_Port_Table",
+                          "where": [["name", "==", device_name]],
+                          "row": {
+                              "mac": mac_address,
+                              "bridge": bridge,
+                              "vm_domain": 5
+                          }
+                      }, {
+                          "op": "update",
+                          "table": "Nuage_VM_Table",
+                          "where": [["vm_uuid", "==", port_id]],
+                          "row": {
+                              "state": 1,
+                              "reason": 1,
+                              "domain": 5,
+                              "vm_name": port_id,
+                              "ports": ["set", [device_name]]
+                          }
+                      }
+                  ]
+                  }
+        # stitch the queries into one single query
+        query.append(json.dumps(query1))
+        query.append(json.dumps(query2))
+        query.append(json.dumps(query3))
+
+        # send the query one by one
+        for q in query:
+            cls.ovsdb_transaction(q)
+        LOG.debug(_("NuageVMDriver plug: sent the query"))
 
     @classmethod
-    def send_undefine(cls, vm_name, nuage_uuid, sock):
-        stop_msg = cls._send_vm_event_to_ovs(nuage_uuid, 'STOPPED',
-                                             vm_name)
-        undefine_msg = cls._send_vm_event_to_ovs(nuage_uuid,
-                                                 'UNDEFINED', vm_name)
-        try:
-            cls.send_msg(stop_msg, sock)
-            cls.send_msg(undefine_msg, sock)
-        except Exception as ex:
-            raise exceptions.NuageDriverException(
-                msg='Failed to send stop/undefine event to VRS :' + ex)
+    def unplug(cls, port_id, device_name):
+        LOG.debug(_("Nuage unplugging port %(id)s:%(name)s on bridge"),
+                  {'id': port_id,
+                   'name': device_name})
+
+        # Formulate json object
+        query = {"id": 1,
+                 "method": "transact",
+                 "params": [
+                     "Open_vSwitch", {
+                         "op": "mutate",
+                         "table": "Nuage_VM_Table",
+                         "where": [["vm_uuid", "==", port_id]],
+                         "mutations": [["ports", "delete", device_name]]
+                     }, {
+                         "op": "delete",
+                         "table": "Nuage_Port_Table",
+                         "where": [["name", "==", device_name]]
+                     }, {
+                         "op": "delete",
+                         "table": "Nuage_VM_Table",
+                         "where": [["vm_uuid", "==", port_id]]
+                     }
+                 ]
+                 }
+        # send the obj
+        cls.ovsdb_transaction(json.dumps(query))
+        LOG.debug(_("NuageVMDriver unplug: sent the query"))
 
     @classmethod
-    def nuage_xml(cls, nuage_uuid, local_mac, port, bridge):
-        xmlTemplate = ("""<domain type="kvm" id="4">
-               <name>%(name)s</name>
-               <uuid>%(uuid)s</uuid>
-               <metadata>
-               </metadata>
-               <devices>
-               <interface type="bridge">
-               <mac address="%(mac)s"></mac>
-               <source bridge="%(bridge)s"></source>
-               <target dev=\"%(port)s\"></target>
-               </interface>
-               </devices>
-               </domain>""")
-        data = {'name': nuage_uuid,
-                'uuid': nuage_uuid,
-                'mac': re.sub(r'\s+', '', local_mac),
-                'bridge': bridge,
-                'port': port}
-        xmldata = xmlTemplate % data
-        return xmldata
-
-    @classmethod
-    def plug(cls, network_id, port_id, device_name, mac_address,
-             bridge=None, namespace=None, prefix=None, user_helper=None,
-             mtu=None):
-        xml_data = NuageVMDriver.nuage_xml(port_id, mac_address, device_name,
-                                           bridge)
-        define_msg = NuageVMDriver._send_vm_event_to_ovs(
-            port_id, 'DEFINED', vm_name=port_id, nuagexml=xml_data)
-        start_msg = NuageVMDriver._send_vm_event_to_ovs(
-            port_id, 'STARTED', vm_name=port_id, nuagexml=xml_data)
-        sock = cls.get_connected_socket()
-        try:
-            cls.send_msg(define_msg, sock)
-            LOG.debug(_('Sent VM define event to VRS for UUID %s '),
-                      port_id)
-            cls.send_msg(start_msg, sock)
-            LOG.debug(_('Sent VM start event to VRS for UUID %s '),
-                      port_id)
-        except Exception as ex:
-            raise exceptions.NuageDriverError(
-                msg='Failed to send define/start msg to VRS: ' + ex)
-
-    @classmethod
-    def unplug(cls, id, user_helper=None):
-        sock = cls.get_connected_socket()
-        cls.send_undefine(vm_name=id, nuage_uuid=id, sock=sock)
+    def get_port_uuid(cls, device_name):
+        LOG.debug(_("device name is : %s"), device_name)
+        port_id = None
+        # Formulate json object
+        query = {"id": 1,
+                 "method": "transact",
+                 "params": [
+                     "Open_vSwitch", {
+                         "op": "select",
+                         "table": "Nuage_VM_Table",
+                         "where": [["ports", "==", device_name]]
+                     }
+                 ]
+                 }
+        # send the obj
+        response = cls.ovsdb_transaction(json.dumps(query), True)
+        if response is not None \
+                and response.get('result') is not None:
+            port_id = response['result'][0]['rows'][0]['vm_uuid']
+        return port_id
 
 
 class NuageInterfaceDriver(OVSInterfaceDriver):
+
     def plug(self, network_id, port_id, device_name, mac_address,
              bridge=None, namespace=None, prefix=None, mtu=None):
-        super(NuageInterfaceDriver, self).plug(network_id, port_id,
-                                               device_name, mac_address,
-                                               bridge, namespace, prefix)
+
+        super(NuageInterfaceDriver, self).plug(
+            network_id=network_id, port_id=port_id,
+            device_name=device_name, mac_address=mac_address,
+            bridge=bridge, namespace=namespace, prefix=prefix)
+
         if not bridge:
             bridge = self.conf.ovs_integration_bridge
+            LOG.debug(_("bridge is picked from conf bridge : %s"), bridge)
         # Plug port into nuage overlay, simulate VM power on event
-        LOG.debug(_("Nuage plugging port %(id)s:%(name)s on bridge %(bridge)s "
+        LOG.debug(_("Nuage plugging port %(id)s:%(name)s on bridge %(bridge)s"
                   "in namespace %(namespace)s"),
                   {'id': port_id,
                    'name': device_name,
                    'bridge': bridge,
                    'namespace': namespace})
-        NuageVMDriver.plug(network_id, port_id, device_name,
-                           mac_address, bridge, namespace, prefix,
-                           user_helper=None)
+
+        NuageVMDriver.plug(port_id=port_id, device_name=device_name,
+                           mac_address=mac_address, bridge=bridge)
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
-        cmd = ['ovs-appctl', 'vm/port-show']
-        ports = utils.execute(cmd, run_as_root=True)
+        port_id = NuageVMDriver.get_port_uuid(device_name=device_name)
+        if port_id is not None:
+            LOG.debug(_("Nuage unplugging port %(id)s: %(name)s"),
+                      {'id': port_id,
+                       'name': device_name})
 
-        # Search through the vports, find the one tied to the device_name
-        for port in re.findall(r'Name: .*?\n\n\t\n', ports, re.DOTALL):
-            port_conf = re.search(
-                r'(?<=Name: )(?P<name>\S+).*(?<=UUID: )(?P<uuid>\S+).*'
-                r'(?<=Name: )(?P<device_name>\S+).*'
-                r'(?<=MAC: )(?P<mac_address>\S+).*'
-                r'(?<=Bridge: )(?P<bridge>\S+)', port, re.DOTALL).groupdict()
-            if port_conf is None:
-                continue
+            NuageVMDriver.unplug(port_id=port_id, device_name=device_name)
 
-            # If there is one matching the device name, delete it
-            if port_conf.get('device_name') == device_name:
-                LOG.debug(_('Nuage unplugging port %s'), port_conf)
-                port_id = port_conf.get('name')
-                NuageVMDriver.unplug(port_id, user_helper=None)
-        super(NuageInterfaceDriver, self).unplug(device_name, bridge,
-                                                 namespace, prefix)
+        super(NuageInterfaceDriver, self).unplug(
+            device_name=device_name, bridge=bridge,
+            namespace=namespace, prefix=prefix)
