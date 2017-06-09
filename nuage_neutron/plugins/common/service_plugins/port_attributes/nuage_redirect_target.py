@@ -35,6 +35,7 @@ from nuage_neutron.plugins.common.extensions.nuage_redirect_target \
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
+from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 
 
 class NuageRedirectTarget(BaseNuagePlugin):
@@ -376,6 +377,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                                "VSD " % filters['subnet'][0])
                     raise nuage_exc.NuageBadRequest(msg=message)
                 params['subnet'] = filters.get('subnet')[0]
+                params['subnet_mapping'] = subnet_mapping
             else:
                 message = ("Subnet %s doesn't have mapping l2domain on "
                            "VSD " % filters['subnet'][0])
@@ -460,10 +462,10 @@ class NuageRedirectTarget(BaseNuagePlugin):
             try:
                 params = {'neutron_port_id': port['id']}
 
-                if subnet_mapping['nuage_l2dom_tmplt_id']:
-                    params['l2dom_id'] = l2dom_id
-                else:
-                    params['l3dom_id'] = l3dom_id
+                l2_id, l3_id = get_l2_and_l3_sub_id(subnet_mapping)
+                params['l2dom_id'] = l2_id
+                params['l3dom_id'] = l3_id
+
                 nuage_port = self.vsdclient.get_nuage_vport_by_neutron_id(
                     params)
                 nuage_port['l2dom_id'] = l2dom_id
@@ -483,9 +485,10 @@ class NuageRedirectTarget(BaseNuagePlugin):
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
+        l2dom_id = l3dom_id = None
         if subnet_mapping:
-            l2dom_id = subnet_mapping['nuage_subnet_id']
-            l3dom_id = subnet_mapping['nuage_subnet_id']
+            l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
+
             params = {
                 'neutron_port_id': port_id,
                 'l2dom_id': l2dom_id,

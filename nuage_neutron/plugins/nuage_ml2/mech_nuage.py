@@ -52,6 +52,7 @@ from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.plugins.nuage_ml2 import extensions  # noqa
 from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageML2Wrapper
 from nuage_neutron.plugins.nuage_ml2.securitygroup import NuageSecurityGroup
+from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 
 LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCERV2
 
@@ -1069,10 +1070,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             context.session, port['fixed_ips'][0]['subnet_id'])
 
         if subnet_mapping:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                l2dom_id = subnet_mapping['nuage_subnet_id']
-            else:
-                l3dom_id = subnet_mapping['nuage_subnet_id']
+            l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
+            if l3dom_id:
                 rtr_id = (self.vsdclient.
                           get_nuage_domain_id_from_subnet(l3dom_id))
 
@@ -1120,21 +1119,16 @@ class NuageMechanismDriver(NuageML2Wrapper):
         if not vsd_subnet:
             return
 
-        if subnet_mapping['nuage_managed_subnet']:
-            port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-            port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
-        else:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
-                port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-            else:
-                port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
+        port_params['l2dom_id'] = l2dom_id
+        port_params['l3dom_id'] = l3dom_id
         nuage_vport = self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=False)
         if nuage_vport and (nuage_vport['type'] == constants.HOST_VPORT):
             def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
             netpart = nuagedb.get_default_net_partition(context, def_netpart)
             self.vsdclient.delete_nuage_gateway_vport(
-                context.tenant_id,
+                context,
                 nuage_vport.get('ID'),
                 netpart['id'])
 
@@ -1204,10 +1198,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _get_nuage_vport(self, port, subnet_mapping, required=True):
         port_params = {'neutron_port_id': port['id']}
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
-            port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
-        else:
-            port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
+        port_params['l2dom_id'] = l2dom_id
+        port_params['l3dom_id'] = l3dom_id
         return self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 

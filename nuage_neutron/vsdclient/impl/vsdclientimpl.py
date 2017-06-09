@@ -618,17 +618,19 @@ class VsdClientImpl(VsdClient):
     def create_gateway_vport(self, tenant_id, vport_dict):
         return self.nuagegw.create_gateway_vport(tenant_id, vport_dict)
 
-    def delete_nuage_gateway_vport(self, tenant_id, id, def_netpart_id):
-        return self.nuagegw.delete_nuage_gateway_vport(tenant_id,
+    def delete_nuage_gateway_vport(self, context, id, def_netpart_id):
+        return self.nuagegw.delete_nuage_gateway_vport(context,
                                                        id,
                                                        def_netpart_id)
 
-    def get_gateway_vport(self, tenant_id, netpart_id, nuage_vport_id):
-        return self.nuagegw.get_gateway_vport(tenant_id, netpart_id,
+    def get_gateway_vport(self, context, tenant_id, netpart_id,
+                          nuage_vport_id):
+        return self.nuagegw.get_gateway_vport(context, tenant_id, netpart_id,
                                               nuage_vport_id)
 
-    def get_gateway_vports(self, tenant_id, netpart_id, filters):
-        return self.nuagegw.get_gateway_vports(tenant_id,
+    def get_gateway_vports(self, context, tenant_id, netpart_id, filters):
+        return self.nuagegw.get_gateway_vports(context,
+                                               tenant_id,
                                                netpart_id,
                                                filters)
 

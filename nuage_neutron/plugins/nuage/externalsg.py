@@ -127,6 +127,7 @@ class NuageexternalsgMixin(object):
                                "VSD " % filters['subnet'][0])
                     raise nuage_exc.NuageBadRequest(msg=message)
                 params['subnet'] = filters.get('subnet')[0]
+                params['subnet_mapping'] = subnet_mapping
             else:
                 message = ("Subnet %s doesn't have mapping l2domain on "
                            "VSD " % filters['subnet'][0])
