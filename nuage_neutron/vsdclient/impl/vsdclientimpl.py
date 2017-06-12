@@ -936,6 +936,8 @@ class VsdClientImpl(VsdClient):
 
         return stats
 
+    # Trunk
+
     def create_trunk(self, os_trunk, subnet_mapping):
         params = {
             'neutron_port_id': os_trunk.port_id,
