@@ -14,7 +14,6 @@
 
 from abc import ABCMeta
 
-import hashlib
 import json
 import six
 
@@ -22,11 +21,12 @@ from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
 
+import uuid
+
 REST_SUCCESS_CODES = constants.REST_SUCCESS_CODES
 REST_NOT_FOUND = constants.RES_NOT_FOUND
 DEF_OPENSTACK_USER = constants.DEF_OPENSTACK_USER
 DEF_OPENSTACK_USER_EMAIL = constants.DEF_OPENSTACK_USER_EMAIL
-DEF_OPENSTACK_USER_PASS = constants.DEF_OPENSTACK_USER_PASS
 REST_SERV_UNAVAILABLE_CODE = constants.REST_SERV_UNAVAILABLE_CODE
 
 
@@ -807,7 +807,7 @@ class NuageUser(NuageServerBaseClass):
         data["lastName"] = DEF_OPENSTACK_USER
         data["userName"] = self.create_params['name']
         data["email"] = DEF_OPENSTACK_USER_EMAIL
-        data["password"] = hashlib.sha1(DEF_OPENSTACK_USER_PASS).hexdigest()
+        data["password"] = uuid.uuid4().hex
         data["managementMode"] = constants.NUAGE_LDAP_MODE
         data['externalID'] = self.create_params['externalID']
         return data
