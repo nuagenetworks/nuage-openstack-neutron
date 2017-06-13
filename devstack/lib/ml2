@@ -30,6 +30,8 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_fip_underlay $NUAGE_FIP_UNDERLAY
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
+    iniset $NOVA_CONF neutron ovs_bridge $NOVA_OVS_BRIDGE
+
     neutron_server_config_add $NUAGE_PLUGIN_CONF_FILE
     _neutron_deploy_rootwrap_filters $DIR_NUAGE
 }
