@@ -19,11 +19,13 @@ from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
+from nuage_neutron.vsdclient.impl.vsdclientimpl import VsdClientImpl
+from nuage_neutron.vsdclient.restproxy import RESTProxyServer
+
 from oslo_context import context
 
 import mock
 import testtools
-import traceback
 
 from oslo_config import cfg
 from oslo_config import fixture as oslo_fixture
@@ -31,26 +33,64 @@ from oslo_config import fixture as oslo_fixture
 
 class TestNuageMechanismDriverNative(testtools.TestCase):
 
-    def test_init_nmd_invalid_server(self):
-        nmd = NuageMechanismDriver()
+    def set_config_fixture(self):
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
         conf.config(group='RESTPROXY', server='localhost:9876')
         conf.config(group='RESTPROXY', server_timeout=1)
         conf.config(group='RESTPROXY', server_max_retries=1)
         conf.config(group='RESTPROXY', cms_id='1')
+        conf.config(group='PLUGIN', enable_debug='api_stats')
+
+    def initialize(self, nmd):
         try:
             nmd.initialize()
-            self.fail()  # should not get here
+            self.fail()
+
         except Exception as e:
-            if str(e) != 'Could not establish conn with REST server. Abort':
-                traceback.print_exc()
-                raise e
+            self.assertEqual('Could not establish a connection with the VSD. '
+                             'Please check VSD URI path in plugin config '
+                             'and verify IP connectivity.', str(e))
+
+    def test_init_nmd_invalid_server(self):
+        nmd = NuageMechanismDriver()
+        self.set_config_fixture()
+        self.initialize(nmd)
 
 
 class TestNuageMechanismDriverMocked(testtools.TestCase):
 
+    def set_config_fixture(self):
+        conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
+        conf.config(group='RESTPROXY', server='localhost:9876')
+        conf.config(group='RESTPROXY', server_timeout=1)
+        conf.config(group='RESTPROXY', server_max_retries=1)
+        conf.config(group='RESTPROXY', cms_id='1')
+        conf.config(group='PLUGIN', enable_debug='api_stats')
+
+    @mock.patch.object(RESTProxyServer, 'raise_rest_error')
+    @mock.patch.object(VsdClientImpl, 'get_cms')
+    def test_multi_init_nmd_invalid_server(self, raise_rest, get_cms):
+
+        # init nmd 3 times, mock out the failures
+        nmd1 = NuageMechanismDriver()
+        nmd2 = NuageMechanismDriver()
+        nmd3 = NuageMechanismDriver()
+
+        self.set_config_fixture()
+
+        nmd1.initialize()
+        nmd2.initialize()
+        nmd3.initialize()
+
+        # validate there is actually only 1 vsdclient (memoize)
+        self.assertEqual(nmd2.vsdclient, nmd1.vsdclient)
+        self.assertEqual(nmd3.vsdclient, nmd1.vsdclient)
+
+        # validate only 1 api call is made
+        self.assertEqual(1, nmd1.vsdclient.restproxy.api_count)
+
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_create_subnet_precommit_in_flat_network(self, mock):
+    def test_create_subnet_precommit_in_flat_network(self, init_vsd_client):
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -64,7 +104,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
         nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_create_v6_subnet_precommit(self, mock):
+    def test_create_v6_subnet_precommit(self, init_vsd_client):
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -84,7 +124,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
                              'for OpenStack managed subnets.', str(e))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_create_subnet_precommit_default(self, mock):
+    def test_create_subnet_precommit_default(self, init_vsd_client):
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -98,7 +138,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
         nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_create_subnet_precommit_with_nuagenet(self, mock):
+    def test_create_subnet_precommit_with_nuagenet(self, init_vsd_client):
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -114,7 +154,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
         nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_create_v6_subnet_precommit_with_nuagenet(self, mock):
+    def test_create_v6_subnet_precommit_with_nuagenet(self, init_vsd_client):
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
