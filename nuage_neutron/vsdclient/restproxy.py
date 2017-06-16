@@ -286,8 +286,9 @@ class RESTProxyServer(object):
         '''
         If at all authentication expires with VSD, re-authenticate.
         '''
-        LOG.debug(_('RESTProxy: authentication expired, re-authenticating.'))
         if response[0] == REST_UNAUTHORIZED and response[1] == 'Unauthorized':
+            LOG.debug(_('RESTProxy: authentication expired, '
+                        're-authenticating.'))
             self.generate_nuage_auth()
             return self._rest_call(action, resource, data,
                                    extra_headers=extra_headers)
