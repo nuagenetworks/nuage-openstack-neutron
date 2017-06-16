@@ -569,7 +569,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                              subnet_mapping,
                                              port_delete=True)
                 super(NuagePlugin, self).delete_port(context, result['id'])
-        return result
+        return self.get_port(context, result['id'])
 
     def _validate_update_port(self, port, original_port, has_security_groups):
         original_device_owner = original_port.get('device_owner')
