@@ -6,7 +6,7 @@ set -ex
 
 ZUUL_CLONER=/usr/zuul-env/bin/zuul-cloner
 NEUTRON_BRANCH=${NEUTRON_BRANCH:-stable/newton}
-NUAGENETLIB_BRANCH=${NUAGENETLIB_BRANCH:-master}
+NUAGENETLIB_BRANCH=${NUAGENETLIB_BRANCH:-nuage-4.0}
 UPPER_CONSTRAINTS_FILE=${UPPER_CONSTRAINTS_FILE:-unconstrained}
 
 install_cmd="pip install"
@@ -25,7 +25,7 @@ elif [ -x $ZUUL_CLONER ]; then
     pip install /tmp/OpenStack/nuagenetlib
 else
     # Install neutron client from github.mv.usa.alcatel.com
-    pip install -e git+git@github.mv.usa.alcatel.com:OpenStack/nuagenetlib.git#egg=nuagenetlib
+    pip install -e git+git@github.mv.usa.alcatel.com:OpenStack/nuagenetlib.git@$NUAGENETLIB_BRANCH#egg=nuagenetlib
 fi
 
 if $(python -c "import neutron" 2> /dev/null); then
