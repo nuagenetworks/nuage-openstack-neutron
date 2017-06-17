@@ -39,9 +39,12 @@ class TestNuageMechanismDriverNative(testtools.TestCase):
         conf.config(group='RESTPROXY', cms_id='1')
         try:
             nmd.initialize()
-            self.fail()  # should not get here
+            self.fail()
+
         except Exception as e:
-            if str(e) != 'Could not establish conn with REST server. Abort':
+            if str(e) != 'Could not establish a connection with the VSD. ' + \
+                         'Please check VSD URI path in plugin config ' + \
+                         'and verify IP connectivity.':
                 traceback.print_exc()
                 raise e
 
