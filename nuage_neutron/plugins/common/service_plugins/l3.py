@@ -310,8 +310,7 @@ class NuageL3Plugin(NuageL3Wrapper):
 
         with nuage_utils.rollback() as on_exc:
             last_address = neutron_subnet['allocation_pools'][-1]['end']
-            port = self._reserve_ip(self.core_plugin,
-                                    context, neutron_subnet, last_address)
+            port = self._reserve_ip(context, neutron_subnet, last_address)
             pnet_binding = nuagedb.get_network_binding(
                 context.session, neutron_subnet['network_id'])
             on_exc(self.core_plugin.delete_port, context, port['id'])
