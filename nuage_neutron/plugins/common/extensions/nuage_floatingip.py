@@ -84,6 +84,7 @@ def egress_limit_validation_kbps(data, valid_values=None):
 def ingress_limit_validation_kbps(data, valid_values=None):
     fip_value_validator(data, "nuage_ingress_fip_rate_kbps", units='kbps')
 
+
 lib_validators.add_validator('type:fip_rate_valid', fip_rate_limit_validation)
 lib_validators.add_validator('type:egress_rate_valid_kbps',
                              egress_limit_validation_kbps)

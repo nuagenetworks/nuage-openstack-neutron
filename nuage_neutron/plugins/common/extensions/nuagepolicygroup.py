@@ -34,6 +34,7 @@ def validate_port_policy_groups(nuage_policy_groups, valid_values=None):
         LOG.debug(msg)
         return msg
 
+
 lib_validators.add_validator('type:validate_port_policy_groups',
                              validate_port_policy_groups)
 

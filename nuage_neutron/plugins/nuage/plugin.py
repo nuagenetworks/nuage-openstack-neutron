@@ -216,7 +216,7 @@ class NuagePlugin(NuageCoreWrapper):
         vport_desc = ("device_owner:" + constants.NOVA_PORT_OWNER_PREF +
                       "(please donot edit)")
         self._validate_vmports_same_netpartition(
-            self, context, port, subnet_mapping['net_partition_id'])
+            context, port, subnet_mapping['net_partition_id'])
         self._resolve_tenant_for_shared_network(
             context, port, subnet_mapping['net_partition_id'])
         nuage_vport = self._create_nuage_vport(port, vsd_subnet,

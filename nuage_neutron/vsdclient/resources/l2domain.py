@@ -462,7 +462,8 @@ class NuageL2Domain(object):
             'net_id': params['net_id'],
             'externalID': get_vsd_external_id(subnet['id'])
         }
-        desc_str = params['net_id'] + '_' + subnet['name']
+        desc_str = params['net_id'] + '_' + subnet.get('name', subnet['id'])
+
         extra_params = {
             'description': desc_str
         }
