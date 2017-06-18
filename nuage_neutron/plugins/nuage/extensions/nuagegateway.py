@@ -36,6 +36,7 @@ def convert_validate_vlan_value(vlan):
     else:
         raise GatewayInvalidVlanValue(vlan=val)
 
+
 # Attribute Map
 RESOURCE_ATTRIBUTE_MAP = {
     'nuage_gateways': {

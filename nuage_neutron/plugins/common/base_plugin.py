@@ -107,10 +107,10 @@ class RootNuagePlugin(object):
         subnets = self.core_plugin.get_subnets(context, filters=filters)
         return bool(routers or subnets)
 
-    def _validate_vmports_same_netpartition(self, core_plugin, db_context,
-                                            current_port, np_id):
+    def _validate_vmports_same_netpartition(self, db_context, current_port,
+                                            np_id):
         filters = {'device_id': [current_port['device_id']]}
-        ports = core_plugin.get_ports(db_context, filters)
+        ports = self.core_plugin.get_ports(db_context, filters)
         for port in ports:
             if port['id'] == current_port['id']:
                 continue
@@ -180,7 +180,7 @@ class RootNuagePlugin(object):
         return found_resource
 
     @log_helpers.log_method_call
-    def _reserve_ip(self, core_plugin, context, subnet, ip):
+    def _reserve_ip(self, context, subnet, ip):
         fixed_ip = [{'ip_address': ip, 'subnet_id': subnet['id']}]
         p_data = {
             'network_id': subnet['network_id'],
@@ -191,7 +191,7 @@ class RootNuagePlugin(object):
         port = plugin_utils._fixup_res_dict(context,
                                             attributes.PORTS,
                                             p_data)
-        return core_plugin._create_port_db(context, {'port': port})[0]
+        return self.core_plugin._create_port_db(context, {'port': port})[0]
 
     def is_vxlan_network(self, network):
         net_type = 'provider:network_type'
