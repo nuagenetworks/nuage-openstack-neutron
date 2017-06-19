@@ -32,6 +32,8 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
     Q_PLUGIN_EXTRA_CONF_FILES=(${Q_PLUGIN_EXTRA_CONF_FILES[@]} $NUAGE_PLUGIN_CONF_FILE)
 
+    iniset $NOVA_CONF neutron ovs_bridge $NOVA_OVS_BRIDGE
+
     _neutron_deploy_rootwrap_filters $DIR_NUAGE
 }
 
