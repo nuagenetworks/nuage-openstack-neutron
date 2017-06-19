@@ -342,8 +342,8 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                             nuage_vport_id, policygroup_ids)
 
     @log_helpers.log_method_call
-    def _process_port_create_security_group(self, context, port, vport, sg_ids,
-                                            vsd_subnet):
+    def _process_port_create_security_group_nuage(self, context, port, vport,
+                                                  sg_ids, vsd_subnet):
         if not lib_validators.is_attr_set(sg_ids):
             port[ext_sg.SECURITYGROUPS] = []
             return
@@ -523,7 +523,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                             p_data.get(addr_pair.ADDRESS_PAIRS)))
                     if (subnet_mapping['nuage_managed_subnet'] is False and
                             ext_sg.SECURITYGROUPS in p_data):
-                        self._process_port_create_security_group(
+                        self._process_port_create_security_group_nuage(
                             context,
                             result,
                             vport,
@@ -775,8 +775,17 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 security_grp_update_req = False
             self._process_portbindings_create_and_update(
                 context, p_data, updated_port)
+            if addr_pair.ADDRESS_PAIRS in p_data:
+                self.update_address_pairs_on_port(context, id, port,
+                                                  original_port, updated_port)
+            if 'extra_dhcp_opts' in p_data:
+                super(NuagePlugin, self)._update_extra_dhcp_opts_on_port(
+                    context, old_port.get('id'), port, updated_port)
             if not updated_port.get('fixed_ips'):
-                return updated_port
+                if 'security_groups' in p_data:
+                    super(NuagePlugin, self).update_security_group_on_port(
+                        context, id, port, original_port, updated_port)
+                return self.get_port(context, updated_port['id'])
             subnet_id = updated_port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
             if vport and vport['parentType'] == constants.L3SUBNET:
@@ -808,15 +817,9 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                 # device_id and pass the no_of_ports to delete_nuage_vport
                 self._process_update_port(context, p_data, original_port,
                                           subnet_mapping, no_of_ports)
-            if addr_pair.ADDRESS_PAIRS in p_data:
-                self.update_address_pairs_on_port(context, id, port,
-                                                  original_port, updated_port)
 
         rollbacks = []
         try:
-            super(NuagePlugin, self)._update_extra_dhcp_opts_on_port(
-                context, old_port.get('id'), port, updated_port)
-
             if (subnet_mapping and subnet_mapping['nuage_managed_subnet'] is
                 False and delete_security_groups or (has_security_groups and
                                                      sgids_diff)):
@@ -825,7 +828,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                                                                      id)
                     sgids = self._get_security_groups_on_port(context, port)
                     if security_grp_update_req:
-                        self._process_port_create_security_group(
+                        self._process_port_create_security_group_nuage(
                             context, updated_port, vport, sgids, vsd_subnet)
                         deleted_sg_ids = orig_sg - new_sg
                         self.nuageclient.check_unused_policygroups(
@@ -1286,7 +1289,7 @@ class NuagePlugin(port_dhcp_options.PortDHCPOptionsNuage,
                             subnet_l2dom['nuage_subnet_id'],
                             network['network']['shared'],
                             subn['tenant_id'])
-        return net
+        return self.get_network(context, net['id'])
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
