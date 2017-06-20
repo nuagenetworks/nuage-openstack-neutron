@@ -658,7 +658,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     self._process_port_create_secgrp_for_port_sec(db_context,
                                                                   port)
                 if prt_sec_updt_rqd:
-                    status = (constants.INHERITED
+                    status = (constants.DISABLED
                               if port.get(portsecurity.PORTSECURITY, True)
                               else constants.ENABLED)
                     self.vsdclient.update_mac_spoofing_on_vport(
