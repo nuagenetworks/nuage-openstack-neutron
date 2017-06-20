@@ -33,3 +33,9 @@ IPV6_SUBNET_ATTRIBUTES_ENABLED=${IPV6_SUBNET_ATTRIBUTES_ENABLED:-'False'}
 
 # Nuage ml2 mechanism driver extensions
 Q_ML2_PLUGIN_EXT_DRIVERS=${Q_ML2_PLUGIN_EXT_DRIVERS:-nuage_subnet,nuage_port,port_security}
+
+# TODO(gridinv): bug work around
+# https://bugs.launchpad.net/devstack/+bug/1698129
+# once it's fixed. remove this.
+AGENT_BINARY="/bin/false"
+

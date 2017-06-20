@@ -120,7 +120,7 @@ class NuagePolicyGroups(object):
             raise restproxy.RESTProxyError(msg)
         ip_proto = rule['protocol']
         if ip_proto in ['tcp', 'udp']:
-            if (rule['port_range_min'] is not None and
+            if (rule.get('port_range_min') is not None and
                     rule['port_range_min'] == 0):
                 msg = ("Invalid port range, Port Number(0) must be between 1 "
                        "and 65535")
@@ -130,8 +130,8 @@ class NuagePolicyGroups(object):
         if 'ethertype' in sg_rule.keys():
             if str(sg_rule['ethertype']) in NUAGE_NOTSUPPORTED_ETHERTYPE:
                 raise restproxy.RESTProxyError(NOT_SUPPORTED_ACL_ATTR_MSG)
-        if (sg_rule['port_range_min'] is None and
-                sg_rule['port_range_max'] is None):
+        if (sg_rule.get('port_range_min') is None and
+                sg_rule.get('port_range_max') is None):
             return
         self._validate_nuage_port_range(sg_rule)
 
