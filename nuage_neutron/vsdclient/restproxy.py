@@ -24,14 +24,12 @@ import socket
 import ssl
 import time
 
-try:
-    from neutron._i18n import _
-except ImportError:
-    from neutron.i18n import _
+from neutron._i18n import _
 
 LOG = logging.getLogger(__name__)
 
 REST_SUCCESS_CODES = range(200, 207)
+REST_UNAUTHORIZED = 401
 REST_NOT_FOUND = 404
 REST_CONFLICT = 409
 REST_CONFLICT_ERR_CODE = REST_CONFLICT
@@ -87,10 +85,10 @@ class RESTProxyError(RESTProxyBaseException):
         if message is None:
             message = "None"
 
-        if self.code == 409:
-            self.message = _(message)   # noqa H701  # TODO(Kris) fix this
+        if self.code == REST_CONFLICT_ERR_CODE:
+            self.message = (_('%s') % message)
         else:
-            self.message = (_("Error in REST call to VSD: %s") % message)
+            self.message = (_('Error in REST call to VSD: %s') % message)
         super(RESTProxyError, self).__init__()
 
 
@@ -112,6 +110,7 @@ class ResourceNotFoundException(RESTProxyError):
 
 
 class RESTProxyServer(object):
+
     def __init__(self, server, base_uri, serverssl,
                  serverauth, auth_resource,
                  organization, servertimeout=30,
@@ -133,6 +132,35 @@ class RESTProxyServer(object):
         self.auth = None
         self.success_codes = range(200, 207)
         self.api_count = 0
+
+    @staticmethod
+    def raise_rest_error(msg, exc=None, log_as_error=True):
+        if log_as_error:
+            LOG.error(_('RESTProxy: %s'), msg)
+        else:
+            LOG.debug(_('RESTProxy: %s'), msg)
+        if exc:
+            raise exc
+        else:
+            raise Exception(msg)
+
+    @staticmethod
+    def raise_error_response(response):
+        errors = json.loads(response[3])
+        log_as_error = False
+        if response[0] == REST_SERV_UNAVAILABLE_CODE:
+            log_as_error = True
+            msg = 'VSD temporarily unavailable, ' + str(errors['errors'])
+        else:
+            msg = str(errors['errors'][0]['descriptions'][0]['description'])
+
+        if response[0] == REST_NOT_FOUND:
+            e = ResourceNotFoundException(msg)
+        else:
+            vsd_code = str(errors.get('internalErrorCode'))
+            e = RESTProxyError(msg, error_code=response[0], vsd_code=vsd_code)
+
+        RESTProxyServer.raise_rest_error(msg, e, log_as_error)
 
     def _rest_call(self, action, resource, data, extra_headers=None,
                    ignore_marked_for_deletion=False):
@@ -213,18 +241,13 @@ class RESTProxyServer(object):
             else:
                 conn = httpclient.HTTPSConnection(
                     self.server, self.port, timeout=self.timeout)
-
-            if conn is None:
-                LOG.error(_('RESTProxy: Could not establish HTTPS '
-                            'connection'))
-                raise Exception("Could not establish HTTPS connection")
         else:
             conn = httpclient.HTTPConnection(
                 self.server, self.port, timeout=self.timeout)
-            if conn is None:
-                LOG.error(_('RESTProxy: Could not establish HTTP '
-                            'connection'))
-                raise Exception("Could not establish HTTPS connection")
+
+        if conn is None:
+            self.raise_rest_error(
+                'Could not create HTTP(S)Connection object.')
         return conn
 
     def generate_nuage_auth(self):
@@ -233,15 +256,19 @@ class RESTProxyServer(object):
         self.auth = 'Basic ' + encoded_auth
         resp = self._rest_call('GET', self.auth_resource, data)
         if resp[0] == 0:
-            raise Exception('Could not establish conn with REST server. Abort')
-        respkey = resp[3][0]['APIKey']
-        if resp[0] in self.success_codes and respkey:
+            self.raise_rest_error(
+                'Could not establish a connection with the VSD. '
+                'Please check VSD URI path in plugin config and '
+                'verify IP connectivity.')
+        if resp[0] in self.success_codes and resp[3][0].get('APIKey'):
             uname = self.serverauth.split(':')[0]
-            new_uname_pass = uname + ':' + respkey
+            new_uname_pass = uname + ':' + resp[3][0]['APIKey']
             auth = 'Basic ' + base64.encodestring(new_uname_pass).strip()
             self.auth = auth
         else:
-            raise Exception('Could not authenticate to REST server. Abort')
+            self.raise_rest_error(
+                'Could not authenticate with the VSD. '
+                'Please check the credentials in the plugin config.')
 
     def rest_call(self, action, resource, data, extra_headers=None,
                   ignore_marked_for_deletion=False):
@@ -251,7 +278,9 @@ class RESTProxyServer(object):
         '''
         If at all authentication expires with VSD, re-authenticate.
         '''
-        if response[0] == 401 and response[1] == 'Unauthorized':
+        if response[0] == REST_UNAUTHORIZED and response[1] == 'Unauthorized':
+            LOG.debug(_('RESTProxy: authentication expired, '
+                        're-authenticating.'))
             self.generate_nuage_auth()
             return self._rest_call(action, resource, data,
                                    extra_headers=extra_headers)
@@ -265,7 +294,7 @@ class RESTProxyServer(object):
         elif response[0] == REST_NOT_FOUND and not required:
             return ''
         else:
-            raise self._error_response(response)
+            self.raise_error_response(response)
 
     def _get_ignore_marked_for_deletion(self, resource, data='',
                                         extra_headers=None, required=False):
@@ -277,7 +306,7 @@ class RESTProxyServer(object):
         elif response[0] == REST_NOT_FOUND and not required:
             return ''
         else:
-            raise self._error_response(response)
+            self.raise_error_response(response)
 
     @staticmethod
     def retrieve_by_external_id(restproxy, resource, data):
@@ -298,11 +327,19 @@ class RESTProxyServer(object):
 
     def post(self, resource, data, extra_headers=None,
              on_res_exists=retrieve_by_external_id,
-             ignore_err_codes=[REST_EXISTS_INTERNAL_ERR_CODE]):
+             ignore_err_codes=None):
+        if ignore_err_codes is None:
+            ignore_err_codes = [REST_EXISTS_INTERNAL_ERR_CODE]
         response = self.rest_call('POST', resource, data,
                                   extra_headers=extra_headers)
         if response[0] in REST_SUCCESS_CODES:
             return response[3]
+        elif response[0] == REST_UNAUTHORIZED:
+            # probably this is a POST of VM but user is not in CMS group
+            self.raise_rest_error(
+                'Unauthorized to this VSD API. '
+                'Please check the user credentials in plugin config belong '
+                'to CMS group in VSD.')
         elif response[0] == REST_CONFLICT_ERR_CODE:
             # Under heavy load, vsd responses may get lost. We must try find
             # the resource else it's stuck in VSD.
@@ -315,9 +352,9 @@ class RESTProxyServer(object):
                     errors = json.loads(response[3])
                     msg = str(errors['errors'][0]['descriptions'][0]
                               ['description'])
-                    raise ResourceExistsException(msg)
+                    self.raise_rest_error(msg, ResourceExistsException(msg))
                 return get_response
-        raise self._error_response(response)
+        self.raise_error_response(response)
 
     def put(self, resource, data, extra_headers=None):
         response = self.rest_call('PUT', resource, data,
@@ -329,7 +366,7 @@ class RESTProxyServer(object):
             vsd_code = str(errors.get('internalErrorCode'))
             if vsd_code == REST_NO_ATTR_CHANGES_TO_MODIFY_ERR_CODE:
                 return
-            raise self._error_response(response)
+            self.raise_error_response(response)
 
     def delete(self, resource, data='', extra_headers=None, required=False):
         response = self.rest_call('DELETE', resource, data,
@@ -339,20 +376,7 @@ class RESTProxyServer(object):
         elif response[0] == REST_NOT_FOUND and not required:
             return None
         else:
-            raise self._error_response(response)
-
-    @staticmethod
-    def _error_response(response):
-        errors = json.loads(response[3])
-        if response[0] == REST_SERV_UNAVAILABLE_CODE:
-            msg = 'VSD temporarily unavailable, ' + str(errors['errors'])
-        else:
-            msg = str(errors['errors'][0]['descriptions'][0]['description'])
-
-        if response[0] == REST_NOT_FOUND:
-            return ResourceNotFoundException(msg)
-        vsd_code = str(errors.get('internalErrorCode'))
-        return RESTProxyError(msg, error_code=response[0], vsd_code=vsd_code)
+            self.raise_error_response(response)
 
     def _l2domain_not_found(self, id):
         return self._resource_not_found('l2domain', id)
