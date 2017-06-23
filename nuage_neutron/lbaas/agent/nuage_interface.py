@@ -49,10 +49,10 @@ class NuageVMDriver(object):
     @classmethod
     def ovsdb_transaction(cls, msg, recv_msg=False, max_retries=5):
         LOG.debug(_("sending ovsdb-query as: %s"), msg)
+        sock = None
         try:
             sock = cls.get_connected_socket()
             sock.sendall(msg)
-            sock.shutdown(socket.SHUT_RDWR)
             if recv_msg:
                 resp = sock.recv(4096)
                 LOG.debug(_("response from ovsdb-query was: %s"), resp)
@@ -60,7 +60,6 @@ class NuageVMDriver(object):
                     return json.loads(resp)
                 except ValueError:
                     return None
-
         except Exception:
             ''' Retry 5 times every second '''
             if (socket.errno in [errno.EBUSY, errno.EAGAIN]
@@ -71,6 +70,9 @@ class NuageVMDriver(object):
                     msg, recv_msg, max_retries=(max_retries - 1))
             else:
                 raise
+        finally:
+            if sock:
+                sock.shutdown(socket.SHUT_RDWR)
 
     @classmethod
     def plug(cls, port_id, device_name, mac_address,
