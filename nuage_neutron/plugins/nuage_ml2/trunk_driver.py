@@ -309,9 +309,9 @@ class NuageTrunkHandler(object):
     def _set_trunk(self, trunk):
         _vsdclient = self.plugin_driver.vsdclient
         ctx = n_ctx.get_admin_context()
-        subnet_mapping = db.get_subnet_l2dom_by_port_id(ctx.session,
-                                                        trunk.port_id)
         try:
+            subnet_mapping = db.get_subnet_l2dom_by_port_id(ctx.session,
+                                                            trunk.port_id)
             _vsdclient.create_trunk(trunk, subnet_mapping)
         except Exception as ex:
             LOG.error("Failed to create trunk: %s", ex)
@@ -321,9 +321,9 @@ class NuageTrunkHandler(object):
     def _unset_trunk(self, trunk):
         _vsdclient = self.plugin_driver.vsdclient
         ctx = n_ctx.get_admin_context()
-        subnet_mapping = db.get_subnet_l2dom_by_port_id(ctx.session,
-                                                        trunk.port_id)
         try:
+            subnet_mapping = db.get_subnet_l2dom_by_port_id(ctx.session,
+                                                            trunk.port_id)
             _vsdclient.delete_trunk(trunk, subnet_mapping)
         except Exception as ex:
             LOG.error("Failed to delete trunk: %s", ex)
