@@ -18,6 +18,7 @@ from neutron.callbacks import resources
 from neutron.db.common_db_mixin import CommonDbMixin
 from neutron.extensions import securitygroup as ext_sg
 from neutron.manager import NeutronManager
+from neutron_lib import exceptions as n_exc
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -27,6 +28,7 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
+from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient import restproxy
 
 LOG = logging.getLogger(__name__)
@@ -209,19 +211,9 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             try:
                 policygroup_ids = []
                 for sg_id in sg_ids:
-                    sg = self.core_plugin._get_security_group(context, sg_id)
-                    sg_rules = self.core_plugin.get_security_group_rules(
-                        context,
-                        {'security_group_id': [sg_id]})
-                    sg_params = {
-                        'vsd_subnet': vsd_subnet,
-                        'sg': sg,
-                        'sg_rules': sg_rules
-                    }
-                    vsd_policygroup_id = (
-                        self.vsdclient.process_port_create_security_group(
-                            sg_params))
-                    policygroup_ids.append(vsd_policygroup_id)
+                    vsd_policygroup = self._find_or_create_policygroup(
+                        context, sg_id, vsd_subnet)
+                    policygroup_ids.append(vsd_policygroup['ID'])
 
                 self.vsdclient.update_vport_policygroups(vport['ID'],
                                                          policygroup_ids)
@@ -236,3 +228,46 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                 else:
                     LOG.debug("Retry failed %s times.", max_attempts)
                     raise
+
+    def _find_or_create_policygroup(self, context, security_group_id,
+                                    vsd_subnet):
+        external_id = cms_id_helper.get_vsd_external_id(security_group_id)
+        if vsd_subnet['type'] == constants.L2DOMAIN:
+            policygroups = self.vsdclient.get_nuage_l2domain_policy_groups(
+                vsd_subnet['ID'],
+                externalID=external_id)
+        else:
+            domain_id = self.vsdclient.get_router_by_domain_subnet_id(
+                vsd_subnet['ID'])
+            policygroups = self.vsdclient.get_nuage_domain_policy_groups(
+                domain_id,
+                externalID=external_id)
+        if len(policygroups) > 1:
+            msg = _("Found multiple policygroups with externalID %s")
+            raise n_exc.Conflict(msg=msg % external_id)
+        elif len(policygroups) == 1:
+            return policygroups[0]
+        else:
+            return self._create_policygroup(context, security_group_id,
+                                            vsd_subnet)
+
+    def _create_policygroup(self, context, security_group_id, vsd_subnet):
+        security_group = self.core_plugin.get_security_group(context,
+                                                             security_group_id)
+        # pop rules, make empty policygroup first
+        security_group_rules = security_group.pop('security_group_rules')
+        policy_group = self.vsdclient.create_security_group(vsd_subnet,
+                                                            security_group)
+
+        # Before creating rules, we might have to make other policygroups first
+        # if the rule uses remote_group_id to have rule related to other PG.
+        for rule in security_group_rules:
+            remote_sg_id = rule.get('remote_group_id')
+            if remote_sg_id:
+                self._find_or_create_policygroup(context,
+                                                 remote_sg_id,
+                                                 vsd_subnet)
+
+        self.vsdclient.create_security_group_rules(policy_group,
+                                                   security_group_rules)
+        return policy_group
