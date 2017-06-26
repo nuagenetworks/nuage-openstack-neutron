@@ -651,6 +651,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
         core_plugin = context._plugin
         port = context.current
 
+        if port.get('device_owner').startswith(
+                tuple(cfg.CONF.PLUGIN.device_owner_prefix)):
+            return
         subnet_mapping = self.get_subnet_mapping_by_port(db_context, port)
         if not subnet_mapping:
             return
@@ -952,8 +955,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
     def _validate_port(self, db_context, port, event):
         if 'fixed_ips' not in port or len(port.get('fixed_ips', [])) == 0:
             return False
-        if port.get('device_owner') != constants.DEVICE_OWNER_IRONIC and \
-                port.get('device_owner') in constants.AUTO_CREATE_PORT_OWNERS:
+        device_owner = port.get('device_owner')
+        if (device_owner != constants.DEVICE_OWNER_IRONIC and
+                device_owner in constants.AUTO_CREATE_PORT_OWNERS or
+                device_owner.startswith(
+                    tuple(cfg.CONF.PLUGIN.device_owner_prefix))):
             return False
         if port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL) \
                 not in self._supported_vnic_types():
