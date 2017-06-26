@@ -2356,3 +2356,7 @@ class FirewallAcl(VsdChildResource):
 
 class Job(VsdChildResource):
     resource = 'jobs'
+
+
+class Policygroup(VsdChildResource):
+    resource = 'policygroups'

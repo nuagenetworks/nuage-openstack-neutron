@@ -245,6 +245,12 @@ class VsdClient(object):
     def process_port_create_security_group(self, params):
         pass
 
+    def create_security_group(self, vsd_subnet, os_security_group):
+        pass
+
+    def create_security_group_rules(self, policygroup, security_group_rules):
+        pass
+
     def update_vport_policygroups(self, vport_id, policygroup_ids):
         pass
 

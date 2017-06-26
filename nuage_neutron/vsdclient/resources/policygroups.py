@@ -741,13 +741,27 @@ class NuagePolicyGroups(object):
         else:
             return True
 
+    def _map_security_group_to_policygroup(self, security_group):
+        return {
+            'description': security_group['name'],
+            'name': security_group['id'],
+            'externalID': get_vsd_external_id(security_group['id']),
+        }
+
+    def create_security_group(self, parent_resource, parent_id,
+                              security_group, sg_type=constants.SOFTWARE):
+        vsd_data = self._map_security_group_to_policygroup(security_group)
+        vsd_data['type'] = sg_type
+        resource = nuagelib.Policygroup()
+        return self.restproxy.post(resource.post_url(parent_resource.resource,
+                                                     parent_id),
+                                   vsd_data)[0]
+
     def process_port_create_security_group(self, params):
         to_rollback = []
         vsd_subnet = params['vsd_subnet']
         sg = params['sg']
         sg_rules = params['sg_rules']
-
-        l2dom_id = vsd_subnet['ID']
         l3dom_id = None
 
         if vsd_subnet['type'] == constants.SUBNET:
@@ -781,20 +795,6 @@ class NuagePolicyGroups(object):
             except Exception:
                 with excutils.save_and_reraise_exception():
                     helper.process_rollback(self.restproxy, to_rollback)
-        else:
-            # if policygroup created when processing rule with remote_group_id
-            # empty policygroup is created, add rules to the policygroup now
-            if vsd_subnet['type'] == constants.L2DOMAIN:
-                empty_policygroup = self._check_policygroup_is_empty(
-                    nuage_policygroup_id, constants.L2DOMAIN, l2dom_id)
-            else:
-                empty_policygroup = self._check_policygroup_is_empty(
-                    nuage_policygroup_id, 'l3domain', l3dom_id)
-
-            if empty_policygroup:
-                create_params['nuage_policygroup_id'] = nuage_policygroup_id
-                self._create_nuage_sgrules_bulk(create_params)
-
         return nuage_policygroup_id
 
     def get_policygroup_vport_mapping_by_port_id(self, vport_id):
