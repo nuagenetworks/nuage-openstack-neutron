@@ -206,6 +206,36 @@ class RootNuagePlugin(object):
                                                network_id)
         return self.is_vxlan_network(network)
 
+    def _validate_config_for_nuage_driver(self, nuage_driver,
+                                          min_required_service_plugins,
+                                          min_required_extensions):
+        mentioned_service_plugins = cfg.CONF.service_plugins
+        mentioned_extensions = cfg.CONF.ml2.extension_drivers
+
+        self._check_config(mentioned_service_plugins,
+                           min_required_service_plugins,
+                           'service_plugin(s)',
+                           nuage_driver)
+        self._check_config(mentioned_extensions,
+                           min_required_extensions,
+                           'extension(s)',
+                           nuage_driver)
+
+    @staticmethod
+    def _check_config(mentioned, min_required, resource, driver_name):
+        missing = []
+        for key, value in min_required.iteritems():
+            for conf_val in mentioned:
+                if (conf_val == key or
+                        conf_val == value and resource == 'service_plugin(s)'):
+                    break
+            else:
+                missing.append(key)
+        if missing:
+            msg = ("Missing required " + resource + ' ' + str(missing) +
+                   " for mechanism driver " + driver_name)
+            raise cfg.ConfigFileValueError(msg)
+
 
 class BaseNuagePlugin(RootNuagePlugin):
 
