@@ -65,6 +65,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
     def initialize(self):
         LOG.debug('Initializing driver')
         neutron_extensions.append_api_extensions_path(extensions.__path__)
+        self._validate_mech_nuage_configuration()
         self.init_vsd_client()
         self._wrap_vsdclient()
         self._core_plugin = None
@@ -85,6 +86,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
             self._default_np_id = directory.get_plugin(
                 constants.NUAGE_APIS).default_np_id
         return self._default_np_id
+
+    def _validate_mech_nuage_configuration(self):
+        service_plugins = constants.MIN_MECH_NUAGE_SERVICE_PLUGINS_IN_CONFIG
+        extensions = constants.MIN_MECH_NUAGE_EXTENSIONS_IN_CONFIG
+        self._validate_config_for_nuage_driver(constants.NUAGE_ML2_DRIVER_NAME,
+                                               service_plugins,
+                                               extensions)
 
     def _wrap_vsdclient(self):
         """Wraps nuagecient methods with try-except to ignore certain errors.

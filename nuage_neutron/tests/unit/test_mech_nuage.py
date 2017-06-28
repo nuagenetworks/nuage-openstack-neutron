@@ -15,6 +15,8 @@
 # run me using :
 # python -m testtools.run nuage_neutron/tests/unit/test_mech_nuage.py
 
+from neutron.conf import common as core_config
+from neutron.plugins.ml2 import config as ml2_config
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
@@ -33,13 +35,21 @@ from oslo_config import fixture as oslo_fixture
 
 class TestNuageMechanismDriverNative(testtools.TestCase):
 
-    def set_config_fixture(self):
+    def set_config_fixture_connc(self):
+        cfg.CONF.register_opts(core_config.core_opts)
+        cfg.CONF.register_opts(ml2_config.ml2_opts, "ml2")
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
-        conf.config(group='RESTPROXY', server='localhost:9876')
+        conf.config(group='RESTPROXY', server='localhost:9976')
         conf.config(group='RESTPROXY', server_timeout=1)
         conf.config(group='RESTPROXY', server_max_retries=1)
         conf.config(group='RESTPROXY', cms_id='1')
         conf.config(group='PLUGIN', enable_debug='api_stats')
+        conf.config(service_plugins=['NuagePortAttributes',
+                                     'NuageL3', 'NuageAPI'])
+        conf.config(group='ml2',
+                    extension_drivers=['nuage_subnet',
+                                       'nuage_port',
+                                       'port_security'])
 
     def initialize(self, nmd):
         try:
@@ -53,19 +63,38 @@ class TestNuageMechanismDriverNative(testtools.TestCase):
 
     def test_init_nmd_invalid_server(self):
         nmd = NuageMechanismDriver()
-        self.set_config_fixture()
+        self.set_config_fixture_connc()
         self.initialize(nmd)
 
 
 class TestNuageMechanismDriverMocked(testtools.TestCase):
 
     def set_config_fixture(self):
+        cfg.CONF.register_opts(core_config.core_opts)
+        cfg.CONF.register_opts(ml2_config.ml2_opts, "ml2")
+        conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
+        conf.config(service_plugins=['NuagePortAttributes',
+                                     'NuageL3', 'NuageAPI'])
+        conf.config(group='ml2',
+                    extension_drivers=['nuage_subnet',
+                                       'nuage_port',
+                                       'port_security'])
+
+    def set_invalid_config_fixture(self):
+        cfg.CONF.register_opts(core_config.core_opts)
+        cfg.CONF.register_opts(ml2_config.ml2_opts, "ML2")
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
         conf.config(group='RESTPROXY', server='localhost:9876')
         conf.config(group='RESTPROXY', server_timeout=1)
         conf.config(group='RESTPROXY', server_max_retries=1)
         conf.config(group='RESTPROXY', cms_id='1')
         conf.config(group='PLUGIN', enable_debug='api_stats')
+        conf.config(service_plugins=['NuagePortAttributes',
+                                     'NuageL3', 'NuageAPI'])
+        conf.config(group='ml2',
+                    extension_drivers=['nuage_subnet',
+                                       'nuage_port',
+                                       'port_security'])
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'get_cms')
@@ -76,7 +105,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
         nmd2 = NuageMechanismDriver()
         nmd3 = NuageMechanismDriver()
 
-        self.set_config_fixture()
+        self.set_invalid_config_fixture()
 
         nmd1.initialize()
         nmd2.initialize()
@@ -91,6 +120,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     def test_create_subnet_precommit_in_flat_network(self, init_vsd_client):
+        self.set_config_fixture()
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -105,6 +135,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     def test_create_v6_subnet_precommit(self, init_vsd_client):
+        self.set_config_fixture()
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -125,6 +156,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     def test_create_subnet_precommit_default(self, init_vsd_client):
+        self.set_config_fixture()
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -139,6 +171,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     def test_create_subnet_precommit_with_nuagenet(self, init_vsd_client):
+        self.set_config_fixture()
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -155,6 +188,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     def test_create_v6_subnet_precommit_with_nuagenet(self, init_vsd_client):
+        self.set_config_fixture()
         nmd = NuageMechanismDriver()
         nmd.initialize()
 
@@ -172,6 +206,7 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch('nuage_neutron.plugins.nuage_ml2.mech_nuage.LOG')
     def test_experimental_feature(self, logger, root_plugin):
+        self.set_config_fixture()
         config.nuage_register_cfg_opts()
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
 
