@@ -12,23 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lib import constants
-
-
 DEVICE_OWNER_VIP_NUAGE = 'nuage:vip'
 
 DEVICE_OWNER_IRONIC = 'compute:ironic'
 
 DEVICE_OWNER_DHCP_NUAGE = "network:dhcp:nuage"
-
-AUTO_CREATE_PORT_OWNERS = [
-    constants.DEVICE_OWNER_DHCP,
-    constants.DEVICE_OWNER_ROUTER_INTF,
-    constants.DEVICE_OWNER_ROUTER_GW,
-    constants.DEVICE_OWNER_FLOATINGIP,
-    DEVICE_OWNER_VIP_NUAGE,
-    DEVICE_OWNER_IRONIC
-]
 
 DHCP_OPTION_NAME_TO_NUMBER = {
     'netmask': 1,
