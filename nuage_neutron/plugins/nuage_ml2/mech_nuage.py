@@ -525,7 +525,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         is_network_external = context.network._network.get('router:external')
         if is_network_external and (port.get('device_owner') not in
-                                    constants.AUTO_CREATE_PORT_OWNERS):
+                                    utils.get_auto_create_port_owners()):
             msg = "Cannot create port in a FIP pool Subnet"
             raise NuageBadRequest(resource='port', msg=msg)
         request_port = port['request_port']
@@ -676,8 +676,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         core_plugin = context._plugin
         port = context.current
 
-        if port.get('device_owner').startswith(
-                tuple(cfg.CONF.PLUGIN.device_owner_prefix)):
+        if port.get('device_owner') in utils.get_auto_create_port_owners():
             return
         subnet_mapping = self.get_subnet_mapping_by_port(db_context, port)
         if not subnet_mapping:
@@ -1003,9 +1002,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             return False
         device_owner = port.get('device_owner')
         if (device_owner != constants.DEVICE_OWNER_IRONIC and
-                device_owner in constants.AUTO_CREATE_PORT_OWNERS or
-                device_owner.startswith(
-                    tuple(cfg.CONF.PLUGIN.device_owner_prefix))):
+                device_owner in utils.get_auto_create_port_owners()):
             return False
         if port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL) \
                 not in self._supported_vnic_types():

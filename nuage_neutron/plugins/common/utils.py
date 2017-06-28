@@ -19,9 +19,11 @@ import six
 import sys
 
 from neutron._i18n import _
+from neutron_lib import constants as neutron_constants
+from oslo_config import cfg
 from oslo_log import log as logging
 
-from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
@@ -53,7 +55,7 @@ def normalize_cidr(value):
 
 
 def check_vport_creation(device_owner, prefix_list):
-    if (device_owner in constants.AUTO_CREATE_PORT_OWNERS or
+    if (device_owner in get_auto_create_port_owners() or
             device_owner.startswith(tuple(prefix_list))):
         return False
     return True
@@ -186,3 +188,18 @@ def rollback():
             except Exception:
                 log.exception("Rollback failed.")
         raise
+
+
+def get_auto_create_port_owners():
+    return [neutron_constants.DEVICE_OWNER_DHCP,
+            neutron_constants.DEVICE_OWNER_ROUTER_INTF,
+            neutron_constants.DEVICE_OWNER_ROUTER_GW,
+            neutron_constants.DEVICE_OWNER_FLOATINGIP,
+            nuage_constants.DEVICE_OWNER_VIP_NUAGE,
+            nuage_constants.DEVICE_OWNER_IRONIC
+            ] + cfg.CONF.PLUGIN.device_owner_prefix
+
+
+def get_device_owners_vip():
+    return ([nuage_constants.DEVICE_OWNER_VIP_NUAGE] +
+            cfg.CONF.PLUGIN.device_owner_prefix)

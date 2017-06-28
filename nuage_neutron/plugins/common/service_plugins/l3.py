@@ -1124,8 +1124,8 @@ class NuageL3Plugin(NuageL3Wrapper):
             else:
                 # Could be vip-port (fip2vip feature)
                 port = self.core_plugin.get_port(context, port_id)
-                if (port.get('device_owner') ==
-                        constants.DEVICE_OWNER_VIP_NUAGE):
+                if (port.get('device_owner') in
+                        nuage_utils.get_device_owners_vip()):
                     neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
                     vip = port['fixed_ips'][0]['ip_address']
                     self.vsdclient.disassociate_fip_from_vips(
@@ -1220,16 +1220,3 @@ class NuageL3Plugin(NuageL3Wrapper):
                     self.vsdclient.delete_nuage_floatingip(
                         nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
-
-    def _nuage_vips_on_subnet(self, context, subnet):
-        vip_found = False
-        filters = {'device_owner':
-                   [constants.DEVICE_OWNER_VIP_NUAGE],
-                   'network_id': [subnet['network_id']]}
-        ports = self.core_plugin.get_ports(context, filters)
-
-        for p in ports:
-            if p['fixed_ips'][0]['subnet_id'] == subnet['id']:
-                vip_found = True
-                break
-        return vip_found
