@@ -21,9 +21,9 @@ from neutron.db.models import securitygroup as securitygroups_db
 from neutron.db import models_v2
 from neutron_lib import constants as os_constants
 
-from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import nuage_models
+from nuage_neutron.plugins.common import utils
 
 
 def add_net_partition(session, netpart_id,
@@ -291,8 +291,7 @@ def get_floatingip_per_vip_in_network(session, network_id):
              l3_db.FloatingIP.fixed_port_id == models_v2.Port.id))
         .filter(
             models_v2.Port.network_id == network_id,
-            models_v2.Port.device_owner ==
-            nuage_constants.DEVICE_OWNER_VIP_NUAGE
+            models_v2.Port.device_owner.in_(utils.get_device_owners_vip())
         )
     ).all()
     fips_per_vip = {}
