@@ -127,7 +127,7 @@ def ignore_not_found(fn):
             # We probably want to ignore 404 errors when we're deleting anyway.
             if str(e.vsd_code) == '404':
                 return Ignored(e)
-            raise e
+            raise
     return wrapped
 
 

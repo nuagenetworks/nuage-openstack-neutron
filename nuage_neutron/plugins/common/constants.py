@@ -91,6 +91,29 @@ DHCP_OPTION_NAME_TO_NUMBER = {
     'server-ip-address': 255
 }
 
+MIN_MECH_NUAGE_SERVICE_PLUGINS_IN_CONFIG = {
+    'NuageL3':
+        'nuage_neutron.plugins.common.'
+        'service_plugins.l3.NuageL3Plugin',
+    'NuageAPI': 'nuage_neutron.plugins.common.service_plugins.'
+                'nuage_apis.NuageApi',
+    'NuagePortAttributes': 'nuage_neutron.plugins.common.'
+                           'service_plugins.port_attributes.'
+                           'service_plugin.'
+                           'NuagePortAttributesServicePlugin'}
+
+MIN_MECH_NUAGE_EXTENSIONS_IN_CONFIG = {
+    'nuage_subnet': 'nuage_neutron.plugins.'
+                    'nuage_ml2.nuage_subnet_ext_driver.'
+                    'NuageSubnetExtensionDriver',
+    'nuage_port': 'nuage_neutron.plugins.nuage_ml2.'
+                  'nuage_port_ext_driver.NuagePortExtensionDriver',
+    'port_security': 'neutron.plugins.ml2.extensions.port_security.'
+                     'PortSecurityExtensionDriver'}
+
+MECH_NUAGE = {'nuage': 'nuage_neutron.plugins.nuage_ml2.mech_nuage.'
+                       'NuageMechanismDriver'}
+
 NOVA_PORT_OWNER_PREF = 'compute:'
 
 SR_TYPE_FLOATING = "FLOATING"
