@@ -197,7 +197,15 @@ def get_auto_create_port_owners():
             neutron_constants.DEVICE_OWNER_FLOATINGIP,
             nuage_constants.DEVICE_OWNER_VIP_NUAGE,
             nuage_constants.DEVICE_OWNER_IRONIC
-            ] + cfg.CONF.PLUGIN.device_owner_prefix
+            ]
+
+
+def needs_vport_creation(device_owner):
+    if (device_owner in get_auto_create_port_owners() or
+            device_owner.startswith(tuple(
+                cfg.CONF.PLUGIN.device_owner_prefix))):
+        return False
+    return True
 
 
 def get_device_owners_vip():
