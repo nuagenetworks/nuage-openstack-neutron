@@ -53,6 +53,12 @@ class RtrItfAddSubnetHasRedirectTargets(exceptions.BadRequest):
                 "Router-IF add not permitted")
 
 
+class RtrItfAddDualSSAlreadyAttachedToAnotherRtr(exceptions.BadRequest):
+    message = _("Dual Stack Subnet %(subnet)s is already attached to another"
+                " Router %(router)s"
+                "Router-IF add not permitted")
+
+
 def _ecmp_count_info():
     return _("ecmp count must be a number between 1 and 8 (inclusive)")
 

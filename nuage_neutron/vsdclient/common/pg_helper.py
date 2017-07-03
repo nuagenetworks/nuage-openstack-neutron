@@ -181,8 +181,8 @@ def get_inbound_acl_details(restproxy_serv, dom_id, type=constants.SUBNET):
     return response[3][0]
 
 
-def _get_remote_policygroup_id(restproxy_serv, sg_id, resourcetype,
-                               resource_id, sg_name):
+def get_remote_policygroup_id(restproxy_serv, sg_id, resourcetype,
+                              resource_id, sg_name):
     ext_id = (get_vsd_external_id('hw:' + sg_id) if
               str(sg_name).endswith('_HARDWARE') else
               get_vsd_external_id(sg_id))
@@ -194,7 +194,7 @@ def _get_remote_policygroup_id(restproxy_serv, sg_id, resourcetype,
     }
 
     nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
-    if resourcetype == 'l3domain':
+    if resourcetype == constants.DOMAIN:
         url = nuage_policygroup.post_resource()
     else:
         url = nuage_policygroup.post_resource_l2dom()
@@ -211,14 +211,28 @@ def _get_remote_policygroup_id(restproxy_serv, sg_id, resourcetype,
         return policygroups[0]['ID']
 
 
-def _create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
-    net = netaddr.IPNetwork(sg_rule['remote_ip_prefix'])
-    macro_name = (np_id + '_' + str(int(net.ip)) + '_' +
+def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
+    ipv6_net = ipv4_net = None
+    if sg_rule.get('ethertype') == constants.OS_IPV6:
+        ipv6_net = netaddr.IPNetwork(sg_rule['remote_ip_prefix'])
+        net = ipv6_net
+        sg_rule['IPType'] = constants.IPV6
+    else:
+        ipv4_net = netaddr.IPNetwork(sg_rule['remote_ip_prefix'])
+        net = ipv4_net
+        sg_rule['IPType'] = constants.IPV4
+
+    macro_name = (np_id + '_' +
+                  str(sg_rule.get('ethertype')) +
+                  str(int(net.ip)) + '_' +
                   str(int(net.netmask)))
     req_params = {
         'net_partition_id': np_id,
-        'net': net,
-        'name': macro_name
+        'net': ipv4_net,
+        'name': macro_name,
+        'ethertype': sg_rule.get('ethertype'),
+        'ipv6_net': ipv6_net,
+        'IPType': sg_rule['IPType']
     }
     nuage_np_net = nuagelib.NuageNetPartitionNetwork(
         create_params=req_params)
@@ -234,8 +248,7 @@ def _create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
             response = restproxy_serv.rest_call(
                 'GET',
                 nuage_np_net.get_resource(), '',
-                nuage_np_net.extra_headers_get_netadress(str(net.ip),
-                                                         str(net.netmask)))
+                nuage_np_net.extra_headers_get_netadress(req_params))
             if not nuage_np_net.validate(response):
                 raise restproxy.RESTProxyError(nuage_np_net.error_msg)
     return nuage_np_net.get_np_network_id(response)

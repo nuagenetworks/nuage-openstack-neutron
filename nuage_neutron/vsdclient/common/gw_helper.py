@@ -139,6 +139,7 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
         resource_url = nuage_interface.post_resource_by_vport()
     else:
         extra_params['ipaddress'] = params['ipaddress']
+        extra_params['ipaddress_v6'] = params.get('ipaddress_v6')
         extra_params['mac'] = params['mac']
         extra_params['externalID'] = get_vsd_external_id(params['externalid'])
 
@@ -430,9 +431,9 @@ def get_policygroup_for_interface(restproxy_serv, neutron_subn_id, gw_type,
         nuage_policygroup.get_all_resources(),
         extra_headers=nuage_policygroup.extra_header_filter(name=pg_name))
     if subn_type == constants.SUBNET:
-        domain_type = 'domain'
+        domain_type = constants.DOMAIN
     else:
-        domain_type = 'l2domain'
+        domain_type = constants.L2DOMAIN
 
     for pg in policygroups:
         if pg['parentType'] == domain_type:
