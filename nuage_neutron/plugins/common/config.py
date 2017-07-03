@@ -103,10 +103,6 @@ def nuage_register_cfg_opts():
     cfg.CONF.register_opts(plugin_opts, "PLUGIN")
 
 
-class InternalFeatureFlags(object):
-    OS_MGD_IPV6 = False  # change me to True for os mgd ipv6 support
-
-
 def is_enabled(name):
     if name in cfg.CONF.PLUGIN.experimental_features:
         return True

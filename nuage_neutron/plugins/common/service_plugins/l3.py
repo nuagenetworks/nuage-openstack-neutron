@@ -23,6 +23,7 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
+from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 from oslo_config import cfg
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
@@ -648,33 +649,11 @@ class NuageL3Plugin(NuageL3Wrapper):
                                   vport_type=constants.VM_VPORT,
                                   vport_id=None,
                                   rate_update=True):
-        if last_known_router_id:
-            rtr_id = last_known_router_id
-        else:
-            rtr_id = neutron_fip['router_id']
-        net_id = neutron_fip['floating_network_id']
-        subn = nuagedb.get_ipalloc_for_fip(context.session,
-                                           net_id,
-                                           neutron_fip['floating_ip_address'])
-
-        fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(subn['subnet_id'])
-        if not fip_pool:
-            msg = _('sharedresource %s not found on VSD') % subn['subnet_id']
-            raise n_exc.BadRequest(resource='floatingip',
-                                   msg=msg)
-
-        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(context.session,
-                                                               rtr_id)
-        if not ent_rtr_mapping:
-            msg = _('router %s is not associated with '
-                    'any net-partition') % rtr_id
-            raise n_exc.BadRequest(resource='floatingip',
-                                   msg=msg)
-
+        ent_rtr_mapping, fip_pool, nuage_vport = self._validate_processing_fip(
+            context, last_known_router_id, neutron_fip, port_id, vport_id,
+            vport_type)
         params = {
-            'router_id': ent_rtr_mapping['nuage_router_id'],
             'fip_id': neutron_fip['id'],
-            'neutron_fip': neutron_fip
         }
         fip = self.vsdclient.get_nuage_fip_by_id(params)
 
@@ -687,76 +666,38 @@ class NuageL3Plugin(NuageL3Wrapper):
                 'neutron_fip_ip': neutron_fip['floating_ip_address'],
                 'neutron_fip_id': neutron_fip['id']
             }
-            nuage_fip_id = self.vsdclient.create_nuage_floatingip(params)
+            fip = self.vsdclient.create_nuage_floatingip_details(
+                params)
+            nuage_fip_id = fip['ID']
+            nuage_fip_associated = fip['assigned']
+            needs_fip_association = not nuage_fip_associated
         else:
             nuage_fip_id = fip['nuage_fip_id']
+            nuage_fip_associated = fip['nuage_assigned']
+            needs_fip_association = not nuage_fip_associated
 
-        # Update VM if required
-        nuage_vport = self._get_vport_for_fip(context, port_id,
-                                              vport_type=vport_type,
-                                              vport_id=vport_id,
-                                              required=False)
+        if nuage_vport and nuage_fip_associated:
+            n_vport = self.vsdclient.get_vport_assoc_with_fip(nuage_fip_id)
+            if n_vport and n_vport['ID'] != nuage_vport['ID']:
+                needs_fip_association = True
+                disassoc_params = {
+                    'nuage_vport_id': n_vport['ID'],
+                    'nuage_fip_id': None
+                }
+                self.vsdclient.update_nuage_vm_vport(disassoc_params)
 
-        if nuage_vport:
-            nuage_fip = self.vsdclient.get_nuage_fip(nuage_fip_id)
-
-            if nuage_fip['assigned']:
-                n_vport = self.vsdclient.get_vport_assoc_with_fip(
-                    nuage_fip_id)
-                if n_vport:
-                    disassoc_params = {
-                        'nuage_vport_id': n_vport['ID'],
-                        'nuage_fip_id': None
-                    }
-                    self.vsdclient.update_nuage_vm_vport(disassoc_params)
-
-                if (nuage_vport['domainID']) != (
+                if (nuage_vport['domainID'] !=
                         ent_rtr_mapping['nuage_router_id']):
-                    fip_dict = {
-                        'fip_id': neutron_fip['id'],
-                        'fip_last_known_rtr_id': ent_rtr_mapping['router_id']
-                    }
-                    fip = self.vsdclient.get_nuage_fip_by_id(fip_dict)
+                    nuage_fip_id = self._move_fip_to_different_domain(
+                        context,
+                        ent_rtr_mapping,
+                        fip_pool,
+                        neutron_fip,
+                        nuage_vport['domainID'])
+                else:
+                    nuage_fip_id = fip['nuage_fip_id']
 
-                    if fip:
-                        self._delete_nuage_fip(context, fip_dict)
-
-                    # Now change the rtd_id to vport's router id
-                    rtr_id = neutron_fip['router_id']
-
-                    ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
-                        context.session,
-                        rtr_id
-                    )
-
-                    if not ent_rtr_mapping:
-                        msg = _('router %s is not associated with '
-                                'any net-partition') % rtr_id
-                        raise n_exc.BadRequest(resource='floatingip',
-                                               msg=msg)
-
-                    params = {
-                        'router_id': ent_rtr_mapping['nuage_router_id'],
-                        'fip_id': neutron_fip['id'],
-                        'neutron_fip': neutron_fip
-                    }
-                    fip = self.vsdclient.get_nuage_fip_by_id(params)
-
-                    if not fip:
-                        LOG.debug("Floating ip not found in VSD for fip %s",
-                                  neutron_fip['id'])
-                        params = {
-                            'nuage_rtr_id': ent_rtr_mapping['nuage_router_id'],
-                            'nuage_fippool_id': fip_pool['nuage_fip_pool_id'],
-                            'neutron_fip_ip':
-                                neutron_fip['floating_ip_address'],
-                            'neutron_fip_id': neutron_fip['id']
-                        }
-                        nuage_fip_id = \
-                            self.vsdclient.create_nuage_floatingip(params)
-                    else:
-                        nuage_fip_id = fip['nuage_fip_id']
-
+        if nuage_vport and needs_fip_association:
             params = {
                 'nuage_vport_id': nuage_vport['ID'],
                 'nuage_fip_id': nuage_fip_id
@@ -769,8 +710,68 @@ class NuageL3Plugin(NuageL3Wrapper):
         # Check if we have to associate a FIP to a VIP
         self._process_fip_to_vip(context, port_id, nuage_fip_id)
 
-        if not rate_update:
-            return
+        if rate_update:
+            self._process_fip_rate_limiting(neutron_fip, nuage_vport)
+
+    def _move_fip_to_different_domain(self, context, ent_rtr_mapping, fip_pool,
+                                      neutron_fip, new_domain_id):
+        fip_dict = {
+            'fip_id': neutron_fip['id'],
+            'fip_last_known_rtr_id': ent_rtr_mapping['router_id']
+        }
+        self._delete_nuage_fip(context, fip_dict)
+        LOG.debug("Floating ip on VSD is deleted for fip %s",
+                  neutron_fip['id'])
+        params = {
+            'nuage_rtr_id': new_domain_id,
+            'nuage_fippool_id': fip_pool['nuage_fip_pool_id'],
+            'neutron_fip_ip':
+                neutron_fip['floating_ip_address'],
+            'neutron_fip_id': neutron_fip['id']
+        }
+        nuage_fip_id = self.vsdclient.create_nuage_floatingip(
+            params)
+        return nuage_fip_id
+
+    def _validate_processing_fip(self, context, last_known_router_id,
+                                 neutron_fip, port_id, vport_id, vport_type):
+        nuage_vport = None
+        if last_known_router_id:
+            rtr_id = last_known_router_id
+        else:
+            rtr_id = neutron_fip['router_id']
+        net_id = neutron_fip['floating_network_id']
+        subn = nuagedb.get_ipalloc_for_fip(context.session,
+                                           net_id,
+                                           neutron_fip['floating_ip_address'])
+        fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(subn['subnet_id'])
+        if not fip_pool:
+            msg = _('sharedresource %s not found on VSD') % subn['subnet_id']
+            raise n_exc.BadRequest(resource='floatingip',
+                                   msg=msg)
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(context.session,
+                                                               rtr_id)
+        if not ent_rtr_mapping:
+            msg = _('router %s is not associated with '
+                    'any net-partition') % rtr_id
+            raise n_exc.BadRequest(resource='floatingip',
+                                   msg=msg)
+        if port_id:
+            port_details = self.core_plugin._get_port(context, port_id)
+            if nuage_utils.needs_vport_for_fip_association(
+                    port_details.get('device_owner')):
+                nuage_vport = self._get_vport_for_fip(context, port_id,
+                                                      vport_type=vport_type,
+                                                      vport_id=vport_id,
+                                                      required=True)
+            else:
+                nuage_vport = self._get_vport_for_fip(context, port_id,
+                                                      vport_type=vport_type,
+                                                      vport_id=vport_id,
+                                                      required=False)
+        return ent_rtr_mapping, fip_pool, nuage_vport
+
+    def _process_fip_rate_limiting(self, neutron_fip, nuage_vport):
         # Add QOS to port for rate limiting
         nuage_fip_rate = neutron_fip.get('nuage_fip_rate_values')
         nuage_fip_rate_configured = nuage_fip_rate.pop('cli_configured', None)
@@ -861,7 +862,8 @@ class NuageL3Plugin(NuageL3Wrapper):
                 context, neutron_fip['id'],
                 lib_constants.FLOATINGIP_STATUS_ACTIVE)
             neutron_fip['status'] = lib_constants.FLOATINGIP_STATUS_ACTIVE
-        except (nuage_exc.OperationNotSupported, n_exc.BadRequest):
+        except (nuage_exc.OperationNotSupported, n_exc.BadRequest,
+                ResourceNotFoundException):
             with excutils.save_and_reraise_exception():
                 super(NuageL3Plugin, self).delete_floatingip(
                     context, neutron_fip['id'])
