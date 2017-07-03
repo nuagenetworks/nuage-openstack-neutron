@@ -200,6 +200,11 @@ def get_auto_create_port_owners():
             ]
 
 
+def needs_vport_for_fip_association(device_owner):
+    return (device_owner not in
+            get_device_owners_vip() + [nuage_constants.DEVICE_OWNER_IRONIC])
+
+
 def needs_vport_creation(device_owner):
     if (device_owner in get_auto_create_port_owners() or
             device_owner.startswith(tuple(

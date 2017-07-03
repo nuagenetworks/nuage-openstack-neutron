@@ -241,6 +241,9 @@ class VsdClientImpl(VsdClient):
     def create_nuage_floatingip(self, params):
         return self.domain.create_nuage_floatingip(params)
 
+    def create_nuage_floatingip_details(self, params):
+        return self.domain.create_nuage_floatingip_details(params)
+
     def get_nuage_floatingip(self, id, required=False, **filters):
         return self.domain.get_nuage_floatingip(id, required=required,
                                                 **filters)
