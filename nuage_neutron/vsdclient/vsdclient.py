@@ -89,10 +89,10 @@ class VsdClient(object):
     def get_subnet_by_netpart(self, netpart_id):
         pass
 
-    def create_subnet(self, neutron_subnet, params):
+    def create_subnet(self, ipv4_subnet, params, ipv6_subnet=None):
         pass
 
-    def delete_subnet(self, id):
+    def delete_subnet(self, id, mapping=None):
         pass
 
     def update_subnet(self, neutron_subnet, params):
@@ -149,7 +149,8 @@ class VsdClient(object):
         pass
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
-                                  subnet_mapping, pnet_binding):
+                                  ipv4_subnet_mapping, pnet_binding,
+                                  ipv6_subnet_mapping):
         pass
 
     def create_nuage_floatingip(self, params):
@@ -244,7 +245,8 @@ class VsdClient(object):
     def delete_domain_subnet(self, vsd_subnet_id, os_subnet_id, pnet_binding):
         pass
 
-    def create_domain_subnet(self, vsd_zone, neutron_subnet, pnet_binding):
+    def create_domain_subnet(self, vsd_zone, ipv4_subnet,
+                             pnet_binding, ipv6_subnet):
         pass
 
     def validate_create_domain_subnet(self, neutron_subn,
@@ -422,6 +424,9 @@ class VsdClient(object):
         pass
 
     def update_nuage_vm_vport(self, params):
+        pass
+
+    def update_nuage_vm_if(self, params):
         pass
 
     def create_vport(self, params):

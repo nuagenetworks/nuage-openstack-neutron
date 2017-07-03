@@ -14,6 +14,7 @@
 #    under the License.
 
 import collections
+import netaddr
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -167,7 +168,13 @@ class NuageTrunkHandler(object):
         vlans_per_subnet = collections.defaultdict(set)
         all_subports_in_trunk = []
         for port in all_subports_in_physnet:
-            subnet_id = port['fixed_ips'][0]['subnet_id']
+            for fixed_ip in port['fixed_ips']:
+                if netaddr.IPAddress(fixed_ip['ip_address']).version == 4:
+                    subnet_id = fixed_ip['subnet_id']
+                    break
+            else:
+                # raise? got a port where not 1 of the fixed ips was ipv4.
+                continue
             subnets_per_vlan[port.sub_port.segmentation_id].add(
                 subnet_id)
             vlans_per_subnet[subnet_id].add(

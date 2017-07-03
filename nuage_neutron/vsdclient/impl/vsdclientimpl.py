@@ -158,11 +158,51 @@ class VsdClientImpl(VsdClient):
     def get_subnet_by_netpart(self, netpart_id):
         return self.l2domain.get_subnet_by_netpart(netpart_id)
 
-    def create_subnet(self, neutron_subnet, params):
-        return self.l2domain.create_subnet(neutron_subnet, params)
+    def create_subnet(self, ipv4_subnet, params, ipv6_subnet=None):
+        mapping = params.get('mapping')
+        if mapping:  # eg. There is already ipv4, so we add ipv6
+            if mapping['nuage_l2dom_tmplt_id']:
+                return self.l2domain.update_subnet_ipv6(ipv6_subnet, mapping)
+            else:
+                return self.domain.domainsubnet.create_domain_subnet_ipv6(
+                    ipv6_subnet, mapping)
+        else:  # eg. No subnet exists yet, make subnet (could be dualstack)
+            if params.get('router_attached'):
+                return self.create_l3_subnet(
+                    ipv4_subnet, params, ipv6_subnet)
+            else:
+                return self.l2domain.create_subnet(ipv4_subnet, params,
+                                                   ipv6_subnet=ipv6_subnet)
 
-    def delete_subnet(self, id):
-        self.l2domain.delete_subnet(id)
+    def create_l3_subnet(self, ipv4_subnet, params, ipv6_subnet):
+        vsd_domain = self.get_router_by_external(
+            params.get('router_id'))
+        zone = self.get_zone_by_routerid(
+            helper.strip_cms_id(vsd_domain['externalID']))
+        l3_subnet = self.domain.domainsubnet.create_domain_subnet(
+            zone, ipv4_subnet, params.get('pnet_binding'),
+            ipv6_subnet)
+        # fetch the user details.
+        nuage_userid, nuage_groupid = \
+            helper.create_usergroup(self.restproxy,
+                                    params['tenant_id'],
+                                    params['netpart_id'])
+        l3_subnet['nuage_userid'] = nuage_userid
+        l3_subnet['nuage_groupid'] = nuage_groupid
+        l3_subnet['nuage_l2template_id'] = l3_subnet['ID']
+        l3_subnet['nuage_l2domain_id'] = None
+        return l3_subnet
+
+    def delete_subnet(self, id, mapping=None):
+        if mapping is None:
+            self.l2domain.delete_subnet(id)
+        else:  # eg. delete ipv6 only
+            template_id = mapping['nuage_l2dom_tmplt_id']
+            if template_id:
+                return self.l2domain.delete_subnet_ipv6(mapping)
+            else:
+                return self.domain.domainsubnet.delete_domain_subnet_ipv6(
+                    mapping)
 
     def update_subnet(self, neutron_subnet, params):
         self.l2domain.update_subnet(neutron_subnet, params)
@@ -221,29 +261,43 @@ class VsdClientImpl(VsdClient):
         except restproxy.ResourceNotFoundException:
             pass
 
-    def create_l2domain_for_router_detach(self, os_subnet, subnet_mapping):
+    def create_l2domain_for_router_detach(
+            self, ipv4_subnet, subnet_mapping, ipv6_subnet=None):
         req_params = {
-            'tenant_id': os_subnet['tenant_id'],
+            'tenant_id': ipv4_subnet['tenant_id'],
             'netpart_id': subnet_mapping['net_partition_id'],
             'pnet_binding': None,
-            'dhcp_ip': os_subnet['allocation_pools'][-1]['end'],
-            'shared': os_subnet['shared']
+            'dhcp_ip': ipv4_subnet['allocation_pools'][-1]['end'],
+            'shared': ipv4_subnet['shared'],
         }
-        return self.l2domain.create_subnet(os_subnet, req_params)
+        return self.l2domain.create_subnet(
+            ipv4_subnet, req_params, ipv6_subnet)
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
-                                  subnet_mapping, pnet_binding):
+                                  ipv4_subnet_mapping, pnet_binding,
+                                  ipv6_subnet_mapping=None):
         self.domain.domainsubnet.move_to_l2(l3subnetwork_id, l2domain_id)
         if pnet_binding:
-            pnet_params = {
-                'pnet_binding': pnet_binding,
-                'netpart_id': subnet_mapping['net_partition_id'],
-                'l2domain_id': l2domain_id,
-                'neutron_subnet_id': subnet_mapping['subnet_id']
-            }
+
+            pnet_params = helper.get_pnet_params(
+                pnet_binding,
+                ipv4_subnet_mapping['net_partition_id'],
+                l2domain_id,
+                ipv4_subnet_mapping['subnet_id']
+            )
             pnet_helper.process_provider_network(self.restproxy,
                                                  self.policygroups,
                                                  pnet_params)
+            if ipv6_subnet_mapping:
+                pnet_params = helper.get_pnet_params(
+                    pnet_binding,
+                    ipv6_subnet_mapping['net_partition_id'],
+                    l2domain_id,
+                    ipv6_subnet_mapping['subnet_id']
+                )
+                pnet_helper.process_provider_network(self.restproxy,
+                                                     self.policygroups,
+                                                     pnet_params)
 
     def create_nuage_floatingip(self, params):
         return self.domain.create_nuage_floatingip(params)
@@ -391,9 +445,10 @@ class VsdClientImpl(VsdClient):
                                                       os_subnet_id,
                                                       pnet_binding)
 
-    def create_domain_subnet(self, vsd_zone, neutron_subnet, pnet_binding):
+    def create_domain_subnet(self, vsd_zone, ipv4_subnet,
+                             pnet_binding, ipv6_subnet=None):
         return self.domain.domainsubnet.create_domain_subnet(
-            vsd_zone, neutron_subnet, pnet_binding)
+            vsd_zone, ipv4_subnet, pnet_binding, ipv6_subnet)
 
     def validate_create_domain_subnet(self, neutron_subn,
                                       nuage_subnet_id, nuage_rtr_id):
@@ -453,7 +508,8 @@ class VsdClientImpl(VsdClient):
                                                       neutron_fip_id)
 
     def delete_rate_limiting(self, vport_id, neutron_fip_id):
-        self.policygroups.delete_rate_limiting(vport_id, neutron_fip_id)
+        self.policygroups.delete_rate_limiting(
+            vport_id, neutron_fip_id)
 
     def delete_nuage_sgrule(self, sg_rules):
         self.policygroups.delete_nuage_sgrule(sg_rules)
@@ -532,6 +588,9 @@ class VsdClientImpl(VsdClient):
         self.redirecttargets.update_redirect_target_vports(
             redirect_target_id,
             nuage_port_id_list)
+
+    def update_nuage_vm_if(self, params):
+        self.vm.update_nuage_vm_if(params)
 
     def create_virtual_ip(self, rtarget_id, vip, vip_port_id):
         return self.redirecttargets.create_virtual_ip(rtarget_id, vip,
