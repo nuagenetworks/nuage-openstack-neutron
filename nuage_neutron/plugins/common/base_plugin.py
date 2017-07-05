@@ -19,8 +19,8 @@ from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 
 from neutron._i18n import _
-from neutron.api.v2 import attributes
 from neutron.plugins.common import utils as plugin_utils
+from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
@@ -189,7 +189,7 @@ class RootNuagePlugin(object):
             'device_owner': constants.DEVICE_OWNER_DHCP_NUAGE
         }
         port = plugin_utils._fixup_res_dict(context,
-                                            attributes.PORTS,
+                                            port_def.COLLECTION_NAME,
                                             p_data)
         return core_plugin._create_port_db(context, {'port': port})[0]
 
