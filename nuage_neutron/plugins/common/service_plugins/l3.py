@@ -1128,8 +1128,8 @@ class NuageL3Plugin(NuageL3Wrapper):
             else:
                 # Could be vip-port (fip2vip feature)
                 port = self.core_plugin.get_port(context, port_id)
-                if (port.get('device_owner') ==
-                        constants.DEVICE_OWNER_VIP_NUAGE):
+                if (port.get('device_owner') in
+                        nuage_utils.get_device_owners_vip()):
                     neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
                     vip = port['fixed_ips'][0]['ip_address']
                     self.vsdclient.disassociate_fip_from_vips(
