@@ -118,15 +118,17 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         if (context.current.get(portbindings.VNIC_TYPE, "")
                 in self._supported_vnic_types()):
             try:
-                vif_details = context.original.get('binding:vif_details')
+                vif_details = context.current.get('binding:vif_details')
                 segmentation_id = vif_details.get('vlan') or 0
                 port_dict = self._make_port_dict(context,
                                                  segmentation_id,
                                                  context.original)
                 if port_dict:
                     self._delete_port(port_dict)
-            except Exception:
-                raise
+            except Exception as e:
+                LOG.error("Failed to delete vport from vsd {port id: %s}"
+                          % context.current['id'])
+                raise e
 
     @utils.context_log
     def bind_port(self, context):
