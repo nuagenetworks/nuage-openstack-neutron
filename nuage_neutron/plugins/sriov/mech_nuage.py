@@ -16,6 +16,7 @@ import inspect
 
 from oslo_log import log as logging
 
+from neutron._i18n import _
 from neutron.common import constants as n_const
 from neutron import context as neutron_context
 from neutron.extensions import portbindings
@@ -25,6 +26,7 @@ from neutron.services.trunk import constants as t_consts
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants as nuage_const
+from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import net_topology_db as ext_db
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils
@@ -79,6 +81,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
     def create_port_postcommit(self, context):
         """create_port_postcommit."""
         if self._can_bind(context):
+            self._validate_port_request_attributes(context.current)
             port_dict = self._make_port_dict(context)
             if port_dict:
                 try:
@@ -94,6 +97,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         original = context.original
         if (port.get(portbindings.VNIC_TYPE, "")
                 in self._supported_vnic_types()):
+            self._validate_port_request_attributes(port, original=original)
             host_added = host_removed = False
             if not original['binding:host_id'] and port['binding:host_id']:
                 host_added = True
@@ -470,3 +474,26 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
     def check_vlan_transparency(self, context):
         """Nuage driver vlan transparency support."""
         return True
+
+    def _validate_port_request_attributes(self, current, original=None):
+        unsupported_attributes = ['extra_dhcp_opts', 'allowed_address_pairs',
+                                  'security_groups']
+        no_update_attributes = ['port_security_enabled', 'admin_state_up']
+        for attribute in unsupported_attributes:
+            if current[attribute]:
+                msg = _("Unsupported attribute %(attr)s can't be set for "
+                        "ports which have one of the following vnic "
+                        "types %(vnic)s")
+                raise exceptions.NuageBadRequest(
+                    msg=msg % {'attr': attribute,
+                               'vnic': self._supported_vnic_types()})
+        if original is None:
+            return
+        for attribute in no_update_attributes:
+            if current[attribute] != original[attribute]:
+                msg = _("No update support for attribute %(attr)s for "
+                        "ports which have one of the following vnic "
+                        "types %(vnic)s")
+                raise exceptions.NuageBadRequest(
+                    msg=msg % {'attr': attribute,
+                               'vnic': self._supported_vnic_types()})
