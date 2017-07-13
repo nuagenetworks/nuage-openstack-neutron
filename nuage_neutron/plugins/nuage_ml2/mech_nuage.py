@@ -529,15 +529,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
         is_network_external = context.network._network.get('router:external')
         if 'request_port' not in port:
             return
+        request_port = port['request_port']
+        del port['request_port']
         subnet_mapping = self._validate_port(db_context, port,
                                              constants.BEFORE_CREATE,
                                              is_network_external)
         if not subnet_mapping:
             return
-
-        request_port = port['request_port']
-        del port['request_port']
-
         nuage_vport = nuage_vm = np_name = None
         try:
             np_id = subnet_mapping['net_partition_id']
