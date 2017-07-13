@@ -184,7 +184,7 @@ class NuageTrunkHandler(object):
     def _validate_subports_not_trunk_net(self, trunk_port, trunk_subports):
         """Validates if a subport is not in the trunk network"""
         bad_port = next((port for port in trunk_subports
-                         if port.network_id != trunk_port['network_id']), None)
+                         if port.network_id == trunk_port['network_id']), None)
         if bad_port:
             raise nuage_exc.SubPortParentPortConflict(subport=bad_port.id)
 
