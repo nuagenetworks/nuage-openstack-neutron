@@ -2375,3 +2375,7 @@ class TrunkPort(VsdChildResource):
 
 class TrunkInterface(VsdChildResource):
     resource = 'vminterfaces'
+
+
+class Policygroup(VsdChildResource):
+    resource = 'policygroups'
