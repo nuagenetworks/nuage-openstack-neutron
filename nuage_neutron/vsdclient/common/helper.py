@@ -862,7 +862,7 @@ def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
 
 # function to be able to convert the value in to a VSD supported hex format
 def convert_to_hex(value):
-    if str(value[:2]) != '0x':
+    if str(value[:2]).lower() != '0x':
         raise ValueError('Malformed hex value: %s' % value)
     hex_val = str(value[2:])
     if len(hex_val) % 2 != 0:
