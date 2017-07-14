@@ -395,6 +395,29 @@ class VsdClientImpl(VsdClient):
     def process_port_create_security_group(self, params):
         return self.policygroups.process_port_create_security_group(params)
 
+    def create_security_group(self, vsd_subnet, os_security_group):
+        if vsd_subnet['type'] == constants.L2DOMAIN:
+            parent_id = vsd_subnet['ID']
+            parent_resource = nuagelib.NuageL2Domain
+        else:
+            vsd_zone = self.get_nuage_zone_by_id(vsd_subnet['parentID'])
+            parent_id = vsd_zone['nuage_parent_id']
+            parent_resource = nuagelib.NuageL3Domain
+        return self.policygroups.create_security_group(parent_resource,
+                                                       parent_id,
+                                                       os_security_group)
+
+    def create_security_group_rules(self, policygroup, security_group_rules):
+        params = {'nuage_router_id': None,
+                  'nuage_l2dom_id': None,
+                  'nuage_policygroup_id': policygroup['ID'],
+                  'sg_rules': security_group_rules}
+        if policygroup['parentType'] == constants.L2DOMAIN:
+            params['nuage_l2dom_id'] = policygroup['parentID']
+        else:
+            params['nuage_router_id'] = policygroup['parentID']
+        self.policygroups._create_nuage_sgrules_bulk(params)
+
     def update_vport_policygroups(self, vport_id, policygroup_ids):
         self.policygroups.update_vport_policygroups(vport_id, policygroup_ids)
 
