@@ -518,7 +518,7 @@ class NuagePolicyGroups(object):
             if float(value) == -1:
                 value = constants.INFINITY
             elif 'kbps' in direction:
-                value = float(value)/1000
+                value = float(value) / 1000
             if 'ingress' in direction:
                 data["EgressFIPPeakInformationRate"] = value
             elif 'egress' in direction:
