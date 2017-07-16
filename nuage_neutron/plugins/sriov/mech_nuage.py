@@ -361,7 +361,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 LOG.debug("created vlan: %(vlan_dict)s", {'vlan_dict': vlan})
                 # create dummy subnet - we need only id
 
-                subnet = {'id':  port['fixed_ips'][0]['subnet_id']}
+                subnet = {'id': port['fixed_ips'][0]['subnet_id']}
                 params = {
                     'gatewayinterface': vlan['ID'],
                     'np_id': port_dict['subnet_mapping']['net_partition_id'],
