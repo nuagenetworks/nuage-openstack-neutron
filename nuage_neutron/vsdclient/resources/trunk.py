@@ -86,7 +86,7 @@ class NuageTrunk(NuageTrunkBase):
     }
 
     os_subport_to_vsd_vport = {
-        'segmentation_id':  [('segmentationID', copy)],
+        'segmentation_id': [('segmentationID', copy)],
         'segmentation_type': [('segmentationType', lambda x: x.upper())]
     }
 
