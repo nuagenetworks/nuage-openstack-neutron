@@ -116,6 +116,12 @@ class NuageTrunkHandler(object):
             updated_ports[trunk_id].extend(trunk_updated_ports)
         return updated_ports
 
+    def _validate_port_fixedip(self, port):
+        if not port.get('fixed_ips'):
+            msg = ("Port %s requires a FixedIP in order to be used" %
+                   port.get('id'))
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
     def _validate_same_netpartition(self, context,
                                     trunk_port, trunk_subports):
 
@@ -139,6 +145,7 @@ class NuageTrunkHandler(object):
 
         vlans_per_subnet = collections.defaultdict(list)
         for port in all_subports_in_trunk:
+            self._validate_port_fixedip(port)
             subnet_id = port['fixed_ips'][0]['subnet_id']
             vlans_per_subnet[subnet_id].append(
                 port.sub_port.segmentation_id)
@@ -395,6 +402,14 @@ class NuageTrunkHandler(object):
         elif event == events.AFTER_DELETE:
             self.trunk_deleted(payload.original_trunk)
 
+    def trunk_validate(self, resource, event, trunk_plugin, payload):
+        ctx = n_ctx.get_admin_context()
+        trunk = payload.current_trunk
+        trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
+        if (trunk_port.get(portbindings.VNIC_TYPE) in
+                self.plugin_driver._supported_vnic_types()):
+            self._validate_port_fixedip(trunk_port)
+
     def subport_event(self, resource, event, trunk_plugin, payload):
         if event == events.PRECOMMIT_CREATE:
             self.subports_pre_create(payload.context,
@@ -428,6 +443,9 @@ class NuageTrunkDriver(trunk_base.DriverBase):
             registry.subscribe(self._handler.subport_event,
                                t_consts.SUBPORTS,
                                event)
+        registry.subscribe(self._handler.trunk_validate,
+                           t_consts.TRUNK,
+                           events.PRECOMMIT_CREATE)
         registry.subscribe(self._handler._trunk_status_change,
                            resources.PORT,
                            events.AFTER_UPDATE)
