@@ -115,7 +115,7 @@ HOST_VPORT = 'HOST'
 VM_VPORT = 'VM'
 
 MAX_VSD_INTEGER = 2147483647  # Maximum Java integer value. 2^31-1
-
+MAX_VSD_PRIORITY = 999999999
 NUAGE_PAT_NOT_AVAILABLE = 'not_available'
 NUAGE_PAT_DEF_ENABLED = 'default_enabled'
 NUAGE_PAT_DEF_DISABLED = 'default_disabled'
@@ -153,3 +153,5 @@ FEATURE_EXPERIMENTAL_TEST = 'experimental_test'
 
 DEBUG_API_STATS = "api_stats"
 DEBUG_TIMING_STATS = "timing_stats"
+
+SFC_PARAMS = 'service_function_parameters'
