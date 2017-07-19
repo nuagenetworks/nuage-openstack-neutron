@@ -153,21 +153,30 @@ class RESTProxyServer(object):
 
     @staticmethod
     def raise_error_response(response):
-        errors = json.loads(response[3])
-        log_as_error = False
-        if response[0] == REST_SERV_UNAVAILABLE_CODE:
-            log_as_error = True
-            msg = 'VSD temporarily unavailable, ' + str(errors['errors'])
-        else:
-            msg = str(errors['errors'][0]['descriptions'][0]['description'])
+        try:
+            errors = json.loads(response[3])
+            log_as_error = False
+            if response[0] == REST_SERV_UNAVAILABLE_CODE:
+                log_as_error = True
+                msg = 'VSD temporarily unavailable, ' + str(errors['errors'])
+            else:
+                msg = str(
+                    errors['errors'][0]['descriptions'][0]['description'])
 
-        if response[0] == REST_NOT_FOUND:
-            e = ResourceNotFoundException(msg)
-        else:
-            vsd_code = str(errors.get('internalErrorCode'))
-            e = RESTProxyError(msg, error_code=response[0], vsd_code=vsd_code)
-
-        RESTProxyServer.raise_rest_error(msg, e, log_as_error)
+            if response[0] == REST_NOT_FOUND:
+                e = ResourceNotFoundException(msg)
+            else:
+                vsd_code = str(errors.get('internalErrorCode'))
+                e = RESTProxyError(msg, error_code=response[0],
+                                   vsd_code=vsd_code)
+            RESTProxyServer.raise_rest_error(msg, e, log_as_error)
+        except (TypeError, ValueError):
+            if response[3]:
+                LOG.error('REST response from VSD: %s' % response[3])
+            msg = ("Cannot communicate with SDN controller. Please do not"
+                   " perform any further operations and contact the"
+                   " administrator.")
+            RESTProxyServer.raise_rest_error(msg)
 
     def _rest_call(self, action, resource, data, extra_headers=None,
                    ignore_marked_for_deletion=False):
