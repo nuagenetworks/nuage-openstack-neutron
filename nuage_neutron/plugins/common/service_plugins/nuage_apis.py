@@ -11,6 +11,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import functools
 import netaddr
 
@@ -24,7 +25,6 @@ from oslo_log import log as logging
 
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
