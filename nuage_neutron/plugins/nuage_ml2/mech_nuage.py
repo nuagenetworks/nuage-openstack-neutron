@@ -307,7 +307,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                                    host, network)
 
     def _create_openstack_managed_subnet(self, context, subnet):
-        network_external = self._network_is_external(
+        network_external = self.core_plugin._network_is_external(
             context,
             subnet['network_id'])
 
@@ -365,7 +365,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
     def _create_nuage_subnet(self, context, neutron_subnet, netpart_id,
                              pnet_binding):
         gw_port = None
-        neutron_net = self.get_network(context, neutron_subnet['network_id'])
+        neutron_net = self.core_plugin.get_network(
+            context, neutron_subnet['network_id'])
         net = netaddr.IPNetwork(neutron_subnet['cidr'])
 
         params = {
@@ -394,7 +395,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             with excutils.save_and_reraise_exception():
                 if gw_port:
                     LOG.debug(_("Deleting gw_port %s") % gw_port['id'])
-                    self.delete_port(context, gw_port['id'])
+                    self.core_plugin.delete_port(context, gw_port['id'])
 
         if nuage_subnet:
             l2dom_id = str(nuage_subnet['nuage_l2template_id'])
@@ -481,7 +482,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         for port in ports:
             if not port.get('fixed_ips'):
                 db_base_plugin_v2.NeutronDbPluginV2.delete_port(
-                    self, context, port['id'])
+                    self.core_plugin, context, port['id'])
 
     @utils.context_log
     @TimeTracker.tracked
@@ -597,7 +598,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                         subnet_mapping=subnet_mapping)
             if (request_port.get('nuage_redirect-targets') !=
                     os_constants.ATTR_NOT_SPECIFIED):
-                self.update_port_status(
+                self.core_plugin.update_port_status(
                     db_context,
                     port['id'],
                     os_constants.PORT_STATUS_ACTIVE)
@@ -634,7 +635,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             fixed_ips = port['fixed_ips']
             ips = {4: None, 6: None}
             for fixed_ip in fixed_ips:
-                subnet = self.get_subnet(db_context, fixed_ip['subnet_id'])
+                subnet = self.core_plugin.get_subnet(db_context,
+                                                     fixed_ip['subnet_id'])
                 ips[subnet['ip_version']] = fixed_ip['ip_address']
             data = {
                 'mac': port['mac_address'],
@@ -814,7 +816,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _validate_nuage_sharedresource(self, context, net_id):
         filter = {'network_id': [net_id]}
-        existing_subn = self.get_subnets(context, filters=filter)
+        existing_subn = self.core_plugin.get_subnets(context, filters=filter)
         if len(existing_subn) > 1:
             msg = (_('Only one subnet is allowed per external network %s')
                    % net_id)
@@ -933,12 +935,12 @@ class NuageMechanismDriver(NuageML2Wrapper):
             # Gateway from vsd is different, we must recalculate the allocation
             # pools.
             new_pools = self._set_allocation_pools(subnet)
-            self.ipam._update_subnet_allocation_pools(
+            self.core_plugin.ipam._update_subnet_allocation_pools(
                 db_context, subnet['id'], {'allocation_pools': new_pools,
                                            'id': subnet['id']})
         LOG.warn("Nuage ml2 plugin will overwrite subnet gateway ip "
                  "and allocation pools")
-        db_subnet = self._get_subnet(db_context, subnet['id'])
+        db_subnet = self.core_plugin._get_subnet(db_context, subnet['id'])
         update_subnet = {'gateway_ip': subnet['gateway_ip']}
         db_subnet.update(update_subnet)
 
@@ -956,7 +958,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             self._reserve_ip(db_context, subnet, dhcp_ip)
 
     def _set_allocation_pools(self, subnet):
-        pools = self.ipam.generate_pools(subnet['cidr'], subnet['gateway_ip'])
+        pools = self.core_plugin.ipam.generate_pools(subnet['cidr'],
+                                                     subnet['gateway_ip'])
         subnet['allocation_pools'] = [
             {'start': str(netaddr.IPAddress(pool.first, pool.version)),
              'end': str(netaddr.IPAddress(pool.last, pool.version))}
@@ -1068,7 +1071,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         subnets = {4: {}, 6: {}}
         ips = {4: None, 6: None}
         for fixed_ip in fixed_ips:
-            subnet = self.get_subnet(db_context, fixed_ip['subnet_id'])
+            subnet = self.core_plugin.get_subnet(db_context,
+                                                 fixed_ip['subnet_id'])
             subnets[subnet['ip_version']] = subnet
             ips[subnet['ip_version']] = fixed_ip['ip_address']
 
@@ -1101,7 +1105,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             'dhcp_enabled': subnets[4].get('enable_dhcp'),
             'vsd_subnet': nuage_subnet
         }
-        network_details = self.get_network(db_context, port['network_id'])
+        network_details = self.core_plugin.get_network(db_context,
+                                                       port['network_id'])
         if network_details['shared']:
             self.vsdclient.create_usergroup(
                 port['tenant_id'],
@@ -1110,7 +1115,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _get_port_num_and_vm_id_of_device(self, db_context, port):
         filters = {'device_id': [port.get('device_id')]}
-        ports = self.get_ports(db_context, filters)
+        ports = self.core_plugin.get_ports(db_context, filters)
         ports = [p for p in ports
                  if self._is_port_vxlan_normal(p, db_context)]
         return len(ports), port.get('device_id')
@@ -1216,7 +1221,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         fixed_ips = port['fixed_ips']
         subnets = {4: {}, 6: {}}
         for fixed_ip in fixed_ips:
-            subnet = self.get_subnet(db_context, fixed_ip['subnet_id'])
+            subnet = self.core_plugin.get_subnet(
+                db_context, fixed_ip['subnet_id'])
             subnets[subnet['ip_version']] = subnet
 
         if port['tenant_id'] not in (subnets[4].get('tenant_id'),
