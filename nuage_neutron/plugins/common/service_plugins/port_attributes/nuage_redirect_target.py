@@ -35,6 +35,7 @@ from nuage_neutron.plugins.common.extensions.nuage_redirect_target \
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
+from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 
 
@@ -328,18 +329,82 @@ class NuageRedirectTarget(BaseNuagePlugin):
     def create_nuage_redirect_target_rule(self, context,
                                           nuage_redirect_target_rule):
         remote_sg = None
+        origin_sg = None
         rtarget_rule = nuage_redirect_target_rule['nuage_redirect_target_rule']
         if rtarget_rule.get('remote_group_id'):
             remote_sg = self.core_plugin.get_security_group(
                 context, rtarget_rule.get('remote_group_id'))
+        if (rtarget_rule.get('origin_group_id') and rtarget_rule.get(
+                'origin_group_id') != rtarget_rule.get('remote_group_id')):
+            origin_sg = self.core_plugin.get_security_group(
+                context, rtarget_rule.get('origin_group_id'))
         self._validate_nuage_redirect_target_rule(rtarget_rule)
+        rtarget = self.vsdclient.get_nuage_redirect_target(
+            rtarget_rule['redirect_target_id'])
+        if not rtarget:
+            raise nuage_exc.NuageNotFound(
+                resource='nuage_redirect_target',
+                resource_id=rtarget_rule['redirect_target_id'])
         if remote_sg:
             rtarget_rule['remote_group_name'] = remote_sg['name']
+            remote_pg = self._find_or_create_policygroup_using_rt(
+                context, remote_sg['id'], rtarget)
+            rtarget_rule['remote_policygroup_id'] = remote_pg['ID']
+            rtarget_rule['origin_policygroup_id'] = remote_pg['ID']
+        if origin_sg:
+            rtarget_rule['origin_group_name'] = origin_sg['name']
+            origin_pg = self._find_or_create_policygroup_using_rt(
+                context, origin_sg['id'], rtarget)
+            rtarget_rule['origin_policygroup_id'] = origin_pg['ID']
         rtarget_rule_resp = self.vsdclient.create_nuage_redirect_target_rule(
-            rtarget_rule)
+            rtarget_rule, rtarget)
 
         return self._make_redirect_target_rule_dict(rtarget_rule_resp,
                                                     context=context)
+
+    def _find_or_create_policygroup_using_rt(self, context, security_group_id,
+                                             redirect_target):
+        parent_id = redirect_target['parentID']
+        parent_type = redirect_target['parentType']
+
+        external_id = cms_id_helper.get_vsd_external_id(security_group_id)
+        if parent_type == constants.L2DOMAIN:
+            policygroups = self.vsdclient.get_nuage_l2domain_policy_groups(
+                parent_id,
+                externalID=external_id)
+        else:
+            policygroups = self.vsdclient.get_nuage_domain_policy_groups(
+                parent_id,
+                externalID=external_id)
+        if len(policygroups) > 1:
+            msg = _("Found multiple policygroups with externalID %s")
+            raise n_exc.Conflict(msg=msg % external_id)
+        elif len(policygroups) == 1:
+            return policygroups[0]
+        else:
+            return self._create_pg_for_rt(context, security_group_id,
+                                          redirect_target)
+
+    def _create_pg_for_rt(self, context, security_group_id, rt):
+        security_group = self.core_plugin.get_security_group(context,
+                                                             security_group_id)
+        # pop rules, make empty policygroup first
+        security_group_rules = security_group.pop('security_group_rules')
+        policy_group = self.vsdclient.create_security_group_using_parent(
+            rt['parentID'],
+            rt['parentType'], security_group)
+
+        # Before creating rules, we might have to make other policygroups first
+        # if the rule uses remote_group_id to have rule related to other PG.
+        for rule in security_group_rules:
+            remote_sg_id = rule.get('remote_group_id')
+            if remote_sg_id:
+                self._find_or_create_policygroup_using_rt(context,
+                                                          remote_sg_id,
+                                                          rt)
+        self.vsdclient.create_security_group_rules(policy_group,
+                                                   security_group_rules)
+        return policy_group
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
