@@ -251,6 +251,10 @@ class VsdClient(object):
     def create_security_group(self, vsd_subnet, os_security_group):
         pass
 
+    def create_security_group_using_parent(self, parent_id, parent_type,
+                                           os_security_group):
+        pass
+
     def create_security_group_rules(self, policygroup, security_group_rules):
         pass
 
@@ -307,7 +311,7 @@ class VsdClient(object):
     def delete_nuage_redirect_target_vip(self, rtarget_vip_id):
         pass
 
-    def create_nuage_redirect_target_rule(self, params):
+    def create_nuage_redirect_target_rule(self, params, rt=None):
         pass
 
     def get_nuage_redirect_target_rules(self, params):

@@ -410,6 +410,16 @@ class VsdClientImpl(VsdClient):
                                                        parent_id,
                                                        os_security_group)
 
+    def create_security_group_using_parent(self, parent_id, parent_type,
+                                           os_security_group):
+        if parent_type == constants.L2DOMAIN:
+            parent_resource = nuagelib.NuageL2Domain
+        else:
+            parent_resource = nuagelib.NuageL3Domain
+        return self.policygroups.create_security_group(parent_resource,
+                                                       parent_id,
+                                                       os_security_group)
+
     def create_security_group_rules(self, policygroup, security_group_rules):
         params = {'nuage_router_id': None,
                   'nuage_l2dom_id': None,
@@ -478,8 +488,9 @@ class VsdClientImpl(VsdClient):
     def delete_nuage_redirect_target_vip(self, rtarget_vip_id):
         self.redirecttargets.delete_nuage_redirect_target_vip(rtarget_vip_id)
 
-    def create_nuage_redirect_target_rule(self, params):
-        return self.redirecttargets.create_nuage_redirect_target_rule(params)
+    def create_nuage_redirect_target_rule(self, params, rt=None):
+        return self.redirecttargets.create_nuage_redirect_target_rule(params,
+                                                                      rt)
 
     def get_nuage_redirect_target_rules(self, params):
         return self.redirecttargets.get_nuage_redirect_target_rules(params)
