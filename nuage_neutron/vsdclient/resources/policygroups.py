@@ -1400,9 +1400,10 @@ class NuageRedirectTargets(object):
         if response[3]:
             return response[3][0]['ID']
 
-    def create_nuage_redirect_target_rule(self, params):
-        rtarget_id = params['redirect_target_id']
-        rtarget = self.get_nuage_redirect_target(rtarget_id)
+    def create_nuage_redirect_target_rule(self, params, rtarget=None):
+        if not rtarget:
+            rtarget_id = params['redirect_target_id']
+            rtarget = self.get_nuage_redirect_target(rtarget_id)
 
         parent = rtarget['parentID']
         parent_type = rtarget['parentType']
@@ -1500,38 +1501,12 @@ class NuageRedirectTargets(object):
                 nuage_match_info['networkID'] = netid
                 nuage_match_info['networkType'] = "ENTERPRISE_NETWORK"
             elif str(key) == 'remote_group_id':
-                if params.get('parent_type') == 'domain':
-                    remote_policygroup_id = (
-                        pg_helper._get_remote_policygroup_id(
-                            self.restproxy,
-                            rtarget_rule[key], 'l3domain',
-                            params.get('parent'),
-                            rtarget_rule.get('remote_group_name')))
-                else:
-                    remote_policygroup_id = (
-                        pg_helper._get_remote_policygroup_id(
-                            self.restproxy,
-                            rtarget_rule[key], constants.L2DOMAIN,
-                            params.get('parent'),
-                            rtarget_rule.get('remote_group_name')))
-                nuage_match_info['networkID'] = remote_policygroup_id
+                nuage_match_info['networkID'] = (
+                    rtarget_rule['remote_policygroup_id'])
                 nuage_match_info['networkType'] = "POLICYGROUP"
             elif str(key) == 'origin_group_id':
-                if params.get('parent_type') == 'domain':
-                    origin_policygroup_id = (
-                        pg_helper._get_remote_policygroup_id(
-                            self.restproxy,
-                            rtarget_rule[key], 'l3domain',
-                            params.get('parent'),
-                            rtarget_rule.get('remote_group_name')))
-                else:
-                    origin_policygroup_id = (
-                        pg_helper._get_remote_policygroup_id(
-                            self.restproxy,
-                            rtarget_rule[key], constants.L2DOMAIN,
-                            params.get('parent'),
-                            rtarget_rule.get('remote_group_name')))
-                nuage_match_info['locationID'] = origin_policygroup_id
+                nuage_match_info['locationID'] = (
+                    rtarget_rule['origin_policygroup_id'])
                 nuage_match_info['locationType'] = "POLICYGROUP"
             elif str(key) == 'port_range_max':
                 max_port = str(rtarget_rule[key])
