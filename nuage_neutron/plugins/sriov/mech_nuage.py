@@ -29,6 +29,7 @@ from nuage_neutron.plugins.common import constants as nuage_const
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import net_topology_db as ext_db
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import trunk_db
 from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
@@ -76,12 +77,44 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 wrapped = ignore_not_found(wrapped)
             setattr(self.vsdclient, m[0], wrapped)
 
+    @utils.context_log
+    def create_network_precommit(self, context):
+        db_context = context._plugin_context
+        segments = context.current.get('segments')
+        if segments:
+            bad_segment = next(
+                (segment for segment in segments if
+                 segment.get('provider:network_type') == t_consts.VLAN and
+                 trunk_db.vlan_in_use_by_subport(db_context.session,
+                                                 segment)), None)
+            if bad_segment:
+                raise exceptions.VlanIdInUseBySubport(
+                    vlan=bad_segment['provider:segmentation_id'],
+                    physnet=bad_segment['provider:physical_network']
+                )
+
+    @utils.context_log
+    def create_port_precommit(self, context):
+        port = context.current
+        vnic_type = port.get(portbindings.VNIC_TYPE, "")
+        db_context = context._plugin_context
+        if vnic_type not in self._supported_vnic_types():
+            return
+        self._validate_port_request_attributes(context.current)
+        subnets = self.core_plugin._get_subnets_by_network(
+            db_context,
+            port.get('network_id'))
+        if len(subnets) != 1:
+            if ((len(subnets) != 2 or
+                 subnets[0]['ip_version'] ==
+                 subnets[1]['ip_version'])):
+                raise exceptions.DirectPortSubnetConflict()
+
     @handle_nuage_api_errorcode
     @utils.context_log
     def create_port_postcommit(self, context):
         """create_port_postcommit."""
         if self._can_bind(context):
-            self._validate_port_request_attributes(context.current)
             port_dict = self._make_port_dict(context)
             if port_dict:
                 try:
@@ -480,7 +513,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                                   'security_groups']
         no_update_attributes = ['port_security_enabled', 'admin_state_up']
         for attribute in unsupported_attributes:
-            if current[attribute]:
+            if current.get(attribute):
                 msg = _("Unsupported attribute %(attr)s can't be set for "
                         "ports which have one of the following vnic "
                         "types %(vnic)s")

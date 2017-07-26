@@ -56,9 +56,19 @@ class NuageDriverNotFound(n_exc.NotFound):
     message = _("Could not find the following driver(s): %(driver_name)s.")
 
 
-class PhysnetVlanConflict(n_exc.Conflict):
-    message = _("Subnet %(subnet)s cannot use multiple vlans %(vlans)s in a "
-                "single physical network")
+class UniqueSubnetConflict(n_exc.Conflict):
+    message = _("Subports with segmentattion id %(vlan)s cannot belong to "
+                "multiple subnets %(subnets)s in a single physical network")
+
+
+class VlanIdInUseByNetwork(n_exc.Conflict):
+    message = _("Vlan %(vlan)s is used by a network %(network)s in a "
+                "physical network %(physnet)s")
+
+
+class VlanIdInUseBySubport(n_exc.Conflict):
+    message = _("Vlan %(vlan)s is used by a subport in a "
+                "physical network %(physnet)s")
 
 
 class TrunkVlanConflict(n_exc.Conflict):
@@ -66,9 +76,24 @@ class TrunkVlanConflict(n_exc.Conflict):
                 "single trunk")
 
 
+class UniqueVlanConflict(n_exc.Conflict):
+    message = _("Subports on subnet %(subnet)s cannot use multiple vlans "
+                "%(vlans)s in a single physical network")
+
+
+class SubPortNetConflict(n_exc.Conflict):
+    message = _("Subport %(subport)s in the network with vlan segment "
+                "must use segmentation id of that segment.")
+
+
 class SubPortParentPortConflict(n_exc.Conflict):
     message = _("Subport %(subport)s cannot be in the same network as the "
                 "trunk's parent port.")
+
+
+class SubPortNetpartitionConflict(n_exc.Conflict):
+    message = _("Subport %(subport)s cannot be in the different netpartition "
+                "than the trunk's parent port.")
 
 
 class TrunkVnicTypeConflict(n_exc.Conflict):
@@ -76,6 +101,6 @@ class TrunkVnicTypeConflict(n_exc.Conflict):
                 "parent port %(parent)s has vnic_type '%(vnic_type_parent)s'")
 
 
-class SubPortNetpartitionConflict(n_exc.Conflict):
-    message = _("Subport %(subport)s cannot be in the different enterprise "
-                "than the trunk's parent port.")
+class DirectPortSubnetConflict(n_exc.Conflict):
+    message = _("Creation of direct ports is supported in a dualstack "
+                "networks, or networks with single subnet only.")

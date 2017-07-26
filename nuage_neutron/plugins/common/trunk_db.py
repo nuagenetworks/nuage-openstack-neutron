@@ -14,7 +14,7 @@
 
 from neutron.db import models_v2
 from neutron.db import segments_db
-from neutron.services.trunk import constants as t_consts
+from neutron.plugins.common import constants as p_const
 from neutron.services.trunk import models
 
 from sqlalchemy.orm import aliased
@@ -55,7 +55,7 @@ def get_vlan_subports_of_trunk_physnet(session, trunk_id):
         )
         .filter(
             cur_trunk.id == trunk_id,
-            models.SubPort.segmentation_type == t_consts.VLAN)
+            models.SubPort.segmentation_type == p_const.TYPE_VLAN)
     ).all()
 
 
@@ -72,5 +72,85 @@ def get_vlan_subports_of_trunk(session, trunk_id):
         )
         .filter(
             models.Trunk.id == trunk_id,
-            models.SubPort.segmentation_type == t_consts.VLAN)
+            models.SubPort.segmentation_type == p_const.TYPE_VLAN)
     ).all()
+
+
+def get_segment_allocation_of_subports(session, subports):
+    port_ids = [subport['port_id'] for subport in subports]
+    segmentation_ids = [subport['segmentation_id'] for subport in subports]
+
+    # Subquery selecting the Networksegment of a subport's trunk parent
+    # port's network
+    physnet_subquery = (
+        session.query(segments_db.NetworkSegment)
+        .join(
+            (models_v2.Network,
+             segments_db.NetworkSegment.network_id == models_v2.Network.id),
+            (models_v2.Port,
+             models_v2.Port.network_id == models_v2.Network.id),
+            (models.Trunk,
+             models.Trunk.port_id == models_v2.Port.id),
+            (models.SubPort,
+             models.SubPort.trunk_id == models.Trunk.id),
+        )
+        .filter(
+            models.SubPort.port_id.in_(port_ids)
+        )
+    ).subquery()
+
+    return (
+        session.query(segments_db.NetworkSegment)
+        .filter(
+            (segments_db.NetworkSegment.physical_network ==
+             physnet_subquery.c.physical_network),
+            segments_db.NetworkSegment.segmentation_id.in_(segmentation_ids)
+        )
+    ).all()
+
+
+def vlan_in_use_by_subport(session, segment):
+    query = (
+        session.query(models.SubPort)
+        .join(
+            (models.Trunk,
+             models.SubPort.trunk_id == models.Trunk.id),
+            (models_v2.Port,
+             models.Trunk.port_id == models_v2.Port.id),
+            (models_v2.Network,
+             models_v2.Port.network_id == models_v2.Network.id),
+            (segments_db.NetworkSegment,
+             segments_db.NetworkSegment.network_id == models_v2.Network.id)
+        )
+        .filter(
+            segments_db.NetworkSegment.network_type.in_([p_const.TYPE_VLAN,
+                                                         p_const.TYPE_FLAT]),
+            (segments_db.NetworkSegment.physical_network ==
+             segment['provider:physical_network']),
+            (models.SubPort.segmentation_id ==
+             segment['provider:segmentation_id']),
+        )
+    )
+    return query.all()
+
+
+def get_subports_in_conflict_with_net(session, subports):
+    port_ids = [subport['port_id'] for subport in subports]
+    query = (
+        session.query(models.SubPort)
+        .join(
+            (models_v2.Port,
+             models.SubPort.port_id == models_v2.Port.id),
+            (models_v2.Network,
+             models_v2.Port.network_id == models_v2.Network.id),
+            (segments_db.NetworkSegment,
+             segments_db.NetworkSegment.network_id == models_v2.Network.id)
+        )
+        .filter(
+            models.SubPort.port_id.in_(port_ids),
+            segments_db.NetworkSegment.network_type == p_const.TYPE_VLAN,
+            (models.SubPort.segmentation_id !=
+             segments_db.NetworkSegment.segmentation_id)
+        )
+    )
+    return query.all()

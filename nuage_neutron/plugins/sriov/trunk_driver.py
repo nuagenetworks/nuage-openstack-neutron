@@ -156,30 +156,54 @@ class NuageTrunkHandler(object):
         return updated_ports
 
     def _validate_subports_vlan(self, context, trunk):
-        """Validates if a subnet only uses a single vlan within a physnet"""
+        """Validates if a vlan only used by a single subnet within a physnet"""
         LOG.debug("validating vlans in trunk %s", trunk['id'])
         context = context.elevated()
 
         all_subports_in_physnet = trunk_db.get_vlan_subports_of_trunk_physnet(
             context.session,
             trunk.id)
-        vlans_per_subnet = collections.defaultdict(list)
+        subnets_per_vlan = collections.defaultdict(set)
+        vlans_per_subnet = collections.defaultdict(set)
         all_subports_in_trunk = []
         for port in all_subports_in_physnet:
             subnet_id = port['fixed_ips'][0]['subnet_id']
-            vlans_per_subnet[subnet_id].append(
+            subnets_per_vlan[port.sub_port.segmentation_id].add(
+                subnet_id)
+            vlans_per_subnet[subnet_id].add(
                 port.sub_port.segmentation_id)
             if port.sub_port.trunk_id == trunk['id']:
                 all_subports_in_trunk.append(port)
 
+        bad_vlan = next((vlan for vlan, subnets in subnets_per_vlan.items()
+                         if len(subnets) > 1), None)
+        if bad_vlan:
+            raise nuage_exc.UniqueSubnetConflict(
+                subnets=subnets_per_vlan[bad_vlan],
+                vlan=bad_vlan)
         bad_subnet = next((subnet for subnet, vlans in vlans_per_subnet.items()
                            if len(vlans) > 1), None)
         if bad_subnet:
-            raise nuage_exc.PhysnetVlanConflict(
+            raise nuage_exc.UniqueVlanConflict(
                 subnet=bad_subnet,
-                vlans=vlans_per_subnet[bad_subnet])
+                vlans=vlans_per_subnet[bad_subnet]
+            )
 
         return all_subports_in_trunk
+
+    def _validate_same_netpartition(self, context,
+                                    trunk_port, trunk_subports):
+
+        parent_netpart = db.get_subnet_l2dom_by_port_id(
+            context.session,
+            trunk_port['id']).get('net_partition_id')
+        bad_subport = next((port for port in trunk_subports
+                            if db.get_subnet_l2dom_by_port_id(
+                                context.session,
+                                port.id).get('net_partition_id') !=
+                            parent_netpart), None)
+        if bad_subport:
+            raise nuage_exc.SubPortNetpartitionConflict(subport=bad_subport.id)
 
     def _validate_subports_not_trunk_net(self, trunk_port, trunk_subports):
         """Validates if a subport is not in the trunk network"""
@@ -206,6 +230,37 @@ class NuageTrunkHandler(object):
                 vnic_type_sub=bad_port.vnic_type,
                 parent=trunk_port['id'],
                 vnic_type_parent=parent_vnic)
+
+    def _validate_vlan_allocated_by_net(self, context, trunk, subports):
+        LOG.debug("validating vlan allocations in physnet for %(sub)s added "
+                  "subports in trunk %(trunk)s",
+                  {'sub': len(subports), 'trunk': trunk.id})
+        segments = trunk_db.get_segment_allocation_of_subports(
+            context.session,
+            subports)
+        if len(segments) > 0:
+            for subport in subports:
+                segment = next((segment for segment in segments if
+                                segment.segmentation_id ==
+                                subport.segmentation_id), None)
+                port = self.core_plugin.get_port(context, subport.port_id)
+                if segment.network_id != port.get('network_id'):
+                    raise nuage_exc.VlanIdInUseByNetwork(
+                        vlan=segment.segmentation_id,
+                        network=segment.network_id,
+                        physnet=segment.physical_network)
+
+    def _validate_vlan_in_net(self, context, subports):
+        LOG.debug("validating subport in vlan net uses vlan id of net "
+                  "for %(sub)s added subports in trunk",
+                  {'sub': len(subports)})
+        bad_subport = next((subport for subport in subports if
+                            trunk_db.get_subports_in_conflict_with_net(
+                                context.session,
+                                subports)
+                            ), None)
+        if bad_subport:
+            raise nuage_exc.SubPortNetConflict(subport=bad_subport)
 
     def _set_sub_ports(self, trunk_id, subports):
         ctx = n_ctx.get_admin_context()
@@ -270,10 +325,14 @@ class NuageTrunkHandler(object):
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
         if (trunk_port.get(portbindings.VNIC_TYPE) in
                 self.plugin_driver._supported_vnic_types()):
-            trunk_subports = self._validate_subports_vlan(context, trunk)
-            self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
             self._validate_subports_vnic_type(context, trunk,
                                               trunk_port, subports)
+            self._validate_vlan_in_net(context, subports)
+            self._validate_vlan_allocated_by_net(context, trunk, subports)
+            trunk_subports = self._validate_subports_vlan(context, trunk)
+            self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
+            self._validate_same_netpartition(context, trunk_port,
+                                             trunk_subports)
 
     def subports_added(self, trunk, subports):
         LOG.debug('subport_added: %(trunk)s subports : %(sp)s',
