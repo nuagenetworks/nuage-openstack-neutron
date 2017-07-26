@@ -17,6 +17,7 @@
 
 from neutron.conf import common as core_config
 from neutron.plugins.ml2 import config as ml2_config
+
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
@@ -32,16 +33,29 @@ from oslo_config import cfg
 from oslo_config import fixture as oslo_fixture
 
 
-class TestNuageMechanismDriverNative(testtools.TestCase):
+class ConfigTypes(object):
+    MINIMAL_CONFIG = 1
+    MISSING_SERVICE_PLUGIN = 2
+    MISSING_ML2_EXTENSION = 3
 
-    def set_config_fixture_connc(self):
-        cfg.CONF.register_opts(core_config.core_opts)
-        cfg.CONF.register_opts(ml2_config.ml2_opts, "ml2")
+
+class TestNuageMechanismDriver(testtools.TestCase):
+
+    def setUp(self):
+        super(TestNuageMechanismDriver, self).setUp()
+
+        # make sure we have the configs
+        if core_config.core_opts is None or ml2_config.ml2_opts is None:
+            self.fail('Fix your setup.')
+
+    def set_config_fixture(self, config_type=ConfigTypes.MINIMAL_CONFIG):
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
-        conf.config(group='RESTPROXY', server='localhost:9976')
+
+        conf.config(group='RESTPROXY', server='localhost:9876')
         conf.config(group='RESTPROXY', server_timeout=1)
         conf.config(group='RESTPROXY', server_max_retries=1)
         conf.config(group='RESTPROXY', cms_id='1')
+
         conf.config(group='PLUGIN', enable_debug='api_stats')
 
         if config_type == ConfigTypes.MISSING_SERVICE_PLUGIN:
@@ -76,62 +90,44 @@ class TestNuageMechanismDriverNative(testtools.TestCase):
         self.set_config_fixture(ConfigTypes.MISSING_SERVICE_PLUGIN)
         try:
             nmd.initialize()
-            self.fail()
+            self.fail('nmd should not have successfully initialized.')
+
+        except Exception as e:
+            self.assertEqual('Missing required service_plugin(s) '
+                             '[\'NuageAPI\'] '
+                             'for mechanism driver nuage', str(e))
+
+    def test_init_native_nmd_missing_ml2_extension(self):
+        nmd = NuageMechanismDriver()
+        self.set_config_fixture(ConfigTypes.MISSING_ML2_EXTENSION)
+        try:
+            nmd.initialize()
+            self.fail('nmd should not have successfully initialized.')
+
+        except Exception as e:
+            self.assertEqual('Missing required extension(s) '
+                             '[\'port_security\'] '
+                             'for mechanism driver nuage', str(e))
+
+    def test_init_native_nmd_invalid_server(self):
+        nmd = NuageMechanismDriver()
+        self.set_config_fixture()
+        try:
+            nmd.initialize()
+            self.fail('nmd should not have successfully initialized.')
 
         except Exception as e:
             self.assertEqual('Could not establish a connection with the VSD. '
                              'Please check VSD URI path in plugin config '
                              'and verify IP connectivity.', str(e))
 
-    def test_init_nmd_invalid_server(self):
-        nmd = NuageMechanismDriver()
-        self.set_config_fixture_connc()
-        self.initialize(nmd)
-
-
-class TestNuageMechanismDriverMocked(testtools.TestCase):
-
-    def set_config_fixture(self):
-        cfg.CONF.register_opts(core_config.core_opts)
-        cfg.CONF.register_opts(ml2_config.ml2_opts, "ml2")
-        conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
-        conf.config(service_plugins=['NuagePortAttributes',
-                                     'NuageL3', 'NuageAPI'])
-        conf.config(group='ml2',
-                    extension_drivers=['nuage_subnet',
-                                       'nuage_port',
-                                       'port_security'])
-
-    def set_invalid_config_fixture(self):
-        cfg.CONF.register_opts(core_config.core_opts)
-        cfg.CONF.register_opts(ml2_config.ml2_opts, "ML2")
-        conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
-        conf.config(group='RESTPROXY', server='localhost:9876')
-        conf.config(group='RESTPROXY', server_timeout=1)
-        conf.config(group='RESTPROXY', server_max_retries=1)
-        conf.config(group='RESTPROXY', cms_id='1')
-        conf.config(group='PLUGIN', enable_debug='api_stats')
-        conf.config(service_plugins=['NuagePortAttributes',
-                                     'NuageL3', 'NuageAPI'])
-        conf.config(group='ml2',
-                    extension_drivers=['nuage_subnet',
-                                       'nuage_port',
-                                       'port_security'])
-
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'get_cms')
     def test_multi_init_nmd_invalid_server(self, raise_rest, get_cms):
-
-        # init nmd 3 times, mock out the failures
-        nmd1 = NuageMechanismDriver()
-        nmd2 = NuageMechanismDriver()
-        nmd3 = NuageMechanismDriver()
-
-        self.set_invalid_config_fixture()
-
-        nmd1.initialize()
-        nmd2.initialize()
-        nmd3.initialize()
+        # init nmd 3 times
+        nmd1 = self.get_me_a_nmd()
+        nmd2 = self.get_me_a_nmd()
+        nmd3 = self.get_me_a_nmd()
 
         # validate there is actually only 1 vsdclient (memoize)
         self.assertEqual(nmd2.vsdclient, nmd1.vsdclient)
@@ -139,6 +135,8 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
 
         # validate only 1 api call is made
         self.assertEqual(1, nmd1.vsdclient.restproxy.api_count)
+
+    # FLAT NETWORKS
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, '_network_is_external',
@@ -160,6 +158,8 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
                   'ip_version': 4}
 
         nmd.create_subnet_precommit(Context(network, subnet))
+
+    # VXLAN NETWORKS
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
@@ -310,6 +310,8 @@ class TestNuageMechanismDriverMocked(testtools.TestCase):
                   'ip_version': 6}
 
         nmd.create_subnet_precommit(Context(network, subnet))
+
+    # EXPERIMENTAL FEATURES
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, '_network_is_external',
