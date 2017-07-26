@@ -76,12 +76,12 @@ class NuageTrunkBase(object):
 class NuageTrunk(NuageTrunkBase):
 
     os_trunk_to_vsd_trunk = {
-        'name': [('name', copy)],
+        'name': [('description', copy)],
         # TODO(gridinv): VSP team decided not to support it in initial release
         # not sure if we plan to support it ever
         # 'admin_state_up': [('trunkStatus',
         #                     lambda x: OS_TRUNK_STATE_TO_VSD[x])],
-        'id': [('externalID', lambda x: get_vsd_external_id(x))],
+        'id': [('externalID', lambda x: get_vsd_external_id(x))]
     }
 
     os_subport_to_vsd_vport = {
@@ -120,6 +120,7 @@ class NuageTrunk(NuageTrunkBase):
         ent_id = subnet_mapping.get('net_partition_id')
         data = self.map_trunk_os_to_vsd(os_trunk)
         data['associatedVPortID'] = subnet_mapping.get('nuage_vport_id')
+        data['name'] = os_trunk['id']
         self.post(Trunk, data, parent='enterprises', parent_id=ent_id)
 
     def delete_trunk(self, os_trunk, subnet_mapping):
