@@ -307,7 +307,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                                    host, network)
 
     def _create_openstack_managed_subnet(self, context, subnet):
-        network_external = self.core_plugin._network_is_external(
+        network_external = self._network_is_external(
             context,
             subnet['network_id'])
 
@@ -463,7 +463,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 'fixed_ips': {'subnet_id': [updated_subnet['id']]},
                 'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
             }
-            gw_ports = self.get_ports(db_context, filters=filters)
+            gw_ports = self.core_plugin.get_ports(db_context, filters=filters)
             self._delete_port_gateway(db_context, gw_ports)
         self.vsdclient.update_subnet(updated_subnet, params)
 
@@ -614,6 +614,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         db_context = context._plugin_context
         port = context.current
         original = context.original
+
         is_network_external = context.network._network.get('router:external')
         if 'request_port' not in port:
             return
