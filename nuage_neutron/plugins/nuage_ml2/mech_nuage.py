@@ -1116,7 +1116,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         filters = {'device_id': [port.get('device_id')]}
         ports = self.core_plugin.get_ports(db_context, filters)
         ports = [p for p in ports
-                 if self._is_port_vxlan_normal(p, db_context)]
+                 if self._is_port_vxlan_normal(p, db_context) and
+                 p['binding:host_id']]
         return len(ports), port.get('device_id')
 
     def _process_port_create_secgrp_for_port_sec(self, context, port):
