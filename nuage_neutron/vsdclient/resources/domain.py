@@ -556,6 +556,10 @@ class NuageDomain(object):
                 raise restproxy.RESTProxyError(msg)
 
     def create_nuage_floatingip(self, params):
+        fip = self.create_nuage_floatingip_details(params)
+        return fip['ID']
+
+    def create_nuage_floatingip_details(self, params):
         req_params = {
             'domain_id': params['nuage_rtr_id'],
             'shared_netid': params['nuage_fippool_id'],
@@ -563,12 +567,9 @@ class NuageDomain(object):
             'externalID': get_vsd_external_id(params['neutron_fip_id'])
         }
         nuage_fip = nuagelib.NuageFloatingIP(create_params=req_params)
-        response = self.restproxy.rest_call('POST', nuage_fip.post_resource(),
-                                            nuage_fip.post_data())
-        if not nuage_fip.validate(response):
-            code = nuage_fip.get_error_code(response)
-            raise restproxy.RESTProxyError(nuage_fip.error_msg, code)
-        return nuage_fip.get_fip_id(response)
+        response = self.restproxy.post(nuage_fip.post_resource(),
+                                       nuage_fip.post_data())
+        return response[0]
 
     def get_nuage_floatingip(self, id, required=False, **filters):
         floatingip = nuagelib.NuageFloatingIP()

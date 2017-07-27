@@ -149,6 +149,9 @@ class VsdClient(object):
     def create_nuage_floatingip(self, params):
         pass
 
+    def create_nuage_floatingip_details(self, params):
+        pass
+
     def get_nuage_floatingip(self, id, required=False, **filters):
         pass
 
