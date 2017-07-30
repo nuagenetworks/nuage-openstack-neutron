@@ -393,7 +393,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         except Exception:
             with excutils.save_and_reraise_exception():
                 if gw_port:
-                    LOG.debug(_("Deleting gw_port %s") % gw_port['id'])
+                    LOG.debug(_("Deleting gw_port %s"), gw_port['id'])
                     self.core_plugin.delete_port(context, gw_port['id'])
 
         if nuage_subnet:
@@ -727,8 +727,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 self.vsdclient.delete_nuage_vport(
                     nuage_vport['ID'])
             except Exception as e:
-                LOG.error("Failed to delete vport from vsd {vport id: %s}"
-                          % nuage_vport['ID'])
+                LOG.error("Failed to delete vport from vsd {vport id: %s}",
+                          nuage_vport['ID'])
                 raise e
             rollbacks = []
             try:
@@ -977,8 +977,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 subnet.get('shared'))
         except Exception as e:
             LOG.error("Failed to detach group from vsd subnet {tenant: %s,"
-                      " netpartition: %s, vsd subnet: %s}"
-                      % (db_context.tenant, nuage_npid, nuage_subnet_id))
+                      " netpartition: %s, vsd subnet: %s}",
+                      db_context.tenant, nuage_npid, nuage_subnet_id)
             raise e
 
     def _check_ip_update_allowed(self, orig_port, port):
@@ -1254,8 +1254,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         try:
             self.vsdclient.delete_vms(params)
         except Exception:
-            LOG.error("Failed to delete vm from vsd {vm id: %s}"
-                      % vm_id)
+            LOG.error("Failed to delete vm from vsd {vm id: %s}",
+                      vm_id)
             raise
 
     def _get_nuage_vport(self, port, subnet_mapping, required=True):

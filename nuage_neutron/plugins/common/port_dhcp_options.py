@@ -149,7 +149,7 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
             created_rollback_opts = self._create_update_extra_dhcp_options(
                 categorised_dhcp_opts['new'], vport, port_id, False)
         except Exception as e:
-            LOG.error(_("Port Update failed due to: %s") % e.msg)
+            LOG.error(_("Port Update failed due to: %s"), e.msg)
             raise e
         try:
             update_rollback = self._create_update_extra_dhcp_options(
@@ -170,7 +170,7 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
                     rollback_opt[3][0]['ID'], True)
             self._create_update_extra_dhcp_options(old_dhcp_opts, vport,
                                                    port_id, True)
-            LOG.error(_("Port Update failed due to: %s") % e.message)
+            LOG.error(_("Port Update failed due to: %s"), e.message)
             raise e
 
     @TimeTracker.tracked

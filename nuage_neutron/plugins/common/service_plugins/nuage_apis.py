@@ -110,7 +110,7 @@ class NuageApi(NuageApiWrapper):
                                                    netpart_db,
                                                    nuage_netpart)
                         LOG.info("Default net-partition %s already exists,"
-                                 " so will just use it" % net_part_name)
+                                 " so will just use it", net_part_name)
                         return self._make_net_partition_dict(netpart_db)
                     else:
                         if nuage_netpart['np_id'] != netpart_db['id']:
