@@ -188,11 +188,12 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
 
     @log_helpers.log_method_call
     def update_firewall_policy(self, context, id, firewall_policy):
+        request = copy.deepcopy(firewall_policy)
         with self.db_lock_by_policy(context, id):
             policy = super(NuageFWaaSPlugin, self).update_firewall_policy(
                 context, id, firewall_policy)
-            self.vsdclient.update_firewall_policy(self.enterprise_id,
-                                                  id, policy)
+            self.vsdclient.update_firewall_policy(self.enterprise_id, id,
+                                                  request['firewall_policy'])
         return policy
 
     @log_helpers.log_method_call
@@ -227,9 +228,9 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
                                   firewall['firewall']['firewall_policy_id'])
             fw = super(NuageFWaaSPlugin, self).create_firewall(context,
                                                                firewall)
-            l3domain_ids = self.l3domain_ids_by_policy_id(
-                context, fw.get('firewall_policy_id'))
-            self.vsdclient.create_firewall(self.enterprise_id, fw,
+            l3domain_ids = self._get_l3domains_for_firewall(context, fw)
+            self.vsdclient.create_firewall(self.enterprise_id,
+                                           fw,
                                            l3domain_ids)
             self._update_firewall_status(context, fw)
             return fw
@@ -247,21 +248,40 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
                 context, id, firewall)
             policy_updated = (original_fw['firewall_policy_id'] !=
                               updated_fw['firewall_policy_id'])
+            admin_state_updated = (original_fw['admin_state_up'] !=
+                                   updated_fw['admin_state_up'])
+            router_updated = (original_fw['router_ids'] !=
+                              updated_fw['router_ids'])
             with utils.rollback() as on_exc:
-                if policy_updated:
-                    l3domains_ids_old_policy = self.l3domain_ids_by_policy_id(
-                        context, original_fw['firewall_policy_id'])
-                    self.vsdclient.update_firewall(self.enterprise_id,
-                                                   original_fw,
-                                                   l3domains_ids_old_policy)
+                if policy_updated or admin_state_updated:
+                    self._update_policy_l3domains(context, original_fw, False)
                     on_exc(self.vsdclient.update_firewall,
-                           self.enterprise_id, original_fw, original_l3domains)
-                l3domains_ids_new_policy = self.l3domain_ids_by_policy_id(
-                    context, updated_fw['firewall_policy_id'])
-                self.vsdclient.update_firewall(
-                    self.enterprise_id, updated_fw, l3domains_ids_new_policy)
-                self._update_firewall_status(context, updated_fw)
-                return updated_fw
+                           self.enterprise_id, original_fw, original_l3domains,
+                           admin_state_updated)
+
+                if policy_updated or admin_state_updated or router_updated:
+                    self._update_policy_l3domains(context, updated_fw,
+                                                  admin_state_updated)
+                    self._update_firewall_status(context, updated_fw)
+
+            return updated_fw
+
+    def _update_policy_l3domains(self, context, firewall, admin_state_updated):
+        l3domains_ids = self._get_l3domains_for_firewall(context, firewall)
+        self.vsdclient.update_firewall(self.enterprise_id,
+                                       firewall,
+                                       l3domains_ids,
+                                       admin_state_updated)
+
+    def _get_l3domains_for_firewall(self, context, firewall):
+        if firewall['admin_state_up']:
+            l3domains_ids = self.l3domain_ids_by_policy_id(
+                context,
+                firewall['firewall_policy_id'])
+        else:
+            l3domains_ids = self.l3domain_ids_by_firewall_down(context,
+                                                               firewall['id'])
+        return l3domains_ids
 
     @log_helpers.log_method_call
     def delete_firewall(self, context, id):
@@ -277,6 +297,13 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
 
     def l3domain_ids_by_policy_id(self, context, policy_id):
         router_ids = self.get_router_ids_by_fw_policy(context, policy_id)
+        return self._check_router_ids_for_firewall(context, router_ids)
+
+    def l3domain_ids_by_firewall_down(self, context, firewall_id):
+        router_ids = self.get_router_ids_by_firewall_down(context, firewall_id)
+        return self._check_router_ids_for_firewall(context, router_ids)
+
+    def _check_router_ids_for_firewall(self, context, router_ids):
         mappings = nuagedb.get_ent_rtr_mapping_by_rtrids(
             context.session, router_ids)
         if any([m.net_partition_id != self.enterprise_id for m in mappings]):
