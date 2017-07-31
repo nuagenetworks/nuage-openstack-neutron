@@ -252,22 +252,62 @@ class NuageFwaas(NuageFwaasMapper):
         data = self.map_rule_info_os_to_vsd(enterprise_id, os_rule_info)
         self.restproxy.put(FirewallAcl.remove_url() % fw_acl['ID'], data)
 
+    def _create_drop_all_fw_acl(self, enterprise_id, firewall_id):
+        policy = {'name': 'DROP_ALL_ACL_%s' % firewall_id,
+                  'description': 'Drop all acl for firewall %s '
+                                 'when admin_state_up=False'
+                                 % firewall_id,
+                  'id': firewall_id}
+        return self.create_firewall_policy(enterprise_id, policy)
+
+    def _delete_drop_all_fw_acl(self, enterprise_id, firewall_id):
+        try:
+            fw_acl = self._vsd_fw_acl_by_os_id(enterprise_id,
+                                               firewall_id)
+            self.restproxy.put(FirewallAcl.domains_url() % fw_acl['ID'],
+                               [])
+            self.delete(FirewallAcl, fw_acl['ID'])
+        except restproxy.ResourceNotFoundException:
+            pass
+
     # Firewall
 
     def create_firewall(self, enterprise_id, os_firewall, l3domain_ids):
-        self._firewall_update(enterprise_id, os_firewall, l3domain_ids)
+        handle_block_acl = os_firewall.get('admin_state_up', True) is False
+        self._firewall_update(enterprise_id, os_firewall, l3domain_ids,
+                              handle_block_acl=handle_block_acl)
 
-    def update_firewall(self, enterprise_id, os_firewall, l3domain_ids):
-        self._firewall_update(enterprise_id, os_firewall, l3domain_ids)
+    def update_firewall(self, enterprise_id, os_firewall, l3domain_ids,
+                        admin_state_updated):
+        if (os_firewall.get('admin_state_up') is False and
+                admin_state_updated is False):
+            return
+        self._firewall_update(enterprise_id, os_firewall, l3domain_ids,
+                              handle_block_acl=admin_state_updated)
 
     def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
-        self._firewall_update(enterprise_id, os_firewall, l3domain_ids)
+        handle_block_acl = os_firewall.get('admin_state_up', True) is False
+        self._firewall_update(enterprise_id, os_firewall, l3domain_ids,
+                              handle_block_acl=handle_block_acl)
 
-    def _firewall_update(self, enterprise_id, os_firewall, l3domain_ids):
-        if not os_firewall['firewall_policy_id']:
-            return
-        fw_acl = self._vsd_fw_acl_by_os_id(enterprise_id,
-                                           os_firewall['firewall_policy_id'],
-                                           required=True)
+    def _firewall_update(self, enterprise_id, os_firewall, l3domain_ids,
+                         handle_block_acl=False):
+        if os_firewall.get('admin_state_up', True):
+            if handle_block_acl:
+                self._delete_drop_all_fw_acl(enterprise_id, os_firewall['id'])
+            if not os_firewall['firewall_policy_id']:
+                return
+            fw_acl = self._vsd_fw_acl_by_os_id(
+                enterprise_id,
+                os_firewall['firewall_policy_id'],
+                required=True)
+        else:
+            if handle_block_acl:
+                fw_acl = self._create_drop_all_fw_acl(enterprise_id,
+                                                      os_firewall['id'])
+            else:
+                fw_acl = self._vsd_fw_acl_by_os_id(enterprise_id,
+                                                   os_firewall['id'],
+                                                   required=True)
         self.restproxy.put(FirewallAcl.domains_url() % fw_acl['ID'],
                            l3domain_ids)

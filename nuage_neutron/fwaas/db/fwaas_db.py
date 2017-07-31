@@ -18,6 +18,7 @@ from neutron_fwaas.db.firewall.firewall_db import FirewallPolicy
 from neutron_fwaas.db.firewall.firewall_db import FirewallRule
 from neutron_fwaas.db.firewall.firewall_router_insertion_db \
     import FirewallRouterAssociation
+from sqlalchemy.sql.expression import false
 from sqlalchemy.sql.expression import true
 
 
@@ -33,6 +34,16 @@ class Firewall_db_mixin(original):
             .filter(
                 Firewall.firewall_policy_id == policy_id,
                 Firewall.admin_state_up == true())
+        ).all()
+        return [r.router_id for r in result]
+
+    def get_router_ids_by_firewall_down(self, context, firewall_id):
+        result = (
+            context.session.query(FirewallRouterAssociation.router_id)
+            .join(Firewall)
+            .filter(
+                Firewall.id == firewall_id,
+                Firewall.admin_state_up == false())
         ).all()
         return [r.router_id for r in result]
 

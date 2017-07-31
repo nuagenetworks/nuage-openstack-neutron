@@ -890,8 +890,10 @@ class VsdClientImpl(VsdClient):
     def create_firewall(self, enterprise_id, os_firewall, l3domain_ids):
         self.fwaas.create_firewall(enterprise_id, os_firewall, l3domain_ids)
 
-    def update_firewall(self, enterprise_id, os_firewall, l3domain_ids):
-        self.fwaas.update_firewall(enterprise_id, os_firewall, l3domain_ids)
+    def update_firewall(self, enterprise_id, os_firewall, l3domain_ids,
+                        admin_state_updated):
+        self.fwaas.update_firewall(enterprise_id, os_firewall, l3domain_ids,
+                                   admin_state_updated)
 
     def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
         self.fwaas.delete_firewall(enterprise_id, os_firewall, l3domain_ids)
