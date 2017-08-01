@@ -96,9 +96,10 @@ class NuagePolicyGroups(object):
         nuage_policygroup_id = nuage_policygroup.get_policygroup_id(response)
         return nuage_policygroup_id
 
-    def _delete_policy_group(self, id):
+    def delete_nuage_policy_group(self, nuage_policy_id):
         nuage_policygroup = nuagelib.NuagePolicygroup()
-        self.restproxy.delete(nuage_policygroup.delete_resource(id))
+        self.restproxy.delete(nuage_policygroup.delete_resource(
+            nuage_policy_id))
 
     def delete_policy_group(self, id):
         nuage_policygroup = self.get_sg_policygroup_mapping(id)
@@ -107,11 +108,11 @@ class NuagePolicyGroups(object):
             l2dom_policygroup_list = nuage_policygroup['l2dom_policygroups']
 
             for l3dom_policygroup in l3dom_policygroup_list:
-                self._delete_policy_group(
+                self.delete_nuage_policy_group(
                     l3dom_policygroup['policygroup_id'])
 
             for l2dom_policygroup in l2dom_policygroup_list:
-                self._delete_policy_group(
+                self.delete_nuage_policy_group(
                     l2dom_policygroup['policygroup_id'])
 
     def _validate_nuage_port_range(self, rule):
@@ -437,6 +438,13 @@ class NuagePolicyGroups(object):
         raise restproxy.RESTProxyError("Failed to create aclentrytemplate "
                                        "after %s attempts due to priority "
                                        "conflict" % attempts)
+
+    def update_vports_in_policy_group(self, pg_id, vport_list):
+        policygroups = nuagelib.NuagePolicygroup()
+        self.restproxy.put(
+            policygroups.get_policygroups(pg_id) + '/vports' +
+            '?responseChoice=1',
+            vport_list)
 
     def _delete_nuage_sgrule(self, id, direction):
         nuage_aclrule = nuagelib.NuageACLRule()
@@ -845,7 +853,7 @@ class NuagePolicyGroups(object):
                     if (nuage_vport.validate(response) and
                             not nuage_vport.get_response_objlist(response)):
                         # pg no longer in use - delete it
-                        self._delete_policy_group(
+                        self.delete_nuage_policy_group(
                             pg_vport['nuage_policygroup_id'])
 
     def check_unused_policygroups(self, securitygroup_ids):
@@ -865,7 +873,7 @@ class NuagePolicyGroups(object):
                     policygroup['ID']))
             if not pg_vports:
                 # pg no longer in use - delete it
-                self._delete_policy_group(policygroup['ID'])
+                self.delete_nuage_policy_group(policygroup['ID'])
 
     def create_policygroup_default_allow_any_rule(self, l2dom_id, rtr_id,
                                                   neutron_subnet_id, gw_type,
@@ -1028,7 +1036,7 @@ class NuagePolicyGroups(object):
         return ext_policygroup_resp[3]
 
     def delete_nuage_external_security_group(self, ext_sg_id):
-        self._delete_policy_group(ext_sg_id)
+        self.delete_nuage_policy_group(ext_sg_id)
 
     def _process_external_sg_rule(self, ext_sg_rule):
         nuage_policygroup = nuagelib.NuagePolicygroup()
@@ -1213,6 +1221,19 @@ class NuagePolicyGroups(object):
         }
         return self._create_nuage_secgroup(params_sg)
 
+    def create_nuage_sec_grp_for_sfc(self, params):
+        l2dom_id = params['l2dom_id']
+        rtr_id = params['rtr_id']
+        params_sg = {
+            'nuage_l2dom_id': l2dom_id,
+            'nuage_router_id': rtr_id,
+            'name': params['name'],
+            'sg_id': params['externalID'],
+            'sg_type': params['sg_type'],
+            'description': params['description']
+        }
+        return self._create_nuage_secgroup(params_sg)
+
     def create_nuage_sec_grp_rule_for_port_sec(self, params):
         nuage_ibacl_details = {}
         nuage_obacl_id = None
@@ -1276,6 +1297,13 @@ class NuagePolicyGroups(object):
         return self.restproxy.get(
             policy_group.get_all_resources(),
             extra_headers=policy_group.extra_header_filter(**filters),
+            required=required)
+
+    def get_policy_groups_by_single_filter(self, filters, required=False):
+        policy_group = nuagelib.NuagePolicygroup()
+        return self.restproxy.get(
+            policy_group.get_all_resources(),
+            extra_headers=policy_group.single_filter_header(**filters),
             required=required)
 
     def get_child_policy_groups(self, parent_resource, parent_id,
@@ -1342,6 +1370,14 @@ class NuageRedirectTargets(object):
         url = rtarget.get_all_redirect_targets()
         return self.restproxy.get(url, extra_headers=extra_headers)
 
+    def get_nuage_redirect_targets_by_single_filter(self, filters,
+                                                    required=False):
+        rtarget = nuagelib.NuageRedirectTarget()
+        extra_headers = rtarget.single_filter_header(**filters)
+        url = rtarget.get_all_redirect_targets()
+        return self.restproxy.get(url, extra_headers=extra_headers,
+                                  required=required)
+
     def get_child_redirect_targets(self, parent_resource, parent_id,
                                    required=False, **filters):
         redirect_target = nuagelib.NuageRedirectTarget()
@@ -1374,6 +1410,13 @@ class NuageRedirectTargets(object):
         if not rtarget.validate(response):
             raise restproxy.RESTProxyError(rtarget.error_msg,
                                            rtarget.vsd_error_code)
+
+    def update_redirect_target_vports(self, redirect_target_id,
+                                      nuage_port_id_list):
+        rtarget = nuagelib.NuageRedirectTarget()
+        self.restproxy.put(
+            rtarget.get_redirect_target(redirect_target_id) + '/vports',
+            nuage_port_id_list)
 
     def delete_port_redirect_target_bindings(self, params):
         nuage_port = helper.get_nuage_vport_by_neutron_id(self.restproxy,
@@ -1467,6 +1510,26 @@ class NuageRedirectTargets(object):
             rule = self._process_redirect_target_rule(response[3][0])
 
         return rule
+
+    def add_nuage_sfc_rule(self, fwd_policy, rule_params, np_id):
+        fwd_policy_id = fwd_policy['ID']
+        if rule_params.get('destination_ip_prefix'):
+            netid = pg_helper._create_nuage_prefix_macro(
+                self.restproxy, {'remote_ip_prefix': rule_params.get(
+                    'destination_ip_prefix')}, np_id)
+            rule_params['networkID'] = netid
+        nuage_fwdrule = nuagelib.NuageAdvFwdRule()
+        if rule_params['protocol'] != "ANY":
+            rule_params['protocol'] = (constants.PROTO_NAME_TO_NUM
+                                       [rule_params['protocol']])
+        rule_params['externalID'] = get_vsd_external_id(
+            rule_params['externalID'])
+        rule_params['flowLoggingEnabled'] = self.flow_logging_enabled
+        rule_params['statsLoggingEnabled'] = self.stats_collection_enabled
+        rule = self.restproxy.post(
+            nuage_fwdrule.in_post_resource(fwd_policy_id),
+            rule_params)
+        return rule[0]
 
     def _map_nuage_redirect_target_rule(self, params):
         np_id = params['np_id']
@@ -1573,6 +1636,14 @@ class NuageRedirectTargets(object):
 
         return rules
 
+    def get_nuage_redirect_target_rules_by_external_id(self, neutron_id):
+        create_params = {'externalID': neutron_id}
+        rtarget_rule = nuagelib.NuageAdvFwdRule(create_params=create_params)
+        rtarget_rules_resp = self.restproxy.get(
+            rtarget_rule.in_get_all_resources(),
+            extra_headers=rtarget_rule.extra_headers_get())
+        return rtarget_rules_resp
+
     def get_nuage_redirect_target_rule(self, rtarget_rule_id):
         rtarget_rule = nuagelib.NuageAdvFwdRule()
 
@@ -1586,10 +1657,7 @@ class NuageRedirectTargets(object):
 
     def delete_nuage_redirect_target_rule(self, rtarget_rule_id):
         rtarget_rule = nuagelib.NuageAdvFwdRule()
-        del_resp = self.restproxy.rest_call(
-            'DELETE', rtarget_rule.in_delete_resource(rtarget_rule_id), '')
-        if not rtarget_rule.validate(del_resp):
-            raise restproxy.RESTProxyError(rtarget_rule.error_msg)
+        self.restproxy.delete(rtarget_rule.in_delete_resource(rtarget_rule_id))
 
     def nuage_redirect_targets_on_l2domain(self, l2domid):
         nuagel2dom = nuagelib.NuageL2Domain()
