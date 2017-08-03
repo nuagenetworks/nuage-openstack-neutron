@@ -522,7 +522,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             raise nuage_exc.NuageBadRequest(msg=msg)
         elif subnet_mapping['nuage_managed_subnet']:
             LOG.warning("Nuage requires spoofing to be enabled on VSD for"
-                        " port-id: %s" % port_details['id'])
+                        " port-id: %s", port_details['id'])
 
     @staticmethod
     def _validate_port_chain_correlation(port_chain_dict):
