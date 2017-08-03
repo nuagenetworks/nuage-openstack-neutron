@@ -628,10 +628,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
         if not subnet_mapping:
             return
         self._check_subport_in_use(original, port)
+
+        ips_changed = self._check_ip_update_allowed(db_context, original, port)
+        mac_changed = original['mac_address'] != port['mac_address']
         nuage_vport = self._get_nuage_vport(port, subnet_mapping)
 
-        ips_changed = self._check_ip_update_allowed(original, port)
-        mac_changed = original['mac_address'] != port['mac_address']
         if ips_changed or mac_changed:
             fixed_ips = port['fixed_ips']
             ips = {4: None, 6: None}
@@ -982,17 +983,48 @@ class NuageMechanismDriver(NuageML2Wrapper):
                       % (db_context.tenant, nuage_npid, nuage_subnet_id))
             raise e
 
-    def _check_ip_update_allowed(self, orig_port, port):
+    def _check_ip_update_allowed(self, db_context, orig_port, port):
+        orig_ips = orig_port.get('fixed_ips')
         new_ips = port.get('fixed_ips')
         vif_type = orig_port.get(portbindings.VIF_TYPE)
         ips_change = (new_ips is not None and
-                      orig_port.get('fixed_ips') != new_ips)
+                      orig_ips != new_ips)
         if ips_change and vif_type not in PORT_UNPLUGGED_TYPES:
             raise NuagePortBound(port_id=orig_port['id'],
                                  vif_type=vif_type,
                                  old_ips=orig_port['fixed_ips'],
                                  new_ips=port['fixed_ips'])
+        if ips_change:
+            # Only one fixed ip per neutron subnet allowed
+            subnets = [ip["subnet_id"] for ip in new_ips]
+            if len(set(subnets)) != len(subnets):
+                msg = _("It is not allowed to add more than one ip "
+                        "per neutron subnet to port {}.").format(port["id"])
+                raise NuageBadRequest(msg=msg)
+
+            # Only 1 corresponding VSD subnet allowed
+            orig_vsd_subnets = self._get_vsd_subnet_ids_by_port(db_context,
+                                                                orig_port)
+            new_vsd_subnets = self._get_vsd_subnet_ids_by_port(db_context,
+                                                               port)
+            if orig_vsd_subnets != new_vsd_subnets:
+                msg = _("Updating fixed ip of port {} "
+                        "to a different subnet is "
+                        "not allowed.").format(port["id"])
+                raise NuageBadRequest(msg=msg)
+
+            if len(new_vsd_subnets) != 1:
+                msg = _("One neutron port cannot correspond to multiple "
+                        "VSD subnets").format(port["id"])
+                raise NuageBadRequest(msg=msg)
         return ips_change
+
+    def _get_vsd_subnet_ids_by_port(self, db_context, port):
+        subnet_ids = set([x['subnet_id'] for x in port['fixed_ips']])
+        subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
+            db_context.session,
+            subnet_ids)
+        return set([x['nuage_subnet_id'] for x in subnet_mappings])
 
     def _check_subport_in_use(self, orig_port, port):
         is_sub = t_consts.TRUNK_SUBPORT_OWNER == orig_port.get('device_owner')
