@@ -172,7 +172,7 @@ class RESTProxyServer(object):
             RESTProxyServer.raise_rest_error(msg, e, log_as_error)
         except (TypeError, ValueError):
             if response[3]:
-                LOG.error('REST response from VSD: %s' % response[3])
+                LOG.error('REST response from VSD: %s', response[3])
             msg = ("Cannot communicate with SDN controller. Please do not"
                    " perform any further operations and contact the"
                    " administrator.")
@@ -240,9 +240,9 @@ class RESTProxyServer(object):
                 if response.status != REST_SERV_UNAVAILABLE_CODE:
                     return ret
             time.sleep(1)
-            LOG.debug("Attempt %s of %s" % (attempt + 1, self.max_retries))
-        LOG.debug('After %d retries VSD did not respond properly.'
-                  % self.max_retries)
+            LOG.debug("Attempt %s of %s", attempt + 1, self.max_retries)
+        LOG.debug('After %d retries VSD did not respond properly.',
+                  self.max_retries)
         return ret or 0, None, None, None
 
     def _create_connection(self):

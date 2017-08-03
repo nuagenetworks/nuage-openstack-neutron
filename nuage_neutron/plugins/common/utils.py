@@ -69,9 +69,8 @@ def context_log(fn):
         context = args[1]
         LOG = logging.getLogger(fn.__module__)
         LOG.debug('%s method %s is getting called with context.current %s, '
-                  'context.original %s' % (class_name, method_name,
-                                           context.current,
-                                           context.original))
+                  'context.original %s',
+                  class_name, method_name, context.current, context.original)
         return fn(*args, **kwargs)
     return wrapped
 
