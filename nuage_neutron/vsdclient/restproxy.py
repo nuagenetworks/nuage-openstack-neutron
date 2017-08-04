@@ -13,6 +13,7 @@
 #    under the License.
 
 import base64
+import calendar
 try:
     import httplib as httpclient      # python 2
 except ImportError:
@@ -26,8 +27,10 @@ import time
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
+from nuage_neutron.plugins.common import nuage_models
 
 from neutron._i18n import _
+from neutron.db import api as db_api
 
 LOG = logging.getLogger(__name__)
 
@@ -231,7 +234,8 @@ class RESTProxyServer(object):
                             if match is not None and respdata and \
                                     self.is_marked(respdata[0]):
                                 return self._subnet_not_found(match.group(1))
-                ret = (response.status, response.reason, respstr, respdata)
+                ret = (response.status, response.reason, respstr, respdata,
+                       dict(response.getheaders()), headers['Authorization'])
             except (socket.timeout, socket.error) as e:
                 LOG.error(_('ServerProxy: %(action)s failure, %(e)r'),
                           locals())
@@ -243,7 +247,7 @@ class RESTProxyServer(object):
             LOG.debug("Attempt %s of %s" % (attempt + 1, self.max_retries))
         LOG.debug('After %d retries VSD did not respond properly.'
                   % self.max_retries)
-        return ret or 0, None, None, None
+        return ret or 0, None, None, None, None, headers['Authorization']
 
     def _create_connection(self):
         if self.serverssl:
@@ -267,7 +271,65 @@ class RESTProxyServer(object):
                 'Could not create HTTP(S)Connection object.')
         return conn
 
-    def generate_nuage_auth(self):
+    @staticmethod
+    def get_config_parameter_by_name(session, organization, user_name,
+                                     param_name):
+        return session.query(nuage_models.NuageConfig).filter_by(
+            organization=organization,
+            username=user_name,
+            config_parameter=param_name).with_for_update().first()
+
+    @staticmethod
+    def add_config_parameter(session, organization, username,
+                             parameter, value):
+        config_parameter = nuage_models.NuageConfig(organization=organization,
+                                                    username=username,
+                                                    config_parameter=parameter,
+                                                    config_value=value)
+        session.merge(config_parameter)
+
+    def create_or_update_nuage_config_param(self, session, organization,
+                                            user_name, param_name,
+                                            param_value):
+        with session.begin(subtransactions=True):
+            config_mapping = self.get_config_parameter_by_name(session,
+                                                               organization,
+                                                               user_name,
+                                                               param_name)
+            if (config_mapping and
+                    config_mapping['config_value'] != param_value):
+                config_mapping.update({'config_value': param_value})
+            elif not config_mapping:
+                self.add_config_parameter(session, organization, user_name,
+                                          param_name,
+                                          param_value)
+
+    @staticmethod
+    def delete_config_parameter(session, config_parameter):
+        session.delete(config_parameter)
+
+    def compute_sleep_time(self, api_key_info):
+        # Assuming it's always going be in GMT
+        response_headers = api_key_info[4]
+        api_key_data = api_key_info[3][0]
+        if response_headers and api_key_data:
+            current_time_on_vsd = int(calendar.timegm(time.strptime(
+                response_headers['date'].rstrip(' GMT'),
+                "%a, %d %b %Y %H:%M:%S")))
+            # Convert from milli seconds to seconds
+            api_expiry_time = api_key_data['APIKeyExpiry'] / 1000
+            response = self.get('/systemconfigs', required=True)
+            if response[0]:
+                renewal_before = response[0]['APIKeyRenewalInterval']
+                time_to_sleep = (
+                    api_expiry_time - current_time_on_vsd - renewal_before)
+                time_to_sleep = time_to_sleep if time_to_sleep > 0 else 1
+                return time_to_sleep
+
+        # Sleep for 1 second and compute value for time to sleep.
+        return 1
+
+    def generate_nuage_auth(self, auth_token=None):
         data = ''
         encoded_auth = base64.encodestring(self.serverauth).strip()
         self.auth = 'Basic ' + encoded_auth
@@ -279,9 +341,18 @@ class RESTProxyServer(object):
                 'verify IP connectivity.')
         if resp[0] in self.success_codes and resp[3][0].get('APIKey'):
             uname = self.serverauth.split(':')[0]
+            if not auth_token:
+                session = db_api.get_session()
+                self.create_or_update_nuage_config_param(
+                    session, self.organization, uname, 'auth_token',
+                    resp[3][0]['APIKey'])
+            else:
+                auth_token.update({'config_value': resp[3][0]['APIKey']})
             new_uname_pass = uname + ':' + resp[3][0]['APIKey']
             auth = 'Basic ' + base64.encodestring(new_uname_pass).strip()
             self.auth = auth
+            LOG.debug("[RESTProxy] New auth-token received %s", auth)
+            return resp
         else:
             self.raise_rest_error(
                 'Could not authenticate with the VSD. '
@@ -298,7 +369,25 @@ class RESTProxyServer(object):
         if response[0] == REST_UNAUTHORIZED and response[1] == 'Unauthorized':
             LOG.debug(_('RESTProxy: authentication expired, '
                         're-authenticating.'))
-            self.generate_nuage_auth()
+            session = db_api.get_session()
+            with session.begin(subtransactions=True):
+                auth_token = self.get_config_parameter_by_name(
+                    session,
+                    self.organization,
+                    self.serverauth.split(':')[0],
+                    'auth_token')
+                in_db_uname_pass = (auth_token['username'] + ':' +
+                                    auth_token['config_value'])
+                in_db_auth = 'Basic ' + base64.encodestring(
+                    in_db_uname_pass).strip()
+                LOG.debug("Auth_from_DB: %s", in_db_auth)
+                LOG.debug("Auth_from_request: %s", response[5])
+                if in_db_auth != response[5]:
+                    self.auth = in_db_auth
+                    return self.rest_call(action, resource, data,
+                                          extra_headers=extra_headers)
+                else:
+                    self.generate_nuage_auth(auth_token)
             return self._rest_call(action, resource, data,
                                    extra_headers=extra_headers)
         return response
