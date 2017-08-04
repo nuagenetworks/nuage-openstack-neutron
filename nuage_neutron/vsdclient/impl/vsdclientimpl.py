@@ -13,6 +13,8 @@
 #    under the License.
 
 import logging
+import threading
+
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
@@ -36,6 +38,9 @@ from nuage_neutron.vsdclient.resources import vm
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient import VsdClient
 
+from time import sleep
+
+
 LOG = logging.getLogger(__name__)
 
 
@@ -46,7 +51,11 @@ class VsdClientImpl(VsdClient):
         super(VsdClientImpl, self).__init__()
         self.restproxy = restproxy.RESTProxyServer(**kwargs)
 
-        self.restproxy.generate_nuage_auth()
+        response = self.restproxy.generate_nuage_auth()
+
+        self.auth_renewal_thread = threading.Thread(
+            target=self.auth_key_renewal, args=[response])
+        self.auth_renewal_thread.start()
         self.get_cms(cms_id)
         cms_id_helper.CMS_ID = cms_id
 
@@ -64,6 +73,11 @@ class VsdClientImpl(VsdClient):
                                             self.policygroups)
         self.fwaas = fwaas.NuageFwaas(self.restproxy)
         self.trunk = trunk.NuageTrunk(self.restproxy)
+
+    def auth_key_renewal(self, api_key_info):
+        while True:
+            sleep(self.restproxy.compute_sleep_time(api_key_info))
+            api_key_info = self.restproxy.generate_nuage_auth()
 
     def create_cms(self, name):
         cms = nuagelib.NuageCms(create_params={'name': name})
