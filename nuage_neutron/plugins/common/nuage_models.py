@@ -112,3 +112,23 @@ class NuageSfcVlanSubnetMapping(model_base.BASEV2):
                                         ondelete='CASCADE'),
                           primary_key=True)
     vlan_bit_map = sa.Column('vlan_bit_map', sa.VARBINARY(512), nullable=False)
+
+
+class NuageConfig(model_base.BASEV2):
+    __tablename__ = 'nuage_config'
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('organization', 'username',
+                                'config_parameter'),
+    )
+    organization = sa.Column('organization', sa.String(255), nullable=False)
+    username = sa.Column('username', sa.String(255), nullable=False)
+    config_parameter = sa.Column(sa.String(255),
+                                 sa.ForeignKey('nuage_config_parameter.name',
+                                 ondelete="CASCADE"),
+                                 nullable=False)
+    config_value = sa.Column(sa.String(255), nullable=False)
+
+
+class NuageConfigParameter(model_base.BASEV2):
+    __tablename__ = 'nuage_config_parameter'
+    name = sa.Column(sa.String(255), primary_key=True, nullable=False)
