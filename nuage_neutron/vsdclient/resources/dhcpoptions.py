@@ -108,6 +108,25 @@ class NuageDhcpOptions(object):
                                            opt)
         self.create_nuage_dhcp(subnet, parent_id, network_type)
 
+    def delete_vport_nuage_dhcp(self, dhcp_opt, vport_id):
+        """Function:  delete_nuage_extra_dhcp_option
+
+        Delete the nuage DHCP options for the Vports
+
+        dhcp_opt       : DHCP opt to delete from VSD.
+        vport_id       : Vport on which to delete the DHCP option.
+        resp           : Contains response from VSD for the deleted DHCP option
+        """
+        LOG.debug('delete nuage dhcp option for resource %s ', vport_id)
+        nuage_dhcpoptions = nuagelib.NuageDhcpOptions()
+        dhcp_id = self._check_dhcpoption_exists(vport_id,
+                                                constants.VPORT,
+                                                helper.
+                                                convert_to_hex(hex(
+                                                    dhcp_opt['opt_name'])))
+        resp = self.restproxy.delete(nuage_dhcpoptions.dhcp_resource(dhcp_id))
+        return resp
+
     def nuage_extra_dhcp_option(self, extra_dhcp_opt, parent_id, external_id):
         """Function:  nuage_extra_dhcp_option
 
