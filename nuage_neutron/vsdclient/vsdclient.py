@@ -464,6 +464,9 @@ class VsdClient(object):
                                       external_id):
         pass
 
+    def delete_vport_nuage_dhcp(self, dhcp_opt, vport_id):
+        pass
+
     def delete_vport_dhcp_option(self, dhcp_id, on_rollback):
         pass
 
