@@ -345,16 +345,22 @@ class NuageRedirectTarget(BaseNuagePlugin):
             raise nuage_exc.NuageNotFound(
                 resource='nuage_redirect_target',
                 resource_id=rtarget_rule['redirect_target_id'])
+        if rtarget['parentType'] == constants.L2DOMAIN:
+            domain = self.vsdclient.get_l2domain_by_id(rtarget['parentID'])
+        else:
+            domain = self.vsdclient.get_l3domain_by_id(rtarget['parentID'],
+                                                       True)
+        vsd_managed = False if domain['externalID'] else True
         if remote_sg:
             rtarget_rule['remote_group_name'] = remote_sg['name']
             remote_pg = self._find_or_create_policygroup_using_rt(
-                context, remote_sg['id'], rtarget)
+                context, remote_sg['id'], rtarget, vsd_managed)
             rtarget_rule['remote_policygroup_id'] = remote_pg['ID']
             rtarget_rule['origin_policygroup_id'] = remote_pg['ID']
         if origin_sg:
             rtarget_rule['origin_group_name'] = origin_sg['name']
             origin_pg = self._find_or_create_policygroup_using_rt(
-                context, origin_sg['id'], rtarget)
+                context, origin_sg['id'], rtarget, vsd_managed)
             rtarget_rule['origin_policygroup_id'] = origin_pg['ID']
         rtarget_rule_resp = self.vsdclient.create_nuage_redirect_target_rule(
             rtarget_rule, rtarget)
@@ -363,7 +369,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                                                     context=context)
 
     def _find_or_create_policygroup_using_rt(self, context, security_group_id,
-                                             redirect_target):
+                                             redirect_target, vsd_managed):
         parent_id = redirect_target['parentID']
         parent_type = redirect_target['parentType']
 
@@ -383,9 +389,9 @@ class NuageRedirectTarget(BaseNuagePlugin):
             return policygroups[0]
         else:
             return self._create_pg_for_rt(context, security_group_id,
-                                          redirect_target)
+                                          redirect_target, vsd_managed)
 
-    def _create_pg_for_rt(self, context, security_group_id, rt):
+    def _create_pg_for_rt(self, context, security_group_id, rt, vsd_managed):
         security_group = self.core_plugin.get_security_group(context,
                                                              security_group_id)
         # pop rules, make empty policygroup first
@@ -401,9 +407,10 @@ class NuageRedirectTarget(BaseNuagePlugin):
             if remote_sg_id:
                 self._find_or_create_policygroup_using_rt(context,
                                                           remote_sg_id,
-                                                          rt)
-        self.vsdclient.create_security_group_rules(policy_group,
-                                                   security_group_rules)
+                                                          rt, vsd_managed)
+        if not vsd_managed:
+            self.vsdclient.create_security_group_rules(policy_group,
+                                                       security_group_rules)
         return policy_group
 
     @nuage_utils.handle_nuage_api_error

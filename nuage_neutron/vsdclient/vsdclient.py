@@ -214,6 +214,9 @@ class VsdClient(object):
     def get_l2domain_by_id(self, l2domain_id):
         pass
 
+    def get_l3domain_by_id(self, l3domain_id, required=False):
+        pass
+
     def get_router_np_id(self, router_id):
         pass
 

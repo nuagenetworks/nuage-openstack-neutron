@@ -319,6 +319,11 @@ class VsdClientImpl(VsdClient):
         l2domain['type'] = constants.L2DOMAIN
         return l2domain
 
+    def get_l3domain_by_id(self, l3domain_id, required=False):
+        l3domain = self.domain.get_router_by_id(l3domain_id, required)
+        l3domain['type'] = 'domain'
+        return l3domain
+
     def get_router_np_id(self, router_id):
         req_params = {
             'domain_id': router_id
