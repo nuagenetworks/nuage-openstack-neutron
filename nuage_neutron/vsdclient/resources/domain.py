@@ -106,6 +106,15 @@ class NuageDomain(object):
         else:
             return None
 
+    def get_router_by_id(self, nuage_l3domain_id, required=False):
+        params = {
+            'domain_id': nuage_l3domain_id
+        }
+        nuage_router = nuagelib.NuageL3Domain(create_params=params)
+        response = self.restproxy.get(nuage_router.get_resource(),
+                                      required=required)
+        return response[0] if response else None
+
     def _create_nuage_def_l3domain_adv_fwd_template(self, l3dom_id,
                                                     neutron_router_id):
         nuageadvfwdtmplt = nuagelib.NuageInAdvFwdTemplate()
