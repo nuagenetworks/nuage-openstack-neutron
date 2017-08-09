@@ -362,7 +362,8 @@ class NuagePolicyGroups(object):
                 'policygroup_id': l2dom_policygroup['policygroup_id'],
                 'rule_id': sg_rule.get('id'),
                 'dhcp_managed': dhcp_managed,
-                'l2dom_id': l2dom_policygroup['l2dom_id']
+                'l2dom_id': l2dom_policygroup['l2dom_id'],
+                'externalID': external_id
             }
             if sg_type:
                 params['sg_type'] = sg_type
