@@ -228,18 +228,6 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
     }
     nuage_np_net = nuagelib.NuageNetPartitionNetwork(
         create_params=req_params)
-    response = restproxy_serv.rest_call(
-        'GET',
-        nuage_np_net.get_resource(), '',
-        nuage_np_net.extra_headers_get_netadress(req_params))
-    pubnet_id = None
-    if not nuage_np_net.validate(response):
-        raise restproxy.RESTProxyError(nuage_np_net.error_msg)
-    if response[3]:
-        pubnet_id = response[3][0]['ID']
-
-    if pubnet_id:
-        return pubnet_id
 
     response = restproxy_serv.rest_call(
         'POST',
@@ -251,6 +239,8 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
         else:
             response = restproxy_serv.rest_call(
                 'GET',
-                nuage_np_net.get_resource(), '')
-            LOG.debug(nuage_np_net.error_msg)
+                nuage_np_net.get_resource(), '',
+                nuage_np_net.extra_headers_get_netadress(req_params))
+            if not nuage_np_net.validate(response):
+                raise restproxy.RESTProxyError(nuage_np_net.error_msg)
     return nuage_np_net.get_np_network_id(response)
