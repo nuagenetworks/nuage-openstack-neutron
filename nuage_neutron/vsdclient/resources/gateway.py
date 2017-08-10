@@ -13,6 +13,7 @@
 #    under the License.
 
 import logging
+import netaddr
 try:
     from neutron._i18n import _
 except ImportError:
@@ -753,10 +754,18 @@ class NuageGateway(object):
                                                     self.policygroup,
                                                     req_params, type)
         else:
+            ips = {}
+            for fixed_ip in port.get('fixed_ips', []):
+                if netaddr.IPAddress(fixed_ip['ip_address']).version == 4:
+                    ips[4] = fixed_ip['ip_address']
+                else:
+                    ips[6] = fixed_ip['ip_address']
             if enable_dhcp:
-                req_params['ipaddress'] = port['fixed_ips'][0]['ip_address']
+                req_params['ipaddress'] = ips.get(4)
+                req_params['ipaddress_v6'] = ips.get(6)
             else:
                 req_params['ipaddress'] = None
+                req_params['ipaddress_v6'] = ips.get(6)
             req_params['mac'] = port['mac_address']
             req_params['externalid'] = get_vsd_external_id(port['id'])
             req_params[constants.PORTSECURITY] = port[constants.PORTSECURITY]

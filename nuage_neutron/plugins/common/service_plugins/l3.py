@@ -139,10 +139,93 @@ class NuageL3Plugin(NuageL3Wrapper):
                                                     router_id,
                                                     rtr_if_info,
                                                     session)
-        except Exception:
+        except Exception as exc:
+            msg = ["overlaps with another subnet",
+                   "overlaps with existing network"]
+            if msg[0] in exc.message or msg[1] in exc.message:
+                subnet_id = rtr_if_info['subnet_id']
+                subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
+                    session, subnet_id)
+                nuage_id = subnet_l2dom.get('nuage_subnet_id')
+                if nuage_id:
+                    vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                        subnet_l2dom)
+                    if vsd_subnet:
+                        msg = "In add_router_interface exception, " \
+                              "nuage domain %s exists already. " \
+                              "Ignoring RestProxy error: %s" % (
+                                  vsd_subnet['ID'], exc)
+                        LOG.warn(msg)
+                        # this subnet has already moved to l3
+                        # in concurrency, so we are good here.
+
+                        self._notify_add_del_router_interface(
+                            constants.AFTER_CREATE,
+                            context=context,
+                            router_id=router_id,
+                            subnet_id=subnet_id,
+                            subnet_l2dom=subnet_l2dom)
+
+                        self._update_port_status(
+                            context, rtr_if_info['port_id'],
+                            lib_constants.PORT_STATUS_ACTIVE)
+                        return rtr_if_info
+
             with excutils.save_and_reraise_exception():
                 super(NuageL3Plugin, self).remove_router_interface(
                     context, router_id, interface_info)
+
+    def _check_existing_subnet_on_network(self, context, subnet):
+        subnets = self.core_plugin.get_subnets(
+            context,
+            filters={'network_id': [subnet['network_id']]})
+        other_subnets = (s for s in subnets if s['id'] != subnet['id'])
+        return next(other_subnets, None)
+
+    def seperate_ipv4_ipv6_subnet(self, subnet, dual_stack_subnet):
+        is_ipv4 = subnet['ip_version'] == lib_constants.IP_VERSION_4
+        if is_ipv4:
+            ipv4_subnet, ipv6_subnet = subnet, dual_stack_subnet
+        else:
+            ipv4_subnet, ipv6_subnet = dual_stack_subnet, subnet
+        return ipv4_subnet, ipv6_subnet
+
+    def get_dual_stack_subnet(self, context, neutron_subnet):
+        existing_subnet = self._check_existing_subnet_on_network(
+            context, neutron_subnet)
+        if existing_subnet is None:
+            return None
+        if existing_subnet["ip_version"] != neutron_subnet["ip_version"]:
+            return existing_subnet
+
+    def check_if_subnet_is_attached_to_router(self, context, subnet):
+        filters = {
+            'network_id': [subnet['network_id']],
+            'device_owner': [lib_constants.DEVICE_OWNER_ROUTER_INTF]
+        }
+        ports = self.core_plugin.get_ports(context, filters)
+        for p in ports:
+            for ip in p['fixed_ips']:
+                if ip['subnet_id'] in subnet['id']:
+                    router_id = nuagedb.get_routerport_by_port_id(
+                        context.session, p['id'])['router_id']
+                    return True, str(router_id)
+        return False, None
+
+    def _nuage_dualstack_valid_dss_rtr(self, dual_stack_subnet,
+                                       dss_l2dom,
+                                       router_id):
+        vsd_dss = self.vsdclient.get_nuage_subnet_by_id(
+            dss_l2dom
+        )
+        if vsd_dss and not dss_l2dom['nuage_l2dom_tmplt_id']:
+            nuage_dss_rtr_id = self.vsdclient.get_router_by_domain_subnet_id(
+                vsd_dss['ID'])
+            nuage_rtr_id = self.vsdclient.get_router_by_external(
+                router_id)["ID"]
+            if nuage_rtr_id != nuage_dss_rtr_id:
+                raise nuage_router.RtrItfAddDualSSAlreadyAttachedToAnotherRtr(
+                    router=nuage_dss_rtr_id, subnet=dual_stack_subnet['id'])
 
     def _nuage_add_router_interface(self, context, interface_info,
                                     router_id, rtr_if_info, session):
@@ -167,15 +250,41 @@ class NuageL3Plugin(NuageL3Wrapper):
         else:
             subnet_id = rtr_if_info['subnet_id']
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
+
+        if not subnet_l2dom:
+            # no-op since it's just ipv6
+            return rtr_if_info
+
         l2domain_id = subnet_l2dom['nuage_subnet_id']
         subnet = self.core_plugin.get_subnet(context, subnet_id)
         vsd_zone = self.vsdclient.get_zone_by_routerid(router_id,
                                                        subnet['shared'])
+
+        dual_stack_subnet = self.get_dual_stack_subnet(context, subnet)
+        ipv4_subnet, ipv6_subnet = self.seperate_ipv4_ipv6_subnet(
+            subnet, dual_stack_subnet)
+        if dual_stack_subnet:
+            dss_l2dom = nuagedb.get_subnet_l2dom_by_id(
+                session, dual_stack_subnet['id'])
+            self._nuage_dualstack_valid_dss_rtr(
+                dual_stack_subnet, dss_l2dom, router_id)
         self._nuage_validate_add_rtr_itf(session, router_id,
                                          subnet, subnet_l2dom, vsd_zone)
 
+        if subnet_l2dom and subnet_l2dom['nuage_l2dom_tmplt_id'] is None:
+            # This subnet is already l3
+            self._notify_add_del_router_interface(
+                constants.AFTER_CREATE,
+                context=context,
+                router_id=router_id,
+                subnet_id=subnet_id,
+                subnet_l2dom=subnet_l2dom)
+            self._update_port_status(context, rtr_if_info['port_id'],
+                                     lib_constants.PORT_STATUS_ACTIVE)
+            return rtr_if_info
+
         filters = {
-            'fixed_ips': {'subnet_id': [subnet_id]},
+            'fixed_ips': {'subnet_id': [ipv4_subnet['id']]},
             'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
         }
         gw_ports = self.core_plugin.get_ports(context, filters=filters)
@@ -187,34 +296,61 @@ class NuageL3Plugin(NuageL3Wrapper):
 
         with nuage_utils.rollback() as on_exc, \
                 session.begin(subtransactions=True):
+
             vsd_subnet = self.vsdclient.create_domain_subnet(
-                vsd_zone, subnet, pnet_binding)
+                vsd_zone, ipv4_subnet, pnet_binding, ipv6_subnet)
+
             on_exc(self.vsdclient.delete_domain_subnet,
                    vsd_subnet['ID'], subnet['id'], pnet_binding)
             nuagedb.update_subnetl2dom_mapping(
                 subnet_l2dom,
                 {'nuage_subnet_id': vsd_subnet['ID'],
                  'nuage_l2dom_tmplt_id': None})
+            if dual_stack_subnet:
+                if dss_l2dom:
+                    nuagedb.update_subnetl2dom_mapping(
+                        dss_l2dom,
+                        {'nuage_subnet_id': vsd_subnet['ID'],
+                         'nuage_l2dom_tmplt_id': None})
 
             self.vsdclient.move_l2domain_to_l3subnet(l2domain_id,
                                                      vsd_subnet['ID'])
-            rollbacks = []
-            try:
-                self.nuage_callbacks.notify(resources.ROUTER_INTERFACE,
-                                            constants.AFTER_CREATE,
-                                            self, context=context,
-                                            router_id=router_id,
-                                            subnet_id=subnet_id,
-                                            rollbacks=rollbacks,
-                                            subnet_mapping=subnet_l2dom)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    for rollback in reversed(rollbacks):
-                        rollback[0](*rollback[1], **rollback[2])
-        self.core_plugin.update_port_status(context,
-                                            rtr_if_info['port_id'],
-                                            lib_constants.PORT_STATUS_ACTIVE)
+            self._notify_add_del_router_interface(
+                constants.AFTER_CREATE,
+                context=context,
+                router_id=router_id,
+                subnet_id=subnet_id,
+                subnet_l2dom=subnet_l2dom)
+        self._update_port_status(context, rtr_if_info['port_id'],
+                                 lib_constants.PORT_STATUS_ACTIVE)
         return rtr_if_info
+
+    def _notify_add_del_router_interface(
+            self, event,
+            context,
+            router_id,
+            subnet_id,
+            subnet_l2dom):
+
+        rollbacks = []
+        try:
+            self.nuage_callbacks.notify(resources.ROUTER_INTERFACE,
+                                        event,
+                                        self,
+                                        context=context,
+                                        router_id=router_id,
+                                        subnet_id=subnet_id,
+                                        rollbacks=rollbacks,
+                                        subnet_mapping=subnet_l2dom)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                for rollback in reversed(rollbacks):
+                    rollback[0](*rollback[1], **rollback[2])
+
+    def _update_port_status(self, context, port_id, status):
+        self.core_plugin.update_port_status(context=context,
+                                            port_id=port_id,
+                                            status=status)
 
     def _nuage_validate_add_rtr_itf(self, session, router_id, subnet,
                                     subnet_l2dom, nuage_zone):
@@ -242,6 +378,14 @@ class NuageL3Plugin(NuageL3Wrapper):
     def remove_router_interface(self, context, router_id, interface_info):
         if 'subnet_id' in interface_info:
             subnet_id = interface_info['subnet_id']
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+                context.session, subnet_id)
+            if not subnet_mapping:
+                # no-op since it's ipv6
+                return super(NuageL3Plugin,
+                             self).remove_router_interface(context,
+                                                           router_id,
+                                                           interface_info)
             subnet = self.core_plugin.get_subnet(context, subnet_id)
             if not self.is_vxlan_network_by_id(context, subnet['network_id']):
                 return super(NuageL3Plugin,
@@ -297,8 +441,6 @@ class NuageL3Plugin(NuageL3Wrapper):
                                                        router_id,
                                                        interface_info)
         nuage_subn_id = subnet_l2dom['nuage_subnet_id']
-
-        neutron_subnet = self.core_plugin.get_subnet(context, subnet_id)
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
             context.session,
             router_id)
@@ -308,45 +450,68 @@ class NuageL3Plugin(NuageL3Wrapper):
                    % router_id)
             raise n_exc.BadRequest(resource='router', msg=msg)
 
+        dual_stack_subnet = self.get_dual_stack_subnet(context, subnet)
+
+        ipv4_subnet, ipv6_subnet = self.seperate_ipv4_ipv6_subnet(
+            subnet, dual_stack_subnet)
+        ipv4_subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+            session, ipv4_subnet['id'])
+        ipv6_subnet_mapping = None
+        if dual_stack_subnet:
+            ipv6_subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+                session, ipv6_subnet['id'])
+            router_attached, r_id = self.check_if_subnet_is_attached_to_router(
+                context, dual_stack_subnet)
+            if router_attached:
+                    return super(NuageL3Plugin,
+                                 self).remove_router_interface(context,
+                                                               router_id,
+                                                               interface_info)
         with nuage_utils.rollback() as on_exc:
-            last_address = neutron_subnet['allocation_pools'][-1]['end']
-            port = self._reserve_ip(context, neutron_subnet, last_address)
+            last_address = ipv4_subnet['allocation_pools'][-1]['end']
+            port = self._reserve_ip(context, ipv4_subnet, last_address)
             pnet_binding = nuagedb.get_network_binding(
-                context.session, neutron_subnet['network_id'])
+                context.session, ipv4_subnet['network_id'])
             on_exc(self.core_plugin.delete_port, context, port['id'])
 
             self.vsdclient.confirm_router_interface_not_in_use(router_id,
                                                                subnet)
-            vsd_l2domain = self.vsdclient.create_l2domain_for_router_detach(
-                subnet, subnet_l2dom)
-            on_exc(self.vsdclient.delete_subnet, subnet['id'])
+            with session.begin(subtransactions=True):
+                vsd_l2domain = \
+                    self.vsdclient.create_l2domain_for_router_detach(
+                        ipv4_subnet, ipv4_subnet_mapping, ipv6_subnet)
+                on_exc(self.vsdclient.delete_subnet, subnet['id'],
+                       ipv4_subnet_mapping)
             result = super(NuageL3Plugin,
                            self).remove_router_interface(context, router_id,
                                                          interface_info)
-            nuagedb.update_subnetl2dom_mapping(
-                subnet_l2dom,
-                {'nuage_subnet_id': vsd_l2domain['nuage_l2domain_id'],
-                 'nuage_l2dom_tmplt_id': vsd_l2domain['nuage_l2template_id']})
+            with session.begin(subtransactions=True):
+                nuagedb.update_subnetl2dom_mapping(
+                    ipv4_subnet_mapping,
+                    {'nuage_subnet_id': vsd_l2domain['nuage_l2domain_id'],
+                     'nuage_l2dom_tmplt_id': vsd_l2domain[
+                         'nuage_l2template_id']})
+                if dual_stack_subnet:
+                    nuagedb.update_subnetl2dom_mapping(
+                        ipv6_subnet_mapping,
+                        {'nuage_subnet_id': vsd_l2domain['nuage_l2domain_id'],
+                         'nuage_l2dom_tmplt_id':
+                             vsd_l2domain['nuage_l2template_id']})
 
             self.vsdclient.move_l3subnet_to_l2domain(
                 nuage_subn_id,
                 vsd_l2domain['nuage_l2domain_id'],
-                subnet_l2dom,
-                pnet_binding)
+                ipv4_subnet_mapping,
+                pnet_binding,
+                ipv6_subnet_mapping
+            )
 
-            rollbacks = []
-            try:
-                self.nuage_callbacks.notify(resources.ROUTER_INTERFACE,
-                                            constants.AFTER_DELETE,
-                                            self, context=context,
-                                            router_id=router_id,
-                                            subnet_id=subnet_id,
-                                            rollbacks=rollbacks,
-                                            subnet_mapping=subnet_l2dom)
-            except Exception:
-                with excutils.save_and_reraise_exception():
-                    for rollback in reversed(rollbacks):
-                        rollback[0](*rollback[1], **rollback[2])
+            self._notify_add_del_router_interface(
+                constants.AFTER_DELETE,
+                context=context,
+                router_id=router_id,
+                subnet_id=subnet_id,
+                subnet_l2dom=subnet_l2dom)
             LOG.debug("Deleted nuage domain subnet %s", nuage_subn_id)
             return result
 

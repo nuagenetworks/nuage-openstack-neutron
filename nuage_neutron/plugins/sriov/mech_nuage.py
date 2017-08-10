@@ -13,6 +13,7 @@
 #    under the License.
 
 import inspect
+import netaddr
 
 from oslo_log import log as logging
 
@@ -338,10 +339,14 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
     def _validate_port(self, db_context, port):
         if 'fixed_ips' not in port or len(port.get('fixed_ips', [])) == 0:
             return False
-        subnet_id = port['fixed_ips'][0]['subnet_id']
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
-                                                        subnet_id)
-        return subnet_mapping
+        for fixed_ip in port.get('fixed_ips', []):
+            if netaddr.IPAddress(fixed_ip['ip_address']).version == 4:
+                subnet_id = port['fixed_ips'][0]['subnet_id']
+                break
+        else:
+            return False
+        return nuagedb.get_subnet_l2dom_by_id(db_context.session,
+                                              subnet_id)
 
     def _get_nuage_vport(self, port, required=True):
         subnet_id = port['port'].get('fixed_ips')[0]['subnet_id']

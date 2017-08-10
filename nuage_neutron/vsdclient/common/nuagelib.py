@@ -703,10 +703,16 @@ class NuageStaticRoute(NuageServerBaseClass):
 
     def post_data(self):
         data = {
-            'address': str(self.create_params['net'].ip),
-            'netmask': str(self.create_params['net'].netmask),
+            'address': str(self.create_params['net'].ip
+                           ) if self.create_params['net'] else None,
+            'netmask': str(self.create_params['net'].netmask
+                           ) if self.create_params['net'] else None,
+            'IPv6Address': str(self.create_params['ipv6_net']
+                               ) if self.create_params['ipv6_net'] else None,
             'nextHopIp': self.create_params['nexthop'],
-            'externalID': get_vsd_external_id(self.create_params['router_id'])
+            'IPType': str(self.create_params['IPType']),
+            'externalID': get_vsd_external_id(self.create_params['router_id']),
+            'type': "OVERLAY"
         }
         if self.extra_params:
             data.update(self.extra_params)
@@ -999,7 +1005,7 @@ class NuageVMInterface(NuageServerBaseClass):
     def get_all_resource(self):
         return '/vminterfaces'
 
-    def get_inteface_for_vport(self):
+    def get_interface_for_vport(self):
         return '/vports/%s/vminterfaces' % self.create_params['vport_id']
 
     def post_resource(self):
@@ -1007,6 +1013,9 @@ class NuageVMInterface(NuageServerBaseClass):
 
     def delete_resource(self):
         return '/vminterfaces/%s?responseChoice=1' % self.create_params['id']
+
+    def create_resync_id(self):
+        return '/vms/%s/resync' % self.create_params['vm_id']
 
     def post_data(self):
         data = {
@@ -1022,6 +1031,14 @@ class NuageVMInterface(NuageServerBaseClass):
             data['IPAddress'] = self.create_params['ipv4']
         if self.create_params['ipv6'] is not None:
             data['IPv6Address'] = self.create_params['ipv6']
+        return data
+
+    def put_data(self):
+        data = {
+            'MAC': self.create_params['mac'],
+            'IPAddress': self.create_params['ipv4'],
+            'IPv6Address': self.create_params['ipv6']
+        }
         return data
 
     def extra_headers(self):
@@ -1093,7 +1110,7 @@ class NuageInboundACL(NuageServerBaseClass):
         aclentry = {
             "locationType": "ANY",
             "networkType": "ENDPOINT_DOMAIN",
-            "etherType": "0x0800",
+            "etherType": constants.IPV4_ETHERTYPE,
             "protocol": "ANY",
             "priority": 32768,
             "action": "FORWARD",
@@ -1105,7 +1122,7 @@ class NuageInboundACL(NuageServerBaseClass):
         aclentry = {
             "locationType": "ANY",
             "networkType": "ANY",
-            "etherType": "0x0800",
+            "etherType": constants.IPV4_ETHERTYPE,
             "protocol": "ANY",
             "priority": 32768,
             "action": "FORWARD",
@@ -1172,7 +1189,7 @@ class NuageOutboundACL(NuageServerBaseClass):
         aclentry = {
             "locationType": "ANY",
             "networkType": "ENDPOINT_DOMAIN",
-            "etherType": "0x0800",
+            "etherType": constants.IPV4_ETHERTYPE,
             "protocol": "ANY",
             "priority": 32768,
             "action": "FORWARD",
@@ -1184,7 +1201,7 @@ class NuageOutboundACL(NuageServerBaseClass):
         aclentry = {
             "locationType": "ANY",
             "networkType": "ANY",
-            "etherType": "0x0800",
+            "etherType": constants.IPV4_ETHERTYPE,
             "protocol": "ANY",
             "priority": 32768,
             "action": "FORWARD",
@@ -1576,7 +1593,7 @@ class NuageACLRule(NuageServerBaseClass):
         aclrule = {
             "locationType": "POLICYGROUP",
             "networkType": "ANY",
-            "etherType": "0x0800",
+            "etherType": constants.IPV4_ETHERTYPE,
             "protocol": "ANY",
             "action": "FORWARD",
             "DSCP": '*',
@@ -1612,14 +1629,21 @@ class NuageNetPartitionNetwork(NuageServerBaseClass):
 
     def post_resource(self):
         ent_id = self.create_params['net_partition_id']
-        return '/enterprises/%s/enterprisenetworks' % ent_id
+        return ('/enterprises/%s/enterprisenetworks'
+                '?responseChoice=1' % ent_id)
 
     def post_data(self):
         data = {
             'name': self.create_params['name'],
-            'address': str(self.create_params['net'].ip),
-            'netmask': str(self.create_params['net'].netmask),
-            'externalID': self.create_params['net_partition_id'] + '@openstack'
+            'address': str(self.create_params['net'].ip
+                           ) if self.create_params['net'] else None,
+            'netmask': str(self.create_params['net'].netmask
+                           ) if self.create_params['net'] else None,
+            'IPv6Address': str(self.create_params['ipv6_net']
+                               ) if self.create_params['ipv6_net'] else None,
+            'IPType': str(self.create_params['IPType']),
+            'externalID': str(self.create_params['net_partition_id'] +
+                              '@openstack')
         }
         return data
 
@@ -1651,11 +1675,16 @@ class NuageNetPartitionNetwork(NuageServerBaseClass):
         headers['X-Nuage-Filter'] = "name IS '%s'" % name
         return headers
 
-    def extra_headers_get_netadress(self, cidr, netmask):
+    def extra_headers_get_netadress(self, req_params):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = ("address IS '%s' and netmask IS '%s'"
-                                     % (cidr, netmask))
+        if req_params.get('net'):
+            cidr, netmask = req_params['net'].ip, req_params['net'].netmask
+            headers['X-Nuage-Filter'] = ("address IS '%s' and netmask IS '%s'"
+                                         % (cidr, netmask))
+        else:
+            headers['X-Nuage-Filter'] = ("IPv6Address IS '%s'" % (
+                req_params['ipv6_net']))
         return headers
 
 
@@ -2053,6 +2082,7 @@ class NuageHostInterface(NuageServerBaseClass):
         data = {
             "attachedNetworkType": self.extra_params['net_type'],
             "IPAddress": self.extra_params['ipaddress'],
+            'IPv6Address': self.extra_params.get('ipaddress_v6'),
             "MAC": self.extra_params['mac'],
             'externalID': get_vsd_external_id(self.extra_params['externalID'])
         }

@@ -307,6 +307,11 @@ def get_floatingip_per_vip_in_network(session, network_id):
     return fips_per_vip
 
 
+def get_routerport_by_port_id(session, port_id):
+    query = session.query(l3_db.RouterPort)
+    return query.filter_by(port_id=port_id).first()
+
+
 def get_subnet_l2dom_by_nuage_id(session, id):
     query = session.query(nuage_models.SubnetL2Domain)
     return query.filter_by(nuage_subnet_id=str(id)).first()

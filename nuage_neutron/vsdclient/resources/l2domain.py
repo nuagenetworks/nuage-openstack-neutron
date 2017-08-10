@@ -56,19 +56,30 @@ class NuageL2Domain(object):
         return self.restproxy.get(nuagel2dom.get_resource(nuage_id),
                                   required=True)[0]
 
-    def create_subnet(self, os_subnet, params):
-        net = netaddr.IPNetwork(os_subnet['cidr'])
+    def update_subnet_ipv6(self, ipv6_subnet, mapping):
+        data = helper.get_ipv6_vsd_data(ipv6_subnet)
+        self.update_l2domain_template(mapping['nuage_l2dom_tmplt_id'], **data)
+
+    def update_l2domain_template(self, template_id, **data):
+        nuagel2domtmplt = nuagelib.NuageL2DomTemplate()
+        self.restproxy.put(nuagel2domtmplt.put_resource(template_id), data)
+
+    def create_subnet(self, ipv4_subnet, params, ipv6_subnet=None):
+        net = netaddr.IPNetwork(ipv4_subnet['cidr'])
         req_params = {
             'net_partition_id': params['netpart_id'],
-            'name': os_subnet['id'],
+            'name': ipv4_subnet['id'],
         }
         ext_params = {
-            "DHCPManaged": os_subnet['enable_dhcp'],
+            "DHCPManaged": ipv4_subnet['enable_dhcp'],
             "address": str(net.ip),
             "netmask": str(net.netmask),
             "gateway": params['dhcp_ip'],
-            'externalID': get_vsd_external_id(os_subnet['id'])
+            'externalID': get_vsd_external_id(ipv4_subnet['id'])
         }
+        ext_params.update(helper.get_ipv6_vsd_data(ipv6_subnet))
+        l2domain = helper.get_subnet_by_externalID(
+            self.restproxy, ext_params["externalID"])
         nuagel2domtmplt = nuagelib.NuageL2DomTemplate(create_params=req_params,
                                                       extra_params=ext_params)
         nuagel2domtemplate = self.restproxy.post(
@@ -80,12 +91,12 @@ class NuageL2Domain(object):
 
         req_params = {
             'net_partition_id': params['netpart_id'],
-            'name': os_subnet['id'],
+            'name': ipv4_subnet['id'],
             'template': l2dom_tmplt_id,
-            'externalID': get_vsd_external_id(os_subnet['id'])
+            'externalID': get_vsd_external_id(ipv4_subnet['id'])
         }
         ext_params = {
-            'description': os_subnet['name']
+            'description': ipv4_subnet['name']
         }
         nuagel2domain = nuagelib.NuageL2Domain(create_params=req_params,
                                                extra_params=ext_params)
@@ -107,7 +118,7 @@ class NuageL2Domain(object):
 
         nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
         nuagedhcpoptions.create_nuage_dhcp(
-            os_subnet,
+            ipv4_subnet,
             parent_id=l2domain_id,
             network_type=constants.NETWORK_TYPE_L2)
 
@@ -123,9 +134,9 @@ class NuageL2Domain(object):
                                              params['netpart_id'],
                                              params.get('shared'),
                                              params['tenant_id'])
-        self._create_nuage_def_l2domain_acl(l2domain_id, os_subnet['id'])
+        self._create_nuage_def_l2domain_acl(l2domain_id, ipv4_subnet['id'])
         self._create_nuage_def_l2domain_adv_fwd_template(l2domain_id,
-                                                         os_subnet['id'])
+                                                         ipv4_subnet['id'])
 
         pnet_binding = params.get('pnet_binding', None)
         if pnet_binding:
@@ -133,17 +144,21 @@ class NuageL2Domain(object):
                 'pnet_binding': pnet_binding,
                 'netpart_id': params['netpart_id'],
                 'l2domain_id': l2domain_id,
-                'neutron_subnet_id': os_subnet['id']
+                'neutron_subnet_id': ipv4_subnet['id']
             }
             try:
                 pnet_helper.process_provider_network(self.restproxy,
                                                      self.policygroups,
                                                      pnet_params)
             except Exception:
-                self.delete_subnet(os_subnet['id'])
+                self.delete_subnet(ipv4_subnet['id'])
                 raise
 
         return subnet_dict
+
+    def delete_subnet_ipv6(self, mapping):
+        data = helper.get_ipv6_vsd_data(None)
+        self.update_l2domain_template(mapping['nuage_l2dom_tmplt_id'], **data)
 
     def delete_subnet(self, id):
         params = {
@@ -193,10 +208,11 @@ class NuageL2Domain(object):
         if params['type']:
             type = constants.NETWORK_TYPE_L2
 
-        nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
-        nuagedhcpoptions.update_nuage_dhcp(neutron_subnet,
-                                           parent_id=params['parent_id'],
-                                           network_type=type)
+        if params.get('dhcp_opts_changed'):
+            nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
+            nuagedhcpoptions.update_nuage_dhcp(neutron_subnet,
+                                               parent_id=params['parent_id'],
+                                               network_type=type)
 
         if type == constants.NETWORK_TYPE_L2 and 'dhcp_ip' in params:
             nuagel2domtemplate = nuagelib.NuageL2DomTemplate()
