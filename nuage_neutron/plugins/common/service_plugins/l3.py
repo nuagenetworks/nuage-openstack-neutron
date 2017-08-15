@@ -480,8 +480,7 @@ class NuageL3Plugin(NuageL3Wrapper):
                 vsd_l2domain = \
                     self.vsdclient.create_l2domain_for_router_detach(
                         ipv4_subnet, ipv4_subnet_mapping, ipv6_subnet)
-                on_exc(self.vsdclient.delete_subnet, subnet['id'],
-                       ipv4_subnet_mapping)
+                on_exc(self.vsdclient.delete_subnet, ipv4_subnet['id'])
             result = super(NuageL3Plugin,
                            self).remove_router_interface(context, router_id,
                                                          interface_info)
