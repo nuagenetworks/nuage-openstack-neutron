@@ -75,7 +75,8 @@ class NuageL2Domain(object):
             "address": str(net.ip),
             "netmask": str(net.netmask),
             "gateway": params['dhcp_ip'],
-            'externalID': get_vsd_external_id(ipv4_subnet['id'])
+            'externalID': get_vsd_external_id(ipv4_subnet['id']),
+            'dynamicIpv6Address': False
         }
         ext_params.update(helper.get_ipv6_vsd_data(ipv6_subnet))
         l2domain = helper.get_subnet_by_externalID(
