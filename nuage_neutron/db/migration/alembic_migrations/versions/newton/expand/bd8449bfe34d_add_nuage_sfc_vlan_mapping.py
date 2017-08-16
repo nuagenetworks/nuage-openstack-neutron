@@ -29,12 +29,24 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    op.create_table('nuage_sfc_vlan_subnet_mapping',
-                    sa.Column('subnet_id', sa.String(36), nullable=False),
-                    sa.Column('vlan_bit_map', sa.VARBINARY(512),
-                              nullable=False),
-                    sa.PrimaryKeyConstraint('subnet_id'),
-                    sa.ForeignKeyConstraint(['subnet_id'],
-                                            ['subnets.id'],
-                                            ondelete='CASCADE')
-                    )
+    if op.get_bind().engine.name == 'postgresql':
+        op.create_table('nuage_sfc_vlan_subnet_mapping',
+                        sa.Column('subnet_id', sa.String(36), nullable=False),
+                        sa.Column('vlan_bit_map',
+                                  sa.dialects.postgresql.BYTEA(),
+                                  nullable=False),
+                        sa.PrimaryKeyConstraint('subnet_id'),
+                        sa.ForeignKeyConstraint(['subnet_id'],
+                                                ['subnets.id'],
+                                                ondelete='CASCADE')
+                        )
+    else:
+        op.create_table('nuage_sfc_vlan_subnet_mapping',
+                        sa.Column('subnet_id', sa.String(36), nullable=False),
+                        sa.Column('vlan_bit_map', sa.VARBINARY(512),
+                                  nullable=False),
+                        sa.PrimaryKeyConstraint('subnet_id'),
+                        sa.ForeignKeyConstraint(['subnet_id'],
+                                                ['subnets.id'],
+                                                ondelete='CASCADE')
+                        )
