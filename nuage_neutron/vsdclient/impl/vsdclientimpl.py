@@ -199,9 +199,9 @@ class VsdClientImpl(VsdClient):
         else:  # eg. delete ipv6 only
             template_id = mapping['nuage_l2dom_tmplt_id']
             if template_id:
-                return self.l2domain.delete_subnet_ipv6(mapping)
+                self.l2domain.delete_subnet_ipv6(mapping)
             else:
-                return self.domain.domainsubnet.delete_domain_subnet_ipv6(
+                self.domain.domainsubnet.delete_domain_subnet_ipv6(
                     mapping)
 
     def update_subnet(self, neutron_subnet, params):
@@ -270,8 +270,12 @@ class VsdClientImpl(VsdClient):
             'dhcp_ip': ipv4_subnet['allocation_pools'][-1]['end'],
             'shared': ipv4_subnet['shared'],
         }
-        return self.l2domain.create_subnet(
-            ipv4_subnet, req_params, ipv6_subnet)
+        try:
+            return self.l2domain.create_subnet(
+                ipv4_subnet, req_params, ipv6_subnet)
+        except Exception:
+            self.delete_subnet(ipv4_subnet['id'])
+            raise
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
                                   ipv4_subnet_mapping, pnet_binding,
