@@ -717,7 +717,8 @@ class NuageGateway(object):
 
         return ret
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, params):
+    def create_gateway_vport_no_usergroup(self, tenant_id, params,
+                                          create_policy=False):
         subnet = params.get('subnet')
         enable_dhcp = params.get('enable_dhcp')
         port = params.get('port')
@@ -759,7 +760,7 @@ class NuageGateway(object):
             resp = gw_helper.create_vport_interface(self.restproxy,
                                                     self.policygroup,
                                                     req_params, type,
-                                                    False)
+                                                    create_policy)
         else:
             if enable_dhcp:
                 req_params['ipaddress'] = port['fixed_ips'][0]['ip_address']
@@ -771,7 +772,7 @@ class NuageGateway(object):
             resp = gw_helper.create_vport_interface(self.restproxy,
                                                     self.policygroup,
                                                     req_params, type,
-                                                    False)
+                                                    create_policy)
 
         ret = resp
         # Determine the vport_gw_type

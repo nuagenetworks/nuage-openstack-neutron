@@ -737,9 +737,12 @@ class VsdClientImpl(VsdClient):
     def create_gateway_vport(self, tenant_id, vport_dict):
         return self.nuagegw.create_gateway_vport(tenant_id, vport_dict)
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict):
-        return self.nuagegw.create_gateway_vport_no_usergroup(tenant_id,
-                                                              vport_dict)
+    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict,
+                                          create_policy_group=False):
+        return self.nuagegw.create_gateway_vport_no_usergroup(
+            tenant_id,
+            vport_dict,
+            create_policy_group)
 
     def delete_nuage_gateway_vport(self, context, id, def_netpart_id):
         return self.nuagegw.delete_nuage_gateway_vport(context,
