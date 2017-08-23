@@ -400,10 +400,10 @@ class NuagePolicyGroups(object):
             rule = params['neutron_sg_rule']
             if (not rule.get('remote_group_id') and
                     not rule.get('remote_ip_prefix')):
-                if rule.get('ethertype') == constants.OS_IPV4:
-                    rule['remote_ip_prefix'] = ANY_IPV4_IP
-                else:
+                if rule.get('ethertype') == constants.OS_IPV6:
                     rule['remote_ip_prefix'] = ANY_IPV6_IP
+                else:
+                    rule['remote_ip_prefix'] = ANY_IPV4_IP
             if not rule.get('protocol'):
                 rule['protocol'] = "ANY"
             # As VSP does not support stateful icmp with ICMPtype not in
@@ -1501,10 +1501,10 @@ class NuageRedirectTargets(object):
 
         if (not params.get('remote_group_id') and
                 not params.get('remote_ip_prefix')):
-            if params.get('ethertype') == constants.OS_IPV4:
-                params['remote_ip_prefix'] = ANY_IPV4_IP
-            else:
+            if params.get('ethertype') == constants.OS_IPV6:
                 params['remote_ip_prefix'] = ANY_IPV6_IP
+            else:
+                params['remote_ip_prefix'] = ANY_IPV4_IP
 
         rule_params = {
             'rtarget_rule': params,
