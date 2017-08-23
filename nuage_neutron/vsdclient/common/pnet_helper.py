@@ -168,6 +168,8 @@ def create_bridge_vport_iface_for_pnet(restproxy_serv, pg_obj, params):
 
         if vport_response[VSD_RESP_OBJ]:
             vport_id = vport_response[VSD_RESP_OBJ][0]['ID']
+        else:
+            vport_id = None  # TODO(Team) Doesn't this need to be raised?
         # Create Bridge interface in the vport
         nuage_vport = nuagelib.NuageVPort()
 
@@ -198,6 +200,8 @@ def create_bridge_vport_iface_for_pnet(restproxy_serv, pg_obj, params):
 
         if vport_response[VSD_RESP_OBJ]:
             vport_id = vport_response[VSD_RESP_OBJ][0]['ID']
+        else:
+            vport_id = None  # TODO(Team) Doesn't this need to be raised?
         # Create Bridge interface in the vport
         nuage_vport = nuagelib.NuageVPort()
         bridge_iface = restproxy_serv.rest_call(

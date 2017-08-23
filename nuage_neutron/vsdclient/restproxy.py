@@ -432,7 +432,7 @@ class RESTProxyServer(object):
         return restproxy.get(resource, extra_headers=headers)
 
     def post(self, resource, data, extra_headers=None,
-             on_res_exists=retrieve_by_external_id,
+             on_res_exists=retrieve_by_external_id.__func__,
              ignore_err_codes=None):
         if ignore_err_codes is None:
             ignore_err_codes = [REST_EXISTS_INTERNAL_ERR_CODE]
