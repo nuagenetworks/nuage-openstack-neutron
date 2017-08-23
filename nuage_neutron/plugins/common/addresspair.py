@@ -18,9 +18,10 @@ from oslo_utils import excutils
 
 from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
+from neutron.extensions import portsecurity
 from neutron import manager
 from neutron.plugins.common import constants as service_constants
-from neutron_lib.api import validators as lib_validators
+
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
@@ -33,16 +34,18 @@ LOG = logging.getLogger(__name__)
 class NuageAddressPair(BaseNuagePlugin):
 
     def register(self):
-        self.nuage_callbacks.subscribe(self.post_port_update,
+        self.nuage_callbacks.subscribe(self.post_port_update_addresspair,
                                        resources.PORT, constants.AFTER_UPDATE)
-        self.nuage_callbacks.subscribe(self.post_port_create,
+        self.nuage_callbacks.subscribe(self.post_port_create_addresspair,
                                        resources.PORT, constants.AFTER_CREATE)
-        self.nuage_callbacks.subscribe(self.post_router_interface_create,
-                                       resources.ROUTER_INTERFACE,
-                                       constants.AFTER_CREATE)
-        self.nuage_callbacks.subscribe(self.post_router_interface_delete,
-                                       resources.ROUTER_INTERFACE,
-                                       constants.AFTER_DELETE)
+        self.nuage_callbacks.subscribe(
+            self.post_router_interface_create_addresspair,
+            resources.ROUTER_INTERFACE,
+            constants.AFTER_CREATE)
+        self.nuage_callbacks.subscribe(
+            self.post_router_interface_delete_addresspair,
+            resources.ROUTER_INTERFACE,
+            constants.AFTER_DELETE)
 
     @property
     def core_plugin(self):
@@ -213,50 +216,28 @@ class NuageAddressPair(BaseNuagePlugin):
                     self._update_vips(context, subnet_mapping,
                                       port, vport, delete_addr_pairs)
 
-    def _verify_allowed_address_pairs(self, port, port_data):
-        empty_allowed_address_pairs = (
-            addr_pair.ADDRESS_PAIRS in port_data and (
-                not (port_data[addr_pair.ADDRESS_PAIRS] or
-                     port[addr_pair.ADDRESS_PAIRS])))
-        if ((addr_pair.ADDRESS_PAIRS not in port_data) or (
-                not lib_validators.is_attr_set(
-                    port_data[addr_pair.ADDRESS_PAIRS])) or
-                empty_allowed_address_pairs):
-            # No change is required if port_data doesn't have addr pairs
+    def _verify_allowed_address_pairs(self, port, original_port):
+        if (port.get(addr_pair.ADDRESS_PAIRS) ==
+                original_port.get(addr_pair.ADDRESS_PAIRS)):
             LOG.info('No allowed address pairs update required for port %s',
                      port['id'])
             return False
         return True
 
-    def create_allowed_address_pairs(self, context, port, port_data, vport):
-        verify = self._verify_allowed_address_pairs(port, port_data)
-        if not verify:
-            return
-
+    def create_allowed_address_pairs(self, context, port, vport):
         self._process_allowed_address_pairs(context, port, vport, True)
 
-    def update_allowed_address_pairs(self, context, original_port,
-                                     port_data, updated_port, vport):
-        verify = self._verify_allowed_address_pairs(original_port, port_data)
+    def update_allowed_address_pairs(self, context, port, original_port,
+                                     vport):
+        verify = self._verify_allowed_address_pairs(port, original_port)
         if not verify:
             return
 
-        if addr_pair.ADDRESS_PAIRS in original_port:
-            if not cmp(port_data[addr_pair.ADDRESS_PAIRS],
-                       original_port[addr_pair.ADDRESS_PAIRS]):
-                # No change is required if addr pairs in port and port_data are
-                # same
-                LOG.info('Allowed address pairs to update %(upd)s and one '
-                         'in db %(db)s are same, so no change is required',
-                         {'upd': port_data[addr_pair.ADDRESS_PAIRS],
-                          'db': original_port[addr_pair.ADDRESS_PAIRS]})
-                return
-
         old_addr_pairs = original_port[addr_pair.ADDRESS_PAIRS]
-        new_addr_pairs = port_data[addr_pair.ADDRESS_PAIRS]
+        new_addr_pairs = port[addr_pair.ADDRESS_PAIRS]
         delete_addr_pairs = self._get_deleted_addr_pairs(old_addr_pairs,
                                                          new_addr_pairs)
-        self._process_allowed_address_pairs(context, updated_port, vport,
+        self._process_allowed_address_pairs(context, port, vport,
                                             False, delete_addr_pairs)
 
     def _get_deleted_addr_pairs(self, old_addr_pairs, new_addr_pairs):
@@ -292,37 +273,38 @@ class NuageAddressPair(BaseNuagePlugin):
         for port in ports:
             vport = vports_by_port_id.get(port['id'])
             if vport:
-                self.create_allowed_address_pairs(context, port, port, vport)
+                self.create_allowed_address_pairs(context, port, vport)
 
     @TimeTracker.tracked
-    def post_port_create(self, resource, event, plugin, **kwargs):
+    def post_port_create_addresspair(self, resource, event, plugin, **kwargs):
         port = kwargs.get('port')
-        request_port = kwargs.get('request_port')
         vport = kwargs.get('vport')
         context = kwargs.get('context')
+        if port[portsecurity.PORTSECURITY] is False:
+            # port_security_enabled False and allowed address pairs are
+            # mutually exclusive in Neutron
+            return
         try:
             nuagedb.get_subnet_l2dom_by_port_id(context.session, port['id'])
-            self.create_allowed_address_pairs(context, port, request_port,
-                                              vport)
+            self.create_allowed_address_pairs(context, port, vport)
         except SubnetMappingNotFound:
             pass
 
     @TimeTracker.tracked
-    def post_port_update(self, resource, event, plugin, **kwargs):
-        updated_port = kwargs.get('updated_port')
-        vport = kwargs.get('vport')
-        original_port = kwargs.get('original_port')
-        request_port = kwargs.get('request_port')
-        rollbacks = kwargs.get('rollbacks')
-        context = kwargs.get('context')
-        self.update_allowed_address_pairs(context, original_port, request_port,
-                                          updated_port, vport)
+    def post_port_update_addresspair(self, resource, event, plugin, context,
+                                     port, original_port, vport, rollbacks,
+                                     **kwargs):
+        if port[portsecurity.PORTSECURITY] is False:
+            # port_security_enabled False and allowed address pairs are
+            # mutually exclusive in Neutron
+            return
+        self.update_allowed_address_pairs(context, port, original_port, vport)
         rollbacks.append((self.update_allowed_address_pairs,
-                          [context, original_port, request_port,
-                           updated_port, vport], {}))
+                          [context, original_port, port, vport], {}))
 
     @TimeTracker.tracked
-    def post_router_interface_create(self, resource, event, plugin, **kwargs):
+    def post_router_interface_create_addresspair(self, resource, event, plugin,
+                                                 **kwargs):
         context = kwargs['context']
         subnet_mapping = kwargs['subnet_mapping']
         self.process_address_pairs_of_subnet(context,
@@ -330,7 +312,8 @@ class NuageAddressPair(BaseNuagePlugin):
                                              constants.L3SUBNET)
 
     @TimeTracker.tracked
-    def post_router_interface_delete(self, resource, event, plugin, **kwargs):
+    def post_router_interface_delete_addresspair(self, resource, event, plugin,
+                                                 **kwargs):
         context = kwargs['context']
         subnet_mapping = kwargs['subnet_mapping']
         self.process_address_pairs_of_subnet(context,

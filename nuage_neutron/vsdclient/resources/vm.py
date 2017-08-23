@@ -390,29 +390,23 @@ class NuageVM(object):
             'vport_id': params['nuage_vport_id'],
         }
         nuageif = nuagelib.NuageVMInterface(create_params=req_params)
-        iface = self.restproxy.rest_call(
-            'GET', nuageif.get_interface_for_vport(), '')
-        if iface[3]:
+        vm_interfaces = self.restproxy.get(nuageif.get_interface_for_vport())
+        if vm_interfaces:
+            vm_interface = vm_interfaces[0]
             params = {
-                'id': iface[3][0]['ID'],
+                'id': vm_interface['ID'],
                 'mac': params['mac'],
                 'ipv4': params['ipv4'],
                 'ipv6': params['ipv6']
             }
             updated_if = nuagelib.NuageVMInterface(create_params=params)
-            resp = self.restproxy.rest_call('PUT',
-                                            updated_if.delete_resource(),
-                                            updated_if.put_data())
-            if not updated_if.validate(resp):
-                raise restproxy.RESTProxyError(updated_if.error_msg)
-
-            req_params = {
-                'vm_id': iface[3][0]['parentID']
-            }
-            resync = nuagelib.NuageVMInterface(create_params=req_params)
-            self.restproxy.rest_call(
-                'POST', resync.create_resync_id(), ''
-            )
+            self.restproxy.put(updated_if.delete_resource(),
+                               updated_if.put_data())
+            resync = nuagelib.Resync
+            self.restproxy.post(
+                resync.post_url(parent=nuagelib.NuageVM.resource,
+                                parent_id=vm_interface['parentID']),
+                '')
 
     def create_vport(self, params):
         type_class = {constants.SUBNET: nuagelib.NuageSubnet,

@@ -44,6 +44,9 @@ from nuage_neutron.plugins.common.exceptions import \
     NuageDualstackSubnetNotFound
 from nuage_neutron.plugins.common.exceptions import NuagePortBound
 from nuage_neutron.plugins.common import extensions
+from nuage_neutron.plugins.common.extensions import nuage_redirect_target
+from nuage_neutron.plugins.common.extensions import nuagefloatingip
+from nuage_neutron.plugins.common.extensions import nuagepolicygroup
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils
@@ -60,12 +63,15 @@ from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageML2Wrapper
 from nuage_neutron.plugins.nuage_ml2.securitygroup import NuageSecurityGroup
 from nuage_neutron.plugins.nuage_ml2 import trunk_driver
 
+from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
+from nuage_neutron.vsdclient import restproxy
 
 LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCERV2
 PORT_UNPLUGGED_TYPES = (portbindings.VIF_TYPE_BINDING_FAILED,
                         portbindings.VIF_TYPE_UNBOUND,
                         portbindings.VIF_TYPE_OVS)
+DEVICE_OWNER_DHCP = os_constants.DEVICE_OWNER_DHCP
 
 LOG = log.getLogger(__name__)
 
@@ -214,25 +220,16 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     "passing nuagenet")
             raise NuageBadRequest(resource='subnet', msg=msg)
 
-        is_ipv6 = subnet['ip_version'] == os_constants.IP_VERSION_6
-        if is_ipv6:
-            enable_dhcp = subnet.get('enable_dhcp')
-            if enable_dhcp:
-                msg = _("Invalid input for operation: For ipv6 subnet "
-                        "Nuage doesn't support dhcp_enabled subnet")
-
-                raise NuageBadRequest(resource='subnet', msg=msg)
-            else:
-                ipv6_ra_node = lib_validators.is_attr_set(subnet.get(
-                    'ipv6_ra_mode'))
-                ipv6_address_mode = lib_validators.is_attr_set(
-                    subnet.get('ipv6_address_mode'))
-                if ipv6_ra_node or ipv6_address_mode:
-                    msg = _("Invalid input for operation: ipv6_ra_mode or"
-                            " ipv6_address_mode cannot be set for "
-                            "nuage subnet")
-                    raise NuageBadRequest(resource='subnet', msg=msg)
-
+        for attribute in ('ipv6_ra_mode', 'ipv6_address_mode'):
+            if not lib_validators.is_attr_set(subnet.get(attribute)):
+                continue
+            if subnet[attribute] != os_constants.DHCPV6_STATEFUL:
+                msg = _("Attribute %(attribute)s must be '%(allowed)s' or "
+                        "not set.")
+                raise NuageBadRequest(
+                    resource='subnet',
+                    msg=msg % {'attribute': attribute,
+                               'allowed': os_constants.DHCPV6_STATEFUL})
         if self.is_vxlan_network(network):
             if vsd_managed:
                 self._validate_create_vsd_managed_subnet(
@@ -272,17 +269,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     "ipv4 and 1 ipv6 subnet")
             raise NuageBadRequest(msg=msg)
 
-    @handle_nuage_api_errorcode
-    @TimeTracker.tracked
-    def create_subnet_postcommit(self, context):
-        subnet = context.current
-        network = context.network.current
-        db_context = context._plugin_context
-
-        nuagenet_set = lib_validators.is_attr_set(subnet.get('nuagenet'))
-        net_part_set = lib_validators.is_attr_set(subnet.get('net_partition'))
-        vsd_managed = nuagenet_set and net_part_set
-
         if self.is_vxlan_network(network):
             if vsd_managed:
                 self._create_vsd_managed_subnet(db_context, subnet)
@@ -291,6 +277,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         # take out underlay extension from the json response
         if subnet.get('underlay') == os_constants.ATTR_NOT_SPECIFIED:
+            subnet['underlay'] = None
+
+        if 'underlay' not in subnet:
             subnet['underlay'] = None
 
     def _create_vsd_managed_subnet(self, context, subnet):
@@ -714,17 +703,24 @@ class NuageMechanismDriver(NuageML2Wrapper):
     @utils.context_log
     @TimeTracker.tracked
     def create_port_postcommit(self, context):
-        db_context = context._plugin_context
-        port = context.current
-        is_network_external = context.network._network.get('router:external')
-        if 'request_port' not in port:
-            return
-        request_port = port['request_port']
-        del port['request_port']
+        self._create_port(context._plugin_context,
+                          context.current,
+                          context.network)
+
+    def _create_port(self, db_context, port, network, update_status=True):
+        is_network_external = network._network.get('router:external')
         subnet_mapping = self._validate_port(db_context, port,
                                              constants.BEFORE_CREATE,
                                              is_network_external)
         if not subnet_mapping:
+            if len(port['fixed_ips']) == 0:
+                nuage_attributes = (nuage_redirect_target.REDIRECTTARGETS,
+                                    nuagepolicygroup.NUAGE_POLICY_GROUPS,
+                                    nuagefloatingip.NUAGE_FLOATINGIP)
+                for attribute in nuage_attributes:
+                    if attribute in port:
+                        del port[attribute]
+            LOG.warn('no subnet_mapping')
             return
         nuage_vport = nuage_vm = np_name = None
         try:
@@ -746,7 +742,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             else:
                 nuage_vport = self._create_nuage_vport(port, nuage_subnet)
 
-            if not port[portsecurity.PORTSECURITY]:
+            if (not port[portsecurity.PORTSECURITY] and
+                    not subnet_mapping['nuage_managed_subnet']):
                 self._process_port_create_secgrp_for_port_sec(db_context, port)
         except Exception:
             if nuage_vm:
@@ -760,10 +757,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_CREATE,
                                         self, context=db_context, port=port,
                                         vport=nuage_vport, rollbacks=rollbacks,
-                                        request_port=request_port,
                                         subnet_mapping=subnet_mapping)
-            if (request_port.get('nuage_redirect-targets') !=
-                    os_constants.ATTR_NOT_SPECIFIED):
+            if (port.get('nuage_redirect-targets') !=
+                    os_constants.ATTR_NOT_SPECIFIED and update_status):
                 self.core_plugin.update_port_status(
                     db_context,
                     port['id'],
@@ -782,10 +778,17 @@ class NuageMechanismDriver(NuageML2Wrapper):
         original = context.original
 
         is_network_external = context.network._network.get('router:external')
-        if 'request_port' not in port:
+
+        if len(port['fixed_ips']) == 0 and len(original['fixed_ips']) != 0:
+            # port no longer belongs to any subnet, act like delete
+            self._delete_port(db_context, original)
             return
-        request_port = port['request_port']
-        del port['request_port']
+        if (len(port['fixed_ips']) != 0 and len(original['fixed_ips']) == 0 or
+                self.is_dhcp_port_dualstack_added(original, port)):
+            # port didn't belong to any subnet yet, now act like create
+            self._create_port(db_context, port, context.network,
+                              update_status=False)
+            return
 
         subnet_mapping = self._validate_port(db_context,
                                              port,
@@ -813,8 +816,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 'nuage_vport_id': nuage_vport['ID']
             }
             self.vsdclient.update_vport(nuage_vport['ID'], data)
-            self.vsdclient.update_nuage_vm_if(data)
             self.vsdclient.update_subport(port, nuage_vport, data)
+            data['nuage_vport_id'] = nuage_vport['ID']
+            try:
+                self.vsdclient.update_nuage_vm_if(data)
+            except restproxy.RESTProxyError as e:
+                if e.vsd_code != vsd_constants.VSD_VM_ALREADY_RESYNC:
+                    raise
 
         device_added = device_removed = False
         if not original['device_owner'] and port['device_owner']:
@@ -822,31 +830,15 @@ class NuageMechanismDriver(NuageML2Wrapper):
         elif original['device_owner'] and not port['device_owner']:
             device_removed = True
 
-        if device_added or device_removed:
-            np_name = self.vsdclient.get_net_partition_name_by_id(
-                subnet_mapping['net_partition_id'])
-            require(np_name, "netpartition",
-                    subnet_mapping['net_partition_id'])
-
-            if device_removed:
-                if self._port_should_have_vm(original):
-                    self._delete_nuage_vm(db_context, original,
-                                          np_name, subnet_mapping,
-                                          is_port_device_owner_removed=True)
-            elif device_added:
-                if self._port_should_have_vm(port):
-                    nuage_subnet, _ = self._get_nuage_subnet(
-                        subnet_mapping, subnet_mapping['nuage_subnet_id'])
-                    self._create_nuage_vm(db_context, port,
-                                          np_name, subnet_mapping, nuage_vport,
-                                          nuage_subnet)
+        self._port_device_change(db_context, nuage_vport, original, port,
+                                 subnet_mapping, device_added=device_added,
+                                 device_removed=device_removed)
         rollbacks = []
         try:
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
                                         self.core_plugin, context=db_context,
-                                        updated_port=port,
+                                        port=port,
                                         original_port=original,
-                                        request_port=request_port,
                                         vport=nuage_vport, rollbacks=rollbacks,
                                         subnet_mapping=subnet_mapping)
             if not subnet_mapping['nuage_managed_subnet']:
@@ -868,12 +860,59 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 for rollback in reversed(rollbacks):
                     rollback[0](*rollback[1], **rollback[2])
 
+    def is_dhcp_port_dualstack_added(self, original, port):
+        original_fixed_ips = original['fixed_ips']
+        current_fixed_ips = port['fixed_ips']
+        device_owner = port.get('device_owner')
+        is_dhcp_port = (device_owner == os_constants.DEVICE_OWNER_DHCP)
+
+        if not is_dhcp_port:
+            return False
+        if len(original_fixed_ips) != 1:
+            return False
+        if not netaddr.valid_ipv6(original_fixed_ips[0]['ip_address']):
+            return False
+
+        ipv4s = 0
+        ipv6s = 0
+        for fixed_ip in current_fixed_ips:
+            if netaddr.valid_ipv4(fixed_ip['ip_address']):
+                ipv4s += 1
+            if netaddr.valid_ipv6(fixed_ip['ip_address']):
+                ipv6s += 1
+        return ipv4s == 1 and ipv6s == 1
+
+    def _port_device_change(self, db_context, nuage_vport, original, port,
+                            subnet_mapping,
+                            device_added=False, device_removed=False):
+        if not device_added and not device_removed:
+            return
+        np_name = self.vsdclient.get_net_partition_name_by_id(
+            subnet_mapping['net_partition_id'])
+        require(np_name, "netpartition",
+                subnet_mapping['net_partition_id'])
+
+        if device_removed:
+            if self._port_should_have_vm(original):
+                self._delete_nuage_vm(db_context, original,
+                                      np_name, subnet_mapping,
+                                      is_port_device_owner_removed=True)
+        elif device_added:
+            if self._port_should_have_vm(port):
+                nuage_subnet, _ = self._get_nuage_subnet(
+                    subnet_mapping, subnet_mapping['nuage_subnet_id'])
+                self._create_nuage_vm(db_context, port,
+                                      np_name, subnet_mapping, nuage_vport,
+                                      nuage_subnet)
+
     @utils.context_log
     @TimeTracker.tracked
     def delete_port_postcommit(self, context):
         db_context = context._plugin_context
         port = context.current
+        self._delete_port(db_context, port)
 
+    def _delete_port(self, db_context, port):
         subnet_mapping = self.get_subnet_mapping_by_port(db_context, port)
         if not subnet_mapping:
             return
@@ -1022,6 +1061,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 msg = _("nuage_uplink attribute can not be set for "
                         "internal subnets")
                 raise NuageBadRequest(resource='subnet', msg=msg)
+        if subnet['ip_version'] == 6 and subnet.get('enable_dhcp'):
+            msg = _("OpenStack managed IPv6 subnets do not support "
+                    "enable_dhcp set to True.")
+            raise NuageBadRequest(resource='subnet', msg=msg)
 
     def _validate_create_vsd_managed_subnet(self, context, network, subnet):
         # Check for network already linked to VSD subnet
@@ -1092,7 +1135,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         if (subnet['ip_version'] == 6 and
                 nuage_subnet['type'] != constants.L2DOMAIN):
             gw_ip = gateway_subnet['IPv6Gateway']
-        elif subnet['enable_dhcp']:
+        elif subnet['enable_dhcp'] and subnet['ip_version'] == 4:
             if nuage_subnet['type'] == constants.L2DOMAIN:
                 gw_ip = self.vsdclient.get_gw_from_dhcp_l2domain(
                     gateway_subnet['ID'])
@@ -1162,6 +1205,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _check_ip_update_allowed(self, db_context, orig_port, port):
         orig_ips = orig_port.get('fixed_ips')
+        if port['device_owner'] == os_constants.DEVICE_OWNER_DHCP:
+            return True
         new_ips = port.get('fixed_ips')
         vif_type = orig_port.get(portbindings.VIF_TYPE)
         ips_change = (new_ips is not None and
@@ -1215,11 +1260,16 @@ class NuageMechanismDriver(NuageML2Wrapper):
     def _validate_port(self, db_context, port, event,
                        is_network_external=False):
         fixed_ips = port.get('fixed_ips', [])
-
+        device_owner = port.get('device_owner')
+        is_dhcp_port = (device_owner == os_constants.DEVICE_OWNER_DHCP)
         if len(fixed_ips) == 0:
             return False
-
-        if not utils.needs_vport_creation(port.get('device_owner')):
+        if (len(fixed_ips) == 1 and is_dhcp_port and
+                netaddr.valid_ipv6(fixed_ips[0]['ip_address'])):
+            return False
+        if not utils.needs_vport_creation(device_owner):
+            return False
+        if is_dhcp_port and is_network_external:
             return False
 
         if len(fixed_ips) == 1 and netaddr.valid_ipv6(
@@ -1275,11 +1325,12 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return ((port.get('device_owner') != constants.DEVICE_OWNER_IRONIC or
                  port.get('device_owner') != t_consts.TRUNK_SUBPORT_OWNER) and
                 constants.NOVA_PORT_OWNER_PREF in device_owner or
-                LB_DEVICE_OWNER_V2 in device_owner)
+                LB_DEVICE_OWNER_V2 in device_owner or
+                DEVICE_OWNER_DHCP in device_owner)
 
     def _create_nuage_vm(self, db_context, port, np_name, subnet_mapping,
                          nuage_port, nuage_subnet):
-        if port.get('device_owner') == LB_DEVICE_OWNER_V2:
+        if port.get('device_owner') in [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP]:
             no_of_ports = 1
             vm_id = port['id']
         else:
@@ -1419,7 +1470,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         # instead of device_id for lbaas dummy VM
         # as get_ports by device_id would return multiple vip_ports,
         # as workaround set no_of_ports = 1
-        if port.get('device_owner') == LB_DEVICE_OWNER_V2:
+        if port.get('device_owner') in [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP]:
             no_of_ports = 1
             vm_id = port['id']
         else:

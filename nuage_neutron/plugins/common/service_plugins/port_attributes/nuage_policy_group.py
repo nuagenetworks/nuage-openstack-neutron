@@ -69,11 +69,11 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
 
     def __init__(self):
         super(NuagePolicyGroup, self).__init__()
-        self.nuage_callbacks.subscribe(self.post_port_update,
+        self.nuage_callbacks.subscribe(self.post_port_update_nuage_pg,
                                        resources.PORT, constants.AFTER_UPDATE)
-        self.nuage_callbacks.subscribe(self.post_port_create,
+        self.nuage_callbacks.subscribe(self.post_port_create_nuage_pg,
                                        resources.PORT, constants.AFTER_CREATE)
-        self.nuage_callbacks.subscribe(self.post_port_show,
+        self.nuage_callbacks.subscribe(self.post_port_show_nuage_pg,
                                        resources.PORT, constants.AFTER_SHOW)
 
     @nuage_utils.handle_nuage_api_errorcode
@@ -184,38 +184,31 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
                 domain_id, **vsd_filters)
 
     @TimeTracker.tracked
-    def post_port_update(self, resource, event, trigger, **kwargs):
-        return self.process_port_nuage_policy_group(resource,
-                                                    event,
-                                                    trigger,
-                                                    **kwargs)
+    def post_port_update_nuage_pg(self, resource, event, trigger,
+                                  port, vport, original_port, rollbacks,
+                                  **kwargs):
+        return self.process_port_nuage_policy_group(
+            event, port, vport,
+            original_port=original_port, rollbacks=rollbacks)
 
     @TimeTracker.tracked
-    def post_port_create(self, resource, event, trigger, **kwargs):
-        self.process_port_nuage_policy_group(
-            resource, event, trigger, **kwargs)
-        request_port = kwargs['request_port']
-        if kwargs['vport'] and \
-                is_attr_set(request_port.get(NUAGE_POLICY_GROUPS)):
-            kwargs['port'][NUAGE_POLICY_GROUPS] = request_port.get(
-                NUAGE_POLICY_GROUPS)
-        else:
-            kwargs['port'][NUAGE_POLICY_GROUPS] = None
+    def post_port_create_nuage_pg(self, resource, event, trigger,
+                                  port, vport, **kwargs):
+        self.process_port_nuage_policy_group(event, port, vport)
+        if NUAGE_POLICY_GROUPS not in port:
+            port[NUAGE_POLICY_GROUPS] = None
 
-    def process_port_nuage_policy_group(self, resource, event,
-                                        trigger, **kwargs):
-        request_port = kwargs.get('request_port')
-        vport = kwargs.get('vport')
-        if not vport or not is_attr_set(request_port.get(NUAGE_POLICY_GROUPS)):
+    def process_port_nuage_policy_group(self, event, port, vport,
+                                        original_port=None, rollbacks=None):
+        if not vport or not is_attr_set(port.get(NUAGE_POLICY_GROUPS)):
             return
         self._process_port_nuage_policy_group(
-            event, kwargs.get('original_port'), request_port,
-            kwargs['rollbacks'], vport)
+            event, original_port, port, rollbacks, vport)
 
     @nuage_utils.handle_nuage_api_errorcode
     def _process_port_nuage_policy_group(self, event, original_port,
-                                         request_port, rollbacks, vport):
-        policy_group_ids = request_port[NUAGE_POLICY_GROUPS]
+                                         port, rollbacks, vport):
+        policy_group_ids = port[NUAGE_POLICY_GROUPS]
         [self.validate_policy_group(pg_id) for pg_id in policy_group_ids]
         if (event == constants.AFTER_UPDATE and
                 NUAGE_POLICY_GROUPS in original_port):
@@ -235,7 +228,7 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
             raise exceptions.NuageBadRequest(msg=msg)
 
     @TimeTracker.tracked
-    def post_port_show(self, resource, event, trigger, **kwargs):
+    def post_port_show_nuage_pg(self, resource, event, trigger, **kwargs):
         port = kwargs.get('port')
         fields = kwargs.get('fields')
         vport = kwargs.get('vport')

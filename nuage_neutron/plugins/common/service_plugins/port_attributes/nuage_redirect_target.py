@@ -49,11 +49,11 @@ class NuageRedirectTarget(BaseNuagePlugin):
 
     def __init__(self):
         super(NuageRedirectTarget, self).__init__()
-        self.nuage_callbacks.subscribe(self.post_port_update,
+        self.nuage_callbacks.subscribe(self.post_port_update_redirect_target,
                                        resources.PORT, constants.AFTER_UPDATE)
-        self.nuage_callbacks.subscribe(self.post_port_create,
+        self.nuage_callbacks.subscribe(self.post_port_create_redirect_target,
                                        resources.PORT, constants.AFTER_CREATE)
-        self.nuage_callbacks.subscribe(self.post_port_show,
+        self.nuage_callbacks.subscribe(self.post_port_show_redirect_target,
                                        resources.PORT, constants.AFTER_SHOW)
 
     @log_helpers.log_method_call
@@ -587,38 +587,40 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 raise nuage_exc.NuageBadRequest(msg=msg)
 
     @TimeTracker.tracked
-    def post_port_update(self, resource, event, trigger, **kwargs):
-        request_port = kwargs.get('request_port')
-        if ext_rtarget.REDIRECTTARGETS not in request_port:
+    def post_port_update_redirect_target(self, resource, event, trigger,
+                                         context, port, original_port,
+                                         **kwargs):
+        if ext_rtarget.REDIRECTTARGETS not in port:
             return
-        updated_port = kwargs.get('updated_port')
-        context = kwargs.get('context')
+        if (port[ext_rtarget.REDIRECTTARGETS] == original_port.get(
+                ext_rtarget.REDIRECTTARGETS)):
+            return
         nuage_rtargets_ids = self._validate_port_redirect_target(
             context,
-            updated_port,
-            request_port[ext_rtarget.REDIRECTTARGETS]
+            port,
+            port[ext_rtarget.REDIRECTTARGETS]
         )
-        self._delete_port_redirect_target_bindings(context, updated_port['id'])
+        self._delete_port_redirect_target_bindings(context, port['id'])
         self.process_port_redirect_target(
-            context, updated_port, request_port[ext_rtarget.REDIRECTTARGETS],
+            context, port, port[ext_rtarget.REDIRECTTARGETS],
             nuage_rtargets_ids)
 
     @TimeTracker.tracked
-    def post_port_create(self, resource, event, trigger, **kwargs):
-        request_port = kwargs.get('request_port')
-        if ext_rtarget.REDIRECTTARGETS not in request_port:
+    def post_port_create_redirect_target(self, resource, event, trigger,
+                                         context, port, **kwargs):
+        if ext_rtarget.REDIRECTTARGETS not in port:
+            port[ext_rtarget.REDIRECTTARGETS] = []
             return
 
-        port = kwargs.get('port')
-        context = kwargs.get('context')
         n_rtarget_ids = self._validate_port_redirect_target(
-            context, port, request_port[ext_rtarget.REDIRECTTARGETS])
+            context, port, port[ext_rtarget.REDIRECTTARGETS])
         self.process_port_redirect_target(
-            context, port, request_port[ext_rtarget.REDIRECTTARGETS],
+            context, port, port[ext_rtarget.REDIRECTTARGETS],
             n_rtarget_ids)
 
     @TimeTracker.tracked
-    def post_port_show(self, resource, event, trigger, **kwargs):
+    def post_port_show_redirect_target(self, resource, event, trigger,
+                                       **kwargs):
         port = kwargs.get('port')
         fields = kwargs.get('fields')
         vport = kwargs.get('vport')
