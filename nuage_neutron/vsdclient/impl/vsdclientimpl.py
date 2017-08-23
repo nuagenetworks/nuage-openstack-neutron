@@ -594,9 +594,6 @@ class VsdClientImpl(VsdClient):
             redirect_target_id,
             nuage_port_id_list)
 
-    def update_nuage_vm_if(self, params):
-        self.vm.update_nuage_vm_if(params)
-
     def create_virtual_ip(self, rtarget_id, vip, vip_port_id):
         return self.redirecttargets.create_virtual_ip(rtarget_id, vip,
                                                       vip_port_id)
@@ -684,6 +681,9 @@ class VsdClientImpl(VsdClient):
 
     def update_nuage_vm_vport(self, params):
         self.vm.update_nuage_vm_vport(params)
+
+    def update_nuage_vm_if(self, params):
+        self.vm.update_nuage_vm_if(params)
 
     def create_vport(self, params):
         return self.vm.create_vport(params)

@@ -140,7 +140,7 @@ class RootNuagePlugin(object):
                               'ip_type': nuage_subnet['IPType']})
                     raise NuageBadRequest(msg=msg)
                 nuage_cidr = netaddr.IPNetwork(nuage_subnet['IPv6Address'])
-                subnet_validate = {'enable_dhcp': Is(False)}
+                subnet_validate = {}
 
             if not compare_cidr(subnet['cidr'], nuage_cidr):
                 msg = 'OSP cidr %s and NuageVsd cidr %s do not match' % \

@@ -47,11 +47,11 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
 
     def __init__(self):
         super(NuageFloatingip, self).__init__()
-        self.nuage_callbacks.subscribe(self.post_port_update,
+        self.nuage_callbacks.subscribe(self.post_port_update_nuage_fip,
                                        resources.PORT, constants.AFTER_UPDATE)
-        self.nuage_callbacks.subscribe(self.post_port_create,
+        self.nuage_callbacks.subscribe(self.post_port_create_nuage_fip,
                                        resources.PORT, constants.AFTER_CREATE)
-        self.nuage_callbacks.subscribe(self._post_port_show,
+        self.nuage_callbacks.subscribe(self._post_port_show_nuage_fip,
                                        resources.PORT, constants.AFTER_SHOW)
 
     @nuage_utils.handle_nuage_api_errorcode
@@ -119,28 +119,24 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
             domain_id, assigned=False, externalID=None, **vsd_filters)
 
     @TimeTracker.tracked
-    def post_port_update(self, resource, event, trigger, **kwargs):
-        self.process_port_nuage_floatingip(resource, event, trigger, **kwargs)
+    def post_port_update_nuage_fip(self, resource, event, trigger, port, vport,
+                                   rollbacks, **kwargs):
+        self.process_port_nuage_floatingip(event, port, vport,
+                                           rollbacks=rollbacks)
 
     @TimeTracker.tracked
-    def post_port_create(self, resource, event, trigger, **kwargs):
-        if kwargs['vport'] and kwargs['request_port'].get(NUAGE_FLOATINGIP):
-            self.process_port_nuage_floatingip(resource, event, trigger,
-                                               **kwargs)
-        if kwargs['vport']:
-            kwargs['port'][NUAGE_FLOATINGIP] = kwargs['request_port'].get(
-                NUAGE_FLOATINGIP)
-        else:
-            kwargs['port'][NUAGE_FLOATINGIP] = None
+    def post_port_create_nuage_fip(self, resource, event, trigger, port, vport,
+                                   **kwargs):
+        if vport and port.get(NUAGE_FLOATINGIP):
+            self.process_port_nuage_floatingip(event, port, vport)
+        if NUAGE_FLOATINGIP not in port:
+            port[NUAGE_FLOATINGIP] = None
 
-    def process_port_nuage_floatingip(self, resource, event,
-                                      trigger, **kwargs):
-        request_port = kwargs['request_port']
-        vport = kwargs['vport']
-        if not vport or NUAGE_FLOATINGIP not in request_port:
+    def process_port_nuage_floatingip(self, event, port, vport,
+                                      rollbacks=None):
+        if not vport or NUAGE_FLOATINGIP not in port:
             return
-        self._process_port_nuage_floatingip(
-            event, request_port, kwargs['rollbacks'], vport)
+        self._process_port_nuage_floatingip(event, port, rollbacks, vport)
 
     @nuage_utils.handle_nuage_api_errorcode
     def _process_port_nuage_floatingip(self, event, request_port, rollbacks,
@@ -165,7 +161,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
             {'associatedFloatingIPID': request_fip.get('id')})
 
     @TimeTracker.tracked
-    def _post_port_show(self, resource, event, trigger, **kwargs):
+    def _post_port_show_nuage_fip(self, resource, event, trigger, **kwargs):
         port = kwargs.get('port')
         vport = kwargs.get('vport')
         fields = kwargs.get('fields')

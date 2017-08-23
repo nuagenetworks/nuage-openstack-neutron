@@ -17,6 +17,8 @@ from oslo_log import log as logging
 
 from neutron.common import utils
 from neutron.plugins.ml2 import driver_api as api
+from neutron_lib import constants
+
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
@@ -37,10 +39,15 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
         return self._supported_extension_alias
 
     def process_create_subnet(self, plugin_context, data, result):
-        result['net_partition'] = data['net_partition']
-        result['nuagenet'] = data['nuagenet']
-        result['underlay'] = data['underlay']
-        result['nuage_uplink'] = data['nuage_uplink']
+        self._copy_nuage_attributes(data, result)
+
+    def _copy_nuage_attributes(self, data, result):
+        nuage_attributes = ('net_partition', 'nuagenet', 'underlay',
+                            'nuage_uplink')
+        for attribute in nuage_attributes:
+            if (attribute in data and
+                    data[attribute] != constants.ATTR_NOT_SPECIFIED):
+                result[attribute] = data[attribute]
 
     @utils.exception_logger()
     @TimeTracker.tracked
