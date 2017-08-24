@@ -1393,16 +1393,22 @@ class NuagePolicyGroups(object):
                         'flowLoggingEnabled': self.flow_logging_enabled,
                         'statsLoggingEnabled': self.stats_collection_enabled}
         if len(in_sec_rule) == 0:
-            nuage_ib_aclrule = nuagelib.NuageACLRule(create_params=req_params,
-                                                     extra_params=extra_params)
-            self.restproxy.post(nuage_ib_aclrule.in_post_resource(),
-                                nuage_ib_aclrule.post_data_for_spoofing())
+            for ethertype in constants.NUAGE_SUPPORTED_ETHERTYPES_IN_HEX:
+                extra_params['etherType'] = ethertype
+                nuage_ib_aclrule = nuagelib.NuageACLRule(
+                    create_params=req_params,
+                    extra_params=extra_params)
+                self.restproxy.post(nuage_ib_aclrule.in_post_resource(),
+                                    nuage_ib_aclrule.post_data_for_spoofing())
         req_params = {'acl_id': nuage_obacl_id}
         if len(out_sec_rule) == 0:
-            nuage_ob_aclrule = nuagelib.NuageACLRule(create_params=req_params,
-                                                     extra_params=extra_params)
-            self.restproxy.post(nuage_ob_aclrule.eg_post_resource(),
-                                nuage_ob_aclrule.post_data_for_spoofing())
+            for ethertype in constants.NUAGE_SUPPORTED_ETHERTYPES_IN_HEX:
+                extra_params['etherType'] = ethertype
+                nuage_ob_aclrule = nuagelib.NuageACLRule(
+                    create_params=req_params,
+                    extra_params=extra_params)
+                self.restproxy.post(nuage_ob_aclrule.eg_post_resource(),
+                                    nuage_ob_aclrule.post_data_for_spoofing())
 
     def get_policy_group(self, id, required=False, **filters):
         policy_group = nuagelib.NuagePolicygroup()
