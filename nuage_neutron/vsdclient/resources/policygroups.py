@@ -173,8 +173,8 @@ class NuagePolicyGroups(object):
         sg_type = params.get('sg_type', constants.SOFTWARE)
         legacy = params.get('legacy', False)
         network_type = 'ENDPOINT_DOMAIN'
-        if (not legacy and (l2dom_dhcp_managed == 'unmanaged' or
-                            sg_type == constants.HARDWARE)):
+        if (l2dom_dhcp_managed == 'unmanaged' or
+                not legacy and sg_type == constants.HARDWARE):
             network_type = 'ANY'
         nuage_match_info = {
             'etherType': constants.IPV4_ETHERTYPE,
