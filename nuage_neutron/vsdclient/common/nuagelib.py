@@ -1595,7 +1595,6 @@ class NuageACLRule(NuageServerBaseClass):
         aclrule = {
             "locationType": "POLICYGROUP",
             "networkType": "ANY",
-            "etherType": constants.IPV4_ETHERTYPE,
             "protocol": "ANY",
             "action": "FORWARD",
             "DSCP": '*',

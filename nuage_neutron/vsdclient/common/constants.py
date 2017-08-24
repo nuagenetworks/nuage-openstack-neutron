@@ -59,7 +59,6 @@ DEF_L2DOM_TEMPLATE_PFIX = '_def_L2_Template'
 TEMPLATE_ISOLATED_ZONE = 'openstack-isolated'
 TEMPLATE_SHARED_ZONE = 'openstack-shared'
 
-NUAGE_SUPPORTED_ETHERTYPES = ['IPv4', 'IPv6']
 NOT_SUPPORTED_ACL_ATTR_MSG = "ethertype value: %s not supported by nuage " \
                              "plugin"
 NUAGE_ACL_PROTOCOL_ANY_MAPPING = ['tcp', 'udp']
@@ -84,6 +83,9 @@ IPV4 = "IPV4"
 IPV6 = "IPV6"
 OS_IPV4 = "IPv4"
 OS_IPV6 = "IPv6"
+
+NUAGE_SUPPORTED_ETHERTYPES = [OS_IPV4, OS_IPV6]
+NUAGE_SUPPORTED_ETHERTYPES_IN_HEX = [IPV4_ETHERTYPE, IPV6_ETHERTYPE]
 
 ANY_IPV4_IP = '0.0.0.0/0'
 ANY_IPV6_IP = '::/0'
