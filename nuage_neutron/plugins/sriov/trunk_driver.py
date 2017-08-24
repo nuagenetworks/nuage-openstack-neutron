@@ -329,6 +329,10 @@ class NuageTrunkHandler(object):
             self._validate_same_netpartition(context, trunk_port,
                                              trunk_subports)
 
+    def trunk_pre_create(self, context, trunk):
+        if trunk.sub_ports:
+            self.subports_pre_create(context, trunk, trunk.sub_ports)
+
     def subports_added(self, trunk, subports):
         LOG.debug('subport_added: %(trunk)s subports : %(sp)s',
                   {'trunk': trunk, 'sp': subports})
@@ -348,7 +352,9 @@ class NuageTrunkHandler(object):
             self._unset_sub_ports(trunk.id, subports)
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
-        if event == events.AFTER_CREATE:
+        if event == events.PRECOMMIT_CREATE:
+            self.trunk_pre_create(payload.context, payload.current_trunk)
+        elif event == events.AFTER_CREATE:
             self.trunk_created(payload.current_trunk)
         elif event == events.AFTER_DELETE:
             self.trunk_deleted(payload.original_trunk)
@@ -391,6 +397,9 @@ class NuageTrunkDriver(trunk_base.DriverBase):
                            events.AFTER_UPDATE)
         registry.subscribe(self._handler.subport_event,
                            t_consts.SUBPORTS,
+                           events.PRECOMMIT_CREATE)
+        registry.subscribe(self._handler.trunk_event,
+                           t_consts.TRUNK,
                            events.PRECOMMIT_CREATE)
 
     @classmethod
