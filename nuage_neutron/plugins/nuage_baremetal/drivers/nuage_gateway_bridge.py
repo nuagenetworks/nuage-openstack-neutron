@@ -17,6 +17,7 @@ from oslo_log import log as logging
 
 from neutron._i18n import _
 from neutron import context as neutron_context
+from neutron.extensions import portsecurity
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import config
@@ -87,6 +88,13 @@ class NuageGatewayDriverBridge(base_plugin.RootNuagePlugin,
                 params)
             LOG.debug("created vport: %(vport_dict)s",
                       {'vport_dict': vport})
+            if personality == 'VSG' and port.get(portsecurity.PORTSECURITY):
+                LOG.warn("Port %(port)s has %(attr)s set to True. But source "
+                         "address spoofing will be allowed for the bridge "
+                         "vport %(vport)s. Unsupported by VSG to provide "
+                         "anti-spoofing.", {'port': port['id'],
+                                            'attr': portsecurity.PORTSECURITY,
+                                            'vport': vport['vport']['ID']})
 
     def bind_port(self, port):
         """bind_port.
