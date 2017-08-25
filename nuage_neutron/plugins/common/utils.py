@@ -99,10 +99,10 @@ def handle_nuage_api_errorcode(fn):
             return fn(*args, **kwargs)
         except RESTProxyError as e:
             _, _, tb = sys.exc_info()
-            six.reraise(nuage_exc.NuageAPIException,
-                        nuage_exc.NuageAPIException(msg=e.message),
+            six.reraise(nuage_exc.NuageBadRequest,
+                        nuage_exc.NuageBadRequest(
+                            msg=ERROR_DICT.get(str(e.vsd_code), e.message)),
                         tb)
-
     return wrapped
 
 
