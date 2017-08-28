@@ -673,7 +673,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     ipv6_mapping = nuagedb.get_subnet_l2dom_by_id(
                         db_context.session,
                         ipv6_subnet['id'])
-                    with db_context.begin(subtransactions=True):
+                    with db_context.session.begin(subtransactions=True):
                         nuagedb.delete_subnetl2dom_mapping(
                             db_context.session,
                             ipv6_mapping)
