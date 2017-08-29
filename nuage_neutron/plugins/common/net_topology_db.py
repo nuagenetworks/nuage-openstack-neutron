@@ -234,8 +234,6 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
     def get_switchport_bindings(self, context, filters=None, fields=None,
                                 sorts=None, limit=None, marker=None,
                                 page_reverse=False):
-        marker_obj = self._get_marker_obj(context, 'switchport_bindings',
-                                          limit, marker)
         query = context.session.query(
             nuage_models.NuageSwitchportBinding,
             nuage_models.NuageSwitchportMapping.switch_id,
@@ -259,14 +257,17 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                     else:
                         query = query.filter(column.in_(value))
 
-        if limit and page_reverse and sorts:
-            sorts = [(s[0], not s[1]) for s in sorts]
-        query = sa_utils.paginate_query(
-            query,
-            nuage_models.NuageSwitchportBinding,
-            limit,
-            sorts,
-            marker_obj=marker_obj)
+        if sorts:
+            marker_obj = self._get_marker_obj(context, 'switchport_bindings',
+                                              limit, marker)
+            sort_dirs = ['asc' if s[1] else 'desc' for s in sorts]
+            query = sa_utils.paginate_query(
+                query,
+                nuage_models.NuageSwitchportBinding,
+                limit,
+                marker=marker_obj,
+                sort_keys=sorts,
+                sort_dirs=sort_dirs)
         items = [self._make_switchport_binding_dict_from_tuple(c, fields)
                  for c in query]
         if limit and page_reverse:
