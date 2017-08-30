@@ -141,6 +141,8 @@ class RESTProxyServer(object):
         self.max_retries = max_retries
         self.auth = None
         self.success_codes = range(200, 207)
+        self.api_stats_enabled = nuage_config.is_enabled(
+            plugin_constants.DEBUG_API_STATS)
         self.api_count = 0
 
     @staticmethod
@@ -182,8 +184,8 @@ class RESTProxyServer(object):
             RESTProxyServer.raise_rest_error(msg)
 
     def _rest_call(self, action, resource, data, extra_headers=None,
-                   ignore_marked_for_deletion=False):
-        if nuage_config.is_enabled(plugin_constants.DEBUG_API_STATS):
+                   ignore_marked_for_deletion=False, auth_renewal=False):
+        if not auth_renewal and self.api_stats_enabled:
             self.api_count += 1
         uri = self.base_uri + resource
         body = json.dumps(data)
@@ -333,7 +335,8 @@ class RESTProxyServer(object):
         data = ''
         encoded_auth = base64.encodestring(self.serverauth).strip()
         self.auth = 'Basic ' + encoded_auth
-        resp = self._rest_call('GET', self.auth_resource, data)
+        resp = self._rest_call('GET', self.auth_resource, data,
+                               auth_renewal=True)
         if resp[0] == 0:
             self.raise_rest_error(
                 'Could not establish a connection with the VSD. '
@@ -369,6 +372,9 @@ class RESTProxyServer(object):
         if response[0] == REST_UNAUTHORIZED and response[1] == 'Unauthorized':
             LOG.debug(_('RESTProxy: authentication expired, '
                         're-authenticating.'))
+            # don't count this api call in counting
+            if self.api_stats_enabled:
+                self.api_count -= 1
             session = db_api.get_session()
             with session.begin(subtransactions=True):
                 auth_token = self.get_config_parameter_by_name(

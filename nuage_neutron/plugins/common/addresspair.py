@@ -279,10 +279,16 @@ class NuageAddressPair(BaseNuagePlugin):
         port = kwargs.get('port')
         vport = kwargs.get('vport')
         context = kwargs.get('context')
+
+        if not port.get("allowed_address_pairs"):
+            # If there are no allowed_address_pair in the request
+            return
+
         if port[portsecurity.PORTSECURITY] is False:
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron
             return
+
         try:
             nuagedb.get_subnet_l2dom_by_port_id(context.session, port['id'])
             self.create_allowed_address_pairs(context, port, vport)
@@ -297,6 +303,7 @@ class NuageAddressPair(BaseNuagePlugin):
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron
             return
+
         self.update_allowed_address_pairs(context, port, original_port, vport)
         rollbacks.append((self.update_allowed_address_pairs,
                           [context, original_port, port, vport], {}))

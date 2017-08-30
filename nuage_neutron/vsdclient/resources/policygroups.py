@@ -268,40 +268,67 @@ class NuagePolicyGroups(object):
             nuage_match_info['statsLoggingEnabled'] = False
         return nuage_match_info
 
+    def _get_ingress_egress_ids(self, rtr_id=None, l2dom_id=None):
+        if rtr_id:
+            nuage_ibacl_id = pg_helper.get_l3dom_inbound_acl_id(
+                self.restproxy,
+                rtr_id)
+            nuage_obacl_id = pg_helper.get_l3dom_outbound_acl_id(
+                self.restproxy,
+                rtr_id)
+
+            if not nuage_ibacl_id and not nuage_obacl_id:
+                msg = ("Router %s does not have ACL mapping"
+                       % rtr_id)
+                raise restproxy.RESTProxyError(msg)
+        elif l2dom_id:
+            nuage_ibacl_id = pg_helper.get_l2dom_inbound_acl_id(
+                self.restproxy,
+                l2dom_id)
+            nuage_obacl_id = pg_helper.get_l2dom_outbound_acl_id(
+                self.restproxy,
+                l2dom_id)
+            if not nuage_ibacl_id and not nuage_obacl_id:
+                msg = ("L2Domain %s of Security Group does not have ACL "
+                       "mapping") % l2dom_id
+                raise restproxy.RESTProxyError(msg)
+        return nuage_ibacl_id, nuage_obacl_id
+
     def _create_nuage_sgrules_bulk(self, params):
         rtr_id = params['nuage_router_id']
         l2dom_id = params['nuage_l2dom_id']
         nuage_policygroup_id = params.get('nuage_policygroup_id')
-        l3dom_policygroup_list = []
-        l2dom_policygroup_list = []
-
+        l3dom_policygroup = l2dom_policygroup = []
         if rtr_id:
-            l3dom_policygroup = {
+            l3dom_policygroup = [{
                 'l3dom_id': rtr_id,
                 'policygroup_id': nuage_policygroup_id
-            }
-            l3dom_policygroup_list.append(l3dom_policygroup)
+            }]
         elif l2dom_id:
-            l2dom_policygroup = {
+            l2dom_policygroup = [{
                 'l2dom_id': l2dom_id,
                 'policygroup_id': nuage_policygroup_id
-            }
-            l2dom_policygroup_list.append(l2dom_policygroup)
+            }]
 
         policygroup = {
-            'l3dom_policygroups': l3dom_policygroup_list,
-            'l2dom_policygroups': l2dom_policygroup_list
+            'l3dom_policygroups': l3dom_policygroup,
+            'l2dom_policygroups': l2dom_policygroup
         }
-        sg_rules = params.get('sg_rules')
 
+        sg_rules = params.get('sg_rules')
+        nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
+            rtr_id, l2dom_id)
         if sg_rules:
             for rule in sg_rules:
                 params = {
                     'policygroup': policygroup,
                     'neutron_sg_rule': rule,
-                    'sg_type': params.get('sg_type', constants.SOFTWARE)}
-                if ('ethertype' in rule.keys() and str(rule['ethertype']) not
-                        in NUAGE_SUPPORTED_ETHERTYPES):
+                    'nuage_ibacl_id': nuage_ibacl_id,
+                    'nuage_obacl_id': nuage_obacl_id
+                }
+                if ('ethertype' in rule.keys() and
+                        str(rule['ethertype']) not in
+                        NUAGE_SUPPORTED_ETHERTYPES):
                     continue
                 self.create_nuage_sgrule(params)
 
@@ -314,20 +341,12 @@ class NuagePolicyGroups(object):
         remote_group_name = params.get('remote_group_name')
         external_id = params.get('externalID')
         legacy = params.get('legacy', False)
-
+        nuage_ibacl_id = params.get('nuage_ibacl_id')
+        nuage_obacl_id = params.get('nuage_obacl_id')
         for l3dom_policygroup in l3dom_policygroup_list:
-            nuage_ibacl_id = pg_helper.get_l3dom_inbound_acl_id(
-                self.restproxy,
-                l3dom_policygroup['l3dom_id'])
-            nuage_obacl_id = pg_helper.get_l3dom_outbound_acl_id(
-                self.restproxy,
-                l3dom_policygroup['l3dom_id'])
-
             if not nuage_ibacl_id and not nuage_obacl_id:
-                msg = ("Router %s does not have ACL mapping"
-                       % l3dom_policygroup['l3dom_id'])
-                raise restproxy.RESTProxyError(msg)
-
+                nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
+                    rtr_id=l3dom_policygroup['l3dom_id'])
             np_id = helper.get_l3domain_np_id(self.restproxy,
                                               l3dom_policygroup['l3dom_id'])
             if not np_id:
@@ -359,17 +378,9 @@ class NuagePolicyGroups(object):
             self._create_nuage_sgrule_process(params)
 
         for l2dom_policygroup in l2dom_policygroup_list:
-            nuage_ibacl_id = pg_helper.get_l2dom_inbound_acl_id(
-                self.restproxy,
-                l2dom_policygroup['l2dom_id'])
-            nuage_obacl_id = pg_helper.get_l2dom_outbound_acl_id(
-                self.restproxy,
-                l2dom_policygroup['l2dom_id'])
-
             if not nuage_ibacl_id and not nuage_obacl_id:
-                msg = ("L2Domain of Security Group %s does not have ACL "
-                       "mapping") % l2dom_policygroup['l2dom_id']
-                raise restproxy.RESTProxyError(msg)
+                nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
+                    l2dom_id=l2dom_policygroup['l2dom_id'])
 
             fields = ['parentID', 'DHCPManaged']
             l2dom_fields = helper.get_l2domain_fields_for_pg(
@@ -386,7 +397,6 @@ class NuagePolicyGroups(object):
                 'nuage_iacl_id': nuage_ibacl_id,
                 'nuage_oacl_id': nuage_obacl_id
             }
-
             sg_rule = dict(neutron_sg_rule)
             params = {
                 'direction': sg_rule.get('direction'),
@@ -683,7 +693,6 @@ class NuagePolicyGroups(object):
                 'l3dom_policygroups': l3dom_policygroup_list,
                 'l2dom_policygroups': l2dom_policygroup_list
             }
-
         return result
 
     def get_sgrule_acl_mapping_for_ruleid(self, params, **filters):
@@ -1011,27 +1020,25 @@ class NuagePolicyGroups(object):
             params['name'] = pg_name
 
         nuage_policygroup_id = self._create_nuage_secgroup(params)
-
-        l3dom_policygroup_list = []
-        l2dom_policygroup_list = []
+        l3dom_policygroup = l2dom_policygroup = []
 
         if rtr_id:
-            l3dom_policygroup = {
+            l3dom_policygroup = [{
                 'l3dom_id': rtr_id,
                 'policygroup_id': nuage_policygroup_id
-            }
-            l3dom_policygroup_list.append(l3dom_policygroup)
+            }]
         elif l2dom_id:
-            l2dom_policygroup = {
+            l2dom_policygroup = [{
                 'l2dom_id': l2dom_id,
                 'policygroup_id': nuage_policygroup_id
-            }
-            l2dom_policygroup_list.append(l2dom_policygroup)
+            }]
 
+        nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
+            rtr_id, l2dom_id)
         # create default ingress and egress acl rule
         policygroup = {
-            'l3dom_policygroups': l3dom_policygroup_list,
-            'l2dom_policygroups': l2dom_policygroup_list
+            'l3dom_policygroups': l3dom_policygroup,
+            'l2dom_policygroups': l2dom_policygroup
         }
         for ethertype in NUAGE_SUPPORTED_ETHERTYPES:
             for direction in (constants.NUAGE_ACL_INGRESS,
@@ -1045,7 +1052,9 @@ class NuagePolicyGroups(object):
                     'neutron_sg_rule': neutron_sg_rule,
                     'sg_type': constants.HARDWARE,
                     'externalID': get_vsd_external_id(neutron_subnet_id),
-                    'legacy': True
+                    'legacy': True,
+                    'nuage_ibacl_id': nuage_ibacl_id,
+                    'nuage_obacl_id': nuage_obacl_id
                 }
                 self.create_nuage_sgrule(params)
         return nuage_policygroup_id
