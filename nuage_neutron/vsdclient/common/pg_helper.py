@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import ipaddress
 import logging
 import netaddr
 
@@ -214,10 +215,11 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
         net = ipv4_net
         sg_rule['IPType'] = constants.IPV4
 
-    macro_name = (np_id + '_' +
-                  str(sg_rule.get('ethertype')) +
-                  str(int(net.ip)) + '_' +
-                  str(int(net.netmask)))
+    net_name = str(str(ipaddress.ip_address(
+        net.ip).exploded).replace(':', '-')).replace('.', '-')
+
+    macro_name = str(sg_rule.get('ethertype')) + '_' + \
+        net_name + '_' + str(net.prefixlen)
     req_params = {
         'net_partition_id': np_id,
         'net': ipv4_net,
@@ -228,6 +230,12 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
     }
     nuage_np_net = nuagelib.NuageNetPartitionNetwork(
         create_params=req_params)
+    response = restproxy_serv.rest_call(
+        'GET',
+        nuage_np_net.get_resource(), '',
+        nuage_np_net.extra_headers_get_netadress(req_params))
+    if nuage_np_net.validate(response) and response[3]:
+        return nuage_np_net.get_np_network_id(response)
 
     response = restproxy_serv.rest_call(
         'POST',
@@ -237,6 +245,11 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
         if response[0] != constants.CONFLICT_ERR_CODE:
             raise restproxy.RESTProxyError(nuage_np_net.error_msg)
         else:
+            # to handle concurrecy case where
+            # at first attempt it didn't find it but
+            # another thread have already created the same
+            # network marco in parallel and it errors out
+            # during POST command.
             response = restproxy_serv.rest_call(
                 'GET',
                 nuage_np_net.get_resource(), '',

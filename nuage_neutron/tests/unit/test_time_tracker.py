@@ -12,10 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
-
 import testtools
 import time
+
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
+
+TimeTracker.enable_time_tracking()
 
 
 class CoreCode(object):
@@ -77,16 +79,7 @@ class NuageCode(NuageCoreWrapper):
 
 class TestTimeTracker(testtools.TestCase):
 
-    def test_time_tracker_not_started(self):
-
-        NuageCode().do_something_cool()
-
-        self.assertEqual(0, TimeTracker.get_time_tracked())
-        self.assertEqual(0, TimeTracker.get_time_not_tracked())
-
-    def test_time_tracker_started(self):
-
-        TimeTracker.start()
+    def test_time_tracker(self):
 
         NuageCode().do_something_cool()
 
@@ -95,4 +88,6 @@ class TestTimeTracker(testtools.TestCase):
         self.assertEqual(2, int(TimeTracker.get_time_not_tracked()),
                          'time not tracked')
 
-        TimeTracker.stop()
+
+# don't influence other tests
+TimeTracker.enable_time_tracking(False)

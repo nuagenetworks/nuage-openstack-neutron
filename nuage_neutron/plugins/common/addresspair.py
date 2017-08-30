@@ -280,6 +280,9 @@ class NuageAddressPair(BaseNuagePlugin):
         port = kwargs.get('port')
         vport = kwargs.get('vport')
         context = kwargs.get('context')
+        if not port.get("allowed_address_pairs"):
+            # If there are no allowed_address_pair in the request
+            return
         if port[portsecurity.PORTSECURITY] is False:
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron

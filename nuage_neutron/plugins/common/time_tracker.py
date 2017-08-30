@@ -25,23 +25,17 @@ class TimeTracker(object):
     def __init__(self):
         self.time_tracked = 0
         self.time_not_tracked = 0
-        self.enable_tracking = False
         self.curr_pos_tracking = {}
         self.curr_neg_tracking = {}
+        self.tracking_enabled = False
 
     @staticmethod
-    def start():
-        TimeTracker.tracking_enabled(True)
+    def is_tracking_enabled():
+        return TimeTracker.tracker().tracking_enabled
 
     @staticmethod
-    def stop():
-        TimeTracker.tracking_enabled(False)
-
-    @staticmethod
-    def tracking_enabled(enable_tracking=None):
-        if enable_tracking is not None:
-            TimeTracker.tracker().enable_tracking = enable_tracking
-        return TimeTracker.tracker().enable_tracking
+    def enable_time_tracking(flag=True):
+        TimeTracker.tracker().tracking_enabled = flag
 
     @staticmethod
     def currently_pos_tracking(thread_id, curr_pos_tracking=None):
@@ -64,6 +58,11 @@ class TimeTracker(object):
     @staticmethod
     def get_time_not_tracked():
         return TimeTracker.tracker().time_not_tracked
+
+    @staticmethod
+    def reset():
+        TimeTracker.tracker().time_tracked = 0
+        TimeTracker.tracker().time_not_tracked = 0
 
     @classmethod
     def tracker(cls):
@@ -106,20 +105,20 @@ class TimeTracker(object):
 
     @staticmethod
     def tracked(func):
-        @six.wraps(func)
-        def func_wrapper(*args, **kwargs):
-            if TimeTracker.tracking_enabled():
+        if TimeTracker.is_tracking_enabled():
+            @six.wraps(func)
+            def func_wrapper(*args, **kwargs):
                 return TimeTracker.track(func, True, *args, **kwargs)
-            else:
-                return func(*args, **kwargs)
-        return func_wrapper
+            return func_wrapper
+        else:
+            return func
 
     @staticmethod
     def untracked(func):
-        @six.wraps(func)
-        def func_wrapper(*args, **kwargs):
-            if TimeTracker.tracking_enabled():
+        if TimeTracker.is_tracking_enabled():
+            @six.wraps(func)
+            def func_wrapper(*args, **kwargs):
                 return TimeTracker.track(func, False, *args, **kwargs)
-            else:
-                return func(*args, **kwargs)
-        return func_wrapper
+            return func_wrapper
+        else:
+            return func
