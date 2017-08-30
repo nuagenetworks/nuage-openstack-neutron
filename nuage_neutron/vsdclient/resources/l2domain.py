@@ -79,8 +79,6 @@ class NuageL2Domain(object):
             'dynamicIpv6Address': False
         }
         ext_params.update(helper.get_ipv6_vsd_data(ipv6_subnet))
-        l2domain = helper.get_subnet_by_externalID(
-            self.restproxy, ext_params["externalID"])
         nuagel2domtmplt = nuagelib.NuageL2DomTemplate(create_params=req_params,
                                                       extra_params=ext_params)
         nuagel2domtemplate = self.restproxy.post(

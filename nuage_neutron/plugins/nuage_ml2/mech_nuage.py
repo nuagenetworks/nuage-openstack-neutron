@@ -1,4 +1,4 @@
-# Copyright 2017 Nokia
+# Copyright 2017 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -39,7 +39,6 @@ from neutron_lib.exceptions import PortInUse
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
-from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common.exceptions import \
@@ -89,26 +88,24 @@ def _is_ipv6(subnet):
 
 class NuageMechanismDriver(NuageML2Wrapper):
 
+    def __init__(self):
+        self._core_plugin = None
+        self._default_np_id = None
+        self.trunk_driver = None
+
+        super(NuageMechanismDriver, self).__init__()
+
     def initialize(self):
         LOG.debug('Initializing driver')
         neutron_extensions.append_api_extensions_path(extensions.__path__)
         self._validate_mech_nuage_configuration()
         self.init_vsd_client()
         self._wrap_vsdclient()
-        self._core_plugin = None
-        self._default_np_id = None
-
         NuageSecurityGroup().register()
         NuageAddressPair().register()
         db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
             constants.DEVICE_OWNER_DHCP_NUAGE]
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
-
-        if nuage_config.is_enabled(constants.DEBUG_TIMING_STATS):
-            TimeTracker.start()
-        if nuage_config.is_enabled(constants.FEATURE_EXPERIMENTAL_TEST):
-            LOG.info("Have a nice day.")
-
         LOG.debug('Initializing complete')
 
     @property
@@ -989,6 +986,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 with excutils.save_and_reraise_exception():
                     for rollback in reversed(rollbacks):
                         rollback[0](*rollback[1], **rollback[2])
+        elif not nuage_vport \
+                and os_constants.DEVICE_OWNER_DHCP in port.get('device_owner'):
+            return
         else:
             self.delete_gw_host_vport(db_context, port, subnet_mapping)
             return
@@ -1373,12 +1373,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @staticmethod
     def _port_should_have_vm(port):
-        device_owner = port['device_owner']
-        return ((port.get('device_owner') != constants.DEVICE_OWNER_IRONIC or
-                 port.get('device_owner') != t_consts.TRUNK_SUBPORT_OWNER) and
-                constants.NOVA_PORT_OWNER_PREF in device_owner or
-                LB_DEVICE_OWNER_V2 in device_owner or
-                DEVICE_OWNER_DHCP in device_owner)
+        device_owner = port.get('device_owner')
+        return (constants.NOVA_PORT_OWNER_PREF in device_owner or
+                device_owner == LB_DEVICE_OWNER_V2 or
+                device_owner == DEVICE_OWNER_DHCP)
 
     def _create_nuage_vm(self, db_context, port, np_name, subnet_mapping,
                          nuage_port, nuage_subnet):

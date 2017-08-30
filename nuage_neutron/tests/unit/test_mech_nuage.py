@@ -25,9 +25,10 @@ from neutron.conf import common as core_config
 from neutron.conf.plugins.ml2 import config as ml2_config
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
-from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common.time_tracker import TimeTracker
+
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from nuage_neutron.vsdclient.impl.vsdclientimpl import VsdClientImpl
 from nuage_neutron.vsdclient.restproxy import RESTProxyServer
@@ -134,8 +135,15 @@ class TestNuageMechanismDriver(testtools.TestCase):
         self.assertEqual(nmd2.vsdclient, nmd1.vsdclient)
         self.assertEqual(nmd3.vsdclient, nmd1.vsdclient)
 
-        # validate only 1 api call is made
-        self.assertEqual(1, nmd1.vsdclient.restproxy.api_count)
+        # validate no api call is made - we don't count authentication calls!
+        self.assertEqual(0, nmd1.vsdclient.restproxy.api_count)
+
+        # validate no time is tracked
+        self.assertFalse(TimeTracker.is_tracking_enabled())
+        self.assertEqual(0, TimeTracker.get_time_tracked(),
+                         'time tracked')
+        self.assertEqual(0, TimeTracker.get_time_not_tracked(),
+                         'time not tracked')
 
     # FLAT NETWORKS
 
@@ -457,24 +465,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.assertEqual('Bad request: A network with an ipv6 subnet '
                              'may only have maximum 1 ipv4 and 1 ipv6 '
                              'subnet', str(e))
-
-    # EXPERIMENTAL FEATURES
-
-    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    @mock.patch('nuage_neutron.plugins.nuage_ml2.mech_nuage.LOG')
-    def test_experimental_feature(self, logger, root_plugin):
-        self.set_config_fixture()
-        config.nuage_register_cfg_opts()
-        conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
-
-        conf.config(group='PLUGIN', experimental_features='experimental_test')
-        NuageMechanismDriver().initialize()
-        logger.info.assert_called_once_with('Have a nice day.')
-
-        logger.info.reset_mock()
-        conf.config(group='PLUGIN', experimental_features='')
-        NuageMechanismDriver().initialize()
-        logger.info.assert_not_called()
 
 
 class Context(object):
