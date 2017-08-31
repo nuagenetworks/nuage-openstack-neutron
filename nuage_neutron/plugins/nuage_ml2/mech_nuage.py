@@ -1090,10 +1090,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 msg = _("nuage_uplink attribute can not be set for "
                         "internal subnets")
                 raise NuageBadRequest(resource='subnet', msg=msg)
-        if _is_ipv6(subnet) and subnet.get('enable_dhcp'):
-            msg = _("OpenStack managed IPv6 subnets do not support "
-                    "enable_dhcp set to True.")
-            raise NuageBadRequest(resource='subnet', msg=msg)
 
     @staticmethod
     def _validate_create_vsd_managed_subnet(context, network, subnet):
