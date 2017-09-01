@@ -125,8 +125,16 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
         with self.db_lock_by_rule(context, id):
             original_rule = self.get_firewall_rule(context, id)
             request = copy.deepcopy(firewall_rule)
+
+            # upstream changed validation to require ip_version and protocol
+            # fixed in > Pike, bug number #1656739
+            updated_rule = copy.deepcopy(original_rule)
+            updated_rule.update(firewall_rule['firewall_rule'])
+            updated_rule = {'firewall_rule': updated_rule}
+
             fw_rule = super(NuageFWaaSPlugin, self).update_firewall_rule(
-                context, id, firewall_rule)
+                context, id, updated_rule)
+
             self._validate_fwr_protocol_parameters(fw_rule)
             became_enabled = (original_rule['enabled'] is False and
                               fw_rule['enabled'] is True)
