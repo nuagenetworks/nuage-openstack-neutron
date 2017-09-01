@@ -431,7 +431,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 'neutron_port_id': port.get('id'),
                 'nuage_vport_id': bridge_port_id,
                 'switchport_uuid': gwport['port_id'],
-                'segmentation_id': segmentation_id
+                'segmentation_id': segmentation_id,
+                'switchport_mapping_id': gwport['id']
             }
             ext_db.add_switchport_binding(ctx, binding)
 
