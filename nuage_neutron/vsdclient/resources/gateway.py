@@ -718,7 +718,8 @@ class NuageGateway(object):
 
         return ret
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, params):
+    def create_gateway_vport_no_usergroup(self, tenant_id, params,
+                                          create_policy=False):
         subnet = params.get('subnet')
         enable_dhcp = params.get('enable_dhcp')
         port = params.get('port')
@@ -741,7 +742,7 @@ class NuageGateway(object):
             'neutron_subnet_id': subn_id,
             'nuage_managed_subnet': params.get('nuage_managed_subnet'),
             'gw_type': params['personality'],
-            'externalid': get_vsd_external_id(port['id'])
+            'externalid': get_vsd_external_id(port['id'] if port else subn_id)
         }
         if nuage_subnet['parentType'] == 'zone':
             req_params['nuage_subnet_id'] = nuage_subnet['ID']
@@ -760,7 +761,7 @@ class NuageGateway(object):
             resp = gw_helper.create_vport_interface(self.restproxy,
                                                     self.policygroup,
                                                     req_params, type,
-                                                    False)
+                                                    create_policy)
         else:
             ips = {}
             for fixed_ip in port.get('fixed_ips', []):
@@ -780,7 +781,7 @@ class NuageGateway(object):
             resp = gw_helper.create_vport_interface(self.restproxy,
                                                     self.policygroup,
                                                     req_params, type,
-                                                    False)
+                                                    create_policy)
 
         ret = resp
         # Determine the vport_gw_type
