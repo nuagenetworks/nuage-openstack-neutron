@@ -424,12 +424,23 @@ class NuageDomain(object):
             return ret
 
     def create_nuage_staticroute(self, params):
+        ipv6_net = ipv4_net = None
+        if netaddr.IPNetwork(params['net']).version == constants.IPV6_VERSION:
+            ipv6_net = params['net']
+            ip_type = constants.IPV6
+        else:
+            ipv4_net = params['net']
+            ip_type = constants.IPV4
+
         req_params = {
             'domain_id': params['nuage_domain_id'],
             'router_id': params['neutron_rtr_id'],
-            'net': params['net'],
-            'nexthop': params['nexthop']
+            'net': ipv4_net,
+            'ipv6_net': ipv6_net,
+            'nexthop': params['nexthop'],
+            'IPType': ip_type
         }
+
         nuage_staticroute = nuagelib.NuageStaticRoute(create_params=req_params)
         response = self.restproxy.rest_call(
             'POST', nuage_staticroute.post_resource(),
@@ -622,7 +633,7 @@ class NuageDomain(object):
 
     def validate_port_create_redirect_target(self, params):
         nuage_subnet_id = params.get('nuage_subnet_id')
-        if params.get('parent_type') == 'domain':
+        if params.get('parent_type') == constants.DOMAIN:
             nuage_domain_id = params.get('parent')
             nuagel3dom = nuagelib.NuageL3Domain()
             l3dom_subnets = self.restproxy.rest_call(
@@ -669,16 +680,31 @@ class NuageDomainSubnet(object):
         subnet = nuagelib.NuageSubnet({'zone': zone_id})
         return self.restproxy.get(subnet.get_all_resources_in_zone())
 
-    def create_domain_subnet(self, vsd_zone, os_subnet, pnet_binding):
+    def create_domain_subnet_ipv6(self, ipv6_subnet, mapping):
+        data = helper.get_ipv6_vsd_data(ipv6_subnet)
+        self.update_domain_subnet(mapping['nuage_subnet_id'], **data)
+
+    def delete_domain_subnet_ipv6(self, mapping):
+        data = helper.get_ipv6_vsd_data(None)
+        self.update_domain_subnet(mapping['nuage_subnet_id'], **data)
+
+    def update_domain_subnet(self, domain_subnet_id, **data):
+        vsd_subnet = nuagelib.NuageSubnet()
+        self.restproxy.put(vsd_subnet.put_resource(domain_subnet_id), data)
+
+    def create_domain_subnet(
+            self, vsd_zone, ipv4_subnet, pnet_binding, ipv6_subnet=None):
         req_params = {
-            'name': os_subnet['id'],
-            'net': netaddr.IPNetwork(os_subnet['cidr']),
+            'name': ipv4_subnet['id'],
+            'net': netaddr.IPNetwork(ipv4_subnet['cidr']),
             'zone': vsd_zone['ID'],
-            'gateway': os_subnet['gateway_ip'],
-            'externalID': get_vsd_external_id(os_subnet['id'])
+            'gateway': ipv4_subnet['gateway_ip'],
+            'externalID': get_vsd_external_id(ipv4_subnet['id'])
         }
-        extra_params = {'description': os_subnet.get('name'),
-                        'entityState': 'UNDER_CONSTRUCTION'}
+        extra_params = {'description': ipv4_subnet.get('name'),
+                        'entityState': 'UNDER_CONSTRUCTION',
+                        'dynamicIpv6Address': False}
+        extra_params.update(helper.get_ipv6_vsd_data(ipv6_subnet))
         nuagel3domsub = nuagelib.NuageSubnet(create_params=req_params,
                                              extra_params=extra_params)
         vsd_subnet = self.restproxy.post(nuagel3domsub.post_resource(),
@@ -686,9 +712,15 @@ class NuageDomainSubnet(object):
 
         nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
         nuagedhcpoptions.create_nuage_dhcp(
-            os_subnet,
+            ipv4_subnet,
             parent_id=vsd_subnet['ID'],
             network_type=constants.NETWORK_TYPE_L3)
+
+        if ipv6_subnet:
+            nuagedhcpoptions.create_nuage_dhcp(
+                ipv6_subnet,
+                parent_id=vsd_subnet['ID'],
+                network_type=constants.NETWORK_TYPE_L3)
 
         if pnet_binding:
             # Get netpart id needed in process_provider_network to check the
@@ -698,16 +730,20 @@ class NuageDomainSubnet(object):
             domain = self.restproxy.get(nuage_l3domain.get_resource())[0]
             np_id = helper.get_l3domain_np_id(self.restproxy, domain['ID'])
 
-            pnet_params = {
-                'pnet_binding': pnet_binding,
-                'nuage_subnet_id': vsd_subnet['ID'],
-                'netpart_id': np_id,
-                'neutron_subnet_id': os_subnet['id']
-            }
-            pnet_helper.process_provider_network(self.restproxy,
-                                                 self.policygroups,
-                                                 pnet_params)
+            self._process_provider_network(pnet_binding, vsd_subnet['ID'],
+                                           np_id, ipv4_subnet['id'])
+            if ipv6_subnet:
+                self._process_provider_network(pnet_binding, vsd_subnet['ID'],
+                                               np_id, ipv6_subnet['id'])
         return vsd_subnet
+
+    def _process_provider_network(
+            self, pnet_binding, vsd_subnet_id, np_id, subnet_id):
+        pnet_params = helper.get_pnet_params(
+            pnet_binding, vsd_subnet_id, np_id, subnet_id)
+        pnet_helper.process_provider_network(self.restproxy,
+                                             self.policygroups,
+                                             pnet_params)
 
     def delete_domain_subnet(self, nuage_subn_id, neutron_subn_id,
                              pnet_binding):
