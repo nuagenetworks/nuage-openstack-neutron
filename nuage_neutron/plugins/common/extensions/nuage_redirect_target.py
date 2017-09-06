@@ -17,6 +17,7 @@ import netaddr
 from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import base
+from neutron.common import exceptions as n_common_exception
 from neutron.quota import resource_registry
 from neutron_lib.api import extensions as api_extensions
 from neutron_lib import constants as lib_constants
@@ -130,7 +131,7 @@ def convert_ip_prefix_to_cidr(ip_prefix):
         cidr = netaddr.IPNetwork(ip_prefix)
         return str(cidr)
     except (ValueError, TypeError, netaddr.AddrFormatError):
-        raise nexception.InvalidCIDR(input=ip_prefix)
+        raise n_common_exception.InvalidCIDR(input=ip_prefix)
 
 
 # Attribute Map
