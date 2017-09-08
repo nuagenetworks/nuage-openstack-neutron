@@ -729,7 +729,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             np_id = subnet_mapping['net_partition_id']
             nuage_subnet, _ = self._get_nuage_subnet(
                 subnet_mapping, subnet_mapping['nuage_subnet_id'])
-            if self._port_should_have_vm(port):
+            if port.get('binding:host_id') and self._port_should_have_vm(port):
                 self._validate_vmports_same_netpartition(db_context,
                                                          port, np_id)
                 desc = ("device_owner:" + constants.NOVA_PORT_OWNER_PREF +
@@ -831,6 +831,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
             host_added = True
         elif original['binding:host_id'] and not port['binding:host_id']:
             host_removed = True
+        elif (original['device_owner'] and not port['device_owner'] and
+              original['device_owner'] == LB_DEVICE_OWNER_V2):
+            host_removed = True
         self._port_device_change(context, db_context, nuage_vport,
                                  original, port,
                                  subnet_mapping, host_added,
@@ -925,7 +928,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             self.delete_gw_host_vport(db_context, port, subnet_mapping)
             return
 
-        if self._port_should_have_vm(port):
+        if port.get('binding:host_id'):
             np_name = self.vsdclient.get_net_partition_name_by_id(
                 subnet_mapping['net_partition_id'])
             require(np_name, "netpartition",
@@ -1486,11 +1489,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _delete_nuage_vm(self, db_context, port, np_name, subnet_mapping,
                          is_port_device_owner_removed=False):
-        # upstream neutron_lbaas assigns a constant device_id to all the
-        # lbaas_ports (which is a bug), hence we use port ID as vm_id
-        # instead of device_id for lbaas dummy VM
-        # as get_ports by device_id would return multiple vip_ports,
-        # as workaround set no_of_ports = 1
         if port.get('device_owner') in [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP]:
             no_of_ports = 1
             vm_id = port['id']
