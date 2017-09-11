@@ -21,6 +21,7 @@ from neutron._i18n import _
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
+from neutron.services.trunk import constants as t_const
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as n_const
 
@@ -36,16 +37,14 @@ from nuage_neutron.plugins.nuage_baremetal import sg_callback
 
 
 LOG = logging.getLogger(__name__)
+TRUNK_DEVICE_OWNER = t_const.TRUNK_SUBPORT_OWNER
 
 driver_opts = [
     cfg.StrOpt('provisioning_driver',
                default='nuage_gateway_bridge',
                help=_("Network provisioning driver for "
-                      "baremetal/sriov instances")),
-    cfg.IntOpt('segmentation_id',
-               default=4095,
-               help=_("Segmentation id to use for provisioning"))
-]
+                      "baremetal/sriov instances"))]
+
 cfg.CONF.register_opts(driver_opts, "baremetal")
 
 
@@ -68,7 +67,6 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         self.psec_handler = portsecurity_callback.NuagePortSecurityHandler(
             self.vsdclient)
         self.np_driver = self._load_driver()
-        self.SEGMENTATION_ID_BAREMETAL = self.conf.baremetal.segmentation_id
         LOG.debug('Initializing complete')
 
     def _load_driver(self):
@@ -106,6 +104,21 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
                 wrapped = ignore_not_found(wrapped)
             setattr(self.vsdclient, m[0], wrapped)
 
+    def _segmentation_id(self, context, port):
+        # Calculate segmentation id to be used at port create
+        if (port.get('device_owner') == TRUNK_DEVICE_OWNER and
+                port.get(portbindings.PROFILE)):
+            return port[portbindings.PROFILE]['vlan']
+
+        network = self.core_plugin.get_network(context,
+                                               port.get('network_id'))
+        is_vlan_transparant = (network.get('vlan_transparent')
+                               if network is not None else False)
+        if is_vlan_transparant:
+            return 4095
+        else:
+            return 0
+
     @handle_nuage_api_errorcode
     @utils.context_log
     def create_port_precommit(self, context):
@@ -122,9 +135,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         port = context.current
         if self._can_bind(context):
             if port['binding:host_id']:
-                port_dict = self._make_port_dict(
-                    context,
-                    self.SEGMENTATION_ID_BAREMETAL)
+                port_dict = self._make_port_dict(context)
                 self.np_driver.create_port(port_dict)
 
     @handle_nuage_api_errorcode
@@ -152,15 +163,11 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             if (context.original.get('binding:vif_type') not in
                     [portbindings.VIF_TYPE_BINDING_FAILED,
                      portbindings.VIF_TYPE_UNBOUND]):
-                segmentation_id = context.original.get(
-                    'binding:vif_details')['vlan']
                 port_dict = self._make_port_dict(context,
-                                                 segmentation_id,
-                                                 context.original)
+                                                 port=context.original)
                 self.np_driver.delete_port(port_dict)
         elif host_added:
-            port_dict = self._make_port_dict(context,
-                                             self.SEGMENTATION_ID_BAREMETAL)
+            port_dict = self._make_port_dict(context)
             self.np_driver.create_port(port_dict)
 
     @utils.context_log
@@ -171,10 +178,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             try:
                 vif_details = context.current.get('binding:vif_details')
                 if vif_details:
-                    segmentation_id = (context.current.get(
-                        'binding:vif_details').get('vlan') or
-                        self.SEGMENTATION_ID_BAREMETAL)
-                    port_dict = self._make_port_dict(context, segmentation_id)
+                    port_dict = self._make_port_dict(context)
                     if port_dict:
                         self.np_driver.delete_port(port_dict)
             except Exception as e:
@@ -185,13 +189,14 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         """bind_port."""
         if context.binding_levels:
             return  # we've already got a top binding
-
+        db_context = context._plugin_context
         port_id = context.current['id']
         for segment in context.segments_to_bind:
             if self._check_segment(segment, context):
                 if self._can_bind(context):
                         vif_binding = self.vif_details
-                        vif_binding['vlan'] = self.SEGMENTATION_ID_BAREMETAL
+                        vif_binding['vlan'] = self._segmentation_id(
+                            db_context, context.current)
                         context.set_binding(segment[api.ID],
                                             portbindings.VIF_TYPE_OTHER,
                                             vif_binding,
@@ -245,7 +250,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         network_type = segment[api.NETWORK_TYPE]
         return network_type in [p_constants.TYPE_VXLAN]
 
-    def _make_port_dict(self, context, segmentation_id=None, port=None):
+    def _make_port_dict(self, context, port=None):
         """Get required info from neutron port.
 
         Combine everything to a single dict.
@@ -285,10 +290,10 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         subnet = context._plugin.get_subnet(context._plugin_context,
                                             subnet_mapping['subnet_id'])
         port_dict['enable_dhcp'] = subnet['enable_dhcp']
-        if segmentation_id is not None:
-            port_dict['segmentation_id'] = segmentation_id
-        else:
-            port_dict['segmentation_id'] = self.SEGMENTATION_ID_BAREMETAL
+
+        db_context = context._plugin_context
+        port_dict['segmentation_id'] = self._segmentation_id(db_context,
+                                                             port)
 
         LOG.debug("port dict  %(port_dict)s",
                   {'port_dict': port_dict})
@@ -327,3 +332,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
                                                         subnet_id)
         return subnet_mapping
+
+    def check_vlan_transparency(self, context):
+        # Nuage baremetal vlan transparency support
+        return True
