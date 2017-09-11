@@ -23,6 +23,7 @@ from oslo_utils import excutils
 
 from neutron._i18n import _
 from neutron.api import extensions as neutron_extensions
+from neutron.db import agents_db
 from neutron.db import db_base_plugin_v2
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.ml2 import plugin as ml2_plugin
@@ -40,6 +41,7 @@ from neutron_lib.plugins import directory
 from neutron_lib.plugins.ml2 import api
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
+from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common.exceptions import \
@@ -60,9 +62,7 @@ from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import IsSet
 from nuage_neutron.plugins.common.validation import require
 from nuage_neutron.plugins.common.validation import validate
-
 from nuage_neutron.plugins.nuage_ml2 import extensions  # noqa
-from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageML2Wrapper
 from nuage_neutron.plugins.nuage_ml2.securitygroup import NuageSecurityGroup
 from nuage_neutron.plugins.nuage_ml2 import trunk_driver
 
@@ -120,7 +120,10 @@ def _is_trunk_subport(port):
     return t_consts.TRUNK_SUBPORT_OWNER == port.get('device_owner')
 
 
-class NuageMechanismDriver(NuageML2Wrapper):
+class NuageMechanismDriver(base_plugin.RootNuagePlugin,
+                           api.MechanismDriver,
+                           db_base_plugin_v2.NeutronDbPluginV2,
+                           agents_db.AgentDbMixin):
 
     def __init__(self):
         self._core_plugin = None

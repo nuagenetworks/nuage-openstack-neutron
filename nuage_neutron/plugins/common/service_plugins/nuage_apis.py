@@ -15,26 +15,35 @@
 import functools
 import netaddr
 
-from neutron._i18n import _
-from neutron.db import api as db
-from neutron.db import db_base_plugin_v2
-
-from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
+from neutron._i18n import _
+from neutron.db import api as db
+from neutron.db import db_base_plugin_v2
+from neutron.db import securitygroups_db as sg_db
+
+from neutron_lib import exceptions as n_exc
+from neutron_lib.services import base as service_base
+
+from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
+from nuage_neutron.plugins.common import externalsg
+from nuage_neutron.plugins.common import gateway
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
-from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageApiWrapper
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
 LOG = logging.getLogger(__name__)
 
 
-class NuageApi(NuageApiWrapper):
+class NuageApi(base_plugin.BaseNuagePlugin,
+               service_base.ServicePluginBase,
+               externalsg.NuageexternalsgMixin,
+               gateway.NuagegatewayMixin,
+               sg_db.SecurityGroupDbMixin):
     supported_extension_aliases = ['net-partition', 'nuage-gateway',
                                    'vsd-resource',
                                    'nuage-external-security-group',

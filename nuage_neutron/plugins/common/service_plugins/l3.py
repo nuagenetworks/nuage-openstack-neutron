@@ -14,15 +14,7 @@
 
 import copy
 from logging import handlers
-
 import netaddr
-from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuage_neutron.plugins.common.extensions import nuage_router
-from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common import utils as nuage_utils
-from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
-from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 from oslo_config import cfg
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
@@ -30,24 +22,44 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from sqlalchemy.orm import exc
 
+from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import exceptions as nuage_exc
+from nuage_neutron.plugins.common.extensions import nuage_router
+from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import utils as nuage_utils
+
+from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
+from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
+from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
+
 from neutron._i18n import _
 from neutron.db import api as db
+from neutron.db.common_db_mixin import CommonDbMixin
+from neutron.db import dns_db
+from neutron.db import extraroute_db
+from neutron.db import l3_gwmode_db
 
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.plugins import directory
+from neutron_lib.services import base as service_base
 from neutron_lib.utils import helpers
 
+from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import routing_mechanisms
-from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageL3Wrapper
 
 
 LOG = logging.getLogger(__name__)
 
 
-class NuageL3Plugin(NuageL3Wrapper):
+class NuageL3Plugin(base_plugin.BaseNuagePlugin,
+                    service_base.ServicePluginBase,
+                    CommonDbMixin,
+                    extraroute_db.ExtraRoute_db_mixin,
+                    l3_gwmode_db.L3_NAT_db_mixin,
+                    dns_db.DNSDbMixin):
     supported_extension_aliases = ['router',
                                    'nuage-router',
                                    'nuage-floatingip',
@@ -854,12 +866,19 @@ class NuageL3Plugin(NuageL3Wrapper):
             n_vport = self.vsdclient.get_vport_assoc_with_fip(nuage_fip_id)
             if n_vport and n_vport['ID'] != nuage_vport['ID']:
                 needs_fip_association = True
+                old_os_port_id = strip_cms_id(n_vport['externalID'])
                 disassoc_params = {
                     'nuage_vport_id': n_vport['ID'],
                     'nuage_fip_id': None
                 }
                 self.vsdclient.update_nuage_vm_vport(disassoc_params)
-
+                self.vsdclient.delete_rate_limiting(
+                    n_vport['ID'], neutron_fip['id'])
+                self.fip_rate_log.info('FIP %s (owned by tenant %s) '
+                                       'disassociated from port %s' % (
+                                           neutron_fip['id'],
+                                           neutron_fip['tenant_id'],
+                                           old_os_port_id))
                 if (nuage_vport['domainID'] !=
                         ent_rtr_mapping['nuage_router_id']):
                     nuage_fip_id = self._move_fip_to_different_domain(
@@ -981,9 +1000,9 @@ class NuageL3Plugin(NuageL3Wrapper):
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuageL3Plugin, self).get_floatingip(context, id)
 
-        if (not fields or 'nuage_egress_fip_rate_kbps' in fields
-            or 'nuage_ingress_fip_rate_kbps' in fields) and fip.get(
-           'port_id'):
+        if ((not fields or 'nuage_egress_fip_rate_kbps' in fields or
+                'nuage_ingress_fip_rate_kbps' in fields) and
+                fip.get('port_id')):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
                 nuage_rate_limit = self.vsdclient.get_rate_limit(
@@ -1060,13 +1079,7 @@ class NuageL3Plugin(NuageL3Wrapper):
         # but VSD throws an exception
         nuage_vport = self._get_vport_for_fip(context, port_id, required=False)
         if nuage_vport and nuage_vport.get('associatedFloatingIPID'):
-            for fip in fips:
-                self.vsdclient.delete_rate_limiting(
-                    nuage_vport['ID'], fip['id'])
-                self.fip_rate_log.info('FIP %s (owned by tenant %s) '
-                                       'disassociated from port %s'
-                                       % (fip['id'], fip['tenant_id'],
-                                          port_id))
+
             params = {
                 'nuage_vport_id': nuage_vport['ID'],
                 'nuage_fip_id': None
@@ -1074,6 +1087,19 @@ class NuageL3Plugin(NuageL3Wrapper):
             self.vsdclient.update_nuage_vm_vport(params)
             LOG.debug("Disassociated floating ip from VM attached at port %s",
                       port_id)
+            for fip in fips:
+                self.vsdclient.delete_rate_limiting(
+                    nuage_vport['ID'], fip['id'])
+                self.fip_rate_log.info('FIP %s (owned by tenant %s) '
+                                       'disassociated from port %s'
+                                       % (fip['id'], fip['tenant_id'],
+                                          port_id))
+                params = {'fip_id': fip['id']}
+                nuage_fip = self.vsdclient.get_nuage_fip_by_id(params)
+                if nuage_fip:
+                    self.vsdclient.delete_nuage_floatingip(
+                        nuage_fip['nuage_fip_id'])
+                    LOG.debug('Floating-ip %s deleted from VSD', fip['id'])
 
         return router_ids
 
@@ -1148,8 +1174,8 @@ class NuageL3Plugin(NuageL3Wrapper):
             if 'port_id' in fip or fip.get('description'):
                 neutron_fip = super(NuageL3Plugin, self).update_floatingip(
                     context, id, floatingip)
-            last_known_router_id = (orig_fip['last_known_router_id']
-                                    or orig_fip['router_id'])
+            last_known_router_id = (orig_fip['last_known_router_id'] or
+                                    orig_fip['router_id'])
             if fip.get('port_id'):
                 if not neutron_fip['router_id']:
                     ret_msg = 'floating-ip is not associated yet'
