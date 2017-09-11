@@ -113,18 +113,6 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    def create_port_postcommit(self, context):
-        """create_port_postcommit."""
-        if self._can_bind(context):
-            port_dict = self._make_port_dict(context)
-            if port_dict:
-                try:
-                    self._create_port(port_dict)
-                except Exception as e:
-                    raise e
-
-    @handle_nuage_api_errorcode
-    @utils.context_log
     def update_port_precommit(self, context):
         """update_port_precommit."""
         port = context.current
@@ -139,30 +127,19 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 host_removed = True
 
             if host_removed:
-                segmentation_id = original.get('binding:vif_details')['vlan']
-                port_dict = self._make_port_dict(context,
-                                                 segmentation_id,
-                                                 original)
-                if port_dict:
-                    self._delete_port(port_dict)
+                self._delete_port(port)
             if host_added:
                 port_dict = self._make_port_dict(context)
                 if port_dict:
                     self._update_port(port_dict)
 
     @utils.context_log
-    def delete_port_postcommit(self, context):
+    def delete_port_precommit(self, context):
         """delete_port_postcommit."""
         if (context.current.get(portbindings.VNIC_TYPE, "")
                 in self._supported_vnic_types()):
             try:
-                vif_details = context.current.get('binding:vif_details')
-                segmentation_id = vif_details.get('vlan') or 0
-                port_dict = self._make_port_dict(context,
-                                                 segmentation_id,
-                                                 context.original)
-                if port_dict:
-                    self._delete_port(port_dict)
+                self._delete_port(context.current)
             except Exception as e:
                 LOG.error("Failed to delete vport from vsd {port id: %s}"
                           % context.current['id'])
@@ -381,8 +358,17 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         port = port_dict['port']
         gw_ports = port.get('link_info')
         segmentation_id = port_dict['segmentation_id']
+        ctx = neutron_context.get_admin_context()
+        vport_exist = ext_db.get_switchport_binding_by_neutron_port(
+            ctx,
+            port['id'],
+            segmentation_id)
+        if vport_exist:
+            LOG.debug("bridge port %(bp)s for port %(port_id)s already exist",
+                      {'bp': vport_exist['nuage_vport_id'],
+                       'port_id': vport_exist['neutron_port_id']})
+            return
         for gwport in gw_ports:
-            ctx = neutron_context.get_admin_context()
             vports = ext_db.get_switchport_bindings_by_switchport_vlan(
                 ctx,
                 gwport['port_id'],
@@ -452,40 +438,41 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
             return portbindings.VIF_TYPE_BINDING_FAILED
         return portbindings.VIF_TYPE_OTHER
 
-    def _delete_port(self, port_map):
+    def _delete_port(self, port):
         """delete_port. This call makes the REST request to VSD
 
         for un provision VLAN/VPort for the gateway port where
         sriov instance is connected.
         """
 
-        port = port_map['port']
         LOG.debug("delete_port with port_id %(port_id)s",
                   {'port_id': port['id']})
-        switchports = port.get('link_info') or []
-        for switchport in switchports:
-            ctx = neutron_context.get_admin_context()
-            bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
-                ctx, switchport['port_id'],
-                port_map['segmentation_id'])
-            if len(bindings) == 1:
-                vport = self.vsdclient.get_nuage_vport_by_id(
-                    bindings[0]['nuage_vport_id'],
-                    required=False)
-                if not vport:
-                    LOG.debug("couldn't find a vport")
-                else:
-                    LOG.debug("Deleting vport %(vport)s", {'vport': vport})
-                    self.vsdclient.delete_nuage_gateway_vport_no_usergroup(
-                        port['tenant_id'],
-                        vport)
-                    if vport.get('VLANID'):
-                        LOG.debug("Deleting vlan %(vlan)s",
-                                  {'vlan': vport['VLANID']})
-                        self.vsdclient.delete_gateway_port_vlan(
-                            vport['VLANID'])
-            ext_db.delete_switchport_binding(ctx, port['id'],
-                                             port_map['segmentation_id'])
+        ctx = neutron_context.get_admin_context()
+        binding = ext_db.get_switchport_binding_by_neutron_port(
+            ctx, port['id'])
+        if not binding:
+            return
+        bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
+            ctx, binding['switchport_uuid'],
+            binding['segmentation_id'])
+        if len(bindings) == 1:
+            vport = self.vsdclient.get_nuage_vport_by_id(
+                binding['nuage_vport_id'],
+                required=False)
+            if not vport:
+                LOG.debug("couldn't find a vport")
+            else:
+                LOG.debug("Deleting vport %(vport)s", {'vport': vport})
+                self.vsdclient.delete_nuage_gateway_vport_no_usergroup(
+                    port['tenant_id'],
+                    vport)
+                if vport.get('VLANID'):
+                    LOG.debug("Deleting vlan %(vlan)s",
+                              {'vlan': vport['VLANID']})
+                    self.vsdclient.delete_gateway_port_vlan(
+                        vport['VLANID'])
+        ext_db.delete_switchport_binding(ctx, port['id'],
+                                         binding['segmentation_id'])
 
     def _update_port(self, port_map):
         """update_port. This call makes the REST request to VSD
