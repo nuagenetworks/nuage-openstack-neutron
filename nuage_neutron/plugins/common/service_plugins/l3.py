@@ -22,8 +22,11 @@ from nuage_neutron.plugins.common.extensions import nuage_router
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
+
+from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
+
 from oslo_config import cfg
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
@@ -859,12 +862,19 @@ class NuageL3Plugin(NuageL3Wrapper):
             n_vport = self.vsdclient.get_vport_assoc_with_fip(nuage_fip_id)
             if n_vport and n_vport['ID'] != nuage_vport['ID']:
                 needs_fip_association = True
+                old_os_port_id = strip_cms_id(n_vport['externalID'])
                 disassoc_params = {
                     'nuage_vport_id': n_vport['ID'],
                     'nuage_fip_id': None
                 }
                 self.vsdclient.update_nuage_vm_vport(disassoc_params)
-
+                self.vsdclient.delete_rate_limiting(
+                    n_vport['ID'], neutron_fip['id'])
+                self.fip_rate_log.info('FIP %s (owned by tenant %s) '
+                                       'disassociated from port %s' % (
+                                           neutron_fip['id'],
+                                           neutron_fip['tenant_id'],
+                                           old_os_port_id))
                 if (nuage_vport['domainID'] !=
                         ent_rtr_mapping['nuage_router_id']):
                     nuage_fip_id = self._move_fip_to_different_domain(
@@ -1068,13 +1078,7 @@ class NuageL3Plugin(NuageL3Wrapper):
         # but VSD throws an exception
         nuage_vport = self._get_vport_for_fip(context, port_id, required=False)
         if nuage_vport and nuage_vport.get('associatedFloatingIPID'):
-            for fip in fips:
-                self.vsdclient.delete_rate_limiting(
-                    nuage_vport['ID'], fip['id'])
-                self.fip_rate_log.info('FIP %s (owned by tenant %s) '
-                                       'disassociated from port %s'
-                                       % (fip['id'], fip['tenant_id'],
-                                          port_id))
+
             params = {
                 'nuage_vport_id': nuage_vport['ID'],
                 'nuage_fip_id': None
@@ -1082,6 +1086,19 @@ class NuageL3Plugin(NuageL3Wrapper):
             self.vsdclient.update_nuage_vm_vport(params)
             LOG.debug("Disassociated floating ip from VM attached at port %s",
                       port_id)
+            for fip in fips:
+                self.vsdclient.delete_rate_limiting(
+                    nuage_vport['ID'], fip['id'])
+                self.fip_rate_log.info('FIP %s (owned by tenant %s) '
+                                       'disassociated from port %s'
+                                       % (fip['id'], fip['tenant_id'],
+                                          port_id))
+                params = {'fip_id': fip['id']}
+                nuage_fip = self.vsdclient.get_nuage_fip_by_id(params)
+                if nuage_fip:
+                    self.vsdclient.delete_nuage_floatingip(
+                        nuage_fip['nuage_fip_id'])
+                    LOG.debug('Floating-ip %s deleted from VSD', fip['id'])
 
         return router_ids
 
