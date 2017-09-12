@@ -15,6 +15,7 @@
 import contextlib
 import functools
 import logging
+import netaddr
 import re
 
 try:
@@ -748,13 +749,14 @@ def make_subnet_dict(subnet):
 
 
 def get_in_adv_fwd_policy(restproxy_serv, parent_type, parent_id):
+    response = None
     nuageadvfwdtmplt = nuagelib.NuageInAdvFwdTemplate()
     if parent_type == constants.L2DOMAIN:
         response = restproxy_serv.rest_call('GET',
                                             nuageadvfwdtmplt.get_resource_l2(
                                                 parent_id),
                                             '')
-    elif parent_type == 'domain':
+    elif parent_type == constants.DOMAIN:
         response = restproxy_serv.rest_call('GET',
                                             nuageadvfwdtmplt.get_resource_l3(
                                                 parent_id),
@@ -967,3 +969,28 @@ def get_l2_and_l3_sub_id(subnet_mapping):
         l2_id = None
         l3_id = subnet_mapping['nuage_subnet_id']
     return l2_id, l3_id
+
+
+def get_ipv6_vsd_data(ipv6_subnet):
+    if ipv6_subnet:
+        ip_network = netaddr.IPNetwork(ipv6_subnet['cidr'])
+        return {
+            'IPv6Address': str(ip_network.cidr),
+            'IPType': constants.DUALSTACK,
+            'IPv6Gateway': ipv6_subnet['gateway_ip']}
+    else:
+        return {
+            'IPv6Address': None,
+            'IPType': constants.IPV4,
+            'IPv6Gateway': None,
+        }
+
+
+def get_pnet_params(pnet_binding, vsd_subnet_id, np_id, subnet_id):
+        pnet_params = {
+            'pnet_binding': pnet_binding,
+            'nuage_subnet_id': vsd_subnet_id,
+            'netpart_id': np_id,
+            'neutron_subnet_id': subnet_id
+        }
+        return pnet_params

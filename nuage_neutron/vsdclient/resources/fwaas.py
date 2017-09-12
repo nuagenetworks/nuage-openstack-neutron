@@ -32,8 +32,8 @@ OS_ACTION_TO_VSD_STATEFUL = {
     'deny': False
 }
 OS_IPVERSION_TO_VSD_ETHERTYPE = {
-    4: '0x0800',
-    6: '0x86DD'
+    4: constants.IPV4_ETHERTYPE,
+    6: constants.IPV6_ETHERTYPE
 }
 
 

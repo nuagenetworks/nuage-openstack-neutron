@@ -42,8 +42,8 @@ fi
 IP_VERSION=4
 
 # Tempest options
-IPV6_ENABLED='False'
-IPV6_SUBNET_ATTRIBUTES_ENABLED='False'
+IPV6_ENABLED='True'
+IPV6_SUBNET_ATTRIBUTES_ENABLED='True'
 
 # Nuage ml2 mechanism driver extensions
 Q_ML2_PLUGIN_EXT_DRIVERS=${Q_ML2_PLUGIN_EXT_DRIVERS:-nuage_subnet,nuage_port,port_security}

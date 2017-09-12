@@ -97,12 +97,11 @@ def handle_nuage_api_errorcode(fn):
         try:
             return fn(*args, **kwargs)
         except RESTProxyError as e:
-            # raise nuage_exc.NuageBadRequest(msg=ERROR_DICT.get(
-            #     str(e.vsd_code), e.message)), None, sys.exc_info()[2]
-            e = nuage_exc.NuageBadRequest(msg=ERROR_DICT.get(
-                str(e.vsd_code), e.message))
-            e.__traceback__ = sys.exc_info()[2]
-            raise e
+            _, _, tb = sys.exc_info()
+            six.reraise(nuage_exc.NuageBadRequest,
+                        nuage_exc.NuageBadRequest(
+                            msg=ERROR_DICT.get(str(e.vsd_code), e.message)),
+                        tb)
 
     return wrapped
 
@@ -190,8 +189,7 @@ def rollback():
 
 
 def get_auto_create_port_owners():
-    return [neutron_constants.DEVICE_OWNER_DHCP,
-            neutron_constants.DEVICE_OWNER_ROUTER_INTF,
+    return [neutron_constants.DEVICE_OWNER_ROUTER_INTF,
             neutron_constants.DEVICE_OWNER_ROUTER_GW,
             neutron_constants.DEVICE_OWNER_FLOATINGIP,
             nuage_constants.DEVICE_OWNER_VIP_NUAGE,

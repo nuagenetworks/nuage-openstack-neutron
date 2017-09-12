@@ -24,11 +24,13 @@ RES_EXISTS_INTERNAL_ERR_CODE = '2510'
 VSD_NO_ATTR_CHANGES_TO_MODIFY_ERR_CODE = '2039'
 VSD_IP_IN_USE_ERR_CODE = '2704'
 VSD_PRIORITY_CONFLICT_ERR_CODE = '2591'
+VSD_VM_ALREADY_RESYNC = '2715'
 
 PROTO_NAME_TO_NUM = {
     'tcp': 6,
     'udp': 17,
-    'icmp': 1
+    'icmp': 1,
+    'icmpv6': 58
 }
 NUAGE_ACL_INGRESS = 'ingress'
 NUAGE_ACL_EGRESS = 'egress'
@@ -57,10 +59,8 @@ DEF_L2DOM_TEMPLATE_PFIX = '_def_L2_Template'
 TEMPLATE_ISOLATED_ZONE = 'openstack-isolated'
 TEMPLATE_SHARED_ZONE = 'openstack-shared'
 
-NUAGE_NOTSUPPORTED_ETHERTYPE = ['IPv6']
-NUAGE_NOTSUPPORTED_ACL_MATCH = ['ethertype value IPv6']
-NOT_SUPPORTED_ACL_ATTR_MSG = (','.join(NUAGE_NOTSUPPORTED_ACL_MATCH) +
-                              " attribute(s) not supported by nuage plugin")
+NOT_SUPPORTED_ACL_ATTR_MSG = "ethertype value: %s not supported by nuage " \
+                             "plugin"
 NUAGE_ACL_PROTOCOL_ANY_MAPPING = ['tcp', 'udp']
 RES_POLICYGROUPS = 'policygroups'
 
@@ -75,6 +75,25 @@ UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
 NETWORK_TYPE_L2 = 'l2'
 NETWORK_TYPE_L3 = 'l3'
 
+IPV4_ETHERTYPE = '0x0800'
+IPV6_ETHERTYPE = '0x86DD'
+
+DUALSTACK = "DUALSTACK"
+IPV4 = "IPV4"
+IPV6 = "IPV6"
+OS_IPV4 = "IPv4"
+OS_IPV6 = "IPv6"
+
+NUAGE_SUPPORTED_ETHERTYPES = [OS_IPV4, OS_IPV6]
+NUAGE_SUPPORTED_ETHERTYPES_IN_HEX = [IPV4_ETHERTYPE, IPV6_ETHERTYPE]
+
+ANY_IPV4_IP = '0.0.0.0/0'
+ANY_IPV6_IP = '::/0'
+
+IPV4_VERSION = 4
+IPV6_VERSION = 6
+
+
 NUAGE_PAT_DEF_ENABLED = 'default_enabled'
 NUAGE_PAT_DEF_DISABLED = 'default_disabled'
 
@@ -84,6 +103,7 @@ DISABLED = 'DISABLED'
 INHERITED = 'INHERITED'
 BRIDGE_VPORT_TYPE = 'BRIDGE'
 HOST_VPORT_TYPE = 'HOST'
+DOMAIN = 'domain'
 L2DOMAIN = 'l2domain'
 SUBNET = 'subnet'
 ASSIGN_VLAN = 'assign'
@@ -103,10 +123,6 @@ VSD_TUNNEL_TYPES = {
     'DEFAULT': 'DC_DEFAULT'
 }
 
-HEX_ELEM = '[0-9A-Fa-f]'
-UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
-                         HEX_ELEM + '{4}', HEX_ELEM + '{4}',
-                         HEX_ELEM + '{12}'])
 INFINITY = 'INFINITY'
 
 TIER_STANDARD = 'STANDARD'

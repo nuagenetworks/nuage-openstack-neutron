@@ -248,13 +248,14 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[])
+    @mock.patch.object(NuageMechanismDriver, '_create_vsd_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_nuage_id_and_ipversion',
                        return_value=[])
-    def test_create_vsd_mgd_subnet_precommit(self, m1, m2, m3, m4, m5):
+    def test_create_vsd_mgd_subnet_precommit(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -264,40 +265,23 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'network_id': '1',
                   'nuagenet': '0x100',
                   'net_partition': 'lalaland',
-                  'ip_version': 4}
+                  'ip_version': 4,
+                  'gateway_ip': None}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
-                       return_value=[])
-    def test_create_v6_subnet_precommit(self, m1, m2):
-        nmd = self.get_me_a_nmd()
-
-        network = {'id': '1',
-                   'provider:network_type': 'vxlan',
-                   'router:external': False}
-        subnet = {'id': '10',
-                  'network_id': '1',
-                  'ip_version': 6}
-        try:
-            nmd.create_subnet_precommit(Context(network, subnet))
-            self.fail('Subnet precommit should not have succeeded')
-        except NuageBadRequest as e:
-            self.assertEqual('Bad request: Subnet with ip_version 6 is '
-                             'currently not supported for OpenStack managed '
-                             'subnets.', str(e))
-
-    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets')
+    @mock.patch.object(NuageMechanismDriver, '_create_vsd_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
     @mock.patch.object(nuagedb,
                        'get_subnet_l2dom_by_nuage_id_and_ipversion',
                        return_value=[])
-    def test_create_vsd_mgd_v6_subnet_precommit(
-            self, m1, m2, m3, m4, m5):
+    @mock.patch.object(nuagedb, 'get_net_partition_by_id',
+                       return_value={'id': 1})
+    def test_create_vsd_mgd_v6_subnet_precommit(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -308,29 +292,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'nuagenet': '0x100',
                   'net_partition': 'lalaland',
                   'ip_version': 6}
-
-        nmd.create_subnet_precommit(Context(network, subnet))
-
-    # EXPERIMENTAL FEATURES
-
-    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    @mock.patch.object(NuageMechanismDriver, '_network_is_external',
-                       return_value=False)
-    @mock.patch.object(NuageMechanismDriver, 'get_subnets',
-                       return_value=[])
-    @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
-                       return_value=[])
-    def test_create_subnet_precommit_default(self, m1, m2, m3, m4):
-        nmd = self.get_me_a_nmd()
-
-        network = {'id': '1',
-                   'provider:network_type': 'vxlan',
-                   'router:external': False}
-        subnet = {'id': '10',
-                  'network_id': '1',
-                  'ip_version': 4,
-                  'cidr': '10.10.1.0/24',
-                  'gateway_ip': '10.10.1.1'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
@@ -341,13 +302,14 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=False)
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[])
+    @mock.patch.object(NuageMechanismDriver,
+                       '_create_openstack_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_net_partition_by_id',
                        return_value={'id': 1})
     @mock.patch.object(NuageMechanismDriver, '_create_nuage_subnet')
-    def test_create_subnet_precommit_and_postcommit_default(
-            self, m1, m2, m3, m4, m5, m6, m7):
+    def test_create_subnet_precommit_default(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -359,9 +321,178 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'cidr': '10.10.1.0/24',
                   'gateway_ip': '10.10.1.1'}
 
-        context = Context(network, subnet)
-        nmd.create_subnet_precommit(context)
-        nmd.create_subnet_postcommit(context)
+        nmd.create_subnet_precommit(Context(network, subnet))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    @mock.patch.object(NuageMechanismDriver, 'get_subnets')
+    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
+                       return_value=[])
+    @mock.patch.object(NuageMechanismDriver,
+                       '_create_openstack_managed_subnet')
+    @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
+    @mock.patch.object(nuagedb,
+                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
+                       return_value=[])
+    def test_create_v6_subnet_precommit(self, *mocks):
+        nmd = self.get_me_a_nmd()
+
+        network = {'id': '1',
+                   'provider:network_type': 'vxlan',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'ip_version': 6}
+
+        if config.InternalFeatureFlags.OS_MGD_IPV6:
+            nmd.create_subnet_precommit(Context(network, subnet))
+        else:
+            try:
+                nmd.create_subnet_precommit(Context(network, subnet))
+                self.fail('This is a negative test and was not meant to pass.')
+
+            except NuageBadRequest as e:
+                self.assertEqual(
+                    'Bad request: Subnet with ip_version 6 is currently not '
+                    'supported for OpenStack managed subnets.', str(e))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    @mock.patch.object(NuageMechanismDriver, 'get_subnets',
+                       return_value=[{'id': 'subnet1', 'ip_version': 6},
+                                     {'id': 'subnet2', 'ip_version': 6}])
+    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
+                       return_value=[])
+    @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
+    @mock.patch.object(nuagedb,
+                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
+                       return_value=[])
+    def test_create_two_v6_subnets_precommit(self, m1, m2, m3, m4, m5, m6):
+        nmd = self.get_me_a_nmd()
+
+        network = {'id': '1',
+                   'provider:network_type': 'vxlan',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'ip_version': 6}
+        try:
+            nmd.create_subnet_precommit(Context(network, subnet))
+            self.fail('This is a negative test and was not meant to pass.')
+
+        except NuageBadRequest as e:
+            if config.InternalFeatureFlags.OS_MGD_IPV6:
+                self.assertEqual('Bad request: A network with an ipv6 subnet '
+                                 'may only have maximum 1 ipv4 and 1 ipv6 '
+                                 'subnet', str(e))
+            else:
+                self.assertEqual(
+                    'Bad request: Subnet with ip_version 6 is currently not '
+                    'supported for OpenStack managed subnets.', str(e))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    @mock.patch.object(NuageMechanismDriver, 'get_subnets',
+                       return_value=[{'id': 'subnet1', 'ip_version': 4}])
+    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
+                       return_value=[])
+    @mock.patch.object(NuageMechanismDriver,
+                       '_create_openstack_managed_subnet')
+    @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
+    @mock.patch.object(nuagedb,
+                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
+                       return_value=[])
+    def test_create_v4_v6_subnet_precommit(self, *mocks):
+        nmd = self.get_me_a_nmd()
+
+        network = {'id': '1',
+                   'provider:network_type': 'vxlan',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'ip_version': 6}
+
+        if config.InternalFeatureFlags.OS_MGD_IPV6:
+            nmd.create_subnet_precommit(Context(network, subnet))
+        else:
+            try:
+                nmd.create_subnet_precommit(Context(network, subnet))
+                self.fail('This is a negative test and was not meant to pass.')
+
+            except NuageBadRequest as e:
+                self.assertEqual(
+                    'Bad request: Subnet with ip_version 6 is currently not '
+                    'supported for OpenStack managed subnets.', str(e))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    @mock.patch.object(NuageMechanismDriver, 'get_subnets',
+                       return_value=[{'id': 'subnet1', 'ip_version': 4},
+                                     {'id': 'subnet2', 'ip_version': 4},
+                                     {'id': 'subnet2', 'ip_version': 6}])
+    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
+                       return_value=[])
+    @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
+    @mock.patch.object(nuagedb,
+                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
+                       return_value=[])
+    def test_create_two_v4_v6_subnets_precommit(self, m1, m2, m3, m4, m5, m6):
+        nmd = self.get_me_a_nmd()
+
+        network = {'id': '1',
+                   'provider:network_type': 'vxlan',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'ip_version': 6}
+        try:
+            nmd.create_subnet_precommit(Context(network, subnet))
+            self.fail('This is a negative test and was not meant to pass.')
+
+        except NuageBadRequest as e:
+            if config.InternalFeatureFlags.OS_MGD_IPV6:
+                self.assertEqual('Bad request: A network with an ipv6 subnet '
+                                 'may only have maximum 1 ipv4 and 1 ipv6 '
+                                 'subnet', str(e))
+            else:
+                self.assertEqual(
+                    'Bad request: Subnet with ip_version 6 is currently not '
+                    'supported for OpenStack managed subnets.', str(e))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    @mock.patch.object(NuageMechanismDriver, 'get_subnets',
+                       return_value=[{'id': 'subnet1', 'ip_version': 4},
+                                     {'id': 'subnet2', 'ip_version': 6},
+                                     {'id': 'subnet2', 'ip_version': 4}])
+    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
+                       return_value=[])
+    @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
+    @mock.patch.object(nuagedb,
+                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
+                       return_value=[])
+    def test_create_v4_v6_v4_subnets_precommit(self, m1, m2, m3, m4, m5, m6):
+        nmd = self.get_me_a_nmd()
+
+        network = {'id': '1',
+                   'provider:network_type': 'vxlan',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'ip_version': 6}
+        try:
+            nmd.create_subnet_precommit(Context(network, subnet))
+            self.fail('This is a negative test and was not meant to pass.')
+
+        except NuageBadRequest as e:
+            if config.InternalFeatureFlags.OS_MGD_IPV6:
+                self.assertEqual('Bad request: A network with an ipv6 subnet '
+                                 'may only have maximum 1 ipv4 and 1 ipv6 '
+                                 'subnet', str(e))
+            else:
+                self.assertEqual(
+                    'Bad request: Subnet with ip_version 6 is currently not '
+                    'supported for OpenStack managed subnets.', str(e))
 
     # EXPERIMENTAL FEATURES
 

@@ -34,6 +34,10 @@ class NuageNotFound(n_exc.NotFound):
     message = _("%(resource)s %(resource_id)s could not be found")
 
 
+class NuageDualstackSubnetNotFound(n_exc.ObjectNotFound):
+    message = _("%(resource)s could not be found so retrying")
+
+
 class NuageNotAuthorized(n_exc.NotAuthorized):
     message = _("Not authorized for this operation: %(msg)s")
 

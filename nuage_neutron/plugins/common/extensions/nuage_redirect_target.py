@@ -91,7 +91,7 @@ def convert_protocol(value):
         return
     try:
         val = int(value)
-        if val >= 0 and val <= 142:
+        if 0 <= val <= 142:
             # Set value of protocol number to string due to bug 1381379,
             # PostgreSQL fails when it tries to compare integer with string,
             # that exists in db.
@@ -117,7 +117,7 @@ def convert_validate_port_value(port):
         raise RedirectTargetRuleInvalidPortValue(port=port)
 
     # VSD requires port number 0 not valid
-    if val >= 1 and val <= 65535:
+    if 1 <= val <= 65535:
         return val
     else:
         raise RedirectTargetRuleInvalidPortValue(port=port)
