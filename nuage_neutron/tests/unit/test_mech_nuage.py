@@ -16,7 +16,7 @@
 # python -m testtools.run nuage_neutron/tests/unit/test_mech_nuage.py
 
 from neutron.conf import common as core_config
-from neutron.plugins.ml2 import config as ml2_config
+from neutron.conf.plugins.ml2 import config as ml2_config
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common import config
@@ -49,6 +49,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.fail('Fix your setup.')
 
     def set_config_fixture(self, config_type=ConfigTypes.MINIMAL_CONFIG):
+        ml2_config.register_ml2_plugin_opts()
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
 
         conf.config(group='RESTPROXY', server='localhost:9876')

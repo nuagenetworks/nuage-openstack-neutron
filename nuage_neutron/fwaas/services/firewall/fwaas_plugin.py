@@ -19,7 +19,6 @@ import logging
 from neutron._i18n import _
 from neutron.db import api as db_api
 from neutron.plugins.common import constants as const
-from neutron.plugins.ml2 import config
 from neutron_fwaas.services.firewall import fwaas_plugin as original
 from neutron_lib import exceptions
 
@@ -32,8 +31,8 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils
 
 LOG = logging.getLogger(__name__)
-config.cfg.CONF.import_opt('router_distributed',
-                           'neutron.db.l3_dvr_db')
+cfg.CONF.import_opt('router_distributed',
+                    'neutron.db.l3_dvr_db')
 
 
 class NuageNoOpAgent(original.FirewallAgentApi):
