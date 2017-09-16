@@ -77,6 +77,7 @@ class NuageTrunkHandler(object):
             LOG.debug("Ignoring trunk status change for port"
                       " %s due to unsupported VNIC type",
                       updated_port.get('id'))
+            return
 
         context = kwargs['context']
         if trunk_details.get('trunk_id'):
