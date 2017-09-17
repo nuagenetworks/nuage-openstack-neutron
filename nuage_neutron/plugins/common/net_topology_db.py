@@ -58,6 +58,19 @@ def get_switchport_bindings_by_switchport_mapping(context,
     return query.filter_by(switchport_mapping_id=switchport_mapping_id).all()
 
 
+def get_switchport_binding_by_neutron_port(context,
+                                           port_id,
+                                           segmentation_id=None):
+    """Get switch port binding that matches neutron port """
+    query = (
+        context.session.query(nuage_models.NuageSwitchportBinding)
+        .filter_by(neutron_port_id=port_id)
+    )
+    if segmentation_id:
+        query = query.filter_by(segmentation_id=segmentation_id)
+    return query.first()
+
+
 def add_switchport_binding(context, binding):
     """Add switch port to neutron net mapping."""
     session = context.session
