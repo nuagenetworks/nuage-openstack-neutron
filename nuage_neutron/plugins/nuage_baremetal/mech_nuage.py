@@ -34,7 +34,7 @@ from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
 from nuage_neutron.plugins.nuage_baremetal import portsecurity_callback
 from nuage_neutron.plugins.nuage_baremetal import sg_callback
-
+from nuage_neutron.plugins.nuage_baremetal import trunk_driver
 
 LOG = logging.getLogger(__name__)
 TRUNK_DEVICE_OWNER = t_const.TRUNK_SUBPORT_OWNER
@@ -67,6 +67,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         self.psec_handler = portsecurity_callback.NuagePortSecurityHandler(
             self.vsdclient)
         self.np_driver = self._load_driver()
+        self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         LOG.debug('Initializing complete')
 
     def _load_driver(self):
