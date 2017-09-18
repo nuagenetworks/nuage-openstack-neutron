@@ -577,7 +577,8 @@ def make_gw_port_dict(port):
         'gw_port_status': port['status'],
         'gw_port_phy_name': port['physicalName'],
         'gw_port_vlan': port['VLANRange'],
-        'gw_port_mnemonic': port['userMnemonic']
+        'gw_port_mnemonic': port['userMnemonic'],
+        'gw_redundant_port_id': port.get('associatedRedundantPortID')
     }
     return ret
 
