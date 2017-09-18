@@ -911,6 +911,8 @@ class NuageEntProfile(NuageServerBaseClass):
 
 
 class NuageVM(NuageServerBaseClass):
+    resource = 'vms'
+
     def post_resource(self):
         return '/vms'
 
@@ -2475,3 +2477,7 @@ class TrunkInterface(VsdChildResource):
 
 class Policygroup(VsdChildResource):
     resource = 'policygroups'
+
+
+class Resync(VsdChildResource):
+    resource = 'resync'

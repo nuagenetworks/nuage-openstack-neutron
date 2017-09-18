@@ -21,10 +21,9 @@ import time
 
 from neutron._i18n import _
 from neutron.agent.linux.interface import OVSInterfaceDriver
-
-import nuage_neutron.lbaas.common.exceptions as nuage_exc
-
 from oslo_log import log as logging
+
+import nuage_neutron.agent.linux.exceptions as nuage_exc
 
 LOG = logging.getLogger(__name__)
 
