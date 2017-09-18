@@ -132,6 +132,8 @@ class NuageBmSecurityGroupHandler(object):
         context = kwargs['context']
         updated_port = kwargs['port']
         original_port = kwargs['original_port']
+        if len(updated_port['fixed_ips']) == 0:
+            return
         subnet_id = updated_port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
