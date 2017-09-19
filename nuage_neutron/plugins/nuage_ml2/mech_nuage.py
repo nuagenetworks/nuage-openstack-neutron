@@ -79,6 +79,14 @@ DEVICE_OWNER_DHCP = os_constants.DEVICE_OWNER_DHCP
 LOG = log.getLogger(__name__)
 
 
+def _is_ipv4(subnet):
+    return subnet['ip_version'] == os_constants.IP_VERSION_4
+
+
+def _is_ipv6(subnet):
+    return subnet['ip_version'] == os_constants.IP_VERSION_6
+
+
 class NuageMechanismDriver(NuageML2Wrapper):
 
     def initialize(self):
@@ -262,10 +270,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     "network.")
             raise NuageBadRequest(resource='subnet', msg=msg)
 
-        ipv4s = len([s for s in subnets
-                     if s['ip_version'] == os_constants.IP_VERSION_4])
-        ipv6s = len([s for s in subnets
-                     if s['ip_version'] == os_constants.IP_VERSION_6])
+        ipv4s = len([s for s in subnets if _is_ipv4(s)])
+        ipv6s = len([s for s in subnets if _is_ipv6(s)])
 
         if not (ipv4s <= 1 and ipv6s == 1 or ipv6s == 0):
             msg = _("A network with an ipv6 subnet may only have maximum 1 "
@@ -338,7 +344,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         if network_external:
 
-            if subnet['ip_version'] == 6:
+            if _is_ipv6(subnet):
                 msg = _("Subnet with ip_version 6 is currently not supported "
                         "for router:external networks.")
                 raise NuageBadRequest(msg=msg)
@@ -372,8 +378,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         else:
             net_partition = (
                 nuagedb.get_net_partition_by_id(context.session,
-                                                subnet['net_partition'])
-                or
+                                                subnet['net_partition']) or
                 nuagedb.get_net_partition_by_name(context.session,
                                                   subnet['net_partition'])
             )
@@ -451,7 +456,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         r_param = {}
         neutron_net = self.core_plugin.get_network(
             context, neutron_subnet['network_id'])
-        is_ipv4 = neutron_subnet['ip_version'] == os_constants.IP_VERSION_4
+        is_ipv4 = _is_ipv4(neutron_subnet)
         dual_stack_subnet = self.get_dual_stack_subnet(context, neutron_subnet)
 
         if not (dual_stack_subnet or is_ipv4):
@@ -509,7 +514,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         except Exception:
             with excutils.save_and_reraise_exception():
                 if gw_port:
-                    LOG.debug(_("Deleting gw_port %s") % gw_port['id'])
+                    LOG.debug(_("Deleting gw_port %s"), gw_port['id'])
                     # Because we are inside a transaction in a precommit method
                     # you are not allowed to call any of the crud_<resource>
                     # methods of ml2plugin (like delete_port). Because of
@@ -537,7 +542,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 self._create_subnet_mapping(context, netpart_id,
                                             dual_stack_subnet, nuage_subnet)
 
-    def _create_subnet_mapping(self, context, netpart_id, neutron_subnet,
+    @staticmethod
+    def _create_subnet_mapping(context, netpart_id, neutron_subnet,
                                nuage_subnet):
         l2dom_id = nuage_subnet['nuage_l2template_id']
         user_id = nuage_subnet['nuage_userid']
@@ -555,8 +561,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
         neutron_subnet['net_partition'] = netpart_id
         neutron_subnet['nuagenet'] = nuage_id
 
-    def _validate_dhcp_opts_changed(self, original_subnet, updated_subnet):
-        if original_subnet['ip_version'] == os_constants.IP_VERSION_6:
+    @staticmethod
+    def _validate_dhcp_opts_changed(original_subnet, updated_subnet):
+        if _is_ipv6(original_subnet):
             return False
         for k in ['dns_nameservers', 'host_routes', 'gateway_ip']:
             if original_subnet.get(k) != updated_subnet.get(k):
@@ -596,27 +603,44 @@ class NuageMechanismDriver(NuageML2Wrapper):
             'parent_id': subnet_mapping['nuage_subnet_id'],
             'type': subnet_mapping['nuage_l2dom_tmplt_id']
         }
-
-        curr_enable_dhcp = original_subnet.get('enable_dhcp')
-        updated_enable_dhcp = updated_subnet.get('enable_dhcp')
-
-        if not curr_enable_dhcp and updated_enable_dhcp:
-            last_address = updated_subnet['allocation_pools'][-1]['end']
-            gw_port = self._reserve_ip(db_context, updated_subnet,
-                                       last_address)
-            params['net'] = netaddr.IPNetwork(original_subnet['cidr'])
-            params['dhcp_ip'] = gw_port['fixed_ips'][0]['ip_address']
-        elif curr_enable_dhcp and not updated_enable_dhcp:
-            params['dhcp_ip'] = None
-            filters = {
-                'fixed_ips': {'subnet_id': [updated_subnet['id']]},
-                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-            }
-            gw_ports = self.core_plugin.get_ports(db_context, filters=filters)
-            self._delete_port_gateway(db_context, gw_ports)
-        dhcp_opts_changed = self._validate_dhcp_opts_changed(original_subnet,
-                                                             updated_subnet)
-        params['dhcp_opts_changed'] = dhcp_opts_changed
+        if _is_ipv6(updated_subnet):
+            current_gw = netaddr.IPNetwork(
+                original_subnet.get('gateway_ip')) if original_subnet.get(
+                'gateway_ip') else None
+            updated_gw = netaddr.IPNetwork(
+                updated_subnet.get('gateway_ip')) if updated_subnet.get(
+                'gateway_ip') else None
+            if current_gw != updated_gw:
+                params["gatewayv6_changed"] = True
+            else:
+                return
+        else:
+            # Nuage plugin only updates dhcp in case of ipv4.
+            # In case of IPv6, we don't create DHCP opts to correspond
+            # to Gateway IP as upstream code takes care of it.
+            # The check whether gateway_ip changed for ipv4 is part of the
+            # '_validate_dhcp_opts_changed' code.
+            curr_enable_dhcp = original_subnet.get('enable_dhcp')
+            updated_enable_dhcp = updated_subnet.get('enable_dhcp')
+            if not curr_enable_dhcp and updated_enable_dhcp:
+                last_address = updated_subnet['allocation_pools'][-1]['end']
+                gw_port = self._reserve_ip(db_context, updated_subnet,
+                                           last_address)
+                params['net'] = netaddr.IPNetwork(original_subnet['cidr'])
+                params['dhcp_ip'] = gw_port['fixed_ips'][0]['ip_address']
+            elif curr_enable_dhcp and not updated_enable_dhcp:
+                params['dhcp_ip'] = None
+                filters = {
+                    'fixed_ips': {'subnet_id': [updated_subnet['id']]},
+                    'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+                }
+                gw_ports = self.core_plugin.get_ports(db_context,
+                                                      filters=filters)
+                self._delete_port_gateway(db_context, gw_ports)
+            dhcp_opts_changed = self._validate_dhcp_opts_changed(
+                original_subnet,
+                updated_subnet)
+            params['dhcp_opts_changed'] = dhcp_opts_changed
         self.vsdclient.update_subnet(updated_subnet, params)
 
     def _update_ext_network_subnet(self, id, net_id, subnet):
@@ -674,7 +698,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             return
 
         if not mapping['nuage_managed_subnet']:
-            if subnet["ip_version"] == os_constants.IP_VERSION_6:
+            if _is_ipv6(subnet):
                 self.vsdclient.delete_subnet(subnet['id'], mapping=mapping)
                 return
             else:
@@ -871,7 +895,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 for rollback in reversed(rollbacks):
                     rollback[0](*rollback[1], **rollback[2])
 
-    def is_dhcp_port_dualstack_added(self, original, port):
+    @staticmethod
+    def is_dhcp_port_dualstack_added(original, port):
         original_fixed_ips = original['fixed_ips']
         current_fixed_ips = port['fixed_ips']
         device_owner = port.get('device_owner')
@@ -983,7 +1008,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                     {portbindings.CAP_PORT_FILTER: False},
                                     os_constants.PORT_STATUS_ACTIVE)
 
-    def _network_no_action(self, original_network, updated_network):
+    @staticmethod
+    def _network_no_action(original_network, updated_network):
         _is_external_set = original_network.get(
             external_net.EXTERNAL) != updated_network.get(
             external_net.EXTERNAL)
@@ -1005,13 +1031,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 msg = _('Network %s has a VSD-Managed subnet associated'
                         ' with it') % updated_network['id']
                 raise NuageBadRequest(msg=msg)
-        if (_is_external_set and subnets
-                and not updated_network.get(external_net.EXTERNAL)):
+        if (_is_external_set and subnets and not
+                updated_network.get(external_net.EXTERNAL)):
             msg = _('External network with subnets can not be '
                     'changed to non-external network')
             raise NuageBadRequest(msg=msg)
-        if (len(subnets) > 1 and _is_external_set
-                and updated_network.get(external_net.EXTERNAL)):
+        if (len(subnets) > 1 and _is_external_set and
+                updated_network.get(external_net.EXTERNAL)):
             msg = _('Non-external network with more than one subnet '
                     'can not be changed to external network')
             raise NuageBadRequest(msg=msg)
@@ -1052,12 +1078,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return next(other_subnets, None)
 
     def _validate_create_openstack_managed_subnet(self, context, subnet):
-        if (not nuage_config.InternalFeatureFlags.OS_MGD_IPV6 and
-                subnet['ip_version'] == 6):
-            msg = _("Subnet with ip_version 6 is currently not supported "
-                    "for OpenStack managed subnets.")
-            raise NuageBadRequest(msg=msg)
-
         if (lib_validators.is_attr_set(subnet.get('gateway_ip')) and
                 netaddr.IPAddress(subnet['gateway_ip']) not in
                 netaddr.IPNetwork(subnet['cidr'])):
@@ -1073,12 +1093,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 msg = _("nuage_uplink attribute can not be set for "
                         "internal subnets")
                 raise NuageBadRequest(resource='subnet', msg=msg)
-        if subnet['ip_version'] == 6 and subnet.get('enable_dhcp'):
+        if _is_ipv6(subnet) and subnet.get('enable_dhcp'):
             msg = _("OpenStack managed IPv6 subnets do not support "
                     "enable_dhcp set to True.")
             raise NuageBadRequest(resource='subnet', msg=msg)
 
-    def _validate_create_vsd_managed_subnet(self, context, network, subnet):
+    @staticmethod
+    def _validate_create_vsd_managed_subnet(context, network, subnet):
         # Check for network already linked to VSD subnet
         subnet_mappings = nuagedb.get_subnet_l2dom_by_network_id(
             context.session,
@@ -1120,7 +1141,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             self._add_net_partition(db_context.session, netpartition)
         return netpartition['id']
 
-    def _validate_security_groups(self, context):
+    @staticmethod
+    def _validate_security_groups(context):
         port = context.current
         db_context = context._plugin_context
         sg_ids = port[ext_sg.SECURITYGROUPS]
@@ -1137,7 +1159,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                    "are mutualy exclusive")
             raise NuageBadRequest(msg=msg)
 
-    def _add_net_partition(self, session, netpartition):
+    @staticmethod
+    def _add_net_partition(session, netpartition):
         return nuagedb.add_net_partition(
             session, netpartition['id'], None, None,
             netpartition['name'], None, None)
@@ -1161,10 +1184,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _set_gateway_from_vsd(self, nuage_subnet, shared_subnet, subnet):
         gateway_subnet = shared_subnet or nuage_subnet
-        if (subnet['ip_version'] == 6 and
+        if (_is_ipv6(subnet) and
                 nuage_subnet['type'] != constants.L2DOMAIN):
             gw_ip = gateway_subnet['IPv6Gateway']
-        elif subnet['enable_dhcp'] and subnet['ip_version'] == 4:
+        elif subnet['enable_dhcp'] and _is_ipv4(subnet):
             if nuage_subnet['type'] == constants.L2DOMAIN:
                 gw_ip = self.vsdclient.get_gw_from_dhcp_l2domain(
                     gateway_subnet['ID'])
@@ -1201,7 +1224,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         if nuage_subnet.get('DHCPManaged', True) is False:
             # Nothing to reserve for L2 unmanaged or L3 subnets
             return
-        if subnet['ip_version'] == 6:
+        if _is_ipv6(subnet):
             dhcp_ip = nuage_subnet.get('IPv6Gateway')
         else:
             dhcp_ip = nuage_subnet['gateway']
@@ -1270,14 +1293,16 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 raise NuageBadRequest(msg=msg)
         return ips_change
 
-    def _get_vsd_subnet_ids_by_port(self, db_context, port):
+    @staticmethod
+    def _get_vsd_subnet_ids_by_port(db_context, port):
         subnet_ids = set([x['subnet_id'] for x in port['fixed_ips']])
         subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
             db_context.session,
             subnet_ids)
         return set([x['nuage_subnet_id'] for x in subnet_mappings])
 
-    def _check_subport_in_use(self, orig_port, port):
+    @staticmethod
+    def _check_subport_in_use(orig_port, port):
         is_sub = t_consts.TRUNK_SUBPORT_OWNER == orig_port.get('device_owner')
         if is_sub:
             vif_orig = orig_port.get(portbindings.VIF_TYPE)
@@ -1342,17 +1367,19 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                     request_port=port)
         return subnet_mappings[0]
 
-    def get_subnet_mapping_by_port(self, db_context, port):
+    @staticmethod
+    def get_subnet_mapping_by_port(db_context, port):
         if port['fixed_ips']:
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
                                                             subnet_id)
             return subnet_mapping
 
-    def _port_should_have_vm(self, port):
-        device_owner = port.get('device_owner')
-        return (device_owner != constants.DEVICE_OWNER_IRONIC and
-                device_owner != t_consts.TRUNK_SUBPORT_OWNER and
+    @staticmethod
+    def _port_should_have_vm(port):
+        device_owner = port['device_owner']
+        return ((port.get('device_owner') != constants.DEVICE_OWNER_IRONIC or
+                 port.get('device_owner') != t_consts.TRUNK_SUBPORT_OWNER) and
                 constants.NOVA_PORT_OWNER_PREF in device_owner or
                 LB_DEVICE_OWNER_V2 in device_owner or
                 DEVICE_OWNER_DHCP in device_owner)
@@ -1565,11 +1592,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 
-    def _check_segment(self, segment):
+    @staticmethod
+    def _check_segment(segment):
         network_type = segment[api.NETWORK_TYPE]
         return network_type == p_constants.TYPE_VXLAN
 
-    def _supported_vnic_types(self):
+    @staticmethod
+    def _supported_vnic_types():
         return [portbindings.VNIC_NORMAL]
 
     def check_vlan_transparency(self, context):
