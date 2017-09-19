@@ -17,8 +17,6 @@ import random
 
 from oslo_config import cfg
 
-from nuage_neutron.plugins.common import config
-
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper
@@ -30,10 +28,7 @@ from oslo_utils import excutils
 
 VSD_RESP_OBJ = constants.VSD_RESP_OBJ
 PROTO_NAME_TO_NUM = constants.PROTO_NAME_TO_NUM
-if config.InternalFeatureFlags.OS_MGD_IPV6:
-    NUAGE_SUPPORTED_ETHERTYPES = constants.NUAGE_SUPPORTED_ETHERTYPES
-else:
-    NUAGE_SUPPORTED_ETHERTYPES = ['IPv4']
+NUAGE_SUPPORTED_ETHERTYPES = constants.NUAGE_SUPPORTED_ETHERTYPES
 NOT_SUPPORTED_ACL_ATTR_MSG = constants.NOT_SUPPORTED_ACL_ATTR_MSG
 NUAGE_ACL_PROTOCOL_ANY_MAPPING = constants.NUAGE_ACL_PROTOCOL_ANY_MAPPING
 RES_POLICYGROUPS = constants.RES_POLICYGROUPS

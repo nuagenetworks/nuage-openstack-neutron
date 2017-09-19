@@ -159,8 +159,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
-    # VXLAN NETWORKS
-
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[])
@@ -344,17 +342,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'network_id': '1',
                   'ip_version': 6}
 
-        if config.InternalFeatureFlags.OS_MGD_IPV6:
-            nmd.create_subnet_precommit(Context(network, subnet))
-        else:
-            try:
-                nmd.create_subnet_precommit(Context(network, subnet))
-                self.fail('This is a negative test and was not meant to pass.')
-
-            except NuageBadRequest as e:
-                self.assertEqual(
-                    'Bad request: Subnet with ip_version 6 is currently not '
-                    'supported for OpenStack managed subnets.', str(e))
+        nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
@@ -381,14 +369,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.fail('This is a negative test and was not meant to pass.')
 
         except NuageBadRequest as e:
-            if config.InternalFeatureFlags.OS_MGD_IPV6:
-                self.assertEqual('Bad request: A network with an ipv6 subnet '
-                                 'may only have maximum 1 ipv4 and 1 ipv6 '
-                                 'subnet', str(e))
-            else:
-                self.assertEqual(
-                    'Bad request: Subnet with ip_version 6 is currently not '
-                    'supported for OpenStack managed subnets.', str(e))
+            self.assertEqual('Bad request: A network with an ipv6 subnet '
+                             'may only have maximum 1 ipv4 and 1 ipv6 '
+                             'subnet', str(e))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
@@ -412,17 +395,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'network_id': '1',
                   'ip_version': 6}
 
-        if config.InternalFeatureFlags.OS_MGD_IPV6:
-            nmd.create_subnet_precommit(Context(network, subnet))
-        else:
-            try:
-                nmd.create_subnet_precommit(Context(network, subnet))
-                self.fail('This is a negative test and was not meant to pass.')
-
-            except NuageBadRequest as e:
-                self.assertEqual(
-                    'Bad request: Subnet with ip_version 6 is currently not '
-                    'supported for OpenStack managed subnets.', str(e))
+        nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
@@ -450,14 +423,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.fail('This is a negative test and was not meant to pass.')
 
         except NuageBadRequest as e:
-            if config.InternalFeatureFlags.OS_MGD_IPV6:
-                self.assertEqual('Bad request: A network with an ipv6 subnet '
-                                 'may only have maximum 1 ipv4 and 1 ipv6 '
-                                 'subnet', str(e))
-            else:
-                self.assertEqual(
-                    'Bad request: Subnet with ip_version 6 is currently not '
-                    'supported for OpenStack managed subnets.', str(e))
+            self.assertEqual('Bad request: A network with an ipv6 subnet '
+                             'may only have maximum 1 ipv4 and 1 ipv6 '
+                             'subnet', str(e))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
@@ -485,14 +453,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.fail('This is a negative test and was not meant to pass.')
 
         except NuageBadRequest as e:
-            if config.InternalFeatureFlags.OS_MGD_IPV6:
-                self.assertEqual('Bad request: A network with an ipv6 subnet '
-                                 'may only have maximum 1 ipv4 and 1 ipv6 '
-                                 'subnet', str(e))
-            else:
-                self.assertEqual(
-                    'Bad request: Subnet with ip_version 6 is currently not '
-                    'supported for OpenStack managed subnets.', str(e))
+            self.assertEqual('Bad request: A network with an ipv6 subnet '
+                             'may only have maximum 1 ipv4 and 1 ipv6 '
+                             'subnet', str(e))
 
     # EXPERIMENTAL FEATURES
 
