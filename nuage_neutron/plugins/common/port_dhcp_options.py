@@ -14,7 +14,6 @@
 
 import copy
 import itertools
-from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
 
 from oslo_log import log as logging
 
@@ -24,26 +23,24 @@ from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as os_constants
 from neutron_lib import exceptions as n_exc
 
-from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
+from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 LOG = logging.getLogger(__name__)
 
 
-class PortDHCPOptionsNuage(BaseNuagePlugin):
+class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
 
-    def __init__(self):
-        super(PortDHCPOptionsNuage, self).__init__()
+    def subscribe(self):
         self.nuage_callbacks.subscribe(self._validate_port_dhcp_opts,
                                        resources.PORT, constants.BEFORE_CREATE)
         self.nuage_callbacks.subscribe(self._validate_port_dhcp_opts,
                                        resources.PORT, constants.BEFORE_UPDATE)
-        self.nuage_callbacks.subscribe(self._create_port_dhcp_opts,
+        self.nuage_callbacks.subscribe(self.post_port_create_dhcp_opts,
                                        resources.PORT, constants.AFTER_CREATE)
-        self.nuage_callbacks.subscribe(self._update_port_dhcp_opts,
+        self.nuage_callbacks.subscribe(self.post_port_update_dhcp_opts,
                                        resources.PORT, constants.AFTER_UPDATE)
 
     def _create_update_extra_dhcp_options(self, dhcp_options, vport,
@@ -68,10 +65,20 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
             response.append(resp)
         return response
 
-    def _validate_extra_dhcp_option_ip_version(self, dhcp_option):
-        if dhcp_option.get('ip_version') == os_constants.IP_VERSION_6:
-            msg = _("DHCP options for IPV6 are not yet supported")
-            raise nuage_exc.NuageBadRequest(msg=msg)
+    @TimeTracker.tracked
+    def _validate_port_dhcp_opts(self, resource, event, trigger, **kwargs):
+        request_port = kwargs.get('request_port')
+        if not request_port or \
+                not lib_validators.is_attr_set(
+                    request_port.get('extra_dhcp_opts')):
+            return
+        dhcp_options = copy.deepcopy(request_port['extra_dhcp_opts'])
+        for dhcp_option in dhcp_options:
+            self._translate_dhcp_option(dhcp_option)
+        self._validate_extra_dhcp_opt_for_neutron(dhcp_options)
+
+    def _is_ipv4_option(self, dhcp_option):
+        return dhcp_option.get('ip_version') == os_constants.IP_VERSION_4
 
     def _validate_extra_dhcp_opt_for_neutron(self, new_dhcp_opts):
         # validating for neutron internal error, checking for the
@@ -149,8 +156,8 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
             created_rollback_opts = self._create_update_extra_dhcp_options(
                 categorised_dhcp_opts['new'], vport, port_id, False)
         except Exception as e:
-            LOG.error(_("Port Update failed due to: %s") % e.msg)
-            raise e
+            LOG.error(_("Port Update failed due to: %s"), e.message)
+            raise
         try:
             update_rollback = self._create_update_extra_dhcp_options(
                 categorised_dhcp_opts['update'], vport, port_id, True)
@@ -173,61 +180,46 @@ class PortDHCPOptionsNuage(BaseNuagePlugin):
             LOG.error(_("Port Update failed due to: %s") % e.message)
             raise e
 
-    @TimeTracker.tracked
-    def _validate_port_dhcp_opts(self, resource, event, trigger, **kwargs):
-        request_port = kwargs.get('request_port')
-        if not request_port or \
-                not lib_validators.is_attr_set(
-                    request_port.get('extra_dhcp_opts')):
-            return
-        dhcp_options = copy.deepcopy(request_port['extra_dhcp_opts'])
-        for dhcp_option in dhcp_options:
-            self._validate_extra_dhcp_option_ip_version(dhcp_option)
-            self._translate_dhcp_option(dhcp_option)
-        self._validate_extra_dhcp_opt_for_neutron(dhcp_options)
+    def _get_nuage_vport(self, port, subnet_mapping, required=True):
+        port_params = {'neutron_port_id': port['id']}
+        if subnet_mapping['nuage_l2dom_tmplt_id']:
+            port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
+        else:
+            port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
+        return self.vsdclient.get_nuage_vport_by_neutron_id(
+            port_params, required=required)
 
     @TimeTracker.tracked
-    def _create_port_dhcp_opts(self, resource, event, trigger, **kwargs):
-        request_port = kwargs.get('request_port')
-        port = kwargs.get('port')
-        vport = kwargs.get('vport')
-        context = kwargs.get('context')
-        if not request_port or \
-                not lib_validators.is_attr_set(
-                    request_port.get('extra_dhcp_opts')):
+    def post_port_create_dhcp_opts(self, resource, event, trigger, port,
+                                   vport, **kwargs):
+        if (not lib_validators.is_attr_set(port.get('extra_dhcp_opts')) or
+                len(port.get('extra_dhcp_opts')) == 0):
             return
-        try:
-            nuagedb.get_subnet_l2dom_by_port_id(context.session,
-                                                port['id'])
-        except SubnetMappingNotFound:
-            msg = ("Cannot create a port with DHCP options on a subnet that "
-                   "does not have mapping to a L2Domain (OR) "
-                   "a L3 Subnet on Nuage.")
-            raise nuage_exc.NuageBadRequest(msg=msg)
-        dhcp_options = copy.deepcopy(request_port['extra_dhcp_opts'])
+
+        dhcp_options = copy.deepcopy(port['extra_dhcp_opts'])
+        dhcp_options = [opt for opt in dhcp_options
+                        if self._is_ipv4_option(opt)]
         for dhcp_opt in dhcp_options:
             self._translate_dhcp_option(dhcp_opt)
         self._create_update_extra_dhcp_options(
             dhcp_options, vport, port['id'])
 
     @TimeTracker.tracked
-    def _update_port_dhcp_opts(self, resource, event, trigger, **kwargs):
-        request_port = kwargs.get('request_port')
-        original_port = kwargs.get('original_port')
-        updated_port = kwargs.get('updated_port')
-        vport = kwargs.get('vport')
-        context = kwargs.get('context')
-
-        if not request_port or not original_port or \
-                'extra_dhcp_opts' not in request_port:
+    def post_port_update_dhcp_opts(self, resource, event, trigger,
+                                   port, original_port, vport, subnet_mapping,
+                                   **kwargs):
+        if port['extra_dhcp_opts'] == original_port['extra_dhcp_opts']:
             return
 
-        subnet_id = updated_port['fixed_ips'][0]['subnet_id']
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
-                                                        subnet_id)
-        old_dhcp_options = original_port.get('extra_dhcp_opts', [])
+        old_dhcp_options = copy.deepcopy(original_port.get('extra_dhcp_opts',
+                                                           []))
         request_dhcp_options = copy.deepcopy(
-            request_port.get('extra_dhcp_opts', []))
+            port.get('extra_dhcp_opts', []))
+
+        request_dhcp_options = [opt for opt in request_dhcp_options
+                                if self._is_ipv4_option(opt)]
+        old_dhcp_options = [opt for opt in old_dhcp_options
+                            if self._is_ipv4_option(opt)]
         for dhcp_opt in request_dhcp_options:
             self._translate_dhcp_option(dhcp_opt)
         categorised_dhcp_opts = self._categorise_dhcp_options_for_update(
