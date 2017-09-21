@@ -112,6 +112,10 @@ class NuageBmSecurityGroupHandler(object):
     def post_port_create(self, resource, event, trigger, **kwargs):
         context = kwargs['context']
         port = kwargs['port']
+        if (port.get(portbindings.VNIC_TYPE, "")
+                not in self._supported_vnic_types()):
+            return
+
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
@@ -133,6 +137,12 @@ class NuageBmSecurityGroupHandler(object):
         context = kwargs['context']
         updated_port = kwargs['port']
         original_port = kwargs['original_port']
+        if (updated_port.get(portbindings.VNIC_TYPE)
+                not in self._supported_vnic_types()
+                and original_port.get(portbindings.VNIC_TYPE)
+                not in self._supported_vnic_types()):
+            return
+
         subnet_id = updated_port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
