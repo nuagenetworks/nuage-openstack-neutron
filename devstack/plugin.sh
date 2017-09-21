@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2015 Alcatel-Lucent USA Inc.
+# Copyright 2017 NOKIA
 #
 # All Rights Reserved
 #
@@ -24,11 +24,15 @@ if [[ "$1" == "stack" ]]; then
         echo_summary "Installing Nuage plugin"
         setup_develop $NUAGE_OPENSTACK_NEUTRON_DIR
 
-    elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
+    elif [[ "$2" == "post-config" ]]; then
         mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
         configure_neutron_nuage
+
+    elif [[ "$2" == "test-config" ]]; then
+        #must run after Octavia is running.
+        configure_octavia_nuage
     fi
+
 elif [[ "$1" == "unstack" ]]; then
-        # no-op
-        :
+        stop_octavia_nuage
 fi
