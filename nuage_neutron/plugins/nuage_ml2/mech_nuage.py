@@ -836,7 +836,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         if (len(port['fixed_ips']) == 0 and len(original['fixed_ips']) != 0 or
                 self._ipv4_addr_removed_from_dualstack_dhcp_port(
-                    original, port)):
+                    original, port) or
+                (utils.needs_vport_creation(original.get('device_owner')) and
+                 not utils.needs_vport_creation(port.get('device_owner')))):
+                # TODO(Tom) Octavia
             # port no longer belongs to any subnet or dhcp port has regressed
             # to ipv6 only: delete vport.
             self._delete_port(db_context, original)
@@ -844,7 +847,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         if (len(port['fixed_ips']) != 0 and len(original['fixed_ips']) == 0 or
                 self._ip4_addr_added_to_dualstack_dhcp_port(
-                    original, port)):
+                    original, port) or
+                (not utils.needs_vport_creation(original.get('device_owner'))
+                 and utils.needs_vport_creation(port.get('device_owner')))):
+                # TODO(Tom) Octavia
             # port didn't belong to any subnet yet, or dhcp port used to be
             # ipv6 only: create vport
             self._create_port(db_context, port, context.network,
@@ -1423,11 +1429,14 @@ class NuageMechanismDriver(NuageML2Wrapper):
         device_owner = port.get('device_owner')
         return (constants.NOVA_PORT_OWNER_PREF in device_owner or
                 device_owner == LB_DEVICE_OWNER_V2 or
-                device_owner == DEVICE_OWNER_DHCP)
+                device_owner == DEVICE_OWNER_DHCP or
+                constants.DEVICE_OWNER_OCTAVIA_HEALTHMGR in device_owner)
 
     def _create_nuage_vm(self, db_context, port, np_name, subnet_mapping,
                          nuage_port, nuage_subnet):
-        if port.get('device_owner') in [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP]:
+        if (port.get('device_owner') in
+                [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP,
+                 constants.DEVICE_OWNER_OCTAVIA_HEALTHMGR]):
             no_of_ports = 1
             vm_id = port['id']
         else:

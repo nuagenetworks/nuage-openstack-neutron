@@ -54,13 +54,6 @@ def normalize_cidr(value):
     return value
 
 
-def check_vport_creation(device_owner, prefix_list):
-    if (device_owner in get_auto_create_port_owners() or
-            device_owner.startswith(tuple(prefix_list))):
-        return False
-    return True
-
-
 def context_log(fn):
     def wrapped(*args, **kwargs):
         instance = args[0]
@@ -193,7 +186,8 @@ def get_auto_create_port_owners():
             neutron_constants.DEVICE_OWNER_ROUTER_GW,
             neutron_constants.DEVICE_OWNER_FLOATINGIP,
             nuage_constants.DEVICE_OWNER_VIP_NUAGE,
-            nuage_constants.DEVICE_OWNER_IRONIC
+            nuage_constants.DEVICE_OWNER_IRONIC,
+            nuage_constants.DEVICE_OWNER_OCTAVIA
             ]
 
 
@@ -211,7 +205,8 @@ def needs_vport_creation(device_owner):
 
 
 def get_device_owners_vip():
-    return ([nuage_constants.DEVICE_OWNER_VIP_NUAGE] +
+    return ([nuage_constants.DEVICE_OWNER_VIP_NUAGE,
+             nuage_constants.DEVICE_OWNER_OCTAVIA] +
             cfg.CONF.PLUGIN.device_owner_prefix)
 
 
