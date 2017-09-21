@@ -16,8 +16,8 @@
 from oslo_log import log as logging
 
 from neutron._i18n import _
-from neutron import context as neutron_context
 from neutron.extensions import portsecurity
+from neutron_lib import context as neutron_context
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import config
