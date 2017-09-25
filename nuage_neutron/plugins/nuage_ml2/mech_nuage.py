@@ -29,6 +29,7 @@ from neutron.extensions import external_net
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
+from neutron.plugins.ml2 import plugin as ml2_plugin
 from neutron.services.trunk import constants as t_consts
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
@@ -508,8 +509,16 @@ class NuageMechanismDriver(NuageML2Wrapper):
         except Exception:
             with excutils.save_and_reraise_exception():
                 if gw_port:
-                    LOG.debug(_("Deleting gw_port %s"), gw_port['id'])
-                    self.core_plugin.delete_port(context, gw_port['id'])
+                    LOG.debug(_("Deleting gw_port %s") % gw_port['id'])
+                    # Because we are inside a transaction in a precommit method
+                    # you are not allowed to call any of the crud_<resource>
+                    # methods of ml2plugin (like delete_port). Because of
+                    # neutron's transaction_guard decorator. By calling the
+                    # super we avoid this check and go straight to the DB to
+                    # delete the port. Similar to how we call the db method for
+                    # creating the dhcp port.
+                    super(ml2_plugin.Ml2Plugin,
+                          self.core_plugin).delete_port(context, gw_port['id'])
 
         if not is_ipv4 and subnet_mapping:
             # nuage_subnet is None: Copy ipv4 mapping for creating ipv6 mapping
