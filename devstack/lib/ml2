@@ -9,7 +9,7 @@ set +o xtrace
 
 Q_ML2_PLUGIN_MECHANISM_DRIVERS=${Q_ML2_PLUGIN_MECHANISM_DRIVERS:-nuage}
 Q_ML2_PLUGIN_TYPE_DRIVERS=${Q_ML2_PLUGIN_TYPE_DRIVERS:-vxlan}
-Q_SERVICE_PLUGIN_CLASSES=${Q_SERVICE_PLUGIN_CLASSES:-NuagePortAttributes,NuageAPI,NuagePluginStats,trunk}
+Q_SERVICE_PLUGIN_CLASSES=${Q_SERVICE_PLUGIN_CLASSES:-NuagePortAttributes,NuageAPI,trunk,$EXTRA_SERVICE_PLUGIN_CLASSSES}
 ML2_L3_PLUGIN=nuage_neutron.plugins.common.service_plugins.l3.NuageL3Plugin
 
 function configure_neutron_nuage {
