@@ -241,10 +241,20 @@ class NuageL2Domain(object):
             if not nuagel2domtemplate.validate(response):
                 raise restproxy.RESTProxyError(
                     nuagel2domtemplate.error_msg)
+
+        # If we update IPv6 gateway then we should handle it here.
+        if type == constants.NETWORK_TYPE_L2 and params.get(
+                'gatewayv6_changed'):
+            params['nuage_l2dom_tmplt_id'] = params['type']
+            self.update_subnet_ipv6(neutron_subnet, params)
+
         if new_name:
+            if neutron_subnet['ip_version'] == constants.IPV6_VERSION:
+                # We don't change if IPv6 description is changed by user.
+                return
             # update the description on the VSD for this subnet if required
             # If a subnet is updated from horizon, we get the name of the
-            # subnet aswell in the subnet dict for update.
+            # subnet as well in the subnet dict for update.
             if type == constants.NETWORK_TYPE_L2:
                 nuagel2domain = nuagelib.NuageL2Domain()
                 l2dom = self.restproxy.rest_call(
