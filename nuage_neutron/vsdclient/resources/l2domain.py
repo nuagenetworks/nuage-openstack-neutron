@@ -243,8 +243,10 @@ class NuageL2Domain(object):
                     nuagel2domtemplate.error_msg)
 
         # If we update IPv6 gateway then we should handle it here.
-        if type == constants.NETWORK_TYPE_L2 and 'mapping' in params:
-            self.update_subnet_ipv6(neutron_subnet, params['mapping'])
+        if type == constants.NETWORK_TYPE_L2 and params.get(
+                'gatewayv6_changed'):
+            params['nuage_l2dom_tmplt_id'] = params['type']
+            self.update_subnet_ipv6(neutron_subnet, params)
 
         if new_name:
             if neutron_subnet['ip_version'] == constants.IPV6_VERSION:

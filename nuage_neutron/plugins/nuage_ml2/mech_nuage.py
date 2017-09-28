@@ -596,15 +596,22 @@ class NuageMechanismDriver(NuageML2Wrapper):
             'type': subnet_mapping['nuage_l2dom_tmplt_id']
         }
         if _is_ipv6(updated_subnet):
-            current_gw = netaddr.IPNetwork(original_subnet.get('gateway_ip'))
+            current_gw = netaddr.IPNetwork(
+                original_subnet.get('gateway_ip')) if original_subnet.get(
+                'gateway_ip') else None
             updated_gw = netaddr.IPNetwork(
                 updated_subnet.get('gateway_ip')) if updated_subnet.get(
                 'gateway_ip') else None
             if current_gw != updated_gw:
-                params['mapping'] = subnet_mapping
+                params["gatewayv6_changed"] = True
+            else:
+                return
         else:
-            # Nuage PLugin only update dhcp in case of IPv4,
-            # We don't do anything in case of IPv6
+            # Nuage plugin only updates dhcp in case of ipv4.
+            # In case of IPv6, we don't create DHCP opts to correspond
+            # to Gateway IP as upstream code takes care of it.
+            # The check whether gateway_ip changed for ipv4 is part of the
+            # '_validate_dhcp_opts_changed' code.
             curr_enable_dhcp = original_subnet.get('enable_dhcp')
             updated_enable_dhcp = updated_subnet.get('enable_dhcp')
             if not curr_enable_dhcp and updated_enable_dhcp:
@@ -622,9 +629,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 gw_ports = self.core_plugin.get_ports(db_context,
                                                       filters=filters)
                 self._delete_port_gateway(db_context, gw_ports)
-        dhcp_opts_changed = self._validate_dhcp_opts_changed(original_subnet,
-                                                             updated_subnet)
-        params['dhcp_opts_changed'] = dhcp_opts_changed
+            dhcp_opts_changed = self._validate_dhcp_opts_changed(
+                original_subnet,
+                updated_subnet)
+            params['dhcp_opts_changed'] = dhcp_opts_changed
         self.vsdclient.update_subnet(updated_subnet, params)
 
     def _update_ext_network_subnet(self, id, net_id, subnet):
