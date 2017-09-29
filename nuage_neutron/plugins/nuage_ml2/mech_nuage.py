@@ -509,7 +509,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         except Exception:
             with excutils.save_and_reraise_exception():
                 if gw_port:
-                    LOG.debug(_("Deleting gw_port %s") % gw_port['id'])
+                    LOG.debug(_("Deleting gw_port %s"), gw_port['id'])
                     # Because we are inside a transaction in a precommit method
                     # you are not allowed to call any of the crud_<resource>
                     # methods of ml2plugin (like delete_port). Because of
