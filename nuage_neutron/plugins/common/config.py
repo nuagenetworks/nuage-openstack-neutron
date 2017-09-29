@@ -104,7 +104,7 @@ def nuage_register_cfg_opts():
 
 
 class InternalFeatureFlags(object):
-    OS_MGD_IPV6 = True
+    SAMPLE_FEATURE_FLAG = True  # use this construct for internal feature flags
 
 
 def is_enabled(name):
