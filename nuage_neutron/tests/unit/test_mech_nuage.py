@@ -15,6 +15,12 @@
 # run me using :
 # python -m testtools.run nuage_neutron/tests/unit/test_mech_nuage.py
 
+import mock
+import testtools
+
+from oslo_config import cfg
+from oslo_config import fixture as oslo_fixture
+
 from neutron.conf import common as core_config
 from neutron.plugins.ml2 import config as ml2_config
 
@@ -25,12 +31,6 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from nuage_neutron.vsdclient.impl.vsdclientimpl import VsdClientImpl
 from nuage_neutron.vsdclient.restproxy import RESTProxyServer
-
-import mock
-import testtools
-
-from oslo_config import cfg
-from oslo_config import fixture as oslo_fixture
 
 
 class ConfigTypes(object):
