@@ -16,6 +16,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+NUAGE_OPENSTACK_NEUTRON_DIR=${NUAGE_OPENSTACK_NEUTRON_DIR:=$DEST/nuage-openstack-neutron}
+
 # Nuage VSP related settings
 NUAGE_VSD_SERVERS=${NUAGE_VSD_SERVERS:-'vsd.example.com:8443'}
 NUAGE_VSD_SERVER_AUTH=${NUAGE_VSD_SERVER_AUTH:-'csproot:csproot'}

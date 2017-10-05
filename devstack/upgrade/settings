@@ -1,0 +1,12 @@
+#!/bin/bash
+register_project_for_upgrade nuage-openstack-neutron
+
+# REVISIT(gridinv): This is a hack to upgrade before neutron.
+# Otherwise, neutron-db-migrate picks our old version and fail.
+# bug/1648176
+UPGRADE_PROJECTS="nuage-openstack-neutron ${UPGRADE_PROJECTS/ nuage-openstack-neutron/}"
+
+for w in base target; do
+    devstack_localrc $w Q_PLUGIN_EXTRA_CONF_FILES=/plugins/nuage/nuage_plugin.ini
+done
+
