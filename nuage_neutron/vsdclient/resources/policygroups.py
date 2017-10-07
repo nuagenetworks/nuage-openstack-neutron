@@ -1539,7 +1539,7 @@ class NuageRedirectTargets(object):
     def add_nuage_sfc_rule(self, fwd_policy, rule_params, np_id):
         fwd_policy_id = fwd_policy['ID']
         if rule_params.get('destination_ip_prefix'):
-            netid = pg_helper._create_nuage_prefix_macro(
+            netid = pg_helper.create_nuage_prefix_macro(
                 self.restproxy, {'remote_ip_prefix': rule_params.get(
                     'destination_ip_prefix')}, np_id)
             rule_params['networkID'] = netid
