@@ -15,9 +15,9 @@
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
-from neutron.extensions import portbindings
-from neutron.extensions import portsecurity
 from neutron.extensions import securitygroup as ext_sg
+from neutron_lib.api.definitions import port_security as portsecurity
+from neutron_lib.api.definitions import portbindings
 from neutron_lib.plugins import directory
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
