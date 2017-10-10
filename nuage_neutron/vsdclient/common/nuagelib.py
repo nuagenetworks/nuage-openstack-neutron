@@ -1863,11 +1863,6 @@ class NuageGatewayPort(NuageGatewayPortBase):
         return '/ports/%s/enterprisepermissions' %\
             self.create_params['port_id']
 
-    def get_response_objlist(self, response):
-        # filter out ports whci are part of redundant ports
-        return ([elem for elem in response[3] if
-                elem['associatedRedundantPortID'] is None])
-
 
 class NuageGatewayRedundantPort(NuageGatewayPortBase):
     def get_resource(self):
