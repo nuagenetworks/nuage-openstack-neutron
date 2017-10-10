@@ -141,6 +141,7 @@ NUAGE_PLUGIN_STATS = 'NUAGE_PLUGIN_STATS'
 
 NUAGE_ML2_DRIVER_NAME = 'nuage'
 NUAGE_ML2_SRIOV_DRIVER_NAME = 'nuage_sriov'
+NUAGE_ML2_BM_DRIVER_NAME = 'nuage_baremetal'
 
 AFTER_CREATE = 'after_create_nuage'
 AFTER_UPDATE = 'after_update_nuage'
