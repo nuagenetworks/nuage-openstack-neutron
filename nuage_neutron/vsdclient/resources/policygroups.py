@@ -325,7 +325,8 @@ class NuagePolicyGroups(object):
                     'policygroup': policygroup,
                     'neutron_sg_rule': rule,
                     'nuage_ibacl_id': nuage_ibacl_id,
-                    'nuage_obacl_id': nuage_obacl_id
+                    'nuage_obacl_id': nuage_obacl_id,
+                    'sg_type': params.get('sg_type', constants.SOFTWARE)
                 }
                 if ('ethertype' in rule.keys() and
                         str(rule['ethertype']) not in
