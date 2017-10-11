@@ -218,7 +218,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
         subnet = context.current
         network = context.network.current
         db_context = context._plugin_context
-
+        prefixlen = netaddr.IPNetwork(subnet['cidr']).prefixlen
+        if _is_ipv6(subnet) and (prefixlen < 64 or prefixlen > 128):
+            msg = _("Invalid IPv6 netmask. Netmask can only be "
+                    "between a minimum 64 and maximum 128 length.")
+            raise NuageBadRequest(resource='subnet', msg=msg)
         nuagenet_set = lib_validators.is_attr_set(subnet.get('nuagenet'))
         net_part_set = lib_validators.is_attr_set(subnet.get('net_partition'))
         vsd_managed = nuagenet_set and net_part_set
