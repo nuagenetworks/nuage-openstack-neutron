@@ -164,7 +164,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                    'router:external': False}
         subnet = {'id': '10',
                   'network_id': '1',
-                  'ip_version': 4}
+                  'ip_version': 4,
+                  'cidr': '10.0.0.0/24'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
@@ -187,7 +188,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
         subnet = {'id': '10',
                   'network_id': '1',
                   'nuagenet': '0x100',
-                  'ip_version': 4}
+                  'ip_version': 4,
+                  'cidr': '10.0.0.0/24'}
         try:
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('Subnet precommit should not have succeeded')
@@ -215,7 +217,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'network_id': '1',
                   'nuagenet': '0x100',
                   'net_partition': 'lalaland',
-                  'ip_version': 4}
+                  'ip_version': 4,
+                  'cidr': '10.0.0.0/24'}
         try:
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('Create subnet precommit should not have succeeded')
@@ -244,7 +247,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
         subnet = {'id': '10',
                   'network_id': '1',
                   'nuagenet': '0x100',
-                  'ip_version': 4}
+                  'ip_version': 4,
+                  'cidr': '10.0.0.0/24'}
         try:
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('Subnet precommit should not have succeeded')
@@ -273,7 +277,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'nuagenet': '0x100',
                   'net_partition': 'lalaland',
                   'ip_version': 4,
-                  'gateway_ip': None}
+                  'gateway_ip': None,
+                  'cidr': '10.0.0.0/24'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
@@ -298,7 +303,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'network_id': '1',
                   'nuagenet': '0x100',
                   'net_partition': 'lalaland',
-                  'ip_version': 6}
+                  'ip_version': 6,
+                  'cidr': 'fee::/64'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
@@ -349,7 +355,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                    'router:external': False}
         subnet = {'id': '10',
                   'network_id': '1',
-                  'ip_version': 6}
+                  'ip_version': 6,
+                  'cidr': 'fee::/64'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
@@ -372,7 +379,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                    'router:external': False}
         subnet = {'id': '10',
                   'network_id': '1',
-                  'ip_version': 6}
+                  'ip_version': 6,
+                  'cidr': 'fee::/64'}
         try:
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('This is a negative test and was not meant to pass.')
@@ -402,7 +410,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                    'router:external': False}
         subnet = {'id': '10',
                   'network_id': '1',
-                  'ip_version': 6}
+                  'ip_version': 6,
+                  'cidr': 'fee::/64'}
 
         nmd.create_subnet_precommit(Context(network, subnet))
 
@@ -426,7 +435,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                    'router:external': False}
         subnet = {'id': '10',
                   'network_id': '1',
-                  'ip_version': 6}
+                  'ip_version': 6,
+                  'cidr': 'fee::/64'}
         try:
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('This is a negative test and was not meant to pass.')
@@ -456,7 +466,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                    'router:external': False}
         subnet = {'id': '10',
                   'network_id': '1',
-                  'ip_version': 6}
+                  'ip_version': 6,
+                  'cidr': 'fee::/64'}
         try:
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('This is a negative test and was not meant to pass.')
