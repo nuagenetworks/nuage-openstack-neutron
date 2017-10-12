@@ -90,6 +90,8 @@ plugin_opts = [
                 help=_("Set to true to enable statistics collecting on all "
                        "policy entries. Changing this does not affect "
                        "existing policy entries.")),
+    cfg.BoolOpt('default_allow_non_ip', default=False,
+                help=_("Set to true to allow non-IP traffic by default")),
     cfg.ListOpt('experimental_features', default=[],
                 help=_("List of experimental features to be enabled.")),
     cfg.ListOpt('enable_debug', default=[],
@@ -113,3 +115,12 @@ def is_enabled(name):
     if name in cfg.CONF.PLUGIN.enable_debug:
         return True
     return False
+
+
+def is_set_true(value):
+    # oslo in newton is not correctly throwing parsing error for BoolOpt
+    return value and str(value).lower() in ['true', '1', 'on', 'yes']
+
+
+def default_allow_non_ip():
+    return is_set_true(cfg.CONF.PLUGIN.default_allow_non_ip)
