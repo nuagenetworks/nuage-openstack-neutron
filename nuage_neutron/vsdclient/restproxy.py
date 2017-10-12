@@ -375,6 +375,11 @@ class RESTProxyServer(object):
             # don't count this api call in counting
             if self.api_stats_enabled:
                 self.api_count -= 1
+
+            # find out whether the auth token used in the request was same or
+            # different from what we have in the database, as that determines
+            # whether we have to reauthenticate or whether we just have to
+            # start using the new db token
             session = db_api.get_session()
             with session.begin(subtransactions=True):
                 auth_token = self.get_config_parameter_by_name(
@@ -388,14 +393,21 @@ class RESTProxyServer(object):
                     in_db_uname_pass).strip()
                 LOG.debug("Auth_from_DB: %s", in_db_auth)
                 LOG.debug("Auth_from_request: %s", response[5])
-                if in_db_auth != response[5]:
-                    self.auth = in_db_auth
-                    return self.rest_call(action, resource, data,
-                                          extra_headers=extra_headers)
-                else:
+                token_match = in_db_auth == response[5]
+                if token_match:
+                    # the token in db is expired - reauthenticate and resubmit
                     self.generate_nuage_auth(auth_token)
-            return self._rest_call(action, resource, data,
-                                   extra_headers=extra_headers)
+                else:
+                    # start using the the new db token and re-submit
+                    self.auth = in_db_auth
+
+            # in both cases, resubmit outside of db transaction
+            if token_match:
+                response = self._rest_call(action, resource, data,
+                                           extra_headers=extra_headers)
+            else:
+                response = self.rest_call(action, resource, data,
+                                          extra_headers=extra_headers)
         return response
 
     def get(self, resource, data='', extra_headers=None, required=False):
