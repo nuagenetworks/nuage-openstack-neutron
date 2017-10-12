@@ -15,13 +15,12 @@
 
 from oslo_log import log as logging
 
-from neutron._i18n import _
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib import context as neutron_context
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants as const
-from nuage_neutron.plugins.common import exceptions
+from nuage_neutron.plugins.nuage_baremetal.drivers import utils
 from nuage_neutron.plugins.nuage_baremetal import network_api as api
 
 
@@ -50,7 +49,8 @@ class NuageGatewayDriverBridge(base_plugin.RootNuagePlugin,
         port = port_dict['port']
         gw_ports = port.get('link_info')
         segmentation_id = port_dict['segmentation_id']
-        vsd_port = self._validate_switchports(port.get('tenant_id'),
+        vsd_port = utils.validate_switchports(self.vsdclient,
+                                              port.get('tenant_id'),
                                               gw_ports)
 
         params = {
@@ -110,7 +110,7 @@ class NuageGatewayDriverBridge(base_plugin.RootNuagePlugin,
 
         LOG.debug("update_port with port dict %(port)s",
                   {'port': port_map})
-        vport = self._get_nuage_vport(port_map, False)
+        vport = utils.get_nuage_vport(self.vsdclient, port_map, False)
         # gridinv: will be called typically when ironic will
         # update instance port in tenant network with proper binding
         # at this point we will have a VM vport existing in VSD which
@@ -133,83 +133,18 @@ class NuageGatewayDriverBridge(base_plugin.RootNuagePlugin,
         port = port_dict['port']
         LOG.debug("delete_port with port_id %(port_id)s",
                   {'port_id': port['id']})
-        switchports = port.get('link_info') or []
-        for switchport in switchports:
-            vport = self._get_nuage_vport(port_dict, required=False)
-            if not vport:
-                LOG.debug("couldn't find a vport")
-            else:
-                LOG.debug("Deleting vport %(vport)s", {'vport': vport})
-                self.vsdclient.delete_nuage_gateway_vport_no_usergroup(
-                    port['tenant_id'],
-                    vport)
-                if vport.get('VLANID'):
-                    LOG.debug("Deleting vlan %(vlan)s",
-                              {'vlan': vport['VLANID']})
-                    self.vsdclient.delete_gateway_port_vlan(vport['VLANID'])
 
-    def _get_nuage_vport(self, port, required=True):
-        port_params = {
-            'neutron_port_id': port['port']['id'],
-            'l2dom_id': port['subnet_mapping']['nuage_subnet_id'],
-            'l3dom_id': port['subnet_mapping']['nuage_subnet_id']
-        }
-        return self.vsdclient.get_nuage_vport_by_neutron_id(
-            port_params,
-            required=required)
-
-    def _validate_switchports(self, tenant_id, switchports):
-        vsdports = dict()
-        for switchport in switchports:
-            filters = {'system_id': [switchport.get('switch_info')]}
-            gws = self.vsdclient.get_gateways(tenant_id, filters)
-            if len(gws) == 0:
-                msg = (_("No gateway found: %s")
-                       % filters['system_id'][0])
-                raise exceptions.NuageBadRequest(msg=msg)
-            port_mnemonic = self._convert_ifindex_to_ifname(
-                switchport.get('port_id'))
-            filters = {'gateway': [gws[0]['gw_id']],
-                       'name': [port_mnemonic]}
-            gw_ports = self.vsdclient.get_gateway_ports(tenant_id,
-                                                        filters)
-            if len(gw_ports) == 0:
-                msg = (_("No gateway port found: %s")
-                       % filters['name'][0])
-                raise exceptions.NuageBadRequest(msg=msg)
-            port = gw_ports[0]
-            if port.get('gw_redundant_port_id') is not None:
-                port_id = port.get('gw_redundant_port_id')
-                redundant = True
-            else:
-                port_id = port.get('gw_port_id')
-                redundant = False
-            vsd_port = {
-                'port_id': port_id,
-                'personality': gws[0]['gw_type'],
-                'redundant': redundant
-            }
-            if port_id not in vsdports:
-                vsdports[port_id] = []
-            vsdports[port_id].append(vsd_port)
-        if len(vsdports) > 1:
-            msg = "Not all switchports belong to the same redundancy Group"
-            raise exceptions.NuageBadRequest(msg=msg)
-        return vsdports[vsdports.keys()[0]][0]
-
-    def _convert_ifindex_to_ifname(self, ifindex):
-        """_convert_ifindex_to_ifname. In case local_link_information is
-
-        obtained by inspector, VSG TOR will send snmp ifIndex in
-        port id TLV, which is not known to VSD, here we assume that numeric
-        value is snmp ifIndex and do conversion, otherwise it is a port
-        mnemonic.
-        """
-        if not ifindex:
-            return None
-        if not ifindex.isdigit():
-            return ifindex
-        return "%s/%s/%s" % (
-            (int(ifindex) >> 25),
-            (int(ifindex) >> 21) & 0xf,
-            (int(ifindex) >> 15) & 0x3f)
+        vport = utils.get_nuage_vport(self.vsdclient,
+                                      port_dict,
+                                      required=False)
+        if not vport:
+            LOG.debug("couldn't find a vport")
+        else:
+            LOG.debug("Deleting vport %(vport)s", {'vport': vport})
+            self.vsdclient.delete_nuage_gateway_vport_no_usergroup(
+                port['tenant_id'],
+                vport)
+            if vport.get('VLANID'):
+                LOG.debug("Deleting vlan %(vlan)s",
+                          {'vlan': vport['VLANID']})
+                self.vsdclient.delete_gateway_port_vlan(vport['VLANID'])
