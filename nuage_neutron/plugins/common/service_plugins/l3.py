@@ -462,7 +462,7 @@ class NuageL3Plugin(NuageL3Wrapper):
                 session, ipv6_subnet['id'])
             router_attached, r_id = self.check_if_subnet_is_attached_to_router(
                 context, dual_stack_subnet)
-            if router_attached:
+            if router_attached and not port_db:
                     return super(NuageL3Plugin,
                                  self).remove_router_interface(context,
                                                                router_id,
