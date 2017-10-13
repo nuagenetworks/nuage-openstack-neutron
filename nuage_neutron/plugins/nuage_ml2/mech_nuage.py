@@ -1259,12 +1259,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _check_ip_update_allowed(self, db_context, orig_port, port):
         orig_ips = orig_port.get('fixed_ips')
-        if port['device_owner'] == os_constants.DEVICE_OWNER_DHCP:
-            return True
         new_ips = port.get('fixed_ips')
-        vif_type = orig_port.get(portbindings.VIF_TYPE)
         ips_change = (new_ips is not None and
                       orig_ips != new_ips)
+        if (ips_change and
+                port['device_owner'] == os_constants.DEVICE_OWNER_DHCP):
+            return True
+        vif_type = orig_port.get(portbindings.VIF_TYPE)
         if ips_change and vif_type not in PORT_UNPLUGGED_TYPES:
             raise NuagePortBound(port_id=orig_port['id'],
                                  vif_type=vif_type,
