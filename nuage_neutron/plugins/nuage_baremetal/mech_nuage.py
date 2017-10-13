@@ -126,6 +126,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, "")
                 not in self._supported_vnic_types()):
             return
+        self._validate_fixed_ip(context)
         self._validate_security_groups(context)
 
     @handle_nuage_api_errorcode
@@ -146,7 +147,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, "")
                 not in self._supported_vnic_types()):
             return
-
+        self._validate_fixed_ip(context)
         self._validate_security_groups(context)
         host_added = host_removed = vnic_type_changed = False
         if original['binding:host_id'] and not port['binding:host_id']:
@@ -209,6 +210,13 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
                 LOG.debug("Ignoring segment %(seg)s  for port %(port)s",
                           {'seg': segment,
                            'port': port_id})
+
+    def _validate_fixed_ip(self, context):
+        port = context.current
+        if len(port["fixed_ips"]) == 0:
+            msg = ("Baremetal ports must belong to at least "
+                   "one subnet.")
+            raise exceptions.NuageBadRequest(msg=msg)
 
     def _validate_security_groups(self, context):
         port = context.current
