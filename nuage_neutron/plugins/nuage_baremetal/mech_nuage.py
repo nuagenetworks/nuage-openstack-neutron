@@ -268,7 +268,6 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             port = context.current
         port_id = port['id']
         network_id = port['network_id']
-        is_lag = False
         subnet_mapping = self._validate_port(context._plugin_context,
                                              port)
         if not subnet_mapping:
@@ -279,14 +278,10 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         profile = self._get_binding_profile(port)
         host_id = port['binding:host_id']
         local_link_information = profile.get('local_link_information')
-        if local_link_information and len(local_link_information) > 1:
-            is_lag = True
-
         port_dict = {'port':
                      {'id': port_id,
                       'name': port.get('name'),
                       'network_id': network_id,
-                      'is_lag': is_lag,
                       'link_info': local_link_information,
                       'host_id': host_id,
                       'tenant_id': port['tenant_id'],
