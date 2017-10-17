@@ -14,6 +14,7 @@ ML2_L3_PLUGIN=nuage_neutron.plugins.common.service_plugins.l3.NuageL3Plugin
 
 function configure_neutron_nuage {
     echo "Configuring ML2 for Nuage"
+    OVS_BRIDGE=${OVS_BRIDGE:-alubr0}
     NUAGE_PLUGIN_CONF_DIR=$NEUTRON_CONF_DIR/plugins/nuage
     NUAGE_PLUGIN_CONF_FILE=$NUAGE_PLUGIN_CONF_DIR/nuage_plugin.ini
 
@@ -33,7 +34,7 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_fip_underlay $NUAGE_FIP_UNDERLAY
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
-    iniset $NOVA_CONF neutron ovs_bridge $NOVA_OVS_BRIDGE
+    iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
     neutron_server_config_add $NUAGE_PLUGIN_CONF_FILE
     _neutron_deploy_rootwrap_filters $DIR_NUAGE
 }
