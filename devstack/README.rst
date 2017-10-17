@@ -28,6 +28,13 @@ Required settings
 Please consult <this repo>/etc/neutron/plugins/nuage/nuage_plugin.ini
 
 
+Enabling dhcp agent
+-------------------
+Add following settings to your local.conf::
+
+    enable_service q-dhcp
+    NEUTRON_AGENT=nuagevrs
+
 Enabling LBaaS
 --------------
 Add following settings to your local.conf::
