@@ -214,3 +214,14 @@ def needs_vport_creation(device_owner):
 def get_device_owners_vip():
     return ([nuage_constants.DEVICE_OWNER_VIP_NUAGE] +
             cfg.CONF.PLUGIN.device_owner_prefix)
+
+
+def count_fixed_ips_per_version(fixed_ips):
+    ipv4s = 0
+    ipv6s = 0
+    for fixed_ip in fixed_ips:
+        if netaddr.valid_ipv4(fixed_ip['ip_address']):
+            ipv4s += 1
+        if netaddr.valid_ipv6(fixed_ip['ip_address']):
+            ipv6s += 1
+    return ipv4s, ipv6s
