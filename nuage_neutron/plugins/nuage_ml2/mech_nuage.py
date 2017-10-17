@@ -87,6 +87,10 @@ def _is_ipv6(subnet):
     return subnet['ip_version'] == os_constants.IP_VERSION_6
 
 
+def _is_trunk_subport(port):
+    return t_consts.TRUNK_SUBPORT_OWNER == port.get('device_owner')
+
+
 class NuageMechanismDriver(NuageML2Wrapper):
 
     def initialize(self):
@@ -814,13 +818,19 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         is_network_external = context.network._network.get('router:external')
 
-        if len(port['fixed_ips']) == 0 and len(original['fixed_ips']) != 0:
-            # port no longer belongs to any subnet, act like delete
+        if (len(port['fixed_ips']) == 0 and len(original['fixed_ips']) != 0 or
+                self._ipv4_addr_removed_from_dualstack_dhcp_port(
+                    original, port)):
+            # port no longer belongs to any subnet or dhcp port has regressed
+            # to ipv6 only: delete vport.
             self._delete_port(db_context, original)
             return
+
         if (len(port['fixed_ips']) != 0 and len(original['fixed_ips']) == 0 or
-                self.is_dhcp_port_dualstack_added(original, port)):
-            # port didn't belong to any subnet yet, now act like create
+                self._ip4_addr_added_to_dualstack_dhcp_port(
+                    original, port)):
+            # port didn't belong to any subnet yet, or dhcp port used to be
+            # ipv6 only: create vport
             self._create_port(db_context, port, context.network,
                               update_status=False)
             return
@@ -831,6 +841,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                              is_network_external)
         if not subnet_mapping:
             return
+
         self._check_subport_in_use(original, port)
 
         ips_changed = self._check_ip_update_allowed(db_context, original, port)
@@ -850,9 +861,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 'ipv6': ips[6],
                 'nuage_vport_id': nuage_vport['ID']
             }
-            self.vsdclient.update_vport(nuage_vport['ID'], data)
-            self.vsdclient.update_subport(port, nuage_vport, data)
-            data['nuage_vport_id'] = nuage_vport['ID']
+            if _is_trunk_subport(port):
+                self.vsdclient.update_subport(port, nuage_vport, data)
             try:
                 self.vsdclient.update_nuage_vm_if(data)
             except restproxy.RESTProxyError as e:
@@ -896,27 +906,36 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     rollback[0](*rollback[1], **rollback[2])
 
     @staticmethod
-    def is_dhcp_port_dualstack_added(original, port):
+    def _ip4_addr_added_to_dualstack_dhcp_port(original, port):
         original_fixed_ips = original['fixed_ips']
         current_fixed_ips = port['fixed_ips']
         device_owner = port.get('device_owner')
-        is_dhcp_port = (device_owner == os_constants.DEVICE_OWNER_DHCP)
+        if device_owner != os_constants.DEVICE_OWNER_DHCP:
+            return False  # not a dhcp port
 
-        if not is_dhcp_port:
-            return False
-        if len(original_fixed_ips) != 1:
-            return False
-        if not netaddr.valid_ipv6(original_fixed_ips[0]['ip_address']):
-            return False
+        ipv4s, ipv6s = utils.count_fixed_ips_per_version(
+            current_fixed_ips)
+        original_ipv4s, original_ipv6s = utils.count_fixed_ips_per_version(
+            original_fixed_ips)
 
-        ipv4s = 0
-        ipv6s = 0
-        for fixed_ip in current_fixed_ips:
-            if netaddr.valid_ipv4(fixed_ip['ip_address']):
-                ipv4s += 1
-            if netaddr.valid_ipv6(fixed_ip['ip_address']):
-                ipv6s += 1
-        return ipv4s == 1 and ipv6s == 1
+        return (ipv4s == 1 and ipv6s == 1
+                and original_ipv4s == 0 and original_ipv6s == 1)
+
+    @staticmethod
+    def _ipv4_addr_removed_from_dualstack_dhcp_port(original, port):
+        original_fixed_ips = original['fixed_ips']
+        current_fixed_ips = port['fixed_ips']
+        device_owner = port.get('device_owner')
+        if device_owner != os_constants.DEVICE_OWNER_DHCP:
+            return False  # not a dhcp port
+
+        ipv4s, ipv6s = utils.count_fixed_ips_per_version(
+            current_fixed_ips)
+        original_ipv4s, original_ipv6s = utils.count_fixed_ips_per_version(
+            original_fixed_ips)
+
+        return (ipv4s == 0 and ipv6s == 1
+                and original_ipv4s == 1 and original_ipv6s == 1)
 
     def _port_device_change(self, context, db_context, nuage_vport, original,
                             port, subnet_mapping,
@@ -1299,8 +1318,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @staticmethod
     def _check_subport_in_use(orig_port, port):
-        is_sub = t_consts.TRUNK_SUBPORT_OWNER == orig_port.get('device_owner')
-        if is_sub:
+        if _is_trunk_subport(orig_port):
             vif_orig = orig_port.get(portbindings.VIF_TYPE)
             if vif_orig not in PORT_UNPLUGGED_TYPES and port.get('device_id'):
                 raise PortInUse(port_id=port['id'],
@@ -1316,6 +1334,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             return False
         if (len(fixed_ips) == 1 and is_dhcp_port and
                 netaddr.valid_ipv6(fixed_ips[0]['ip_address'])):
+            # Delayed creation of vport until dualstack
             return False
         if not utils.needs_vport_creation(device_owner):
             return False
