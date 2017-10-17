@@ -12,6 +12,23 @@ function is_neutron_ovs_base_plugin {
     return 1
 }
 
+function neutron_plugin_install_agent_packages {
+   :
+}
+
+function neutron_plugin_configure_dhcp_agent {
+    local conf_file=$1
+    OVS_BRIDGE=${OVS_BRIDGE:-alubr0}
+    iniset $conf_file DEFAULT ovs_integration_bridge $OVS_BRIDGE
+
+}
+
+function neutron_plugin_setup_interface_driver {
+    local conf_file=$1
+    OVS_BRIDGE=${OVS_BRIDGE:-alubr0}
+    iniset $conf_file DEFAULT interface_driver nuagevrs
+    iniset $conf_file DEFAULT ovs_integration_bridge $OVS_BRIDGE
+}
 
 function create_or_retrieve_cms {
     # If NUAGE_VSD_CMS_ID is not set, find or create a cms on VSD.
@@ -72,13 +89,6 @@ function create_or_retrieve_cms {
         fi
     fi
     eval "$1=${NUAGE_VSD_CMS_ID}"
-}
-
-function neutron_plugin_setup_interface_driver {
-    local conf_file=$1
-    OVS_BRIDGE=${OVS_BRIDGE:-alubr0}
-    iniset $conf_file DEFAULT interface_driver nuagevrs
-    iniset $conf_file DEFAULT ovs_integration_bridge $OVS_BRIDGE
 }
 
 
