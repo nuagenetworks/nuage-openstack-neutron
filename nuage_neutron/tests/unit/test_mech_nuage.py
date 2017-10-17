@@ -25,6 +25,7 @@ from neutron.conf import common as core_config
 from neutron.plugins.ml2 import config as ml2_config
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
+from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
@@ -75,22 +76,23 @@ class TestNuageMechanismDriver(testtools.TestCase):
                         extension_drivers=['nuage_subnet',
                                            'nuage_port',
                                            'port_security'])
+        return conf
 
     # get me a Nuage mechanism driver
     def get_me_a_nmd(self):
+        self.set_config_fixture()
+
         nmd = NuageMechanismDriver()
         nmd._l2_plugin = nmd
-        self.set_config_fixture()
         nmd.initialize()
         return nmd
 
     # NETWORK DRIVER INITIALIZATION CHECKS
 
     def test_init_native_nmd_missing_service_plugin(self):
-        nmd = NuageMechanismDriver()
         self.set_config_fixture(ConfigTypes.MISSING_SERVICE_PLUGIN)
         try:
-            nmd.initialize()
+            NuageMechanismDriver().initialize()
             self.fail('nmd should not have successfully initialized.')
 
         except Exception as e:
@@ -99,10 +101,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
                              'for mechanism driver nuage', str(e))
 
     def test_init_native_nmd_missing_ml2_extension(self):
-        nmd = NuageMechanismDriver()
         self.set_config_fixture(ConfigTypes.MISSING_ML2_EXTENSION)
         try:
-            nmd.initialize()
+            NuageMechanismDriver().initialize()
             self.fail('nmd should not have successfully initialized.')
 
         except Exception as e:
@@ -111,10 +112,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
                              'for mechanism driver nuage', str(e))
 
     def test_init_native_nmd_invalid_server(self):
-        nmd = NuageMechanismDriver()
         self.set_config_fixture()
         try:
-            nmd.initialize()
+            NuageMechanismDriver().initialize()
             self.fail('nmd should not have successfully initialized.')
 
         except Exception as e:
@@ -475,6 +475,29 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.assertEqual('Bad request: A network with an ipv6 subnet '
                              'may only have maximum 1 ipv4 and 1 ipv6 '
                              'subnet', str(e))
+
+    # NON DEFAULT IP CHECKS
+
+    def test_default_allow_non_ip_not_set(self):
+        self.assertFalse(config.default_allow_non_ip())
+
+    def test_default_allow_non_ip_set_empty_string(self):
+        cfg = self.set_config_fixture()
+        cfg.config(group='PLUGIN', default_allow_non_ip='')
+
+        self.assertFalse(config.default_allow_non_ip())
+
+    def test_default_allow_non_ip_set_to_rubbish(self):
+        cfg = self.set_config_fixture()
+        cfg.config(group='PLUGIN', default_allow_non_ip='rubbish')
+
+        self.assertFalse(config.default_allow_non_ip())
+
+    def test_default_allow_non_ip_set(self):
+        cfg = self.set_config_fixture()
+        cfg.config(group='PLUGIN', default_allow_non_ip=True)
+
+        self.assertTrue(config.default_allow_non_ip())
 
 
 class Context(object):
