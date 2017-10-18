@@ -27,7 +27,6 @@ from neutron.callbacks import resources
 from neutron.db import db_base_plugin_v2
 from neutron.extensions import external_net
 from neutron.extensions import securitygroup as ext_sg
-from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
 from neutron.plugins.ml2 import plugin as ml2_plugin
 from neutron.services.trunk import constants as t_consts
@@ -1594,7 +1593,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
     @staticmethod
     def _check_segment(segment):
         network_type = segment[api.NETWORK_TYPE]
-        return network_type == p_constants.TYPE_VXLAN
+        return network_type == os_constants.TYPE_VXLAN
 
     @staticmethod
     def _supported_vnic_types():

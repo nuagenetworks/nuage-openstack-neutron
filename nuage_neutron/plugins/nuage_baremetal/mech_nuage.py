@@ -19,7 +19,6 @@ import stevedore
 
 from neutron._i18n import _
 from neutron.extensions import securitygroup as ext_sg
-from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
 from neutron.services.trunk import constants as t_const
 from neutron_lib.api.definitions import portbindings
@@ -257,7 +256,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         False to indicate this to callers.
         """
         network_type = segment[api.NETWORK_TYPE]
-        return network_type in [p_constants.TYPE_VXLAN]
+        return network_type in [n_const.TYPE_VXLAN]
 
     def _make_port_dict(self, context, port=None):
         """Get required info from neutron port.
