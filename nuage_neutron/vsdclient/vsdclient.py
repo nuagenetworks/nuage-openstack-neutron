@@ -92,7 +92,7 @@ class VsdClient(object):
     def create_subnet(self, ipv4_subnet, params, ipv6_subnet=None):
         pass
 
-    def delete_subnet(self, id, mapping=None):
+    def delete_subnet(self, id, mapping=None, l3_vsd_subnet_id=None):
         pass
 
     def update_subnet(self, neutron_subnet, params):

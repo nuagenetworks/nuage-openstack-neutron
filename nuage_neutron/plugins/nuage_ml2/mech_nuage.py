@@ -424,8 +424,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return None
 
     @log_helpers.log_method_call
-    def _get_dhcp_port(self, context, neutron_subnet):
+    def _get_dhcp_port(self, context, neutron_subnet, router_attached=False):
         if neutron_subnet.get('enable_dhcp'):
+            if router_attached:
+                return None
             last_address = neutron_subnet['allocation_pools'][-1]['end']
             return self._reserve_ip(context,
                                     neutron_subnet,
@@ -456,6 +458,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
     def _create_nuage_subnet(self, context, neutron_subnet, netpart_id,
                              pnet_binding):
         gw_port = None
+        router_attached = False
         r_param = {}
         neutron_net = self.core_plugin.get_network(
             context, neutron_subnet['network_id'])
@@ -497,9 +500,12 @@ class NuageMechanismDriver(NuageML2Wrapper):
         }
 
         if is_ipv4:
-            gw_port = self._get_dhcp_port(context, neutron_subnet)
+            gw_port = self._get_dhcp_port(context, neutron_subnet,
+                                          router_attached)
             if gw_port:
                 params['dhcp_ip'] = gw_port['fixed_ips'][0]['ip_address']
+            elif router_attached:
+                params['dhcp_ip'] = None
         else:
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, ipv4_subnet['id'])
@@ -701,11 +707,20 @@ class NuageMechanismDriver(NuageML2Wrapper):
             return
 
         if not mapping['nuage_managed_subnet']:
+            # os managed
             if _is_ipv6(subnet):
                 self.vsdclient.delete_subnet(subnet['id'], mapping=mapping)
                 return
             else:
-                self.vsdclient.delete_subnet(subnet['id'])
+                _, l3_sub_id = get_l2_and_l3_sub_id(mapping)
+                if l3_sub_id:
+                    # delete subnet on l3 domain
+                    self.vsdclient.delete_subnet(subnet['id'],
+                                                 l3_vsd_subnet_id=l3_sub_id)
+                else:
+                    # delete l2domain
+                    # TODO(team) : optimize, we know vsd l2 domain id, pass on
+                    self.vsdclient.delete_subnet(subnet['id'])
                 ipv6_subnet = self.get_dual_stack_subnet(db_context, subnet)
                 if ipv6_subnet:
                     ipv6_mapping = nuagedb.get_subnet_l2dom_by_id(
@@ -917,8 +932,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         original_ipv4s, original_ipv6s = utils.count_fixed_ips_per_version(
             original_fixed_ips)
 
-        return (ipv4s == 1 and ipv6s == 1
-                and original_ipv4s == 0 and original_ipv6s == 1)
+        return (ipv4s == 1 and ipv6s == 1 and
+                original_ipv4s == 0 and original_ipv6s == 1)
 
     @staticmethod
     def _ipv4_addr_removed_from_dualstack_dhcp_port(original, port):
@@ -933,8 +948,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         original_ipv4s, original_ipv6s = utils.count_fixed_ips_per_version(
             original_fixed_ips)
 
-        return (ipv4s == 0 and ipv6s == 1
-                and original_ipv4s == 1 and original_ipv6s == 1)
+        return (ipv4s == 0 and ipv6s == 1 and
+                original_ipv4s == 1 and original_ipv6s == 1)
 
     def _port_device_change(self, db_context, nuage_vport, original, port,
                             subnet_mapping,
