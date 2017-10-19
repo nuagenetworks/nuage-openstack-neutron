@@ -914,8 +914,8 @@ def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
         nuage_permission.post_resource_by_parent_id(
             'l2domains', nuage_subnetid), post_data)
     if not nuage_permission.validate(resp):
-        if (nuage_permission.get_error_code(resp)
-                != constants.CONFLICT_ERR_CODE):
+        if (nuage_permission.get_error_code(resp) !=
+                constants.CONFLICT_ERR_CODE):
             raise restproxy.RESTProxyError(
                 nuage_permission.error_msg)
 
@@ -963,11 +963,11 @@ def rollback():
 
 def get_l2_and_l3_sub_id(subnet_mapping):
     if subnet_mapping['nuage_l2dom_tmplt_id']:
-        l2_id = subnet_mapping['nuage_subnet_id']
+        l2_id = subnet_mapping['nuage_subnet_id']  # l2 dom id
         l3_id = None
     else:
         l2_id = None
-        l3_id = subnet_mapping['nuage_subnet_id']
+        l3_id = subnet_mapping['nuage_subnet_id']  # the l3 subnet id in l3 dom
     return l2_id, l3_id
 
 

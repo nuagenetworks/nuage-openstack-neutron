@@ -688,6 +688,10 @@ class NuageDomainSubnet(object):
         data = helper.get_ipv6_vsd_data(None)
         self.update_domain_subnet(mapping['nuage_subnet_id'], **data)
 
+    def delete_l3domain_subnet(self, vsd_id):
+        vsd_subnet = nuagelib.NuageSubnet()
+        self.restproxy.delete(vsd_subnet.delete_resource(vsd_id))
+
     def update_domain_subnet(self, domain_subnet_id, **data):
         vsd_subnet = nuagelib.NuageSubnet()
         self.restproxy.put(vsd_subnet.put_resource(domain_subnet_id), data)

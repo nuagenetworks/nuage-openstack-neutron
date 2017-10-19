@@ -203,12 +203,14 @@ class VsdClientImpl(VsdClient):
                                     params['netpart_id'])
         l3_subnet['nuage_userid'] = nuage_userid
         l3_subnet['nuage_groupid'] = nuage_groupid
-        l3_subnet['nuage_l2template_id'] = l3_subnet['ID']
-        l3_subnet['nuage_l2domain_id'] = None
+        l3_subnet['nuage_l2template_id'] = None
+        l3_subnet['nuage_l2domain_id'] = l3_subnet['ID']
         return l3_subnet
 
-    def delete_subnet(self, id, mapping=None):
-        if mapping is None:
+    def delete_subnet(self, id, mapping=None, l3_vsd_subnet_id=None):
+        if l3_vsd_subnet_id:
+            self.domain.domainsubnet.delete_l3domain_subnet(l3_vsd_subnet_id)
+        elif mapping is None:
             self.l2domain.delete_subnet(id)
         else:  # eg. delete ipv6 only
             template_id = mapping['nuage_l2dom_tmplt_id']
