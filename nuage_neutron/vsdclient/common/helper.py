@@ -534,7 +534,8 @@ def delete_nuage_vport(restproxy_serv, vport_id):
                                         nuage_vport.del_vport(vport_id), '')
     if not nuage_vport.delete_validate(del_resp):
         raise restproxy.RESTProxyError(nuage_vport.error_msg,
-                                       nuage_vport.vsd_error_code)
+                                       error_code=del_resp[0],
+                                       vsd_code=nuage_vport.vsd_error_code)
 
 
 def get_l2dom(restproxy_serv, nuage_id, required=False):

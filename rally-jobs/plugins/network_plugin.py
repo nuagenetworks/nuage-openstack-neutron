@@ -14,23 +14,22 @@
 #    under the License.
 #
 
-from rally.common import logging
 from rally import consts
 from rally.plugins.openstack import scenario
 from rally.plugins.openstack.scenarios.neutron import utils
+from rally.plugins.openstack.wrappers import network as network_wrapper
 from rally.task import atomic
 from rally.task import validation
 
-LOG = logging.getLogger(__name__)
 
-
-class NetworkPlugin(utils.NeutronScenario):
+@validation.add("required_services", services=[consts.Service.NEUTRON])
+@validation.add("required_platform", platform="openstack", users=True)
+@scenario.configure(context={"cleanup@openstack": ["neutron"]},
+                    name="NetworkPlugin.create_networks")
+class CreateNetwork(utils.NeutronScenario):
     """Benchmark scenarios for Neutron."""
 
-    @validation.required_services(consts.Service.NEUTRON)
-    @validation.required_openstack(users=True)
-    @scenario.configure(context={"cleanup": ["neutron"]})
-    def create_networks(self, network_create_args=None):
+    def run(self, network_create_args=None):
         """Create a network.
 
         Measure the "neutron net-create" command performance.
@@ -42,15 +41,19 @@ class NetworkPlugin(utils.NeutronScenario):
         """
         self._create_network(network_create_args or {})
 
-    @validation.number("subnets_per_network", minval=1, integer_only=True)
-    @validation.required_services(consts.Service.NEUTRON)
-    @validation.required_openstack(users=True)
-    @scenario.configure(context={"cleanup": ["neutron"]})
-    def create_subnets(self,
-                       network_create_args=None,
-                       subnet_create_args=None,
-                       subnet_cidr_start=None,
-                       subnets_per_network=None):
+
+@validation.add("number", param_name="subnets_per_network",
+                minval=1, integer_only=True)
+@validation.add("required_services", services=[consts.Service.NEUTRON])
+@validation.add("required_platform", platform="openstack", users=True)
+@scenario.configure(context={"cleanup@openstack": ["neutron"]},
+                    name="NetworkPlugin.create_subnets")
+class CreateSubnets(utils.NeutronScenario):
+    def run(self,
+            network_create_args=None,
+            subnet_create_args=None,
+            subnet_cidr_start=None,
+            subnets_per_network=None):
         """Create a given number of subnets.
 
         The scenario creates a network and a given number of subnets.
@@ -65,16 +68,20 @@ class NetworkPlugin(utils.NeutronScenario):
         self._create_subnets(network, subnet_create_args, subnet_cidr_start,
                              subnets_per_network)
 
-    @validation.number("subnets_per_network", minval=1, integer_only=True)
-    @validation.required_services(consts.Service.NEUTRON)
-    @validation.required_openstack(users=True)
-    @scenario.configure(context={"cleanup": ["neutron"]})
-    def create_subnets_routers_interfaces(self,
-                                          network_create_args=None,
-                                          subnet_create_args=None,
-                                          subnet_cidr_start=None,
-                                          subnets_per_network=None,
-                                          router_create_args=None):
+
+@validation.add("number", param_name="subnets_per_network",
+                minval=1, integer_only=True)
+@validation.add("required_services", services=[consts.Service.NEUTRON])
+@validation.add("required_platform", platform="openstack", users=True)
+@scenario.configure(context={"cleanup@openstack": ["neutron"]},
+                    name="NetworkPlugin.create_subnets_routers_interfaces")
+class CreateSubnetsRoutersInterfaces(utils.NeutronScenario):
+    def run(self,
+            network_create_args=None,
+            subnet_create_args=None,
+            subnet_cidr_start=None,
+            subnets_per_network=None,
+            router_create_args=None):
         """Create a network, a given number of subnets and routers.
 
         :param network_create_args: dict, POST /v2.0/networks request
@@ -88,16 +95,19 @@ class NetworkPlugin(utils.NeutronScenario):
                                        subnet_cidr_start, subnets_per_network,
                                        router_create_args)
 
-    @validation.number("routers_per_subnet", minval=1, integer_only=True)
-    @validation.required_services(consts.Service.NEUTRON)
-    @validation.required_openstack(users=True)
-    @scenario.configure(context={"cleanup": ["neutron"]})
-    def create_routers(self,
-                       network_create_args=None,
-                       subnet_create_args=None,
-                       routers_per_subnet=None,
-                       router_create_args=None,
-                       port_create_args=None):
+
+@validation.add("number", param_name="routers_per_subnet",
+                minval=1, integer_only=True)
+@validation.add("required_services", services=[consts.Service.NEUTRON])
+@validation.add("required_platform", platform="openstack", users=True)
+@scenario.configure(context={"cleanup@openstack": ["neutron"]},
+                    name="NetworkPlugin.create_routers")
+class CreateRouters(utils.NeutronScenario):
+    def run(self,
+            network_create_args=None,
+            routers_per_subnet=None,
+            router_create_args=None,
+            port_create_args=None):
         """Create a given number of ports and routers.
 
         :param network_create_args: dict, POST /v2.0/networks request
@@ -107,8 +117,7 @@ class NetworkPlugin(utils.NeutronScenario):
         :param port_create_args: dict, POST /v2.0/ports request options
         """
 
-        network = self._create_network(network_create_args or {})
-        self._create_subnets(network, subnet_create_args, "1.0.0.0/8", 1)
+        network = self._get_or_create_network(network_create_args)
         for i in range(routers_per_subnet):
             router = self._create_router(router_create_args or {})
             port = self._create_port(network, port_create_args or {})
@@ -119,14 +128,18 @@ class NetworkPlugin(utils.NeutronScenario):
         self.clients("neutron").add_interface_router(
             router["router"]["id"], {"port_id": port["port"]["id"]})
 
-    @validation.number("ports_per_network", minval=1, integer_only=True)
-    @validation.required_services(consts.Service.NEUTRON)
-    @validation.required_openstack(users=True)
-    @scenario.configure(context={"cleanup": ["neutron"]})
-    def create_ports(self,
-                     network_create_args=None,
-                     port_create_args=None,
-                     ports_per_network=None):
+
+@validation.add("number", param_name="ports_per_network",
+                minval=1, integer_only=True)
+@validation.add("required_services", services=[consts.Service.NEUTRON])
+@validation.add("required_platform", platform="openstack", users=True)
+@scenario.configure(context={"cleanup@openstack": ["neutron"]},
+                    name="NetworkPlugin.create_ports")
+class CreatePorts(utils.NeutronScenario):
+    def run(self,
+            network_create_args=None,
+            port_create_args=None,
+            ports_per_network=None):
         """Create a given number of ports.
 
         :param network_create_args: dict, POST /v2.0/networks request
@@ -137,3 +150,175 @@ class NetworkPlugin(utils.NeutronScenario):
         network = self._get_or_create_network(network_create_args)
         for i in range(ports_per_network):
             self._create_port(network, port_create_args or {})
+
+
+@validation.add("required_services",
+                services=[consts.Service.NEUTRON])
+@validation.add("required_platform", platform="openstack", users=True)
+@scenario.configure(context={"cleanup@openstack": ["neutron"]},
+                    name="NetworkPlugin.create_and_list_dualstack_subnets",
+                    platform="openstack")
+class CreateAndListDualStackSubnets(utils.NeutronScenario):
+
+    SUBNET_IP_VERSION = 4
+    SUBNET_IP_VERSION_v4 = 4
+    SUBNET_IP_VERSION_v6 = 6
+
+    @atomic.action_timer("neutron.create_subnet")
+    def _create_subnet(self, network, subnet_create_args, start_cidr=None,
+                       ip_version=4):
+        """Create neutron subnet.
+
+        :param network: neutron network dict
+        :param subnet_create_args: POST /v2.0/subnets request options
+        :returns: neutron subnet dict
+        """
+        network_id = network["network"]["id"]
+
+        if not subnet_create_args.get("cidr"):
+            if ip_version == 4:
+                start_cidr = start_cidr or "10.2.0.0/24"
+                subnet_create_args["cidr"] = (
+                    network_wrapper.generate_cidr(start_cidr=start_cidr))
+                subnet_create_args.setdefault("ip_version",
+                                              self.SUBNET_IP_VERSION_v4)
+            elif ip_version == 6:
+                start_cidr = (start_cidr or
+                              "1504:40db:0000:0000:0000:0000:0000:0001/64")
+                subnet_create_args["cidr"] = (
+                    network_wrapper.generate_cidr(start_cidr=start_cidr))
+                subnet_create_args.setdefault("ip_version",
+                                              self.SUBNET_IP_VERSION_v6)
+        subnet_create_args["network_id"] = network_id
+        subnet_create_args["name"] = self.generate_random_name()
+        return self.clients("neutron").create_subnet(
+            {"subnet": subnet_create_args})
+
+    def _create_subnets(self, network,
+                        subnet_create_args=None,
+                        subnet_cidr_start=None,
+                        subnets_per_network=1,
+                        ip_version=4):
+        """Create <count> new subnets in the given network.
+
+        :param network: network to create subnets in
+        :param subnet_create_args: dict, POST /v2.0/subnets request options
+        :param subnet_cidr_start: str, start value for subnets CIDR
+        :param subnets_per_network: int, number of subnets for one network
+        :returns: List of subnet dicts
+        """
+        return [self._create_subnet(network, subnet_create_args or {},
+                                    subnet_cidr_start, ip_version)
+                for i in range(subnets_per_network)]
+
+    def run(self, network_create_args=None, subnet_create_args=None,
+            subnetv4_cidr_start=None, subnetv6_cidr_start=None,
+            subnets_per_network=1):
+        """Create and a given number of subnets and list all subnets.
+
+        The scenario creates a network, a given number of subnets and then
+        lists subnets.
+        :param network_create_args: dict, POST /v2.0/networks request
+                                    options. Deprecated
+        :param subnet_create_args: dict, POST /v2.0/subnets request options
+        :param subnet_cidr_start: str, start value for subnets CIDR
+        :param subnets_per_network: int, number of subnets for one network
+        """
+        network = self._create_network(network_create_args or {})
+        ip_version = 6
+        self._create_subnets(network, subnet_create_args, subnetv6_cidr_start,
+                             subnets_per_network, ip_version)
+        ip_version = 4
+        self._create_subnets(network, subnet_create_args, subnetv4_cidr_start,
+                             subnets_per_network, ip_version)
+        self._list_subnets()
+
+
+@validation.add("required_services",
+                services=[consts.Service.NEUTRON])
+@validation.add("required_platform", platform="openstack", users=True)
+@scenario.configure(context={"cleanup@openstack": ["neutron"]},
+                    name="NetworkPlugin.create_and_delete_dualstack_subnets",
+                    platform="openstack")
+class CreateAndDeleteDualStackSubnets(utils.NeutronScenario):
+
+    SUBNET_IP_VERSION = 4
+    SUBNET_IP_VERSION_v4 = 4
+    SUBNET_IP_VERSION_v6 = 6
+
+    @atomic.action_timer("neutron.create_subnet")
+    def _create_subnet(self, network, subnet_create_args, start_cidr=None,
+                       ip_version=4):
+        """Create neutron subnet.
+
+        :param network: neutron network dict
+        :param subnet_create_args: POST /v2.0/subnets request options
+        :returns: neutron subnet dict
+        """
+        network_id = network["network"]["id"]
+
+        if not subnet_create_args.get("cidr"):
+            if ip_version == 4:
+                start_cidr = start_cidr or "10.2.0.0/24"
+                subnet_create_args["cidr"] = (
+                    network_wrapper.generate_cidr(start_cidr=start_cidr))
+                subnet_create_args.setdefault("ip_version",
+                                              self.SUBNET_IP_VERSION_v4)
+            elif ip_version == 6:
+                start_cidr = (start_cidr or
+                              "1504:40db:0000:0000:0000:0000:0000:0001/64")
+                subnet_create_args["cidr"] = (
+                    network_wrapper.generate_cidr(start_cidr=start_cidr))
+                subnet_create_args.setdefault("ip_version",
+                                              self.SUBNET_IP_VERSION_v6)
+        subnet_create_args["network_id"] = network_id
+        subnet_create_args["name"] = self.generate_random_name()
+        return self.clients("neutron").create_subnet(
+            {"subnet": subnet_create_args})
+
+    def _create_subnets(self, network,
+                        subnet_create_args=None,
+                        subnet_cidr_start=None,
+                        subnets_per_network=1,
+                        ip_version=4):
+        """Create <count> new subnets in the given network.
+
+        :param network: network to create subnets in
+        :param subnet_create_args: dict, POST /v2.0/subnets request options
+        :param subnet_cidr_start: str, start value for subnets CIDR
+        :param subnets_per_network: int, number of subnets for one network
+        :returns: List of subnet dicts
+        """
+        return [self._create_subnet(network, subnet_create_args or {},
+                                    subnet_cidr_start, ip_version)
+                for i in range(subnets_per_network)]
+
+    def run(self, network_create_args=None, subnet_create_args=None,
+            subnetv4_cidr_start=None, subnetv6_cidr_start=None,
+            subnets_per_network=1):
+        """Create and a given number of subnets and list all subnets.
+
+        The scenario creates a network, a given number of subnets and then
+        lists subnets.
+        :param network_create_args: dict, POST /v2.0/networks request
+                                    options. Deprecated
+        :param subnet_create_args: dict, POST /v2.0/subnets request options
+        :param subnet_cidr_start: str, start value for subnets CIDR
+        :param subnets_per_network: int, number of subnets for one network
+        """
+        network = self._create_network(network_create_args or {})
+        ip_version = 6
+        subnetsv4 = self._create_subnets(network, subnet_create_args,
+                                         subnetv6_cidr_start,
+                                         subnets_per_network,
+                                         ip_version)
+        ip_version = 4
+        subnetsv6 = self._create_subnets(network, subnet_create_args,
+                                         subnetv4_cidr_start,
+                                         subnets_per_network,
+                                         ip_version)
+        for subnet in subnetsv4:
+            self._delete_subnet(subnet)
+
+        for subnet in subnetsv6:
+            self._delete_subnet(subnet)
