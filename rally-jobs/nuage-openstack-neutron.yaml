@@ -22,7 +22,7 @@
   NeutronNetworks.create_and_list_subnets:
     -
       args:
-        subnets_per_network: 2
+        subnets_per_network: 1
       runner:
         type: "constant"
         times: {{iterations_count or 40}}
@@ -44,8 +44,8 @@
       args:
         network_create_args:
         subnet_create_args:
-        subnet_cidr_start: "1.1.0.0/30"
-        subnets_per_network: 2
+        subnet_cidr_start: "1.1.0.0/28"
+        subnets_per_network: 1
         router_create_args:
       runner:
         type: "constant"
@@ -116,7 +116,7 @@
         network_create_args: {}
         subnet_create_args: {}
         subnet_cidr_start: "1.4.0.0/16"
-        subnets_per_network: 2
+        subnets_per_network: 1
         subnet_update_args:
             enable_dhcp: False
             name: "_subnet_updated"
@@ -141,8 +141,8 @@
       args:
         network_create_args: {}
         subnet_create_args: {}
-        subnet_cidr_start: "1.1.0.0/30"
-        subnets_per_network: 2
+        subnet_cidr_start: "1.1.0.0/28"
+        subnets_per_network: 1
         router_create_args: {}
         router_update_args:
             admin_state_up: False
@@ -216,8 +216,8 @@
       args:
         network_create_args: {}
         subnet_create_args: {}
-        subnet_cidr_start: "1.1.0.0/30"
-        subnets_per_network: 2
+        subnet_cidr_start: "1.1.0.0/28"
+        subnets_per_network: 1
       runner:
         type: "constant"
         times: {{iterations_count or 40}}
@@ -239,8 +239,8 @@
       args:
         network_create_args: {}
         subnet_create_args: {}
-        subnet_cidr_start: "1.1.0.0/30"
-        subnets_per_network: 2
+        subnet_cidr_start: "1.1.0.0/28"
+        subnets_per_network: 1
         router_create_args: {}
       runner:
         type: "constant"
@@ -277,6 +277,52 @@
           neutron:
             network: -1
             port: -1
+      sla:
+        failure_rate:
+          max: 0
+
+  NetworkPlugin.create_and_list_dualstack_subnets:
+    -
+      args:
+        network_create_args: {}
+        subnet_create_args: {}
+        subnetv4_cidr_start: "1.1.2.0/28"
+        subnetv6_cidr_start: "a1ca:c10d:1111:1111::/64"
+      runner:
+        type: "constant"
+        times: {{iterations_count or 40}}
+        concurrency: 20
+      context:
+        users:
+          tenants: 1
+          users_per_tenant: 1
+        quotas:
+          neutron:
+            network: -1
+            subnet: -1
+      sla:
+        failure_rate:
+          max: 0
+
+  NetworkPlugin.create_and_delete_dualstack_subnets:
+    -
+      args:
+        network_create_args: {}
+        subnet_create_args: {}
+        subnetv4_cidr_start: "1.1.1.0/28"
+        subnetv6_cidr_start: "a1ca:c10d:1111:0000::/64"
+      runner:
+        type: "constant"
+        times: {{iterations_count or 40}}
+        concurrency: 20
+      context:
+        users:
+          tenants: 1
+          users_per_tenant: 1
+        quotas:
+          neutron:
+            network: -1
+            subnet: -1
       sla:
         failure_rate:
           max: 0
