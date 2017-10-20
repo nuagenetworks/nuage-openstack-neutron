@@ -37,6 +37,8 @@ from neutron.services.trunk import constants as t_consts
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as os_constants
 from neutron_lib.exceptions import PortInUse
+from neutron_lib.exceptions import PortNotFound
+from neutron_lib.exceptions import SubnetNotFound
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
 from nuage_neutron.plugins.common import constants
@@ -667,8 +669,12 @@ class NuageMechanismDriver(NuageML2Wrapper):
     def _delete_port_gateway(self, context, ports):
         for port in ports:
             if not port.get('fixed_ips'):
-                db_base_plugin_v2.NeutronDbPluginV2.delete_port(
-                    self.core_plugin, context, port['id'])
+                try:
+                    db_base_plugin_v2.NeutronDbPluginV2.delete_port(
+                        self.core_plugin, context, port['id'])
+                except PortNotFound:
+                    LOG.info("Port %s has been deleted concurrently",
+                             port['id'])
 
     @utils.context_log
     @TimeTracker.tracked
@@ -713,15 +719,43 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 self.vsdclient.delete_subnet(subnet['id'], mapping=mapping)
                 return
             else:
-                _, l3_sub_id = get_l2_and_l3_sub_id(mapping)
-                if l3_sub_id:
-                    # delete subnet on l3 domain
-                    self.vsdclient.delete_subnet(subnet['id'],
-                                                 l3_vsd_subnet_id=l3_sub_id)
-                else:
-                    # delete l2domain
-                    # TODO(team) : optimize, we know vsd l2 domain id, pass on
-                    self.vsdclient.delete_subnet(subnet['id'])
+                l2_id, l3_sub_id = get_l2_and_l3_sub_id(mapping)
+                try:
+                    if l3_sub_id:
+                        # delete subnet on l3 domain
+                        self.vsdclient.delete_subnet(
+                            subnet['id'],
+                            l3_vsd_subnet_id=l3_sub_id)
+                    else:
+                        # delete l2domain
+                        # TODO(team) : optimize, we know vsd l2 domain id,
+                        # pass on
+                        self.vsdclient.delete_subnet(subnet['id'])
+                except restproxy.RESTProxyError as e:
+                    vm_exist = (e.code == restproxy.RES_CONFLICT and
+                                e.vsd_code in
+                                [vsd_constants.VSD_VM_EXIST,
+                                 vsd_constants.VSD_VM_EXISTS_ON_VPORT])
+                    if vm_exist:
+                        if l3_sub_id:
+                            vms = self.vsdclient.vms_on_subnet(l3_sub_id)
+                        else:
+                            vms = self.vsdclient.vms_on_l2domain(l2_id)
+                        np = nuagedb.get_net_partition_by_id(
+                            db_context.session,
+                            id=mapping['net_partition_id'])
+                        for vm in vms:
+                            LOG.debug('deleting VSD vm %s', vm['ID'])
+                            params = {
+                                'id': vm['ID'],
+                                'tenant': subnet['tenant_id'],
+                                'netpart_name': np['name']
+                            }
+                            self.vsdclient.delete_vm_by_id(params)
+
+                        self.vsdclient.delete_subnet(subnet['id'])
+                    else:
+                        raise
                 ipv6_subnet = self.get_dual_stack_subnet(db_context, subnet)
                 if ipv6_subnet:
                     ipv6_mapping = nuagedb.get_subnet_l2dom_by_id(
@@ -799,6 +833,29 @@ class NuageMechanismDriver(NuageML2Wrapper):
             if (not port[portsecurity.PORTSECURITY] and
                     not subnet_mapping['nuage_managed_subnet']):
                 self._process_port_create_secgrp_for_port_sec(db_context, port)
+        except (restproxy.RESTProxyError, NuageBadRequest) as ex:
+            # TODO(gridinv): looks like in some cases we convert 404 to 400
+            # so i have to catch both. Question here is - don't we hide
+            # valid error with this?
+            if nuage_vm:
+                if (port.get('device_owner') in
+                        [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP]):
+                    params = {
+                        'externalID': port['id'],
+                        'tenant': port['tenant_id'],
+                        'netpart_name': np_name
+                    }
+                    self.vsdclient.delete_vm_by_external_id(params)
+                else:
+                    self._delete_nuage_vm(db_context, port, np_name,
+                                          subnet_mapping)
+            if nuage_vport:
+                self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
+            if self._check_port_exists_in_neutron(db_context, port):
+                raise
+            else:
+                LOG.info("Port was deleted concurrently: %s", ex.message)
+                return
         except Exception:
             if nuage_vm:
                 self._delete_nuage_vm(db_context, port, np_name,
@@ -838,7 +895,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     original, port)):
             # port no longer belongs to any subnet or dhcp port has regressed
             # to ipv6 only: delete vport.
-            self._delete_port(db_context, original)
+            vsd_errors = [(vsd_constants.CONFLICT_ERR_CODE,
+                           vsd_constants.VSD_VM_EXISTS_ON_VPORT)]
+            utils.retry_on_vsdclient_error(
+                self._delete_port, vsd_error_codes=vsd_errors)(db_context,
+                                                               original)
             return
 
         if (len(port['fixed_ips']) != 0 and len(original['fixed_ips']) == 0 or
@@ -861,8 +922,22 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         vm_if_update_required = self._check_vm_if_update(
             db_context, original, port)
-        nuage_vport = self._get_nuage_vport(port, subnet_mapping)
-
+        host_added = host_removed = False
+        if not original['binding:host_id'] and port['binding:host_id']:
+            host_added = True
+        elif original['binding:host_id'] and not port['binding:host_id']:
+            host_removed = True
+        elif (original['device_owner'] and not port['device_owner'] and
+              original['device_owner'] == LB_DEVICE_OWNER_V2):
+            host_removed = True
+        try:
+            nuage_vport = self._get_nuage_vport(port, subnet_mapping)
+        except (restproxy.ResourceNotFoundException, NuageBadRequest) as ex:
+            if self._check_port_exists_in_neutron(db_context, port):
+                raise
+            else:
+                LOG.info("Port was deleted concurrently: %s", ex.message)
+                return
         if vm_if_update_required:
             fixed_ips = port['fixed_ips']
             ips = {4: None, 6: None}
@@ -887,34 +962,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     if e.vsd_code != vsd_constants.VSD_VM_ALREADY_RESYNC:
                         raise
 
-        host_added = host_removed = False
-        if not original['binding:host_id'] and port['binding:host_id']:
-            host_added = True
-        elif original['binding:host_id'] and not port['binding:host_id']:
-            host_removed = True
-        elif (original['device_owner'] and not port['device_owner'] and
-              original['device_owner'] == LB_DEVICE_OWNER_V2):
-            host_removed = True
-
-        if host_added or host_removed:
-            np_name = self.vsdclient.get_net_partition_name_by_id(
-                subnet_mapping['net_partition_id'])
-            require(np_name, "netpartition",
-                    subnet_mapping['net_partition_id'])
-
-            if host_removed:
-                if self._port_should_have_vm(original):
-                    self._delete_nuage_vm(db_context, original,
-                                          np_name, subnet_mapping,
-                                          is_port_device_owner_removed=True)
-            elif host_added:
-                self._validate_security_groups(context)
-                if self._port_should_have_vm(port):
-                    nuage_subnet, _ = self._get_nuage_subnet(
-                        subnet_mapping, subnet_mapping['nuage_subnet_id'])
-                    self._create_nuage_vm(db_context, port,
-                                          np_name, subnet_mapping, nuage_vport,
-                                          nuage_subnet)
+        self._port_device_change(db_context, nuage_vport,
+                                 original, port,
+                                 subnet_mapping, host_added,
+                                 host_removed)
         rollbacks = []
         try:
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
@@ -1002,7 +1053,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
     def delete_port_postcommit(self, context):
         db_context = context._plugin_context
         port = context.current
-        self._delete_port(db_context, port)
+        vsd_errors = [(vsd_constants.CONFLICT_ERR_CODE,
+                      vsd_constants.VSD_VM_EXISTS_ON_VPORT)]
+        utils.retry_on_vsdclient_error(
+            self._delete_port, vsd_error_codes=vsd_errors)(db_context,
+                                                           port)
 
     def _delete_port(self, db_context, port):
         subnet_mapping = self.get_subnet_mapping_by_port(db_context, port)
@@ -1451,8 +1506,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
         subnets = {4: {}, 6: {}}
         ips = {4: None, 6: None}
         for fixed_ip in fixed_ips:
-            subnet = self.core_plugin.get_subnet(db_context,
-                                                 fixed_ip['subnet_id'])
+            try:
+                subnet = self.core_plugin.get_subnet(db_context,
+                                                     fixed_ip['subnet_id'])
+            except SubnetNotFound:
+                LOG.info("Subnet %s has been deleted concurrently",
+                         fixed_ip['subnet_id'])
+                return
             subnets[subnet['ip_version']] = subnet
             ips[subnet['ip_version']] = fixed_ip['ip_address']
 
@@ -1491,7 +1551,19 @@ class NuageMechanismDriver(NuageML2Wrapper):
             self.vsdclient.create_usergroup(
                 port['tenant_id'],
                 subnet_mapping['net_partition_id'])
-        return self.vsdclient.create_vms(params)
+        try:
+            return self.vsdclient.create_vms(params)
+        except restproxy.ResourceNotFoundException as rnf:
+            try:
+                subnet = self.core_plugin.get_subnet(db_context,
+                                                     subnets[4].get('id'))
+            except SubnetNotFound:
+                subnet = None
+            if not subnet:
+                LOG.info("Subnet %s has been deleted concurrently",
+                         subnets[4].get('id'))
+            else:
+                raise rnf
 
     def _get_port_num_and_vm_id_of_device(self, db_context, port):
         filters = {'device_id': [port.get('device_id')]}

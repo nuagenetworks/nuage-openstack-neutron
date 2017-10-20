@@ -187,8 +187,10 @@ class NuageL2Domain(object):
                     'DELETE', nuagel2domain.delete_resource(l2domain_id), '')
                 if not nuagel2domain.delete_validate(l2dom_delete_response):
                     code = nuagel2domain.get_error_code(l2dom_delete_response)
-                    raise restproxy.RESTProxyError(nuagel2domain.error_msg,
-                                                   error_code=code)
+                    raise restproxy.RESTProxyError(
+                        nuagel2domain.error_msg,
+                        error_code=code,
+                        vsd_code=nuagel2domain.vsd_error_code)
             except Exception:
                 raise
 

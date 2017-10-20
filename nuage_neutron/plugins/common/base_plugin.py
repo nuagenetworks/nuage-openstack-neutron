@@ -238,6 +238,14 @@ class RootNuagePlugin(object):
                    " for mechanism driver " + driver_name)
             raise cfg.ConfigFileValueError(msg)
 
+    @log_helpers.log_method_call
+    def _check_port_exists_in_neutron(self, db_context, port):
+        try:
+            port_db = self.core_plugin.get_port(db_context, port['id'])
+            return port_db
+        except n_exc.PortNotFound:
+            return False
+
 
 class BaseNuagePlugin(RootNuagePlugin):
 

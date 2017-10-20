@@ -92,6 +92,38 @@ class Ignored(object):
         return False
 
 
+def retry_on_vsdclient_error(fn, nr_retries=3, vsd_error_codes=None):
+    """Retry function on vsdclient error
+
+    :param fn: function to (re)try
+    :param nr_retries
+    :param vsd_error_codes: vsd_error_codes to retry [(http_code, vsd_code)]
+        [(409,'7010')]
+    """
+    def wrapped(*args, **kwargs):
+        tries = 1
+        while tries <= nr_retries:
+            try:
+                return fn(*args, **kwargs)
+            except RESTProxyError as e:
+                LOG = logging.getLogger(fn.__module__)
+                if tries == nr_retries:
+                    LOG.debug('Failed to execute {} {} times.'.format(
+                        fn.func_name, nr_retries)
+                    )
+                    raise
+                if (e.code, e.vsd_code) in vsd_error_codes:
+                    LOG.debug('Attempt {} of {} to execute {} failed.'.format(
+                        tries, nr_retries, fn.func_name)
+                    )
+                    tries += 1
+                else:
+                    LOG.debug('Non retry-able error '
+                              'encountered on {}.'.format(fn.func_name))
+                    raise
+    return wrapped
+
+
 def handle_nuage_api_errorcode(fn):
     @functools.wraps(fn)
     def wrapped(*args, **kwargs):

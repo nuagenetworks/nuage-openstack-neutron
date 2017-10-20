@@ -426,6 +426,12 @@ class VsdClient(object):
     def delete_vms(self, params):
         pass
 
+    def delete_vm_by_external_id(self, params):
+        pass
+
+    def delete_vm_by_id(self, params):
+        pass
+
     def update_nuage_vm_vport(self, params):
         pass
 
