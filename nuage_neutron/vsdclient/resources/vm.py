@@ -37,19 +37,15 @@ class NuageVM(object):
 
     def vms_on_l2domain(self, l2dom_id):
         nuagel2dom = nuagelib.NuageL2Domain()
-        response = self.restproxy.rest_call(
-            'GET',
-            nuagel2dom.vm_get_resource(l2dom_id),
-            '')
-        return nuagel2dom.vm_exists(response)
+        response = self.restproxy.get(
+            nuagel2dom.vm_get_resource(l2dom_id))
+        return response
 
     def vms_on_subnet(self, subnet_id):
         nuagesubnet = nuagelib.NuageSubnet()
-        response = self.restproxy.rest_call(
-            'GET',
-            nuagesubnet.vm_get_resource(subnet_id),
-            '')
-        return nuagesubnet.vm_exists(response)
+        response = self.restproxy.get(
+            nuagesubnet.vm_get_resource(subnet_id))
+        return response
 
     def _get_nuage_vm(self, params, isdelete=False):
         req_params = {
@@ -363,6 +359,43 @@ class NuageVM(object):
             self._delete_nuage_vm_if(params)
         else:
             self._delete_nuage_vm(params)
+
+    def delete_vm_by_external_id(self, params):
+        req_params = {
+            'externalID': params['externalID']
+        }
+        extra_params = {
+            'tenant': params['tenant'],
+            'net_partition_name': params['netpart_name']
+        }
+        nuagevm = nuagelib.NuageVM(create_params=req_params,
+                                   extra_params=extra_params)
+        response = self.restproxy.get(
+            nuagevm.get_resource(),
+            extra_headers=nuagevm.extra_headers_get_by_externalID())
+        if response:
+            req_params = {
+                'id': response[0]['ID']
+            }
+            vm = nuagelib.NuageVM(create_params=req_params,
+                                  extra_params=extra_params)
+            self.restproxy.delete(
+                vm.delete_resource(),
+                extra_headers=vm.extra_headers_delete())
+
+    def delete_vm_by_id(self, params):
+        req_params = {
+            'id': params['id']
+        }
+        extra_params = {
+            'tenant': params['tenant'],
+            'net_partition_name': params['netpart_name']
+        }
+        vm = nuagelib.NuageVM(create_params=req_params,
+                              extra_params=extra_params)
+        self.restproxy.delete(
+            vm.delete_resource(),
+            extra_headers=vm.extra_headers_delete())
 
     def update_nuage_vm_vport(self, params):
         req_params = {

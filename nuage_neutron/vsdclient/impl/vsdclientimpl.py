@@ -711,6 +711,12 @@ class VsdClientImpl(VsdClient):
     def delete_vms(self, params):
         self.vm.delete_vms(params)
 
+    def delete_vm_by_external_id(self, params):
+        self.vm.delete_vm_by_external_id(params)
+
+    def delete_vm_by_id(self, params):
+        self.vm.delete_vm_by_id(params)
+
     def update_nuage_vm_vport(self, params):
         self.vm.update_nuage_vm_vport(params)
 
