@@ -16,9 +16,9 @@ import six
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
 from neutron_lib.api.definitions import port_security as portsecurity
+from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib.plugins import directory
 

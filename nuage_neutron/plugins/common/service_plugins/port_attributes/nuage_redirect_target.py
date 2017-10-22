@@ -18,9 +18,9 @@ import re
 from oslo_log import helpers as log_helpers
 
 from neutron._i18n import _
-from neutron.callbacks import resources
 from neutron.ipam import utils as ipam_utils
 from neutron_lib.api.validators import is_attr_set
+from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory

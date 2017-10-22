@@ -14,11 +14,11 @@
 
 from abc import ABCMeta
 
-import json
 import six
 
-from nuage_neutron.plugins.common import config
+from oslo_serialization import jsonutils as json
 
+from nuage_neutron.plugins.common import config
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants

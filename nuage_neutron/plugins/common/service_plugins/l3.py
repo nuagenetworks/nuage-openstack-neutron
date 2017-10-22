@@ -32,9 +32,10 @@ from oslo_utils import excutils
 from sqlalchemy.orm import exc
 
 from neutron._i18n import _
-from neutron.callbacks import resources
 from neutron.db import api as db
 from neutron.extensions import l3
+
+from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory

@@ -15,7 +15,7 @@
 from oslo_utils import excutils
 
 from neutron._i18n import _
-from neutron.callbacks import resources
+from neutron_lib.callbacks import resources
 from neutron_lib import constants as n_const
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory

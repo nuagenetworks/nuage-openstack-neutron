@@ -19,10 +19,10 @@ import stevedore
 
 from neutron._i18n import _
 from neutron.extensions import securitygroup as ext_sg
-from neutron.plugins.ml2 import driver_api as api
 from neutron.services.trunk import constants as t_const
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as n_const
+from neutron_lib.plugins.ml2 import api
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import exceptions

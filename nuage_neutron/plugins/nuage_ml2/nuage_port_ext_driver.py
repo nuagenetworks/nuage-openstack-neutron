@@ -15,8 +15,8 @@
 
 from oslo_log import log as logging
 
-from neutron.plugins.ml2 import driver_api as api
 from neutron_lib import constants
+from neutron_lib.plugins.ml2 import api
 
 from nuage_neutron.plugins.common import addresspair
 from nuage_neutron.plugins.common.extensions import nuage_redirect_target

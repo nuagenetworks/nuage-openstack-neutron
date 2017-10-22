@@ -18,12 +18,13 @@ try:
     import httplib as httpclient      # python 2
 except ImportError:
     import http.client as httpclient  # python 3
-import json
 import logging
 import re
 import socket
 import ssl
 import time
+
+from oslo_serialization import jsonutils as json
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants

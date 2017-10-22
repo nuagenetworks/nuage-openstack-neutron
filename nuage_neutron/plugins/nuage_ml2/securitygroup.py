@@ -12,11 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from neutron._i18n import _
-from neutron.callbacks import events
-from neutron.callbacks import registry
-from neutron.callbacks import resources
 from neutron.db.common_db_mixin import CommonDbMixin
 from neutron.extensions import securitygroup as ext_sg
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers

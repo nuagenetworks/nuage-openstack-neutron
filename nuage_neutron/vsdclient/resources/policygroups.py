@@ -1307,7 +1307,7 @@ class NuagePolicyGroups(object):
                 'GET', nuage_aclrule.eg_delete_resource(ext_rule_id), '')
             if not nuage_aclrule.get_validate(eg_acl):
                 raise restproxy.RESTProxyError(nuage_aclrule.error_msg)
-            eg_acl
+
             ext_rule = eg_acl
             ext_rule[3][0]['direction'] = 'egress'
         else:
@@ -1457,10 +1457,10 @@ class NuagePolicyGroups(object):
                        for sg_id in securitygroup_ids]
         else:
             filters = ["externalID IS '%s'" %
-                       get_vsd_external_id(sg_id, constants.SOFTWARE)
+                       self._get_vsd_external_id(sg_id, constants.SOFTWARE)
                        for sg_id in securitygroup_ids]
             filters += ["externalID IS '%s'" %
-                        get_vsd_external_id(sg_id, constants.HARDWARE)
+                        self._get_vsd_external_id(sg_id, constants.HARDWARE)
                         for sg_id in securitygroup_ids]
         header = {'X-Nuage-Filter': " or ".join(filters)}
         if domain_type == constants.L2DOMAIN:

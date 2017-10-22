@@ -18,8 +18,8 @@ import itertools
 from oslo_log import log as logging
 
 from neutron._i18n import _
-from neutron.callbacks import resources
 from neutron_lib.api import validators as lib_validators
+from neutron_lib.callbacks import resources
 from neutron_lib import constants as os_constants
 from neutron_lib import exceptions as n_exc
 

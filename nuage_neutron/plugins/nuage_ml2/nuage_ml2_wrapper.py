@@ -17,9 +17,8 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
 
-from neutron.plugins.ml2 import driver_api as api
-
 from neutron_lib import constants as lib_constants
+from neutron_lib.plugins.ml2 import api
 from neutron_lib.services import base as service_base
 
 from nuage_neutron.plugins.common import base_plugin

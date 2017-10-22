@@ -13,7 +13,7 @@
 #    under the License.
 from oslo_log import log as logging
 
-from neutron.callbacks import manager
+from neutron_lib.callbacks import manager
 
 LOG = logging.getLogger(__name__)
 
