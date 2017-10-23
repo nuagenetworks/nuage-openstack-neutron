@@ -47,15 +47,21 @@ LOG = logging.getLogger(__name__)
 class VsdClientImpl(VsdClient):
     __metaclass__ = helper.MemoizeClass   # noqa H702
 
+    __renew_auth_key = True
+
+    @classmethod
+    def set_auth_key_renewal(cls, flag):  # useful in unit testing
+        cls.__renew_auth_key = flag
+
     def __init__(self, cms_id, **kwargs):
         super(VsdClientImpl, self).__init__()
         self.restproxy = restproxy.RESTProxyServer(**kwargs)
 
         response = self.restproxy.generate_nuage_auth()
 
-        self.auth_renewal_thread = threading.Thread(
-            target=self.auth_key_renewal, args=[response])
-        self.auth_renewal_thread.start()
+        if self.__renew_auth_key:
+            threading.Thread(
+                target=self.auth_key_renewal, args=[response]).start()
         self.get_cms(cms_id)
         cms_id_helper.CMS_ID = cms_id
 
