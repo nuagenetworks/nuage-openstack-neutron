@@ -29,6 +29,11 @@ restproxy_opts = [
                help=_("Username and password for authentication")),
     cfg.BoolOpt('serverssl', default=True,
                 help=_("Boolean for SSL connection with VSD server")),
+    cfg.StrOpt('verify_cert', default='False',
+               help=_("Either a boolean (True or False), indicating whether "
+                      "we verify the VSD's certificate, or a string which is "
+                      "the local path of the VSD's PEM file or CA_BUNDLE file "
+                      "to be verified")),
     cfg.IntOpt('server_timeout', default=30,
                help=_("VSD server invocation timeout")),
     cfg.IntOpt('server_max_retries', default=5,
