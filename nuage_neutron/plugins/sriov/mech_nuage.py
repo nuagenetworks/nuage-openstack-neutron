@@ -111,7 +111,6 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                  subnets[1]['ip_version'])):
                 raise exceptions.DirectPortSubnetConflict()
 
-    @handle_nuage_api_errorcode
     @utils.context_log
     def update_port_precommit(self, context):
         """update_port_precommit."""
@@ -120,6 +119,15 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, "")
                 in self._supported_vnic_types()):
             self._validate_port_request_attributes(port, original=original)
+
+    @handle_nuage_api_errorcode
+    @utils.context_log
+    def update_port_postcommit(self, context):
+        """update_port_postcommit."""
+        port = context.current
+        original = context.original
+        if (port.get(portbindings.VNIC_TYPE, "")
+                in self._supported_vnic_types()):
             host_added = host_removed = False
             if not original['binding:host_id'] and port['binding:host_id']:
                 host_added = True
@@ -135,7 +143,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
 
     @utils.context_log
     def delete_port_precommit(self, context):
-        """delete_port_postcommit."""
+        """delete_port_precommit."""
         if (context.current.get(portbindings.VNIC_TYPE, "")
                 in self._supported_vnic_types()):
             try:
