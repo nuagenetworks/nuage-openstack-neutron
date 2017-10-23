@@ -205,7 +205,7 @@ class NuageDhcpOptions(object):
         resp = self._set_nuage_dhcp_options(_resource_id, _data,
                                             dhcp_id, type)
 
-        if resp[0] not in (self.restproxy.success_codes + [409]):
+        if resp[0] not in (restproxy.REST_SUCCESS_CODES + [409]):
             raise restproxy.RESTProxyError(str(resp[2]))
 
     def _set_nuage_dhcp_options(self, resource_id,

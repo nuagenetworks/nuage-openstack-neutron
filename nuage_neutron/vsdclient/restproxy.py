@@ -14,15 +14,10 @@
 
 import base64
 import calendar
-try:
-    import httplib as httpclient      # python 2
-except ImportError:
-    import http.client as httpclient  # python 3
 import json
 import logging
 import re
-import socket
-import ssl
+import requests
 import time
 
 from nuage_neutron.plugins.common import config as nuage_config
@@ -31,6 +26,15 @@ from nuage_neutron.plugins.common import nuage_models
 
 from neutron._i18n import _
 from neutron.db import api as db_api
+
+
+# Suppress urllib3 warnings
+try:
+    from requests.packages.urllib3.exceptions import InsecureRequestWarning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+except AttributeError:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 LOG = logging.getLogger(__name__)
 
@@ -122,7 +126,7 @@ class ResourceNotFoundException(RESTProxyError):
 class RESTProxyServer(object):
 
     def __init__(self, server, base_uri, serverssl,
-                 serverauth, auth_resource,
+                 verify_cert, serverauth, auth_resource,
                  organization, servertimeout=30,
                  max_retries=5):
         try:
@@ -134,13 +138,18 @@ class RESTProxyServer(object):
         self.port = int(port) if port else None
         self.base_uri = base_uri
         self.serverssl = serverssl
+        if verify_cert.lower() == 'true':
+            self.verify_cert = True
+        elif verify_cert.lower() == 'false':
+            self.verify_cert = False
+        else:
+            self.verify_cert = verify_cert
         self.serverauth = serverauth
         self.auth_resource = auth_resource
         self.organization = organization
         self.timeout = servertimeout
         self.max_retries = max_retries
         self.auth = None
-        self.success_codes = range(200, 207)
         self.api_stats_enabled = nuage_config.is_enabled(
             plugin_constants.DEBUG_API_STATS)
         self.api_count = 0
@@ -189,8 +198,10 @@ class RESTProxyServer(object):
             self.api_count += 1
         uri = self.base_uri + resource
         body = json.dumps(data)
-        headers = {'Content-type': 'application/json',
-                   'X-Nuage-Organization': self.organization}
+        headers = {
+            'Content-type': 'application/json',
+            'X-Nuage-Organization': self.organization
+        }
         if self.auth:
             headers['Authorization'] = self.auth
         if extra_headers:
@@ -205,19 +216,14 @@ class RESTProxyServer(object):
         ret = None
         for attempt in range(self.max_retries):
             try:
-                conn = self._create_connection()
-                conn.request(action, uri, body, headers)
-                response = conn.getresponse()
-                respstr = response.read()
-                respdata = respstr
+                response = self._create_request(action, uri, body, headers)
+                resp_data = response.text
 
-                LOG.debug('VSD_API RSP %s %s %s',
-                          response.status,
-                          response.reason,
-                          respdata)
-                if response.status in self.success_codes:
+                LOG.debug('VSD_API RSP %s %s %s', response.status_code,
+                          response.reason, resp_data)
+                if response.status_code in REST_SUCCESS_CODES:
                     try:
-                        respdata = json.loads(respstr)
+                        resp_data = json.loads(response.text)
                     except ValueError:
                         # response was not JSON, ignore the exception
                         pass
@@ -225,25 +231,24 @@ class RESTProxyServer(object):
                             not ignore_marked_for_deletion):
                         if (LIST_L2DOMAINS.match(resource) is not None or
                                 LIST_SUBNETS.match(resource) is not None):
-                            respdata = [
-                                d for d in respdata if not self.is_marked(d)]
+                            resp_data = [
+                                d for d in resp_data if not self.is_marked(d)]
                         else:
                             match = GET_L2DOMAIN.match(resource)
-                            if match is not None and respdata and \
-                                    self.is_marked(respdata[0]):
+                            if match is not None and resp_data and \
+                                    self.is_marked(resp_data[0]):
                                 return self._l2domain_not_found(match.group(1))
                             match = GET_SUBNET.match(resource)
-                            if match is not None and respdata and \
-                                    self.is_marked(respdata[0]):
+                            if match is not None and resp_data and \
+                                    self.is_marked(resp_data[0]):
                                 return self._subnet_not_found(match.group(1))
-                ret = (response.status, response.reason, respstr, respdata,
-                       dict(response.getheaders()), headers['Authorization'])
-            except (socket.timeout, socket.error) as e:
+                ret = (response.status_code, response.reason, response.text,
+                       resp_data, response.headers, headers['Authorization'])
+            except requests.exceptions.RequestException as e:
                 LOG.error(_('ServerProxy: %(action)s failure, %(e)r'),
                           locals())
             else:
-                conn.close()
-                if response.status != REST_SERV_UNAVAILABLE_CODE:
+                if response.status_code != REST_SERV_UNAVAILABLE_CODE:
                     return ret
             time.sleep(1)
             LOG.debug("Attempt %s of %s", attempt + 1, self.max_retries)
@@ -251,27 +256,22 @@ class RESTProxyServer(object):
                   self.max_retries)
         return ret or 0, None, None, None, None, headers['Authorization']
 
-    def _create_connection(self):
-        if self.serverssl:
-            if hasattr(ssl, '_create_unverified_context'):
-                # pylint: disable=no-member
-                # pylint: disable=unexpected-keyword-arg
-                conn = httpclient.HTTPSConnection(
-                    self.server, self.port, timeout=self.timeout,
-                    context=ssl._create_unverified_context())
-                # pylint: enable=no-member
-                # pylint: enable=unexpected-keyword-arg
-            else:
-                conn = httpclient.HTTPSConnection(
-                    self.server, self.port, timeout=self.timeout)
-        else:
-            conn = httpclient.HTTPConnection(
-                self.server, self.port, timeout=self.timeout)
+    def _create_request(self, method, resource, data, headers):
+        """Create a connection and return the response.
 
-        if conn is None:
-            self.raise_rest_error(
-                'Could not create HTTP(S)Connection object.')
-        return conn
+        :param method: The HTTP method used for the request.
+        :param resource: The URI for the resource.
+        :param data: Any type of data to be sent along with the request.
+        :param headers: Dictionary of HTTP headers.
+        :return: requests.Response
+        """
+        scheme = "https" if self.serverssl else "http"
+        if self.port:
+            url = "%s://%s:%d%s" % (scheme, self.server, self.port, resource)
+        else:
+            url = "%s://%s%s" % (scheme, self.server, resource)
+        return requests.request(method, url, data=data, headers=headers,
+                                timeout=self.timeout, verify=self.verify_cert)
 
     @staticmethod
     def get_config_parameter_by_name(session, organization, user_name,
@@ -312,8 +312,8 @@ class RESTProxyServer(object):
 
     def compute_sleep_time(self, api_key_info):
         # Assuming it's always going be in GMT
-        response_headers = api_key_info[4]
-        api_key_data = api_key_info[3][0]
+        response_headers = api_key_info[4] if api_key_info else None
+        api_key_data = api_key_info[3][0] if api_key_info else None
         if response_headers and api_key_data:
             current_time_on_vsd = int(calendar.timegm(time.strptime(
                 response_headers['date'].rstrip(' GMT'),
@@ -337,12 +337,12 @@ class RESTProxyServer(object):
         self.auth = 'Basic ' + encoded_auth
         resp = self._rest_call('GET', self.auth_resource, data,
                                auth_renewal=True)
-        if resp[0] == 0:
+        if not resp or resp[0] == 0:
             self.raise_rest_error(
                 'Could not establish a connection with the VSD. '
                 'Please check VSD URI path in plugin config and '
                 'verify IP connectivity.')
-        if resp[0] in self.success_codes and resp[3][0].get('APIKey'):
+        if resp[0] in REST_SUCCESS_CODES and resp[3][0].get('APIKey'):
             uname = self.serverauth.split(':')[0]
             if not auth_token:
                 session = db_api.get_session()
