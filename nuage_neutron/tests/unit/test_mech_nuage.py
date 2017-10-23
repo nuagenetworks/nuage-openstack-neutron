@@ -43,12 +43,16 @@ class ConfigTypes(object):
 
 class TestNuageMechanismDriver(testtools.TestCase):
 
-    def setUp(self):
-        super(TestNuageMechanismDriver, self).setUp()
+    @classmethod
+    def setUpClass(cls):
+        super(TestNuageMechanismDriver, cls).setUpClass()
 
         # make sure we have the configs
         if core_config.core_opts is None or ml2_config.ml2_opts is None:
-            self.fail('Fix your setup.')
+            cls.fail('Fix your setup.')
+
+        # disable the auth key renewal in VsdClient
+        VsdClientImpl.set_auth_key_renewal(False)
 
     def set_config_fixture(self, config_type=ConfigTypes.MINIMAL_CONFIG):
         ml2_config.register_ml2_plugin_opts()
@@ -82,7 +86,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
     # get me a Nuage mechanism driver
     def get_me_a_nmd(self):
         self.set_config_fixture()
-
         nmd = NuageMechanismDriver()
         nmd._l2_plugin = nmd
         nmd.initialize()

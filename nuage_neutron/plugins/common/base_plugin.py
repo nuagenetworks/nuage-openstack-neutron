@@ -76,6 +76,7 @@ class RootNuagePlugin(object):
             server=cfg.CONF.RESTPROXY.server,
             base_uri=cfg.CONF.RESTPROXY.base_uri,
             serverssl=cfg.CONF.RESTPROXY.serverssl,
+            verify_cert=cfg.CONF.RESTPROXY.verify_cert,
             serverauth=cfg.CONF.RESTPROXY.serverauth,
             auth_resource=cfg.CONF.RESTPROXY.auth_resource,
             organization=cfg.CONF.RESTPROXY.organization,
