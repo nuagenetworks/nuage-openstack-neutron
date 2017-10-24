@@ -317,15 +317,11 @@ class NuagePolicyGroups(object):
         }
 
         sg_rules = params.get('sg_rules')
-        nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
-            rtr_id, l2dom_id)
         if sg_rules:
             for rule in sg_rules:
                 params = {
                     'policygroup': policygroup,
                     'neutron_sg_rule': rule,
-                    'nuage_ibacl_id': nuage_ibacl_id,
-                    'nuage_obacl_id': nuage_obacl_id,
                     'sg_type': params.get('sg_type', constants.SOFTWARE)
                 }
                 if ('ethertype' in rule.keys() and
@@ -343,12 +339,9 @@ class NuagePolicyGroups(object):
         remote_group_name = params.get('remote_group_name')
         external_id = params.get('externalID')
         legacy = params.get('legacy', False)
-        nuage_ibacl_id = params.get('nuage_ibacl_id')
-        nuage_obacl_id = params.get('nuage_obacl_id')
         for l3dom_policygroup in l3dom_policygroup_list:
-            if not nuage_ibacl_id and not nuage_obacl_id:
-                nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
-                    rtr_id=l3dom_policygroup['l3dom_id'])
+            nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
+                rtr_id=l3dom_policygroup['l3dom_id'])
             np_id = helper.get_l3domain_np_id(self.restproxy,
                                               l3dom_policygroup['l3dom_id'])
             if not np_id:
@@ -380,9 +373,8 @@ class NuagePolicyGroups(object):
             self._create_nuage_sgrule_process(params)
 
         for l2dom_policygroup in l2dom_policygroup_list:
-            if not nuage_ibacl_id and not nuage_obacl_id:
-                nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
-                    l2dom_id=l2dom_policygroup['l2dom_id'])
+            nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
+                l2dom_id=l2dom_policygroup['l2dom_id'])
 
             fields = ['parentID', 'DHCPManaged']
             l2dom_fields = helper.get_l2domain_fields_for_pg(
@@ -1035,8 +1027,6 @@ class NuagePolicyGroups(object):
                 'policygroup_id': nuage_policygroup_id
             }]
 
-        nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
-            rtr_id, l2dom_id)
         # create default ingress and egress acl rule
         policygroup = {
             'l3dom_policygroups': l3dom_policygroup,
@@ -1055,8 +1045,6 @@ class NuagePolicyGroups(object):
                     'sg_type': constants.HARDWARE,
                     'externalID': get_vsd_external_id(neutron_subnet_id),
                     'legacy': True,
-                    'nuage_ibacl_id': nuage_ibacl_id,
-                    'nuage_obacl_id': nuage_obacl_id
                 }
                 self.create_nuage_sgrule(params)
         return nuage_policygroup_id
