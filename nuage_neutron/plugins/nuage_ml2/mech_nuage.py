@@ -859,11 +859,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         self._check_subport_in_use(original, port)
 
-        ips_changed = self._check_ip_update_allowed(db_context, original, port)
-        mac_changed = original['mac_address'] != port['mac_address']
+        vm_if_update_required = self._check_vm_if_update(
+            db_context, original, port)
         nuage_vport = self._get_nuage_vport(port, subnet_mapping)
 
-        if ips_changed or mac_changed:
+        if vm_if_update_required:
             fixed_ips = port['fixed_ips']
             ips = {4: None, 6: None}
             for fixed_ip in fixed_ips:
@@ -877,12 +877,15 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 'nuage_vport_id': nuage_vport['ID']
             }
             if _is_trunk_subport(port):
+                # (gridinv) : subport can be updated only if port
+                # is not in use - so no need for vm resync
                 self.vsdclient.update_subport(port, nuage_vport, data)
-            try:
-                self.vsdclient.update_nuage_vm_if(data)
-            except restproxy.RESTProxyError as e:
-                if e.vsd_code != vsd_constants.VSD_VM_ALREADY_RESYNC:
-                    raise
+            else:
+                try:
+                    self.vsdclient.update_nuage_vm_if(data)
+                except restproxy.RESTProxyError as e:
+                    if e.vsd_code != vsd_constants.VSD_VM_ALREADY_RESYNC:
+                        raise
 
         host_added = host_removed = False
         if not original['binding:host_id'] and port['binding:host_id']:
@@ -1288,7 +1291,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                       db_context.tenant, nuage_npid, nuage_subnet_id)
             raise e
 
-    def _check_ip_update_allowed(self, db_context, orig_port, port):
+    def _check_vm_if_update(self, db_context, orig_port, port):
         orig_ips = orig_port.get('fixed_ips')
         new_ips = port.get('fixed_ips')
         ips_change = (new_ips is not None and
@@ -1296,8 +1299,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
         if (ips_change and
                 port['device_owner'] == os_constants.DEVICE_OWNER_DHCP):
             return True
+        mac_change = orig_port['mac_address'] != port['mac_address']
+        vm_if_update = ips_change or mac_change
         vif_type = orig_port.get(portbindings.VIF_TYPE)
-        if ips_change and vif_type not in PORT_UNPLUGGED_TYPES:
+        if vm_if_update and vif_type not in PORT_UNPLUGGED_TYPES:
             raise NuagePortBound(port_id=orig_port['id'],
                                  vif_type=vif_type,
                                  old_ips=orig_port['fixed_ips'],
@@ -1325,7 +1330,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 msg = _("One neutron port cannot correspond to multiple "
                         "VSD subnets").format(port["id"])
                 raise NuageBadRequest(msg=msg)
-        return ips_change
+        return vm_if_update
 
     @staticmethod
     def _get_vsd_subnet_ids_by_port(db_context, port):
