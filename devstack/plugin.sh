@@ -17,16 +17,15 @@
 #    under the License.
 
 
-DIR_NUAGE=$DEST/nuage-openstack-neutron
-source $DIR_NUAGE/devstack/functions
+source $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/functions
 if [[ "$1" == "stack" ]]; then
-    source $DIR_NUAGE/devstack/lib/$Q_PLUGIN
+    source $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/$Q_PLUGIN
     if [[ "$2" == "install" ]]; then
         echo_summary "Installing Nuage plugin"
-        setup_develop $DIR_NUAGE
+        setup_develop $NUAGE_OPENSTACK_NEUTRON_DIR
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
-        mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $DIR_NUAGE/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
+        mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
         configure_neutron_nuage
     fi
 elif [[ "$1" == "unstack" ]]; then
