@@ -14,9 +14,6 @@
 
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
-from neutron_lib.callbacks import events
-from neutron_lib.callbacks import registry
-from neutron_lib.callbacks import resources
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants
@@ -34,7 +31,6 @@ class NuagePortSecurityHandler(object):
 
     def __init__(self, client):
         self.client = client
-        self.subscribe()
 
     @property
     def core_plugin(self):
@@ -54,11 +50,7 @@ class NuagePortSecurityHandler(object):
         return self.client.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 
-    def _process_port_security(self, context, port):
-        if (port.get(portbindings.VNIC_TYPE, "")
-                not in self._supported_vnic_types()):
-            return
-
+    def process_port_security(self, context, port):
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
@@ -89,23 +81,3 @@ class NuagePortSecurityHandler(object):
         self.client.create_nuage_sec_grp_rule_for_port_sec(params)
 
         self.client.update_vport_policygroups(vport['ID'], [policygroup_id])
-
-    def post_port_create(self, resource, event, trigger, **kwargs):
-        context = kwargs['context']
-        port = kwargs['port']
-        self._process_port_security(context, port)
-
-    def post_port_update(self, resource, event, trigger, **kwargs):
-        original_port = kwargs['original_port']
-        updated_port = kwargs['port']
-        if (original_port.get(portsecurity.PORTSECURITY) ==
-                updated_port.get(portsecurity.PORTSECURITY)):
-            return
-        context = kwargs['context']
-        self._process_port_security(context, updated_port)
-
-    def subscribe(self):
-        registry.subscribe(self.post_port_create,
-                           resources.PORT, events.AFTER_CREATE)
-        registry.subscribe(self.post_port_update,
-                           resources.PORT, events.AFTER_UPDATE)
