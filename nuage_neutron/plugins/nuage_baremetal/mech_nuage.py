@@ -19,6 +19,7 @@ import stevedore
 
 from neutron._i18n import _
 from neutron.extensions import portbindings
+from neutron.extensions import portsecurity
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
@@ -32,7 +33,7 @@ from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
-from nuage_neutron.plugins.nuage_baremetal import portsecurity_callback
+from nuage_neutron.plugins.nuage_baremetal import portsecurity as psechandler
 from nuage_neutron.plugins.nuage_baremetal import sg_callback
 
 
@@ -64,7 +65,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         self.vif_details = {portbindings.CAP_PORT_FILTER: True}
         self.sec_handler = sg_callback.NuageBmSecurityGroupHandler(
             self.vsdclient)
-        self.psec_handler = portsecurity_callback.NuagePortSecurityHandler(
+        self.psec_handler = psechandler.NuagePortSecurityHandler(
             self.vsdclient)
         self.np_driver = self._load_driver()
         LOG.debug('Initializing complete')
@@ -138,6 +139,9 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             if port['binding:host_id']:
                 port_dict = self._make_port_dict(context)
                 self.np_driver.create_port(port_dict)
+                if (not port[portsecurity.PORTSECURITY]):
+                    self.psec_handler.process_port_security(
+                        context._plugin_context, port)
 
     @handle_nuage_api_errorcode
     @utils.context_log
@@ -149,7 +153,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             return
         self._validate_fixed_ip(context)
         self._validate_security_groups(context)
-        host_added = host_removed = vnic_type_changed = False
+        host_added = host_removed = vnic_type_changed = psec_changed = False
         if original['binding:host_id'] and not port['binding:host_id']:
             host_removed = True
         if not original['binding:host_id'] and port['binding:host_id']:
@@ -157,6 +161,9 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, "") !=
                 original.get(portbindings.VNIC_TYPE, "")):
             vnic_type_changed = True
+        if (original.get(portsecurity.PORTSECURITY) !=
+                port.get(portsecurity.PORTSECURITY)):
+            psec_changed = True
         if vnic_type_changed:
             port_dict = self._make_port_dict(context)
             self.np_driver.update_port(port_dict)
@@ -170,6 +177,14 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         elif host_added:
             port_dict = self._make_port_dict(context)
             self.np_driver.create_port(port_dict)
+
+        if ((psec_changed and port.get('binding:host_id')) or
+                (host_added and not port[portsecurity.PORTSECURITY])):
+            self.psec_handler.process_port_security(
+                context._plugin_context, port)
+        self.sec_handler.post_port_update(context._plugin_context,
+                                          context.current,
+                                          context.original)
 
     @utils.context_log
     def delete_port_precommit(self, context):

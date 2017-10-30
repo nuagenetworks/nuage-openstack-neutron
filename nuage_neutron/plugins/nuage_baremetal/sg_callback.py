@@ -132,47 +132,44 @@ class NuageBmSecurityGroupHandler(object):
                                               port[ext_sg.SECURITYGROUPS],
                                               vsd_subnet)
 
-    def post_port_update(self, resource, event, trigger, **kwargs):
+    def post_port_update(self, context, port, original):
         update_sg = True
-        context = kwargs['context']
-        updated_port = kwargs['port']
-        original_port = kwargs['original_port']
-        if (updated_port.get(portbindings.VNIC_TYPE)
+        if (port.get(portbindings.VNIC_TYPE)
                 not in self._supported_vnic_types()
-                and original_port.get(portbindings.VNIC_TYPE)
+                and original.get(portbindings.VNIC_TYPE)
                 not in self._supported_vnic_types()):
             return
 
-        subnet_id = updated_port['fixed_ips'][0]['subnet_id']
+        subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
 
         if subnet_mapping['nuage_managed_subnet']:
             return
 
-        new_sg = (set(updated_port.get(ext_sg.SECURITYGROUPS)) if
-                  updated_port.get(ext_sg.SECURITYGROUPS) else set())
-        orig_sg = (set(original_port.get(ext_sg.SECURITYGROUPS)) if
-                   original_port.get(ext_sg.SECURITYGROUPS) else set())
+        new_sg = (set(port.get(ext_sg.SECURITYGROUPS)) if
+                  port.get(ext_sg.SECURITYGROUPS) else set())
+        orig_sg = (set(original.get(ext_sg.SECURITYGROUPS)) if
+                   original.get(ext_sg.SECURITYGROUPS) else set())
         if not new_sg and new_sg == orig_sg:
             update_sg = False
         if update_sg:
             vsd_subnet = self.client.get_nuage_subnet_by_id(subnet_mapping)
-            vport = self._get_nuage_vport(updated_port, subnet_mapping,
+            vport = self._get_nuage_vport(port, subnet_mapping,
                                           required=False)
             self._process_port_security_group(
                 context,
-                updated_port,
+                port,
                 vport,
-                updated_port[ext_sg.SECURITYGROUPS],
+                port[ext_sg.SECURITYGROUPS],
                 vsd_subnet)
 
-            deleted_sg_ids = (set(original_port[ext_sg.SECURITYGROUPS]) -
-                              set(updated_port[ext_sg.SECURITYGROUPS]))
+            deleted_sg_ids = (set(original[ext_sg.SECURITYGROUPS]) -
+                              set(port[ext_sg.SECURITYGROUPS]))
             self.client.check_unused_policygroups(deleted_sg_ids,
                                                   sg_type=constants.HARDWARE)
             self.client.check_unused_policygroups(
-                set(original_port[ext_sg.SECURITYGROUPS]))
+                set(original[ext_sg.SECURITYGROUPS]))
 
     def post_port_delete(self, resource, event, trigger, **kwargs):
         port = kwargs['port']
@@ -226,8 +223,6 @@ class NuageBmSecurityGroupHandler(object):
     def subscribe(self):
         registry.subscribe(self.post_port_create,
                            resources.PORT, events.AFTER_CREATE)
-        registry.subscribe(self.post_port_update,
-                           resources.PORT, events.AFTER_UPDATE)
         registry.subscribe(self.post_port_delete,
                            resources.PORT, events.AFTER_DELETE)
 
