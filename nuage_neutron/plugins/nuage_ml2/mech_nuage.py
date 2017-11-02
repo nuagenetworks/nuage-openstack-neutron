@@ -24,10 +24,10 @@ from oslo_utils import excutils
 from neutron._i18n import _
 from neutron.api import extensions as neutron_extensions
 from neutron.db import db_base_plugin_v2
-from neutron.extensions import external_net
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.ml2 import plugin as ml2_plugin
 from neutron.services.trunk import constants as t_consts
+from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
