@@ -101,8 +101,12 @@ class NuageSwitchportBinding(model_base.BASEV2, model_base.HasId):
     nuage_vport_id = sa.Column(sa.String(36), nullable=False)
     switchport_uuid = sa.Column(sa.String(36), nullable=False)
     segmentation_id = sa.Column(sa.Integer, nullable=False)
+    switchport_mapping_id = sa.Column(sa.String(36), nullable=False)
     sa.ForeignKeyConstraint(['neutron_port_id'],
                             ['ports.id'], ondelete="CASCADE")
+    sa.ForeignKeyConstraint(['switchport_mapping_id'],
+                            ['nuage_switchport_mapping.id'],
+                            ondelete="RESTRICT")
 
 
 class NuageSfcVlanSubnetMapping(model_base.BASEV2):
