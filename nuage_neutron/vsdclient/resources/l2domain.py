@@ -221,18 +221,15 @@ class NuageL2Domain(object):
                     raise
 
     def update_subnet(self, neutron_subnet, params):
-        type = constants.NETWORK_TYPE_L3
         new_name = neutron_subnet.get('name')
-        if params['type']:
-            type = constants.NETWORK_TYPE_L2
 
         if params.get('dhcp_opts_changed'):
             nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
-            nuagedhcpoptions.update_nuage_dhcp(neutron_subnet,
-                                               parent_id=params['parent_id'],
-                                               network_type=type)
+            nuagedhcpoptions.update_nuage_dhcp(
+                neutron_subnet, parent_id=params['parent_id'],
+                network_type=constants.NETWORK_TYPE_L2)
 
-        if type == constants.NETWORK_TYPE_L2 and 'dhcp_ip' in params:
+        if 'dhcp_ip' in params:
             nuagel2domtemplate = nuagelib.NuageL2DomTemplate()
             if neutron_subnet.get('enable_dhcp'):
                 # Enable dhcpmanaged on the l2domain template
@@ -243,25 +240,19 @@ class NuageL2Domain(object):
                     "netmask": str(net.netmask),
                     "gateway": params['dhcp_ip'],
                 }
-                response = self.restproxy.rest_call(
-                    'PUT',
+                self.restproxy.put(
                     nuagel2domtemplate.put_resource(params['type']),
                     data
                 )
             else:
                 # Disable dhcpmanaged on the l2domain template
-                response = self.restproxy.rest_call(
-                    'PUT',
+                self.restproxy.put(
                     nuagel2domtemplate.put_resource(params['type']),
                     {'DHCPManaged': False}
                 )
-            if not nuagel2domtemplate.validate(response):
-                raise restproxy.RESTProxyError(
-                    nuagel2domtemplate.error_msg)
 
         # If we update IPv6 gateway then we should handle it here.
-        if type == constants.NETWORK_TYPE_L2 and params.get(
-                'gatewayv6_changed'):
+        if params.get('gatewayv6_changed'):
             params['nuage_l2dom_tmplt_id'] = params['type']
             self.update_subnet_ipv6(neutron_subnet, params)
 
@@ -272,30 +263,14 @@ class NuageL2Domain(object):
             # update the description on the VSD for this subnet if required
             # If a subnet is updated from horizon, we get the name of the
             # subnet as well in the subnet dict for update.
-            if type == constants.NETWORK_TYPE_L2:
-                nuagel2domain = nuagelib.NuageL2Domain()
-                l2dom = self.restproxy.rest_call(
-                    'GET', nuagel2domain.get_resource(params['parent_id']), '')
-                if not nuagel2domain.validate(l2dom):
-                    raise restproxy.RESTProxyError(nuagel2domain.error_msg)
-                if nuagel2domain.get_description(l2dom) != new_name:
-                    response = self.restproxy.rest_call(
-                        'PUT', nuagel2domain.put_resource(params['parent_id']),
-                        {'description': neutron_subnet['name']})
-                    if not nuagel2domain.validate(response):
-                        raise restproxy.RESTProxyError(nuagel2domain.error_msg)
-            else:
-                nuagesubn = nuagelib.NuageSubnet()
-                l3dom = self.restproxy.rest_call(
-                    'GET', nuagesubn.get_resource(params['parent_id']), '')
-                if not nuagesubn.validate(l3dom):
-                    raise restproxy.RESTProxyError(nuagesubn.error_msg)
-                if nuagesubn.get_description(l3dom) != new_name:
-                    response = self.restproxy.rest_call(
-                        'PUT', nuagesubn.put_resource(params['parent_id']),
-                        {'description': neutron_subnet['name']})
-                    if not nuagesubn.validate(response):
-                        raise restproxy.RESTProxyError(nuagesubn.error_msg)
+            nuagel2domain = nuagelib.NuageL2Domain()
+            l2domain = self.restproxy.get(
+                nuagel2domain.get_resource(params['parent_id']),
+                required=True)[0]
+            if l2domain['description'] != new_name:
+                self.restproxy.put(
+                    nuagel2domain.put_resource(params['parent_id']),
+                    {'description': neutron_subnet['name']})
 
     def _attach_nuage_group_to_l2domain(self, nuage_groupid,
                                         nuage_subnetid, nuage_npid,
