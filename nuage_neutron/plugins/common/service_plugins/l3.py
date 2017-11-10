@@ -41,6 +41,7 @@ from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 
+from nuage_neutron.plugins.common import routing_mechanisms
 from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageL3Wrapper
 
 
@@ -513,6 +514,8 @@ class NuageL3Plugin(NuageL3Wrapper):
                 router_id=router_id,
                 subnet_id=subnet_id,
                 subnet_l2dom=subnet_l2dom)
+            routing_mechanisms.delete_nuage_subnet_parameters(context,
+                                                              subnet_id)
             LOG.debug("Deleted nuage domain subnet %s", nuage_subn_id)
             return result
 
@@ -543,10 +546,27 @@ class NuageL3Plugin(NuageL3Wrapper):
     def get_router(self, context, id, fields=None):
         router = super(NuageL3Plugin, self).get_router(context, id, fields)
         nuage_router = self.vsdclient.get_router_by_external(id)
-        self._add_nuage_router_attributes(router, nuage_router)
+        self._add_nuage_router_attributes(context.session, router,
+                                          nuage_router)
         return self._fields(router, fields)
 
-    def _add_nuage_router_attributes(self, router, nuage_router):
+    @nuage_utils.handle_nuage_api_error
+    @db.retry_if_session_inactive()
+    @log_helpers.log_method_call
+    @TimeTracker.tracked
+    def get_routers(self, context, filters=None, fields=None,
+                    sorts=None, limit=None, marker=None,
+                    page_reverse=False):
+        routers = super(NuageL3Plugin, self).get_routers(context, filters,
+                                                         fields, sorts, limit,
+                                                         marker, page_reverse)
+        for router in routers:
+            routing_mechanisms.add_nuage_router_attributes(context.session,
+                                                           router)
+            router = self._fields(router, fields)
+        return routers
+
+    def _add_nuage_router_attributes(self, session, router, nuage_router):
         if not nuage_router:
             return
         router['tunnel_type'] = nuage_router.get('tunnelType')
@@ -568,11 +588,16 @@ class NuageL3Plugin(NuageL3Wrapper):
             if nuage_route:
                 route['rd'] = nuage_route['rd']
 
+        router = routing_mechanisms.add_nuage_router_attributes(session,
+                                                                router)
+
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     @TimeTracker.tracked
     def create_router(self, context, router):
+        routing_mechanisms.update_routing_values(router['router'])
+
         req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_router(
             context,
@@ -580,24 +605,13 @@ class NuageL3Plugin(NuageL3Wrapper):
         if 'ecmp_count' in router and not context.is_admin:
             msg = _("ecmp_count can only be set by an admin user.")
             raise nuage_exc.NuageNotAuthorized(resource='router', msg=msg)
-        if (cfg.CONF.RESTPROXY.nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE
-                and req_router.get('external_gateway_info')):
-            msg = _("nuage_pat config is set to 'not_available'. "
-                    "Can't set external_gateway_info")
-            raise nuage_exc.NuageBadRequest(resource='router', msg=msg)
 
         neutron_router = super(NuageL3Plugin, self).create_router(context,
                                                                   router)
-        params = {
-            'net_partition': net_partition,
-            'tenant_id': neutron_router['tenant_id'],
-            'tenant_name': context.tenant_name,
-            'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat,
-        }
         nuage_router = None
         try:
             nuage_router = self.vsdclient.create_router(
-                neutron_router, req_router, params)
+                neutron_router, req_router, net_partition, context.tenant_name)
         except Exception:
             with excutils.save_and_reraise_exception():
                 super(NuageL3Plugin, self).delete_router(
@@ -623,7 +637,11 @@ class NuageL3Plugin(NuageL3Wrapper):
                 nuage_router['nuage_backhaul_rd']
             neutron_router['nuage_backhaul_rt'] = \
                 nuage_router['nuage_backhaul_rt']
-
+            routing_mechanisms.update_nuage_router_parameters(
+                req_router, context, neutron_router['id']
+            )
+        routing_mechanisms.add_nuage_router_attributes(context.session,
+                                                       neutron_router)
         return neutron_router
 
     @nuage_utils.handle_nuage_api_error
@@ -634,6 +652,7 @@ class NuageL3Plugin(NuageL3Wrapper):
         updates = router['router']
         original_router = self.get_router(context, id)
         self._validate_update_router(context, id, updates)
+        routing_mechanisms.update_routing_values(updates, original_router)
         ent_rtr_mapping = context.ent_rtr_mapping
         nuage_domain_id = ent_rtr_mapping['nuage_router_id']
 
@@ -650,10 +669,6 @@ class NuageL3Plugin(NuageL3Wrapper):
                    id,
                    {'router': copy.deepcopy(original_router)})
 
-            if (len(updates) == 1 and 'external_gateway_info' in updates and
-                    'enable_snat' not in updates['external_gateway_info']):
-                    return router_updated
-
             if 'routes' in updates:
                     self._update_nuage_router_static_routes(
                         id, nuage_domain_id,
@@ -668,11 +683,16 @@ class NuageL3Plugin(NuageL3Wrapper):
                 self._update_nuage_router(nuage_domain_id, curr_router,
                                           updates,
                                           ent_rtr_mapping)
-                on_exc(self._update_nuage_router, updates,
+                on_exc(self._update_nuage_router, nuage_domain_id, updates,
                        curr_router, ent_rtr_mapping)
 
             nuage_router = self.vsdclient.get_router_by_external(id)
-            self._add_nuage_router_attributes(router_updated, nuage_router)
+            self._add_nuage_router_attributes(context.session,
+                                              router_updated, nuage_router)
+            routing_mechanisms.update_nuage_router_parameters(
+                updates, context, curr_router['id'])
+            on_exc(routing_mechanisms.update_nuage_router_parameters,
+                   original_router, context, original_router['id'])
 
             rollbacks = []
             try:
@@ -686,17 +706,15 @@ class NuageL3Plugin(NuageL3Wrapper):
                 with excutils.save_and_reraise_exception():
                     for rollback in reversed(rollbacks):
                         rollback[0](*rollback[1], **rollback[2])
+            routing_mechanisms.add_nuage_router_attributes(context.session,
+                                                           router_updated)
             return router_updated
 
     def _validate_update_router(self, context, id, router):
         if 'ecmp_count' in router and not context.is_admin:
             msg = _("ecmp_count can only be set by an admin user.")
             raise nuage_exc.NuageNotAuthorized(resource='router', msg=msg)
-        if (cfg.CONF.RESTPROXY.nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE
-                and router.get('external_gateway_info')):
-            msg = _("nuage_pat config is set to 'notavailable'. "
-                    "Can't update ext-gw-info")
-            raise nuage_exc.OperationNotSupported(resource='router', msg=msg)
+
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(context.session,
                                                                id)
         if not ent_rtr_mapping:
@@ -745,12 +763,8 @@ class NuageL3Plugin(NuageL3Wrapper):
 
     def _update_nuage_router(self, nuage_id, curr_router, router_updates,
                              ent_rtr_mapping):
-        params = {
-            'net_partition_id': ent_rtr_mapping['net_partition_id'],
-            'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
-        }
         curr_router.update(router_updates)
-        self.vsdclient.update_router(nuage_id, curr_router, params)
+        self.vsdclient.update_router(nuage_id, curr_router, router_updates)
         ns_dict = {
             'nuage_rtr_rt':
                 router_updates.get('rt', ent_rtr_mapping.get('nuage_rtr_rt')),

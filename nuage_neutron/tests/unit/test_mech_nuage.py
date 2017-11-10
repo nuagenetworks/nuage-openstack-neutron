@@ -39,6 +39,8 @@ class ConfigTypes(object):
     MINIMAL_CONFIG = 1
     MISSING_SERVICE_PLUGIN = 2
     MISSING_ML2_EXTENSION = 3
+    NUAGE_UNDERLAY_CONFIG_ONLY = 4
+    NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG = 5
 
 
 class TestNuageMechanismDriver(testtools.TestCase):
@@ -81,6 +83,13 @@ class TestNuageMechanismDriver(testtools.TestCase):
                         extension_drivers=['nuage_subnet',
                                            'nuage_port',
                                            'port_security'])
+        if config_type == ConfigTypes.NUAGE_UNDERLAY_CONFIG_ONLY:
+            conf.config(group='RESTPROXY', nuage_underlay_default='snat')
+
+        if config_type == ConfigTypes.NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG:
+            conf.config(group='RESTPROXY', nuage_pat='not_available')
+            conf.config(group='RESTPROXY',
+                        nuage_underlay_default='not_available')
         return conf
 
     # get me a Nuage mechanism driver
@@ -92,6 +101,30 @@ class TestNuageMechanismDriver(testtools.TestCase):
         return nmd
 
     # NETWORK DRIVER INITIALIZATION CHECKS
+
+    def test_init_with_nuage_underlay_only(self):
+        self.set_config_fixture(
+            ConfigTypes.NUAGE_UNDERLAY_CONFIG_ONLY)
+        try:
+            NuageMechanismDriver().initialize()
+            self.fail('nmd should not have successfully initialized.')
+
+        except Exception as e:
+            self.assertEqual('It is not possible to configure both'
+                             ' nuage_pat and nuage_underlay_default.'
+                             ' Set nuage_pat to legacy_disabled.', str(e))
+
+    def test_init_with_nuage_pat_and_nuage_underlay(self):
+        self.set_config_fixture(
+            ConfigTypes.NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG)
+        try:
+            NuageMechanismDriver().initialize()
+            self.fail('nmd should not have successfully initialized.')
+
+        except Exception as e:
+            self.assertEqual('It is not possible to configure both'
+                             ' nuage_pat and nuage_underlay_default.'
+                             ' Set nuage_pat to legacy_disabled.', str(e))
 
     def test_init_native_nmd_missing_service_plugin(self):
         self.set_config_fixture(ConfigTypes.MISSING_SERVICE_PLUGIN)

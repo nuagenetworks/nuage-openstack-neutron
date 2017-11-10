@@ -50,6 +50,7 @@ from nuage_neutron.plugins.common.extensions import nuage_redirect_target
 from nuage_neutron.plugins.common.extensions import nuagefloatingip
 from nuage_neutron.plugins.common.extensions import nuagepolicygroup
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import routing_mechanisms
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
@@ -150,6 +151,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         self._validate_config_for_nuage_driver(constants.NUAGE_ML2_DRIVER_NAME,
                                                service_plugins,
                                                extensions)
+        routing_mechanisms.check_routing_mechanisms_config()
 
     def _wrap_vsdclient(self):
         """Wraps nuageclient methods with try-except to ignore certain errors.
@@ -624,18 +626,14 @@ class NuageMechanismDriver(NuageML2Wrapper):
         network_external = self.is_external(db_context, net_id)
         if not subnet_mapping and not network_external:
             return
-        elif subnet_mapping and _is_vsd_mgd(subnet_mapping):
-            raise NuageBadRequest(
-                msg=_("Subnet %s is a VSD-managed subnet. Update is not "
-                      "supported.") % updated_subnet['id'])
+
+        self._validate_update_subnet(network_external, subnet_mapping,
+                                     updated_subnet)
 
         if network_external:
             return self._update_ext_network_subnet(updated_subnet['id'],
                                                    net_id,
                                                    updated_subnet)
-        elif updated_subnet.get('underlay') is not None:
-            msg = _("underlay attribute can not be set for internal subnets")
-            raise NuageBadRequest(msg=msg)
 
         params = {
             'parent_id': subnet_mapping['nuage_subnet_id'],
@@ -679,7 +677,28 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 original_subnet,
                 updated_subnet)
             params['dhcp_opts_changed'] = dhcp_opts_changed
-        self.vsdclient.update_subnet(updated_subnet, params)
+        if subnet_mapping['nuage_l2dom_tmplt_id']:
+            # L2 subnet
+            self.vsdclient.update_subnet(updated_subnet, params)
+        else:
+            # L3 subnet
+            self.vsdclient.update_domain_subnet(updated_subnet, params)
+            routing_mechanisms.update_nuage_subnet_parameters(db_context,
+                                                              updated_subnet)
+
+    def _validate_update_subnet(self, network_external, subnet_mapping,
+                                updated_subnet):
+        if subnet_mapping and _is_vsd_mgd(subnet_mapping):
+            msg = _("Subnet {} is a VSD-managed subnet. Update is not "
+                    "supported.").format(updated_subnet['id'])
+            raise NuageBadRequest(resource='subnet', msg=msg)
+
+        if not network_external and updated_subnet.get('underlay') is not None:
+            msg = _("underlay attribute can not be set for internal subnets")
+            raise NuageBadRequest(resource='subnet', msg=msg)
+        routing_mechanisms.validate_update_subnet(network_external,
+                                                  subnet_mapping,
+                                                  updated_subnet)
 
     def _update_ext_network_subnet(self, id, net_id, subnet):
         nuage_params = {
