@@ -94,6 +94,9 @@ class VsdClient(object):
     def update_subnet(self, neutron_subnet, params):
         pass
 
+    def update_domain_subnet(self, neutron_subnet, params):
+        pass
+
     def get_nuage_sharedresource(self, id):
         pass
 
@@ -129,7 +132,8 @@ class VsdClient(object):
     def get_router_by_external(self, id):
         pass
 
-    def create_router(self, neutron_router, router, params):
+    def create_router(self, neutron_router, router, net_partition,
+                      tenant_name):
         pass
 
     def delete_router(self, id):
@@ -461,7 +465,7 @@ class VsdClient(object):
                                   vlan_id):
         pass
 
-    def update_router(self, nuage_domain_id, router, params):
+    def update_router(self, nuage_domain_id, router, updates):
         pass
 
     def get_gateway(self, tenant_id, gw_id):

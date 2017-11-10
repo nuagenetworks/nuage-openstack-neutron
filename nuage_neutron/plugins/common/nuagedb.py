@@ -623,3 +623,37 @@ def check_ports_to_router_mapping(context, port_ids):
         .having(func.count(models_v2.Port.id) == len(port_ids))
     ).all()
     return result
+
+
+def get_subnet_parameter(session, subnet_id, parameter):
+    return session.query(nuage_models.NuageSubnet).filter_by(
+        subnet_id=subnet_id,
+        subnet_parameter=parameter).first()
+
+
+def get_router_parameter(session, router_id, parameter):
+    return session.query(nuage_models.NuageRouter).filter_by(
+        router_id=router_id,
+        router_parameter=parameter).first()
+
+
+def add_subnet_parameter(session, subnet_id, parameter, value):
+    subnet_parameter = nuage_models.NuageSubnet(subnet_id=subnet_id,
+                                                subnet_parameter=parameter,
+                                                parameter_value=value)
+    session.merge(subnet_parameter)
+
+
+def add_router_parameter(session, router_id, parameter, value):
+    router_parameter = nuage_models.NuageRouter(router_id=router_id,
+                                                router_parameter=parameter,
+                                                parameter_value=value)
+    session.merge(router_parameter)
+
+
+def delete_subnet_parameter(session, subnet_parameter):
+    session.delete(subnet_parameter)
+
+
+def delete_router_parameter(session, router_parameter):
+    session.delete(router_parameter)

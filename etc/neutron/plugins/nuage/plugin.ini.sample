@@ -67,9 +67,15 @@
 #default_shared_zone = ''
 
 # (StrOpt) PAT setting of an l3domain. One of [not_available, default_enabled,
-# default_disabled]
-#
+# default_disabled, legacy_disabled]
+# This setting has been deprecated for removal. When configured it will remain
+# working as is, however the usage of nuage_underlay_default is encouraged.
+# To use nuage_underlay_default, set nuage_pat=legacy_disabled
 #nuage_pat = default_disabled
+
+# (StrOpt) Default underlay setting of an l3domain, when no explicit option
+# is given on router create. One of [snat, route, off, not_available]
+#nuage_underlay_default=
 
 # (BoolOpt) Underlay setting of an l3domain
 #

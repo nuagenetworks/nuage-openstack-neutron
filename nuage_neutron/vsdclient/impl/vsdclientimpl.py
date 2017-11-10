@@ -223,6 +223,11 @@ class VsdClientImpl(VsdClient):
     def update_subnet(self, neutron_subnet, params):
         self.l2domain.update_subnet(neutron_subnet, params)
 
+    def update_domain_subnet(self, neutron_subnet, params):
+        self.domain.domainsubnet.update_domain_subnet(
+            neutron_subnet, params
+        )
+
     def get_nuage_sharedresource(self, id):
         return self.l2domain.get_nuage_sharedresource(id)
 
@@ -261,8 +266,10 @@ class VsdClientImpl(VsdClient):
     def get_router_by_external(self, id):
         return self.domain.get_router_by_external(id)
 
-    def create_router(self, neutron_router, router, params):
-        return self.domain.create_router(neutron_router, router, params)
+    def create_router(self, neutron_router, router, net_partition,
+                      tenant_name):
+        return self.domain.create_router(neutron_router, router,
+                                         net_partition, tenant_name)
 
     def delete_router(self, id):
         self.domain.delete_router(id)
@@ -757,8 +764,8 @@ class VsdClientImpl(VsdClient):
         pnet_helper.validate_provider_network(self.restproxy, network_type,
                                               physical_network, vlan_id)
 
-    def update_router(self, nuage_domain_id, router, params):
-        self.domain.update_router(nuage_domain_id, router, params)
+    def update_router(self, nuage_domain_id, router, updates):
+        self.domain.update_router(nuage_domain_id, router, updates)
 
     def get_gateway(self, tenant_id, gw_id):
         try:
