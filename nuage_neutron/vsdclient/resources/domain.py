@@ -15,6 +15,7 @@
 import logging
 import netaddr
 
+from nuage_neutron.plugins.common import constants as plugin_constants
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
@@ -74,21 +75,16 @@ class NuageDomain(object):
             raise restproxy.RESTProxyError(nuageobacl.error_msg)
         return nuageobacl.get_oacl_id(response)
 
-    def _nuage_pat_enabled_or_disabled(self, router, params):
-        nuage_pat = 'DISABLED'
-        if not params:
-            return nuage_pat
-        ext_gw_info = router.get('external_gateway_info')
-        if ext_gw_info:
-            if params['nuage_pat'] == constants.NUAGE_PAT_DEF_ENABLED:
-                enable_snat = ext_gw_info.get('enable_snat', True)
-                if enable_snat:
-                    nuage_pat = 'ENABLED'
-            elif params['nuage_pat'] == constants.NUAGE_PAT_DEF_DISABLED:
-                enable_snat = ext_gw_info.get('enable_snat', False)
-                if enable_snat:
-                    nuage_pat = 'ENABLED'
-        return nuage_pat
+    def _calculate_pat_and_underlay(self, router):
+        underlay_routing = router.get(plugin_constants.NUAGE_UNDERLAY)
+        if underlay_routing == plugin_constants.NUAGE_UNDERLAY_SNAT:
+            nuage_pat = nuage_underlay = 'ENABLED'
+        elif underlay_routing == plugin_constants.NUAGE_UNDERLAY_ROUTE:
+            nuage_pat = 'DISABLED'
+            nuage_underlay = 'ENABLED'
+        else:
+            nuage_pat = nuage_underlay = 'DISABLED'
+        return nuage_pat, nuage_underlay
 
     def get_router_by_external(self, ext_id):
         params = {
@@ -142,8 +138,8 @@ class NuageDomain(object):
             res.append(np_dict)
         return res
 
-    def create_router(self, neutron_router, router, params):
-        net_partition = params['net_partition']
+    def create_router(self, neutron_router, router, net_partition,
+                      tenant_name):
         req_params = {
             'net_partition_id': net_partition['id'],
             'name': neutron_router['id'],
@@ -177,10 +173,11 @@ class NuageDomain(object):
                 router['nuage_backhaul_rt']):
             extra_params['backHaulRouteTarget'] = router['nuage_backhaul_rt']
 
-        # PATEnabled
-        extra_params['PATEnabled'] = self._nuage_pat_enabled_or_disabled(
-            router, params)
-        extra_params['underlayEnabled'] = extra_params['PATEnabled']
+        # PATEnabled & UnderlayEnabled
+        pat_enabled, underlay_enabled = self._calculate_pat_and_underlay(
+            router)
+        extra_params['PATEnabled'] = pat_enabled
+        extra_params['underlayEnabled'] = underlay_enabled
 
         router_dict = {}
         nuagel3domain = nuagelib.NuageL3Domain(create_params=req_params,
@@ -256,7 +253,7 @@ class NuageDomain(object):
             router_dict['nuage_def_zone_id'] = isolated_id
             router_dict['nuage_shared_zone_id'] = shared_id
             self._make_nuage_zone_shared(net_partition['id'], shared_id,
-                                         params['tenant_id'])
+                                         neutron_router['tenant_id'])
         elif net_partition.get('isolated_zone', None):
             for zone in nuage_zone.zone_list(response):
                 if zone['name'] == net_partition['isolated_zone']:
@@ -281,7 +278,7 @@ class NuageDomain(object):
             router_dict['nuage_shared_zone_id'] = shared_id
             # TODO(Ronak) - Handle exception here
             self._make_nuage_zone_shared(net_partition['id'], shared_id,
-                                         params['tenant_id'])
+                                         neutron_router['tenant_id'])
         # TODO(Divya) - the following else block seems redudant, see if can
         # be removed
         else:
@@ -305,18 +302,19 @@ class NuageDomain(object):
                 resource=external_id_zone.get_resource(),
                 id=neutron_router['id'])
             self._make_nuage_zone_shared(net_partition['id'], shared_id,
-                                         params['tenant_id'])
+                                         neutron_router['tenant_id'])
 
         nuage_userid, nuage_groupid = \
-            helper.create_usergroup(self.restproxy, params['tenant_id'],
-                                    params['net_partition']['id'],
-                                    params['tenant_name'])
+            helper.create_usergroup(self.restproxy,
+                                    neutron_router['tenant_id'],
+                                    net_partition['id'],
+                                    tenant_name)
         router_dict['nuage_userid'] = nuage_userid
         router_dict['nuage_groupid'] = nuage_groupid
 
         self._attach_nuage_group_to_zone(nuage_groupid,
                                          router_dict['nuage_def_zone_id'],
-                                         params['tenant_id'])
+                                         neutron_router['tenant_id'])
         iacl_id, oacl_id = self._create_nuage_def_l3domain_acl(
             nuage_domain_id, neutron_router['id'])
         router_dict['iacl_id'] = iacl_id
@@ -325,14 +323,11 @@ class NuageDomain(object):
                                                          neutron_router['id'])
         return router_dict
 
-    def update_router(self, nuage_domain_id, router, params):
-        nuage_pat = self._nuage_pat_enabled_or_disabled(router, params)
+    def update_router(self, nuage_domain_id, router, updates):
         tunnel_types = constants.VSD_TUNNEL_TYPES
         update_dict = {
             'name': router['id'],
             'description': router['name'],
-            'PATEnabled': nuage_pat,
-            'underlayEnabled': nuage_pat,
             'routeDistinguisher': router.get('rd'),
             'routeTarget': router.get('rt'),
             'tunnelType': tunnel_types.get(router.get('tunnel_type'),
@@ -343,8 +338,24 @@ class NuageDomain(object):
             'backHaulRouteTarget': router.get('nuage_backhaul_rt')
         }
 
+        underlay_routing = updates.get(plugin_constants.NUAGE_UNDERLAY)
+        if updates.get('external_gateway_info'):
+            ex_gw_enable_snat = (
+                updates['external_gateway_info']['enable_snat']
+                if updates['external_gateway_info'].get('enable_snat')
+                is not None
+                else updates['external_gateway_info'].get('enable_snat_legacy')
+            )
+        else:
+            ex_gw_enable_snat = None
+        if underlay_routing is not None or ex_gw_enable_snat is not None:
+            pat_enabled, underlay_enabled = \
+                self._calculate_pat_and_underlay(updates)
+            update_dict['PATEnabled'] = pat_enabled
+            update_dict['underlayEnabled'] = underlay_enabled
+
         nuagel3domain = nuagelib.NuageL3Domain()
-        self.restproxy.put(nuagel3domain.delete_resource(nuage_domain_id),
+        self.restproxy.put(nuagel3domain.put_resource(nuage_domain_id),
                            update_dict)
 
     def _make_nuage_zone_shared(self, nuage_netpartid, nuage_zoneid,
@@ -698,17 +709,17 @@ class NuageDomainSubnet(object):
 
     def create_domain_subnet_ipv6(self, ipv6_subnet, mapping):
         data = helper.get_ipv6_vsd_data(ipv6_subnet)
-        self.update_domain_subnet(mapping['nuage_subnet_id'], **data)
+        self.update_domain_subnet_ipv6(mapping['nuage_subnet_id'], **data)
 
     def delete_domain_subnet_ipv6(self, mapping):
         data = helper.get_ipv6_vsd_data(None)
-        self.update_domain_subnet(mapping['nuage_subnet_id'], **data)
+        self.update_domain_subnet_ipv6(mapping['nuage_subnet_id'], **data)
 
     def delete_l3domain_subnet(self, vsd_id):
         vsd_subnet = nuagelib.NuageSubnet()
         self.restproxy.delete(vsd_subnet.delete_resource(vsd_id))
 
-    def update_domain_subnet(self, domain_subnet_id, **data):
+    def update_domain_subnet_ipv6(self, domain_subnet_id, **data):
         vsd_subnet = nuagelib.NuageSubnet()
         self.restproxy.put(vsd_subnet.put_resource(domain_subnet_id), data)
 
@@ -764,6 +775,54 @@ class NuageDomainSubnet(object):
         pnet_helper.process_provider_network(self.restproxy,
                                              self.policygroups,
                                              pnet_params)
+
+    def update_domain_subnet(self, neutron_subnet, params):
+        if params.get('dhcp_opts_changed'):
+            nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
+            nuagedhcpoptions.update_nuage_dhcp(
+                neutron_subnet, parent_id=params['parent_id'],
+                network_type=constants.NETWORK_TYPE_L3)
+
+        updates = {}
+        if neutron_subnet.get('name'):
+            if neutron_subnet['ip_version'] == constants.IPV6_VERSION:
+                # We don't change if IPv6 description is changed by user.
+                return
+            # update the description on the VSD for this subnet if required
+            # If a subnet is updated from horizon, we get the name of the
+            # subnet as well in the subnet dict for update.
+            nuagesubn = nuagelib.NuageSubnet()
+            subn = self.restproxy.get(
+                nuagesubn.get_resource(params['parent_id']),
+                required=True)[0]
+            if subn['description'] != neutron_subnet['name']:
+                updates['description'] = neutron_subnet['name']
+        if neutron_subnet.get(plugin_constants.NUAGE_UNDERLAY):
+            nuage_pat, nuage_underlay = self._calculate_pat_and_underlay(
+                neutron_subnet
+            )
+            updates['PATEnabled'] = nuage_pat
+            updates['underlayEnabled'] = nuage_underlay
+        if updates:
+            nuagel3domsub = nuagelib.NuageSubnet()
+            self.restproxy.put(
+                nuagel3domsub.put_resource(params['parent_id']),
+                updates
+            )
+
+    def _calculate_pat_and_underlay(self, subnet):
+
+        underlay_routing = subnet.get(plugin_constants.NUAGE_UNDERLAY)
+        if underlay_routing == plugin_constants.NUAGE_UNDERLAY_SNAT:
+            nuage_pat = nuage_underlay = 'ENABLED'
+        elif underlay_routing == plugin_constants.NUAGE_UNDERLAY_ROUTE:
+            nuage_pat = 'DISABLED'
+            nuage_underlay = 'ENABLED'
+        elif underlay_routing == plugin_constants.NUAGE_UNDERLAY_OFF:
+            nuage_pat = nuage_underlay = 'DISABLED'
+        else:
+            nuage_pat = nuage_underlay = 'INHERITED'
+        return nuage_pat, nuage_underlay
 
     def delete_domain_subnet(self, nuage_subn_id, neutron_subn_id,
                              pnet_binding):

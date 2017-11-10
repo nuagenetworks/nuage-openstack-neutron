@@ -20,6 +20,7 @@ from neutron.plugins.ml2 import driver_api as api
 from neutron_lib import constants
 
 from nuage_neutron.plugins.common import base_plugin
+from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
@@ -34,36 +35,69 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
     def initialize(self):
         super(NuageSubnetExtensionDriver, self).__init__()
         self.init_vsd_client()
+        # keep track of values
+        self.val_by_id = {}
 
     @property
     def extension_alias(self):
         return self._supported_extension_alias
 
+    def _store_change(self, result, data, field):
+        # Due to ml2 plugin result does not get passed to our plugin
+        if field in data and data[field] != constants.ATTR_NOT_SPECIFIED:
+            if field == nuage_constants.NUAGE_UNDERLAY:
+                self.val_by_id[(result['id'], field)] = data[field]
+            result[field] = data[field]
+
     def process_create_subnet(self, plugin_context, data, result):
+        self._copy_nuage_attributes(data, result)
+        # Make sure nuage_underlay is not processed as part of create
+        result.pop(nuage_constants.NUAGE_UNDERLAY, None)
+
+    def process_update_subnet(self, plugin_context, data, result):
         self._copy_nuage_attributes(data, result)
 
     def _copy_nuage_attributes(self, data, result):
         nuage_attributes = ('net_partition', 'nuagenet', 'underlay',
-                            'nuage_uplink')
+                            'nuage_uplink', nuage_constants.NUAGE_UNDERLAY)
         for attribute in nuage_attributes:
-            if (attribute in data and
-                    data[attribute] != constants.ATTR_NOT_SPECIFIED):
-                result[attribute] = data[attribute]
+                self._store_change(result, data, attribute)
 
     @utils.exception_logger()
     @TimeTracker.tracked
     def extend_subnet_dict(self, session, db_data, result):
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, result['id'])
+        if subnet_mapping:
+            result['vsd_managed'] = subnet_mapping['nuage_managed_subnet']
+        else:
+            result['vsd_managed'] = False
+
         if db_data['networks'] and db_data['networks'].get('external'):
             nuage_subnet = self.get_vsd_shared_subnet_attributes(
                 result['id'])
             if nuage_subnet:
                 result['underlay'] = nuage_subnet['underlay']
-                result['nuage_uplink'] = nuage_subnet[
-                    'sharedResourceParentID']
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
-                                                        result['id'])
-        if subnet_mapping:
-            result['vsd_managed'] = subnet_mapping['nuage_managed_subnet']
+                result['nuage_uplink'] = nuage_subnet['sharedResourceParentID']
         else:
-            result['vsd_managed'] = False
+            # Add nuage_underlay parameter
+            update = self.val_by_id.pop(
+                (result['id'], nuage_constants.NUAGE_UNDERLAY),
+                constants.ATTR_NOT_SPECIFIED)
+            nuage_underlay_db = nuagedb.get_subnet_parameter(
+                session, result['id'], nuage_constants.NUAGE_UNDERLAY)
+
+            if (update is constants.ATTR_NOT_SPECIFIED
+                    and not result['vsd_managed']
+                    and not result['ip_version'] == constants.IP_VERSION_6
+                    and subnet_mapping
+                    and not subnet_mapping['nuage_l2dom_tmplt_id']):
+                # No update, db value
+                result['nuage_underlay'] = (
+                    nuage_underlay_db['parameter_value']
+                    if nuage_underlay_db else
+                    nuage_constants.NUAGE_UNDERLAY_INHERITED)
+            elif (update is not constants.ATTR_NOT_SPECIFIED
+                  and update != nuage_underlay_db):
+                # update + change
+                result['nuage_underlay'] = update
         return result

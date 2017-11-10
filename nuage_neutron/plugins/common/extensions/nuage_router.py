@@ -11,11 +11,15 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from oslo_utils import strutils
 
 from neutron._i18n import _
 from neutron.api import extensions
 from neutron_lib.api import validators
 from neutron_lib import exceptions
+
+from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import exceptions as nuage_exc
 
 
 class RtrItfAddIncompleteRouterOnVsd(exceptions.BadRequest):
@@ -79,12 +83,50 @@ def ecmp_count_validation(data, valid_values=None):
         return _ecmp_count_info()
 
 
+def boolean_or_none_validation(data, valid_values=None):
+    """Validate data is a python bool compatible object or None.
+
+    :param data: The data to validate.
+    :param valid_values: Not used!
+    :return: None if the value can be converted to a bool, otherwise a
+    human readable message indicating why data is invalid.
+    """
+    if data is None:
+        return None
+    try:
+        strutils.bool_from_string(data, strict=True)
+    except ValueError:
+        msg = _("'%s' is not a valid boolean value") % data
+        return msg
+
+
 def convert_to_uppercase(data):
     if data:
         return str(data).upper()
 
 
+def convert_nuage_underlay(value):
+    if value is None:
+        return None
+    try:
+        value = value.lower()
+        assert value in [constants.NUAGE_UNDERLAY_OFF,
+                         constants.NUAGE_UNDERLAY_ROUTE,
+                         constants.NUAGE_UNDERLAY_SNAT,
+                         constants.NUAGE_UNDERLAY_INHERITED]
+    except Exception:
+        msg = "Possible values for {} are: {}, {}, {}.".format(
+            constants.NUAGE_UNDERLAY,
+            constants.NUAGE_UNDERLAY_OFF,
+            constants.NUAGE_UNDERLAY_ROUTE,
+            constants.NUAGE_UNDERLAY_SNAT
+        )
+        raise nuage_exc.BadRequest(msg=msg)
+    return value
+
+
 validators.add_validator('type:ecmp_count', ecmp_count_validation)
+validators.add_validator('type:boolean_or_none', boolean_or_none_validation)
 
 EXTENDED_ATTRIBUTES_2_0 = {
     'routers': {
@@ -159,6 +201,13 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'default': None,
             'validate': {'type:ecmp_count': None},
             'enforce_policy': True
+        },
+        constants.NUAGE_UNDERLAY: {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': None,
+            'convert_to': convert_nuage_underlay
         },
     },
 }

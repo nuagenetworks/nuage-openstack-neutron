@@ -16,6 +16,31 @@ from neutron.api import extensions
 from neutron_lib.api import converters
 from neutron_lib import constants as lib_constants
 
+from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import exceptions as nuage_exc
+
+
+def convert_nuage_underlay(value):
+    if value is None:
+        return None
+    try:
+        value = value.lower()
+        assert value in [constants.NUAGE_UNDERLAY_OFF,
+                         constants.NUAGE_UNDERLAY_ROUTE,
+                         constants.NUAGE_UNDERLAY_SNAT,
+                         constants.NUAGE_UNDERLAY_INHERITED]
+    except Exception:
+        msg = "Possible values for {} are: {}, {}, {}, {}.".format(
+            constants.NUAGE_UNDERLAY,
+            constants.NUAGE_UNDERLAY_OFF,
+            constants.NUAGE_UNDERLAY_ROUTE,
+            constants.NUAGE_UNDERLAY_SNAT,
+            constants.NUAGE_UNDERLAY_INHERITED
+        )
+        raise nuage_exc.NuageBadRequest(msg=msg)
+    return value
+
+
 EXTENDED_ATTRIBUTES_2_0 = {
     'subnets': {
         'net_partition': {
@@ -63,6 +88,13 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': False,
             'is_visible': True,
             'enforce_policy': True
+        },
+        'nuage_underlay': {
+            'allow_post': False,
+            'allow_put': True,
+            'is_visible': True,
+            'enforce_policy': True,
+            'convert_to': convert_nuage_underlay
         }
     },
 }

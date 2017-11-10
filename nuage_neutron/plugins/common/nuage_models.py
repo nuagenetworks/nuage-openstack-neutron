@@ -111,6 +111,46 @@ class NuageSfcVlanSubnetMapping(model_base.BASEV2):
     vlan_bit_map = sa.Column('vlan_bit_map', sa.VARBINARY(512), nullable=False)
 
 
+class NuageSubnet(model_base.BASEV2):
+    __tablename__ = 'nuage_subnet'
+    subnet_id = sa.Column(sa.String(36),
+                          sa.ForeignKey('subnets.id', ondelete="CASCADE"),
+                          primary_key=True,
+                          nullable=False)
+    subnet_parameter = sa.Column(sa.String(255),
+                                 sa.ForeignKey('nuage_subnet_parameter.name',
+                                               ondelete="CASCADE"),
+                                 primary_key=True,
+                                 nullable=False)
+    parameter_value = sa.Column(sa.String(255),
+                                nullable=False)
+
+
+class NuageRouter(model_base.BASEV2):
+    __tablename__ = 'nuage_router'
+    router_id = sa.Column(sa.String(36),
+                          sa.ForeignKey('routers.id', ondelete="CASCADE"),
+                          primary_key=True,
+                          nullable=False)
+    router_parameter = sa.Column(sa.String(255),
+                                 sa.ForeignKey('nuage_router_parameter.name',
+                                               ondelete="CASCADE"),
+                                 primary_key=True,
+                                 nullable=False)
+    parameter_value = sa.Column(sa.String(255),
+                                nullable=False)
+
+
+class NuageSubnetParameter(model_base.BASEV2):
+    __tablename__ = 'nuage_subnet_parameter'
+    name = sa.Column(sa.String(255), primary_key=True, nullable=False)
+
+
+class NuageRouterParameter(model_base.BASEV2):
+    __tablename__ = 'nuage_router_parameter'
+    name = sa.Column(sa.String(255), primary_key=True, nullable=False)
+
+
 class NuageConfig(model_base.BASEV2):
     __tablename__ = 'nuage_config'
     __table_args__ = (

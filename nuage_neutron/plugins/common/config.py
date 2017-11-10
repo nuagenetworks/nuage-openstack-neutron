@@ -12,15 +12,20 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
+import constants
 from oslo_config import cfg
 
 from neutron._i18n import _
-from nuage_neutron.plugins.common import constants
 
 nuage_pat_choices = [constants.NUAGE_PAT_NOT_AVAILABLE,
                      constants.NUAGE_PAT_DEF_ENABLED,
-                     constants.NUAGE_PAT_DEF_DISABLED]
-
+                     constants.NUAGE_PAT_DEF_DISABLED,
+                     constants.NUAGE_PAT_LEGACY_DISABLED]
+underlay_routing_choices = [constants.NUAGE_UNDERLAY_SNAT,
+                            constants.NUAGE_UNDERLAY_ROUTE,
+                            constants.NUAGE_UNDERLAY_OFF,
+                            constants.NUAGE_UNDERLAY_NOT_AVAILABLE]
 restproxy_opts = [
     cfg.StrOpt('server', default='vsd.example.com:8443',
                help=_("IP address and port of Nuage's VSD server or cluster")),
@@ -59,7 +64,16 @@ restproxy_opts = [
     cfg.StrOpt('default_shared_zone', default=''),
     cfg.StrOpt('nuage_pat',
                choices=nuage_pat_choices,
-               default=constants.NUAGE_PAT_DEF_DISABLED),
+               default=constants.NUAGE_PAT_DEF_DISABLED,
+               deprecated_for_removal=True,
+               deprecated_reason=_("This option is replaced by {}."
+                                   "Please consult documentation on this "
+                                   "change.").format(
+                   constants.NUAGE_UNDERLAY_INI)
+               ),
+    cfg.StrOpt(constants.NUAGE_UNDERLAY_INI,
+               choices=underlay_routing_choices,
+               default=constants.NUAGE_UNDERLAY_OFF),
     cfg.BoolOpt('nuage_fip_underlay', default=False),
     cfg.StrOpt('cms_id', default=None,
                help=_("ID of a Cloud Management System on the VSD which "
