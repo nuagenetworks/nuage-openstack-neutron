@@ -17,8 +17,8 @@ from oslo_log import log as logging
 
 from neutron.common import utils
 from neutron.db.models import external_net
-from neutron.plugins.ml2 import driver_api as api
 from neutron_lib import constants
+from neutron_lib.plugins.ml2 import api
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import nuagedb

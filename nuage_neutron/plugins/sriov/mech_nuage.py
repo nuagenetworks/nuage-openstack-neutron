@@ -18,11 +18,11 @@ import netaddr
 from oslo_log import log as logging
 
 from neutron._i18n import _
-from neutron.plugins.ml2 import driver_api as api
 from neutron.services.trunk import constants as t_consts
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as os_constants
 from neutron_lib import context as neutron_context
+from neutron_lib.plugins.ml2 import api
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants as nuage_const
