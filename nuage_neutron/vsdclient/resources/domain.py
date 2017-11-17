@@ -309,7 +309,8 @@ class NuageDomain(object):
 
         nuage_userid, nuage_groupid = \
             helper.create_usergroup(self.restproxy, params['tenant_id'],
-                                    params['net_partition']['id'])
+                                    params['net_partition']['id'],
+                                    params['tenant_name'])
         router_dict['nuage_userid'] = nuage_userid
         router_dict['nuage_groupid'] = nuage_groupid
 

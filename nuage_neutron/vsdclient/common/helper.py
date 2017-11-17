@@ -130,28 +130,39 @@ def create_nuage_l2dom_egress_tmplt(restproxy_serv, id, neutron_subnet_id):
         raise restproxy.RESTProxyError(nuageobacl.error_msg)
 
 
-def create_usergroup(restproxy_serv, tenant, net_partition_id):
+def create_usergroup(restproxy_serv, tenant, net_partition_id,
+                     tenant_name=None):
     result = _get_usergroup_details(restproxy_serv, tenant, net_partition_id)
 
     if result:
-        if not result[0]['externalID']:
+        user_details, group_details = result
+        if not user_details['externalID']:
             nuageuser = nuagelib.NuageUser()
-            user_resp = restproxy_serv.rest_call(
-                'PUT',
-                nuageuser.user_resource(result[0].get('ID')),
-                nuageuser.update_data(tenant + '@openstack'))
-        if not result[1]['externalID']:
+            restproxy_serv.put(
+                nuageuser.user_resource(user_details.get('ID')) +
+                "?responseChoice=1",
+                nuageuser.update_data('externalID', tenant + '@openstack'))
+        if not group_details['externalID']:
             nuagegroup = nuagelib.NuageGroup()
-            group_resp = restproxy_serv.rest_call(
-                'PUT',
-                nuagegroup.group_resource(result[1].get('ID')),
-                nuagegroup.update_data(tenant + '@openstack'))
-        return result[0].get('ID'), result[1].get('ID')
+            restproxy_serv.put(
+                nuagegroup.group_resource(group_details.get('ID')) +
+                "?responseChoice=1",
+                nuagegroup.update_data('externalID', tenant + '@openstack'))
+        if tenant_name is not None and (not group_details['description'] or
+                                        group_details['description']
+                                        != tenant_name):
+            nuagegroup = nuagelib.NuageGroup()
+            restproxy_serv.put(
+                nuagegroup.group_resource(group_details.get('ID')) +
+                "?responseChoice=1",
+                nuagegroup.update_data('description', tenant_name))
+        return user_details.get('ID'), group_details.get('ID')
     else:
         req_params = {
             'net_partition_id': net_partition_id,
             'name': tenant,
-            'externalID': tenant + '@openstack'
+            'externalID': tenant + '@openstack',
+            'description': tenant_name,
         }
         nuagegroup = nuagelib.NuageGroup(create_params=req_params)
         nuageuser = nuagelib.NuageUser(create_params=req_params)
@@ -988,10 +999,10 @@ def get_ipv6_vsd_data(ipv6_subnet):
 
 
 def get_pnet_params(pnet_binding, vsd_subnet_id, np_id, subnet_id):
-        pnet_params = {
-            'pnet_binding': pnet_binding,
-            'nuage_subnet_id': vsd_subnet_id,
-            'netpart_id': np_id,
-            'neutron_subnet_id': subnet_id
-        }
-        return pnet_params
+    pnet_params = {
+        'pnet_binding': pnet_binding,
+        'nuage_subnet_id': vsd_subnet_id,
+        'netpart_id': np_id,
+        'neutron_subnet_id': subnet_id
+    }
+    return pnet_params
