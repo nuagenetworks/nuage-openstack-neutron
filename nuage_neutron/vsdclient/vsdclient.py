@@ -117,7 +117,7 @@ class VsdClient(object):
         pass
 
     def attach_nuage_group_to_nuagenet(self, tenant, nuage_npid,
-                                       subnet_mapping, shared):
+                                       subnet_mapping, shared, tenant_name):
         pass
 
     def detach_nuage_group_to_nuagenet(

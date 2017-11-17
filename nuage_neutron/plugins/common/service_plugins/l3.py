@@ -589,7 +589,8 @@ class NuageL3Plugin(NuageL3Wrapper):
         params = {
             'net_partition': net_partition,
             'tenant_id': neutron_router['tenant_id'],
-            'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat
+            'tenant_name': context.tenant_name,
+            'nuage_pat': cfg.CONF.RESTPROXY.nuage_pat,
         }
         nuage_router = None
         try:

@@ -124,7 +124,8 @@ class NuageL2Domain(object):
         nuage_userid, nuage_groupid = \
             helper.create_usergroup(self.restproxy,
                                     params['tenant_id'],
-                                    params['netpart_id'])
+                                    params['netpart_id'],
+                                    params.get('tenant_name'))
         subnet_dict['nuage_userid'] = nuage_userid
         subnet_dict['nuage_groupid'] = nuage_groupid
 
@@ -365,9 +366,9 @@ class NuageL2Domain(object):
             return nuagesubn.get_cidr_info(response)
 
     def attach_nuage_group_to_nuagenet(self, tenant, nuage_npid,
-                                       nuage_subnetid, shared):
+                                       nuage_subnetid, shared, tenant_name):
         nuage_uid, nuage_gid = helper.create_usergroup(self.restproxy, tenant,
-                                                       nuage_npid)
+                                                       nuage_npid, tenant_name)
         nuagesubn = nuagelib.NuageSubnet()
         nuagegroup = nuagelib.NuageGroup()
 
