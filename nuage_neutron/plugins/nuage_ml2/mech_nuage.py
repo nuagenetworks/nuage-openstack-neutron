@@ -324,8 +324,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
         self._validate_cidr(subnet, nuage_subnet, shared_subnet)
         self._set_gateway_from_vsd(nuage_subnet, shared_subnet, subnet)
         result = self.vsdclient.attach_nuage_group_to_nuagenet(
-            context.tenant, nuage_npid, nuage_subnet_id,
-            subnet.get('shared'))
+            context.tenant, nuage_npid, nuage_subnet_id, subnet.get('shared'),
+            context.tenant_name)
         (nuage_uid, nuage_gid) = result
         try:
             with context.session.begin(subtransactions=True):
@@ -511,6 +511,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             'shared': neutron_net['shared'],
             'dhcp_ip': ipv4_subnet['allocation_pools'][-1]['end'] if
             ipv4_subnet['enable_dhcp'] else None,
+            'tenant_name': context.tenant_name,
         }
 
         if is_ipv4:

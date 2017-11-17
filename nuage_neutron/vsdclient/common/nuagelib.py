@@ -756,8 +756,10 @@ class NuageGroup(NuageServerBaseClass):
     def post_data(self):
         data = {}
         data['name'] = self.create_params['name']
-        data["managementMode"] = constants.NUAGE_LDAP_MODE
+        data['managementMode'] = constants.NUAGE_LDAP_MODE
         data['externalID'] = self.create_params['externalID']
+        if self.create_params['description'] is not None:
+            data['description'] = self.create_params['description']
         return data
 
     def get_groupid(self, response):
@@ -784,9 +786,10 @@ class NuageGroup(NuageServerBaseClass):
     def group_resource(self, id):
         return '/groups/%s' % id
 
-    def update_data(self, external_id):
-        data = {}
-        data['externalID'] = external_id
+    def update_data(self, key, value):
+        data = {
+            key: value
+        }
         return data
 
     def extra_headers_get_for_everybody(self):
@@ -842,9 +845,10 @@ class NuageUser(NuageServerBaseClass):
     def user_resource(self, id):
         return '/users/%s' % id
 
-    def update_data(self, external_id):
-        data = {}
-        data['externalID'] = external_id
+    def update_data(self, key, value):
+        data = {
+            key: value
+        }
         return data
 
     def extra_headers_get_by_username(self):

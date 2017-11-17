@@ -200,7 +200,8 @@ class VsdClientImpl(VsdClient):
         nuage_userid, nuage_groupid = \
             helper.create_usergroup(self.restproxy,
                                     params['tenant_id'],
-                                    params['netpart_id'])
+                                    params['netpart_id'],
+                                    params.get('tenant_name'))
         l3_subnet['nuage_userid'] = nuage_userid
         l3_subnet['nuage_groupid'] = nuage_groupid
         l3_subnet['nuage_l2template_id'] = None
@@ -242,9 +243,9 @@ class VsdClientImpl(VsdClient):
         return self.l2domain.get_nuage_cidr(nuage_subnetid)
 
     def attach_nuage_group_to_nuagenet(self, tenant, nuage_npid,
-                                       nuage_subnetid, shared):
+                                       nuage_subnetid, shared, tenant_name):
         return self.l2domain.attach_nuage_group_to_nuagenet(
-            tenant, nuage_npid, nuage_subnetid, shared)
+            tenant, nuage_npid, nuage_subnetid, shared, tenant_name)
 
     def detach_nuage_group_to_nuagenet(
             self, tenants, nuage_subnetid, shared):
