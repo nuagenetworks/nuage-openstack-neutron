@@ -18,11 +18,11 @@ from oslo_log import log as logging
 import stevedore
 
 from neutron._i18n import _
-from neutron.extensions import portsecurity
 from neutron.extensions import securitygroup as ext_sg
 from neutron.plugins.common import constants as p_constants
 from neutron.plugins.ml2 import driver_api as api
 from neutron.services.trunk import constants as t_const
+from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as n_const
 
