@@ -1566,13 +1566,25 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 netaddr.valid_ipv6(fixed_ips[0]['ip_address'])):
             # Delayed creation of vport until dualstack
             return False
+        subnet_list = {4: [], 6: []}
+        for fixed_ip in fixed_ips:
+            subnet_list[netaddr.IPAddress(
+                fixed_ip['ip_address']).version].append(
+                fixed_ip['subnet_id'])
+        if len(set(subnet_list[4])) > 1:
+            msg = "Port can't have multiple IPv4 IPs of different subnets"
+            raise NuageBadRequest(msg=msg)
+        if len(set(subnet_list[6])) > 1:
+            msg = "Port can't have multiple IPv6 IPs of different subnets"
+            raise NuageBadRequest(msg=msg)
+
         if not utils.needs_vport_creation(device_owner):
             return False
         if is_dhcp_port and is_network_external:
             return False
-
-        if len(fixed_ips) == 1 and netaddr.valid_ipv6(
-                fixed_ips[0]['ip_address']):
+        if (len(fixed_ips) == 1 and
+                netaddr.IPAddress(fixed_ips[0][
+                    'ip_address']).version == os_constants.IP_VERSION_6):
             msg = _("Port can't be a pure ipv6 port. Need ipv4 fixed ip.")
             raise NuageBadRequest(msg=msg)
 
@@ -1586,12 +1598,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
         if port.get('device_owner') == constants.DEVICE_OWNER_DHCP_NUAGE:
             return False
 
-        subnet_ids = set()
-        for fixed_ip in port['fixed_ips']:
-            subnet_ids.add(fixed_ip['subnet_id'])
+        uniq_subnet_ids = set(ip["subnet_id"] for ip in fixed_ips)
+
         subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
             db_context.session,
-            subnet_ids)
+            uniq_subnet_ids)
 
         nuage_managed = []
         vsd_subnet_ids = set()
