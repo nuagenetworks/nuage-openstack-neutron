@@ -12,13 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from eventlet.green import threading
 import logging
-import threading
 
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
+import six
 
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common import constants
@@ -44,9 +45,8 @@ from time import sleep
 LOG = logging.getLogger(__name__)
 
 
+@six.add_metaclass(helper.MemoizeClass)
 class VsdClientImpl(VsdClient):
-    __metaclass__ = helper.MemoizeClass   # noqa H702
-
     __renew_auth_key = True
 
     @classmethod
@@ -58,11 +58,11 @@ class VsdClientImpl(VsdClient):
         self.restproxy = restproxy.RESTProxyServer(**kwargs)
 
         response = self.restproxy.generate_nuage_auth()
-
         if self.__renew_auth_key:
-            threading.Thread(
-                target=self.auth_key_renewal, args=[response]).start()
-        self.get_cms(cms_id)
+            threading.Thread(target=self._auth_key_renewal,
+                             args=[response]).start()
+
+        self.verify_cms(cms_id)
         cms_id_helper.CMS_ID = cms_id
 
         self.net_part = netpartition.NuageNetPartition(self.restproxy)
@@ -80,27 +80,21 @@ class VsdClientImpl(VsdClient):
         self.fwaas = fwaas.NuageFwaas(self.restproxy)
         self.trunk = trunk.NuageTrunk(self.restproxy)
 
-    def auth_key_renewal(self, api_key_info):
+    def _auth_key_renewal(self, api_key_info):
+        """Sleep until the renewal window, renew the key, and sleep again.
+
+        :param api_key_info: Information about the auth key.
+        """
         while True:
             sleep(self.restproxy.compute_sleep_time(api_key_info))
             api_key_info = self.restproxy.generate_nuage_auth()
 
-    def create_cms(self, name):
-        cms = nuagelib.NuageCms(create_params={'name': name})
-        response = self.restproxy.rest_call('POST', cms.post_resource(),
-                                            cms.post_data())
-        if not cms.validate(response):
-            LOG.error('Error creating cms %s', name)
-            raise restproxy.RESTProxyError(cms.error_msg)
-        return cms.get_response_obj(response)
-
-    def get_cms(self, id):
-        cms = nuagelib.NuageCms(create_params={'cms_id': id})
+    def verify_cms(self, cms_id):
+        cms = nuagelib.NuageCms(create_params={'cms_id': cms_id})
         response = self.restproxy.rest_call('GET', cms.get_resource(), '')
         if not cms.get_validate(response):
-            LOG.error('CMS with id %s not found on vsd', id)
+            LOG.error('CMS with id %s not found on vsd', cms_id)
             raise restproxy.RESTProxyError(cms.error_msg)
-        return cms.get_response_obj(response)
 
     def get_usergroup(self, tenant, net_partition_id):
         return helper.get_usergroup(self.restproxy, tenant, net_partition_id)

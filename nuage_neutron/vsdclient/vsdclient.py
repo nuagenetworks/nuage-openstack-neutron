@@ -21,11 +21,7 @@ class VsdClient(object):
         pass
 
     @abstractmethod
-    def create_cms(self, name):
-        pass
-
-    @abstractmethod
-    def get_cms(self, id):
+    def verify_cms(self, id):
         pass
 
     @abstractmethod
