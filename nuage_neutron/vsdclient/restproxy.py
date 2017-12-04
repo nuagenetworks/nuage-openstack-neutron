@@ -17,15 +17,14 @@ import calendar
 import json
 import logging
 import re
-import requests
 import time
+
+from eventlet.green import threading
+from neutron._i18n import _
+import requests
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
-from nuage_neutron.plugins.common import nuage_models
-
-from neutron._i18n import _
-from neutron.db import api as db_api
 
 
 # Suppress urllib3 warnings
@@ -69,6 +68,11 @@ LIST_SUBNETS = re.compile('.*/subnets(\?.*)?$')
 GET_L2DOMAIN = re.compile('/l2domains/([0-9a-fA-F\-]+?)(\?.*)?$')
 GET_SUBNET = re.compile('/subnets/([0-9a-fA-F\-]+?)(\?.*)?$')
 
+NUAGE_AUTH = None
+NUAGE_AUTH_RENEWING = True
+NUAGE_AUTH_SEMAPHORE = threading.Semaphore()
+THREAD_LOCAL_DATA = threading.local()
+
 
 class RESTProxyBaseException(Exception):
     message = _("An unknown exception occurred.")
@@ -97,9 +101,6 @@ class RESTProxyError(RESTProxyBaseException):
             self.code = error_code
         self.vsd_code = vsd_code
 
-        if message is None:
-            message = "None"
-
         if self.code == REST_CONFLICT_ERR_CODE:
             self.message = (_('%s') % message)
         else:
@@ -126,19 +127,11 @@ class ResourceNotFoundException(RESTProxyError):
 
 class RESTProxyServer(object):
 
-    def __init__(self, server, base_uri, serverssl,
-                 verify_cert, serverauth, auth_resource,
-                 organization, servertimeout=30,
-                 max_retries=5):
-        try:
-            server_ip, port = server.split(":")
-        except ValueError:
-            server_ip = server
-            port = None
-        self.server = server_ip
-        self.port = int(port) if port else None
+    def __init__(self, server, base_uri, serverssl, verify_cert, serverauth,
+                 auth_resource, organization, servertimeout=30, max_retries=5):
+        self.scheme = "https" if serverssl else "http"
+        self.server = server
         self.base_uri = base_uri
-        self.serverssl = serverssl
         if verify_cert.lower() == 'true':
             self.verify_cert = True
         elif verify_cert.lower() == 'false':
@@ -150,7 +143,6 @@ class RESTProxyServer(object):
         self.organization = organization
         self.timeout = servertimeout
         self.max_retries = max_retries
-        self.auth = None
         self.api_stats_enabled = nuage_config.is_enabled(
             plugin_constants.DEBUG_API_STATS)
         self.api_count = 0
@@ -188,23 +180,41 @@ class RESTProxyServer(object):
         except (TypeError, ValueError):
             if response[3]:
                 LOG.error('REST response from VSD: %s' % response[3])
-            msg = ("Cannot communicate with SDN controller. Please do not"
-                   " perform any further operations and contact the"
-                   " administrator.")
+            msg = ("Cannot communicate with SDN controller. Please do not "
+                   "perform any further operations and contact the "
+                   "administrator.")
             RESTProxyServer.raise_rest_error(msg)
+
+    @staticmethod
+    def _get_session():
+        """Get the :class:`requests.Session` object for the current thread.
+
+        Due to SSL connection issues arising when one session is shared between
+        multiple threads (problem is in urllib3), we assign a new session to
+        each thread. This is done using thread-local data. For more information
+        see https://docs.python.org/2/library/threading.html#threading.local.
+
+        :return: :class:`requests.Session`
+        """
+        global THREAD_LOCAL_DATA
+        if not hasattr(THREAD_LOCAL_DATA, 'session'):
+            THREAD_LOCAL_DATA.session = requests.Session()
+        return THREAD_LOCAL_DATA.session
 
     def _rest_call(self, action, resource, data, extra_headers=None,
                    ignore_marked_for_deletion=False, auth_renewal=False):
+        global NUAGE_AUTH
         if not auth_renewal and self.api_stats_enabled:
             self.api_count += 1
         uri = self.base_uri + resource
+        url = "{}://{}{}".format(self.scheme, self.server, uri)
         body = json.dumps(data)
         headers = {
             'Content-type': 'application/json',
-            'X-Nuage-Organization': self.organization
+            'X-Nuage-Organization': self.organization,
         }
-        if self.auth:
-            headers['Authorization'] = self.auth
+        if NUAGE_AUTH:
+            headers['Authorization'] = NUAGE_AUTH
         if extra_headers:
             headers.update(extra_headers)
 
@@ -217,11 +227,11 @@ class RESTProxyServer(object):
         ret = None
         for attempt in range(self.max_retries):
             try:
-                response = self._create_request(action, uri, body, headers)
+                response = self._create_request(action, url, body, headers)
                 resp_data = response.text
 
                 LOG.debug('VSD_API RSP %s %s %s', response.status_code,
-                          response.reason, resp_data)
+                          response.reason, response.text)
                 if response.status_code in REST_SUCCESS_CODES:
                     try:
                         resp_data = json.loads(response.text)
@@ -257,59 +267,22 @@ class RESTProxyServer(object):
                   % self.max_retries)
         return ret or 0, None, None, None, None, headers['Authorization']
 
-    def _create_request(self, method, resource, data, headers):
-        """Create a connection and return the response.
+    def _create_request(self, method, url, data, headers):
+        """Create a HTTP(S) connection to the server and return the response.
 
         :param method: The HTTP method used for the request.
-        :param resource: The URI for the resource.
+        :param url: The URL for the request.
         :param data: Any type of data to be sent along with the request.
         :param headers: Dictionary of HTTP headers.
-        :return: requests.Response
+        :return: :class:`requests.Response`
         """
-        scheme = "https" if self.serverssl else "http"
-        if self.port:
-            url = "%s://%s:%d%s" % (scheme, self.server, self.port, resource)
-        else:
-            url = "%s://%s%s" % (scheme, self.server, resource)
-        return requests.request(method, url, data=data, headers=headers,
-                                timeout=self.timeout, verify=self.verify_cert)
-
-    @staticmethod
-    def get_config_parameter_by_name(session, organization, user_name,
-                                     param_name):
-        return session.query(nuage_models.NuageConfig).filter_by(
-            organization=organization,
-            username=user_name,
-            config_parameter=param_name).with_for_update().first()
-
-    @staticmethod
-    def add_config_parameter(session, organization, username,
-                             parameter, value):
-        config_parameter = nuage_models.NuageConfig(organization=organization,
-                                                    username=username,
-                                                    config_parameter=parameter,
-                                                    config_value=value)
-        session.merge(config_parameter)
-
-    def create_or_update_nuage_config_param(self, session, organization,
-                                            user_name, param_name,
-                                            param_value):
-        with session.begin(subtransactions=True):
-            config_mapping = self.get_config_parameter_by_name(session,
-                                                               organization,
-                                                               user_name,
-                                                               param_name)
-            if (config_mapping and
-                    config_mapping['config_value'] != param_value):
-                config_mapping.update({'config_value': param_value})
-            elif not config_mapping:
-                self.add_config_parameter(session, organization, user_name,
-                                          param_name,
-                                          param_value)
-
-    @staticmethod
-    def delete_config_parameter(session, config_parameter):
-        session.delete(config_parameter)
+        kwargs = {
+            'data': data,
+            'headers': headers,
+            'timeout': self.timeout,
+            'verify': self.verify_cert,
+        }
+        return self._get_session().request(method, url, **kwargs)
 
     def compute_sleep_time(self, api_key_info):
         # Assuming it's always going be in GMT
@@ -332,83 +305,73 @@ class RESTProxyServer(object):
         # Sleep for 1 second and compute value for time to sleep.
         return 1
 
-    def generate_nuage_auth(self, auth_token=None):
-        data = ''
-        encoded_auth = base64.encodestring(self.serverauth).strip()
-        self.auth = 'Basic ' + encoded_auth
-        resp = self._rest_call('GET', self.auth_resource, data,
-                               auth_renewal=True)
-        if not resp or resp[0] == 0:
-            self.raise_rest_error(
-                'Could not establish a connection with the VSD. '
-                'Please check VSD URI path in plugin config and '
-                'verify IP connectivity.')
-        if resp[0] in REST_SUCCESS_CODES and resp[3][0].get('APIKey'):
-            uname = self.serverauth.split(':')[0]
-            if not auth_token:
-                session = db_api.get_session()
-                self.create_or_update_nuage_config_param(
-                    session, self.organization, uname, 'auth_token',
-                    resp[3][0]['APIKey'])
-            else:
-                auth_token.update({'config_value': resp[3][0]['APIKey']})
-            new_uname_pass = uname + ':' + resp[3][0]['APIKey']
-            auth = 'Basic ' + base64.encodestring(new_uname_pass).strip()
-            self.auth = auth
-            LOG.debug("[RESTProxy] New auth-token received %s", auth)
-            return resp
-        else:
-            self.raise_rest_error(
-                'Could not authenticate with the VSD. '
-                'Please check the credentials in the plugin config.')
+    def generate_nuage_auth(self):
+        """Generate the Nuage authentication key.
+
+        The first thread to execute this method acquires `NUAGE_AUTH_SEMAPHORE`
+        and is thus able to generate the key. All subsequent threads which
+        execute this method while the first thread is busy generating the key,
+        will wait in the elif-block until the semaphore has been released by
+        the first thread. If the first thread has finished generating the key,
+        these threads will acquire the semaphore, release it and thus exit
+        the method. However, if the first thread fails to generate the key,
+        all other threads will again execute this method.
+        """
+        global NUAGE_AUTH, NUAGE_AUTH_RENEWING, NUAGE_AUTH_SEMAPHORE
+        if NUAGE_AUTH_SEMAPHORE.acquire(blocking=False):
+            NUAGE_AUTH_RENEWING = True
+            try:
+                encoded_auth = base64.encodestring(self.serverauth).strip()
+                # use a temporary auth key instead of the expired auth key
+                extra_headers = {'Authorization': 'Basic ' + encoded_auth}
+                resp = self._rest_call('GET', self.auth_resource, '',
+                                       extra_headers=extra_headers,
+                                       auth_renewal=True)
+
+                if not resp or resp[0] == 0:
+                    self.raise_rest_error("Could not establish a connection "
+                                          "with the VSD. Please check VSD URI "
+                                          "path in plugin config and verify "
+                                          "IP connectivity.")
+                elif resp[0] not in REST_SUCCESS_CODES \
+                        or not resp[3][0].get('APIKey'):
+                    self.raise_rest_error("Could not authenticate with the "
+                                          "VSD. Please check the credentials "
+                                          "in the plugin config")
+                else:
+                    uname = self.serverauth.split(':')[0]
+                    new_uname_pass = uname + ':' + resp[3][0]['APIKey']
+                    encoded_auth = base64.encodestring(new_uname_pass).strip()
+                    NUAGE_AUTH = 'Basic ' + encoded_auth
+                    NUAGE_AUTH_RENEWING = False
+                    LOG.debug("[RESTProxy] New auth-token received %s",
+                              NUAGE_AUTH)
+                    return resp
+            finally:
+                NUAGE_AUTH_SEMAPHORE.release()
+        # some other thread is renewing the auth key
+        elif NUAGE_AUTH_RENEWING:
+            # make this thread wait until the other thread completes renewal
+            NUAGE_AUTH_SEMAPHORE.acquire(blocking=True)
+            NUAGE_AUTH_SEMAPHORE.release()
+            if NUAGE_AUTH_RENEWING:  # but not successful
+                self.generate_nuage_auth()
 
     def rest_call(self, action, resource, data, extra_headers=None,
                   ignore_marked_for_deletion=False):
+        global NUAGE_AUTH
         response = self._rest_call(
             action, resource, data, extra_headers=extra_headers,
             ignore_marked_for_deletion=ignore_marked_for_deletion)
-        '''
-        If at all authentication expires with VSD, re-authenticate.
-        '''
+
+        # If at all authentication expires with VSD, re-authenticate.
         if response[0] == REST_UNAUTHORIZED and response[1] == 'Unauthorized':
-            LOG.debug(_('RESTProxy: authentication expired, '
-                        're-authenticating.'))
-            # don't count this api call in counting
-            if self.api_stats_enabled:
-                self.api_count -= 1
-
-            # find out whether the auth token used in the request was same or
-            # different from what we have in the database, as that determines
-            # whether we have to reauthenticate or whether we just have to
-            # start using the new db token
-            session = db_api.get_session()
-            with session.begin(subtransactions=True):
-                auth_token = self.get_config_parameter_by_name(
-                    session,
-                    self.organization,
-                    self.serverauth.split(':')[0],
-                    'auth_token')
-                in_db_uname_pass = (auth_token['username'] + ':' +
-                                    auth_token['config_value'])
-                in_db_auth = 'Basic ' + base64.encodestring(
-                    in_db_uname_pass).strip()
-                LOG.debug("Auth_from_DB: %s", in_db_auth)
-                LOG.debug("Auth_from_request: %s", response[5])
-                token_match = in_db_auth == response[5]
-                if token_match:
-                    # the token in db is expired - reauthenticate and resubmit
-                    self.generate_nuage_auth(auth_token)
-                else:
-                    # start using the the new db token and re-submit
-                    self.auth = in_db_auth
-
-            # in both cases, resubmit outside of db transaction
-            if token_match:
-                response = self._rest_call(action, resource, data,
-                                           extra_headers=extra_headers)
-            else:
-                response = self.rest_call(action, resource, data,
-                                          extra_headers=extra_headers)
+            # only renew the auth key if it hasn't been renewed yet
+            if response[5] == NUAGE_AUTH:
+                self.generate_nuage_auth()
+            response = self.rest_call(
+                action, resource, data, extra_headers=extra_headers,
+                ignore_marked_for_deletion=ignore_marked_for_deletion)
         return response
 
     def get(self, resource, data='', extra_headers=None, required=False):
@@ -437,17 +400,20 @@ class RESTProxyServer(object):
     def retrieve_by_external_id(restproxy, resource, data):
         if not data.get('externalID'):
             return None
-        headers = {'X-NUAGE-FilterType': "predicate",
-                   'X-Nuage-Filter':
-                       "externalID IS '%s'" % data.get('externalID')}
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "externalID IS '%s'" % data.get('externalID'),
+        }
         return restproxy.get(resource, extra_headers=headers)
 
     @staticmethod
     def retrieve_by_name(restproxy, resource, data):
         if not data.get('name'):
             return None
-        headers = {'X-NUAGE-FilterType': "predicate",
-                   'X-Nuage-Filter': "name IS '%s'" % data.get('name')}
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "name IS '%s'" % data.get('name'),
+        }
         return restproxy.get(resource, extra_headers=headers)
 
     def post(self, resource, data, extra_headers=None,
