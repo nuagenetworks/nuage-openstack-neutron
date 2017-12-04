@@ -1975,9 +1975,8 @@ class NuageRedundantVlan(NuageVlanBase):
             return '/ports/%s/vlans' % self.create_params['port_id']
 
 
+@six.add_metaclass(ABCMeta)
 class NuageQOS(NuageServerBaseClass):
-    __metaclass__ = ABCMeta   # noqa H236
-
     def get_resource(self):
         return '/qos/%s' % self.create_params['qos_id']
 
@@ -2391,9 +2390,8 @@ class NuageVIP(NuageServerBaseClass):
         return vip['ID']
 
 
+@six.add_metaclass(ABCMeta)
 class VsdResource(object):
-    __metaclass__ = ABCMeta  # noqa H236
-
     resource = None
 
     @classmethod
@@ -2430,9 +2428,8 @@ class VsdResource(object):
         return {'X-Nuage-Filter': filter} if filter else None
 
 
+@six.add_metaclass(ABCMeta)
 class VsdChildResource(VsdResource):
-    __metaclass__ = ABCMeta   # noqa H236
-
     @classmethod
     def get_url(cls, parent=None, parent_id=None):
         if parent and parent_id:

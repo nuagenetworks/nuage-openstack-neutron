@@ -127,8 +127,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
                              'and verify IP connectivity.', str(e))
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
-    @mock.patch.object(VsdClientImpl, 'get_cms')
-    def test_multi_init_nmd_invalid_server(self, raise_rest, get_cms):
+    @mock.patch.object(VsdClientImpl, 'verify_cms')
+    def test_multi_init_nmd_invalid_server(self, raise_rest, verify_cms):
         # init nmd 3 times
         nmd1 = self.get_me_a_nmd()
         nmd2 = self.get_me_a_nmd()
