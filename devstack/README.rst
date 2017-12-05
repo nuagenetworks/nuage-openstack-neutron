@@ -25,7 +25,7 @@ Q_ML2_PLUGIN_EXT_DRIVERS=nuage_subnet,nuage_port,port_security
 Required settings
 =================
 
-Please consult <this repo>/etc/neutron/plugins/nuage/nuage_plugin.ini
+Please consult <this repo>/etc/neutron/plugins/nuage/plugin.ini.sample
 
 
 Enabling dhcp agent
