@@ -1,4 +1,9 @@
-# Nuage plugin configuration
+# #############################################################################
+# Sample of a Nuage plugin configuration.
+# Please update according your deployment.
+#
+# (C) 2017 NOKIA
+# #############################################################################
 
 [RESTPROXY]
 
@@ -111,3 +116,7 @@
 # Changing this does not affect existing policy entries.
 #
 #stats_collection_enabled = False
+
+# (BoolOpt) Set to True to allow non-IP traffic by default
+#
+#default_allow_non_ip = False
