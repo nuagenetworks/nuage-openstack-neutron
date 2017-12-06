@@ -277,7 +277,8 @@ class NuageAddressPair(BaseNuagePlugin):
         if (port.get(addr_pair.ADDRESS_PAIRS) ==
                 original_port.get(addr_pair.ADDRESS_PAIRS) and
                 original_port.get(constants.VIPS_FOR_PORT_IPS) ==
-                port.get(constants.VIPS_FOR_PORT_IPS)):
+                port.get(constants.VIPS_FOR_PORT_IPS) and
+                port.get('fixed_ips') == original_port.get('fixed_ips')):
             LOG.info('No allowed address pairs update required for port %s',
                      port['id'])
             return False
