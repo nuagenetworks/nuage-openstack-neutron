@@ -388,8 +388,19 @@ class VsdClientImpl(VsdClient):
         subnet['type'] = constants.SUBNET
         return subnet
 
+    def get_domain_subnet_by_external_id(self, neutron_id):
+        subnet = self.domain.domainsubnet.get_domain_subnet_by_external_id(
+            neutron_id)
+        subnet['type'] = constants.SUBNET
+        return subnet
+
     def get_l2domain_by_id(self, l2domain_id):
         l2domain = self.l2domain.get_subnet_by_id(l2domain_id)
+        l2domain['type'] = constants.L2DOMAIN
+        return l2domain
+
+    def get_l2domain_by_external_id(self, neutron_id):
+        l2domain = self.l2domain.get_l2domain_by_external_id(neutron_id)
         l2domain['type'] = constants.L2DOMAIN
         return l2domain
 

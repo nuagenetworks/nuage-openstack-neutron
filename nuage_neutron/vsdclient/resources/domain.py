@@ -676,6 +676,21 @@ class NuageDomainSubnet(object):
         return self.restproxy.get(nuagesubnet.get_resource(nuage_id),
                                   required=True)[0]
 
+    def get_domain_subnet_by_external_id(self, neutron_id):
+        params = {
+            'externalID': get_vsd_external_id(neutron_id)
+        }
+        nuagesubnet = nuagelib.NuageSubnet(create_params=params)
+        subnets = self.restproxy.get(
+            nuagesubnet.get_resource_with_ext_id(),
+            extra_headers=nuagesubnet.extra_headers_get())
+        if subnets:
+            return subnets[0]
+        else:
+            msg = ("Cannot find subnet with ID %s"
+                   " in L3domains on VSD" % neutron_id)
+            raise restproxy.ResourceNotFoundException(message=msg)
+
     def get_domain_subnet_by_zone_id(self, zone_id):
         subnet = nuagelib.NuageSubnet({'zone': zone_id})
         return self.restproxy.get(subnet.get_all_resources_in_zone())
