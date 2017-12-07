@@ -11,7 +11,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from neutron.db import agents_db
 from neutron.db.common_db_mixin import CommonDbMixin
 from neutron.db import db_base_plugin_v2
 from neutron.db import extraroute_db
@@ -29,7 +29,8 @@ from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 class NuageML2Wrapper(base_plugin.RootNuagePlugin,
                       api.MechanismDriver,
-                      db_base_plugin_v2.NeutronDbPluginV2):
+                      db_base_plugin_v2.NeutronDbPluginV2,
+                      agents_db.AgentDbMixin):
 
     def __init__(self):
         super(NuageML2Wrapper, self).__init__()
