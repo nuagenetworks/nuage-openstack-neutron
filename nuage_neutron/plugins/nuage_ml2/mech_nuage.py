@@ -218,6 +218,14 @@ class NuageMechanismDriver(NuageML2Wrapper):
                         updated_network['shared'],
                         subnet['tenant_id'], remove_everybody=True)
 
+    def check_dhcp_agent_alive(self, context):
+        get_dhcp_agent = self.get_agents(
+            context, filters={"alive": [True],
+                              "binary": ['neutron-dhcp-agent']})
+        if get_dhcp_agent:
+            return True
+        return False
+
     @handle_nuage_api_errorcode
     @TimeTracker.tracked
     def create_subnet_precommit(self, context):
@@ -280,11 +288,14 @@ class NuageMechanismDriver(NuageML2Wrapper):
         ipv4s = len([s for s in subnets if _is_ipv4(s)])
         ipv6s = len([s for s in subnets if _is_ipv6(s)])
 
-        if not (ipv4s <= 1 and ipv6s == 1 or ipv6s == 0):
+        if ipv6s == 1 and ipv4s > 1 or ipv6s > 1:
             msg = _("A network with an ipv6 subnet may only have maximum 1 "
                     "ipv4 and 1 ipv6 subnet")
             raise NuageBadRequest(msg=msg)
-
+        if ipv4s > 1 and self.check_dhcp_agent_alive(db_context):
+            msg = _("A network with multiple ipv4 subnets is not "
+                    "allowed when neutron-dhcp-agent is enabled")
+            raise NuageBadRequest(msg=msg)
         if self.is_vxlan_network(network):
             if vsd_managed:
                 self._create_vsd_managed_subnet(db_context, subnet)
