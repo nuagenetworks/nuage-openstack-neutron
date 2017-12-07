@@ -271,6 +271,7 @@ class NuageAddressPair(BaseNuagePlugin):
 
         for port in ports:
             vport = vports_by_port_id.get(port['id'])
+            LOG.debug("Process address pairs for port: %s", port)
             if vport:
                 self.create_allowed_address_pairs(context, port, vport)
 

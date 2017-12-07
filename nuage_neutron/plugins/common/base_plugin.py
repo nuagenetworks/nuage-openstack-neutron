@@ -17,6 +17,7 @@ import re
 
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
+from oslo_log import log
 
 from neutron._i18n import _
 from neutron.api.v2 import attributes
@@ -36,6 +37,8 @@ from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient_fac import VsdClientFactory
+
+LOG = log.getLogger(__name__)
 
 
 class RootNuagePlugin(object):
@@ -238,12 +241,44 @@ class RootNuagePlugin(object):
             raise cfg.ConfigFileValueError(msg)
 
     @log_helpers.log_method_call
+    def _check_subnet_exists_in_neutron(self, db_context, subnet_id):
+        try:
+            subnet_db = self.core_plugin.get_subnet(db_context, subnet_id)
+            return subnet_db
+        except n_exc.SubnetNotFound:
+            return False
+
+    @log_helpers.log_method_call
     def _check_port_exists_in_neutron(self, db_context, port):
         try:
             port_db = self.core_plugin.get_port(db_context, port['id'])
             return port_db
         except n_exc.PortNotFound:
             return False
+
+    @log_helpers.log_method_call
+    def _find_vsd_subnet(self, context, subnet_mapping):
+        try:
+            vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                subnet_mapping,
+                required=True)
+            return vsd_subnet
+        except restproxy.ResourceNotFoundException:
+            if not self._check_subnet_exists_in_neutron(
+                    context, subnet_mapping['subnet_id']):
+                LOG.info("Subnet %s has been deleted concurrently",
+                         subnet_mapping['subnet_id'])
+                return
+            if not subnet_mapping['nuage_managed_subnet']:
+                LOG.debug("Retrying to get the subnet from vsd.")
+                if subnet_mapping['nuage_l2dom_tmplt_id']:
+                    return self.vsdclient.get_domain_subnet_by_external_id(
+                        subnet_mapping['subnet_id'])
+                else:
+                    return self.vsdclient.get_l2domain_by_external_id(
+                        subnet_mapping['subnet_id'])
+            else:
+                raise
 
 
 class BaseNuagePlugin(RootNuagePlugin):

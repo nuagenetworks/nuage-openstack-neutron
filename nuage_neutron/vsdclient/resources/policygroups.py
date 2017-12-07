@@ -792,9 +792,10 @@ class NuagePolicyGroups(object):
         vsd_data = self._map_security_group_to_policygroup(security_group)
         vsd_data['type'] = sg_type
         resource = nuagelib.Policygroup()
-        return self.restproxy.post(resource.post_url(parent_resource.resource,
-                                                     parent_id),
-                                   vsd_data)[0]
+        return self.restproxy.post(
+            resource.post_url(parent_resource.resource, parent_id),
+            vsd_data,
+            ignore_err_codes=[restproxy.REST_PG_EXISTS_ERR_CODE])[0]
 
     def process_port_create_security_group(self, params):
         to_rollback = []
