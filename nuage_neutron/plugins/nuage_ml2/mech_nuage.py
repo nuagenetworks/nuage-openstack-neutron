@@ -811,10 +811,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
             LOG.warn('no subnet_mapping')
             return
         nuage_vport = nuage_vm = np_name = None
+        np_id = subnet_mapping['net_partition_id']
+        nuage_subnet = self._find_vsd_subnet(db_context, subnet_mapping)
         try:
-            np_id = subnet_mapping['net_partition_id']
-            nuage_subnet, _ = self._get_nuage_subnet(
-                subnet_mapping, subnet_mapping['nuage_subnet_id'])
             if port.get('binding:host_id') and self._port_should_have_vm(port):
                 self._validate_vmports_same_netpartition(db_context,
                                                          port, np_id)
@@ -930,14 +929,11 @@ class NuageMechanismDriver(NuageML2Wrapper):
         elif (original['device_owner'] and not port['device_owner'] and
               original['device_owner'] == LB_DEVICE_OWNER_V2):
             host_removed = True
-        try:
-            nuage_vport = self._get_nuage_vport(port, subnet_mapping)
-        except (restproxy.ResourceNotFoundException, NuageBadRequest) as ex:
-            if self._check_port_exists_in_neutron(db_context, port):
-                raise
-            else:
-                LOG.info("Port was deleted concurrently: %s", ex.message)
-                return
+
+        nuage_vport = self._find_vport(db_context, port, subnet_mapping)
+
+        if not nuage_vport:
+            return
         if vm_if_update_required:
             fixed_ips = port['fixed_ips']
             ips = {4: None, 6: None}
@@ -993,6 +989,46 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 for rollback in reversed(rollbacks):
                     rollback[0](*rollback[1], **rollback[2])
 
+    def _find_vport(self, db_context, port, subnet_mapping):
+        try:
+            nuage_vport = self._get_nuage_vport(port,
+                                                subnet_mapping,
+                                                required=True)
+            return nuage_vport
+        except (restproxy.ResourceNotFoundException, NuageBadRequest):
+            if not self._check_port_exists_in_neutron(db_context,
+                                                      port):
+                LOG.info("Port %s has been deleted concurrently",
+                         port['id'])
+                return
+            if not self._check_subnet_exists_in_neutron(
+                    db_context,
+                    subnet_mapping['subnet_id']):
+                LOG.info("Subnet %s has been deleted concurrently",
+                         subnet_mapping['subnet_id'])
+                return
+            LOG.debug("Retrying to get new subnet mapping from vsd")
+            subnet_mapping = self._get_updated_subnet_mapping_from_vsd(
+                subnet_mapping)
+            return self._get_nuage_vport(port, subnet_mapping, required=True)
+
+    def _get_updated_subnet_mapping_from_vsd(self, subnet_mapping):
+        # use this method only to know about concurrent changes on VSD.
+        if subnet_mapping['nuage_l2dom_tmplt_id']:
+            vsd_subnet = self.vsdclient.get_domain_subnet_by_external_id(
+                subnet_mapping['subnet_id'])
+            subnet_mapping['nuage_subnet_id'] = vsd_subnet['ID']
+            subnet_mapping['nuage_l2dom_tmplt_id'] = None
+        else:
+            vsd_subnet = self.vsdclient.get_l2domain_by_external_id(
+                subnet_mapping['subnet_id'])
+            subnet_mapping['nuage_subnet_id'] = vsd_subnet['ID']
+            # Below a wrong mapping of value is being set,
+            # since accurate info of below attribute is not required
+            # to determine if its l2/l3 on VSD
+            subnet_mapping['nuage_l2dom_tmplt_id'] = vsd_subnet['ID']
+        return subnet_mapping
+
     @staticmethod
     def _ip4_addr_added_to_dualstack_dhcp_port(original, port):
         original_fixed_ips = original['fixed_ips']
@@ -1042,8 +1078,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                       is_port_device_owner_removed=True)
         elif device_added:
             if self._port_should_have_vm(port):
-                nuage_subnet, _ = self._get_nuage_subnet(
-                    subnet_mapping, subnet_mapping['nuage_subnet_id'])
+                nuage_subnet = self._find_vsd_subnet(db_context,
+                                                     subnet_mapping)
                 self._create_nuage_vm(db_context, port,
                                       np_name, subnet_mapping, nuage_vport,
                                       nuage_subnet)

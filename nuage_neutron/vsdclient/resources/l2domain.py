@@ -159,6 +159,22 @@ class NuageL2Domain(object):
         data = helper.get_ipv6_vsd_data(None)
         self.update_l2domain_template(mapping['nuage_l2dom_tmplt_id'], **data)
 
+    def get_l2domain_by_external_id(self, neutron_id, required=True):
+        params = {
+            'externalID': get_vsd_external_id(neutron_id)
+        }
+        nuagel2domain = nuagelib.NuageL2Domain(create_params=params)
+        l2domains = self.restproxy.get(
+            nuagel2domain.get_resource_with_ext_id(), '',
+            extra_headers=nuagel2domain.extra_headers_get(),
+            required=required)
+        if l2domains:
+            return l2domains[0]
+        else:
+            msg = ("Cannot find subnet with ID %s"
+                   " in L2domains on VSD" % neutron_id)
+            raise restproxy.ResourceNotFoundException(message=msg)
+
     def delete_subnet(self, id):
         params = {
             'externalID': get_vsd_external_id(id)

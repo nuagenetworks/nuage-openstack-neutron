@@ -212,7 +212,13 @@ class VsdClient(object):
     def get_domain_subnet_by_id(self, subnet_id):
         pass
 
+    def get_domain_subnet_by_external_id(self, neutron_id):
+        pass
+
     def get_l2domain_by_id(self, l2domain_id):
+        pass
+
+    def get_l2domain_by_external_id(self, neutron_id):
         pass
 
     def get_l3domain_by_id(self, l3domain_id, required=False):

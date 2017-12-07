@@ -29,6 +29,7 @@ from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import cms_id_helper
+from nuage_neutron.vsdclient.common import constants as nuage_constants
 from nuage_neutron.vsdclient import restproxy
 
 LOG = logging.getLogger(__name__)
@@ -126,14 +127,15 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         if subnet_mapping['nuage_managed_subnet']:
             return
 
-        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
-
         if port[ext_sg.SECURITYGROUPS]:
-            self._process_port_security_group(context,
-                                              port,
-                                              vport,
-                                              port[ext_sg.SECURITYGROUPS],
-                                              vsd_subnet)
+            vsd_subnet = self._find_vsd_subnet(context, subnet_mapping)
+            if vsd_subnet:
+                self._process_port_security_group(context,
+                                                  port,
+                                                  vport,
+                                                  port[ext_sg.SECURITYGROUPS],
+                                                  vsd_subnet,
+                                                  subnet_mapping)
 
     @TimeTracker.tracked
     def post_port_update(self, resource, event, trigger, context, port,
@@ -150,11 +152,12 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                               port,
                                               vport,
                                               new_sg,
-                                              vsd_subnet)
+                                              vsd_subnet,
+                                              subnet_mapping)
             rollbacks.append((self._process_port_security_group,
                               [context, port, vport,
                                original_port[ext_sg.SECURITYGROUPS],
-                               vsd_subnet],
+                               vsd_subnet, subnet_mapping],
                               {}))
             deleted_sg_ids = (set(original_port[ext_sg.SECURITYGROUPS]) -
                               set(port[ext_sg.SECURITYGROUPS]))
@@ -186,7 +189,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
     @log_helpers.log_method_call
     def _process_port_security_group(self, context, port, vport, sg_ids,
-                                     vsd_subnet):
+                                     vsd_subnet, subnet_mapping):
         if len(sg_ids) > 6:
             msg = (_("Exceeds maximum num of security groups on a port "
                      "supported on nuage VSP"))
@@ -197,7 +200,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
         successful = False
         attempt = 1
-        max_attempts = 3
+        max_attempts = 4
         while not successful:
             try:
                 policygroup_ids = []
@@ -210,12 +213,18 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                                          policygroup_ids)
                 successful = True
             except restproxy.RESTProxyError as e:
+                LOG.debug("Policy group retry %s times.", attempt)
                 msg = e.msg.lower()
                 if (e.code not in (404, 409) and 'policygroup' not in msg and
                         'policy group' not in msg):
                     raise
                 elif attempt < max_attempts:
                     attempt += 1
+                    if e.vsd_code == nuage_constants.PG_VPORT_DOMAIN_CONFLICT:
+                        vsd_subnet = self._find_vsd_subnet(context,
+                                                           subnet_mapping)
+                        if not vsd_subnet:
+                            return
                 else:
                     LOG.debug("Retry failed %s times.", max_attempts)
                     raise
