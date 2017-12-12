@@ -1150,7 +1150,8 @@ class NuageL3Plugin(NuageL3Wrapper):
             if 'port_id' in fip or fip.get('description'):
                 neutron_fip = super(NuageL3Plugin, self).update_floatingip(
                     context, id, floatingip)
-            last_known_router_id = orig_fip['last_known_router_id']
+            last_known_router_id = (orig_fip['last_known_router_id']
+                                    or orig_fip['router_id'])
             if fip.get('port_id'):
                 if not neutron_fip['router_id']:
                     ret_msg = 'floating-ip is not associated yet'

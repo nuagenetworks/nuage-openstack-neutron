@@ -60,9 +60,8 @@ class NuageAddressPair(BaseNuagePlugin):
         return self._l3_plugin
 
     def _make_fip_dict_with_subnet_id(self, fip):
-        fip_dict = self.l3_plugin._make_floatingip_dict(fip)
-        fip_dict['fip_subnet_id'] = fip.port.fixed_ips[0].subnet_id
-        return fip_dict
+        fip['fip_subnet_id'] = fip.port.fixed_ips[0].subnet_id
+        return fip
 
     def _create_vips(self, context, subnet_mapping, port, nuage_vport):
         nuage_vip_dict = dict()
