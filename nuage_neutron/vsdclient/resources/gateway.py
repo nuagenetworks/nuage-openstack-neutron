@@ -741,7 +741,7 @@ class NuageGateway(object):
             'neutron_subnet_id': subn_id,
             'nuage_managed_subnet': params.get('nuage_managed_subnet'),
             'gw_type': params['personality'],
-            'externalid': get_vsd_external_id(port['id'])
+            'externalid': get_vsd_external_id(port['id'] if port else subn_id)
         }
         if nuage_subnet['parentType'] == 'zone':
             req_params['nuage_subnet_id'] = nuage_subnet['ID']
