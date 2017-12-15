@@ -32,10 +32,6 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy auth_resource $NUAGE_VSD_AUTH_RESOURCE
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy default_net_partition_name $NUAGE_VSD_DEF_NETPART_NAME
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_fip_underlay $NUAGE_FIP_UNDERLAY
-    if is_service_enabled octavia; then
-        #set configuration to octavia
-        iniset $NUAGE_PLUGIN_CONF_FILE plugin experimental_features "octavia_enabled"
-    fi
 
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
