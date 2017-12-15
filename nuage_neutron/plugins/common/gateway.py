@@ -101,22 +101,18 @@ class NuagegatewayMixin(object):
             'id': vport['vport_id'],
             'type': vport['vport_type'],
             'name': vport['vport_name'],
-            'subnet': vport['subnet_id'],
             'interface': vport.get('interface')
         }
-
+        if 'subnet_id' in vport:
+            res['subnet'] = vport['subnet_id']
         if 'port_id' in vport:
             res['port'] = vport['port_id']
-
         if 'gateway' in vport:
             res['gateway'] = vport['gateway']
-
         if 'gatewayport' in vport:
             res['gatewayport'] = vport['gatewayport']
-
         if 'value' in vport:
             res['vlan'] = vport['value']
-
         if context:
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
@@ -154,7 +150,7 @@ class NuagegatewayMixin(object):
             raise nuage_exc.NuageBadRequest(msg=msg)
 
         try:
-            vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+            vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(
                 subnet_mapping)
             params['vsd_subnet'] = vsd_subnet
             resp = self.vsdclient.create_gateway_vport(context.tenant_id,
@@ -242,16 +238,40 @@ class NuagegatewayMixin(object):
                                                 fetch_tenant,
                                                 netpart['id'],
                                                 id)
-        if resp:
-            if not resp.get('subnet_id'):
-                subnet_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
-                    context.session,
-                    resp['nuage_subnet_id'])
-                resp['subnet_id'] = subnet_mapping['subnet_id']
-            return self._make_vport_dict(resp, fields=fields, context=context)
-        else:
+        if not resp:
             raise nuage_exc.NuageNotFound(resource='nuage_vport',
                                           resource_id=id)
+        if not resp.get('subnet_id'):
+            nuage_subnet_id = resp['nuage_subnet_id']
+            subnet_info = nuagedb.get_subnet_info_by_nuage_id(
+                context.session, nuage_subnet_id)
+            if subnet_info:
+                if 'subnet_id' in subnet_info:
+                    resp['subnet_id'] = subnet_info['subnet_id']
+                    LOG.debug('get_nuage_gateway_vport: subnet_id '
+                              'could be retrieved via subnet_info')
+                elif resp.get('port_id'):
+                    subnet_mapping = nuagedb.\
+                        get_subnet_l2dom_by_nuage_id_and_port(
+                            context.session, nuage_subnet_id, resp['vport_id'])
+                    if subnet_mapping:
+                        resp['subnet_id'] = subnet_mapping['subnet_id']
+                        LOG.debug('get_nuage_gateway_vport: subnet_id '
+                                  'could be retrieved via port')
+                    else:
+                        LOG.debug('get_nuage_gateway_vport: subnet_id '
+                                  'could not be retrieved via port')
+                else:
+                    LOG.debug('get_nuage_gateway_vport: subnet_id could '
+                              'not be retrieved')
+            else:
+                LOG.debug('get_nuage_gateway_vport: subnet_id could not '
+                          'be retrieved as no subnet_info is present for '
+                          'nuage_subnet_id={}'.format(nuage_subnet_id))
+        else:
+            LOG.debug('get_nuage_gateway_vport: subnet_id already '
+                      'contained')
+        return self._make_vport_dict(resp, fields=fields, context=context)
 
     @utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -414,7 +434,7 @@ class NuagegatewayMixin(object):
         # Check if l2domain/subnet exist. In case of router_interface_delete,
         # subnet is deleted and then call comes to delete_port. In that
         # case, we just return
-        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
+        vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(subnet_mapping)
         if not vsd_subnet:
             return
 

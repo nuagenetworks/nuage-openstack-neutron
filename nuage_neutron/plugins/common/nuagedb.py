@@ -28,6 +28,8 @@ from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import nuage_models
 from nuage_neutron.plugins.common import utils
 
+from nuage_neutron.vsdclient.common import constants
+
 
 def add_net_partition(session, netpart_id,
                       l3dom_id, l2dom_id,
@@ -225,6 +227,16 @@ def get_subnet_l2dom_by_port_id(session, port_id):
         return query.first()
 
 
+# TODO(?) we could implement above method in terms of this method...
+def get_subnet_l2dom_by_port(session, port):
+    if port['fixed_ips']:
+        subnet_id = port['fixed_ips'][0]['subnet_id']
+        subnet_mapping = get_subnet_l2dom_by_id(session, subnet_id)
+        return subnet_mapping
+    else:
+        return None
+
+
 def get_subnet_l2dom_by_network_id(session, network_id):
     return (
         session.query(nuage_models.SubnetL2Domain)
@@ -297,46 +309,69 @@ def get_nuage_subnets_info(session, subnets, fields, filters):
     return filtered
 
 
-def get_floatingip_per_vip_in_network(session, network_id):
-    result = (
-        session.query(l3_db.FloatingIP, models_v2.Port)
-        .join(
-            (models_v2.Port,
-             l3_db.FloatingIP.fixed_port_id == models_v2.Port.id))
-        .filter(
-            models_v2.Port.network_id == network_id,
-            models_v2.Port.device_owner.in_(utils.get_device_owners_vip())
-        )
-    ).all()
-    fips_per_vip = {}
-    for row in result:
-        fip = row[0]
-        vip_port = row[1]
-        for fixed_ip in vip_port.fixed_ips:
-            fips_per_vip[fixed_ip.ip_address] = fip
-    return fips_per_vip
-
-
-def get_routerport_by_port_id(session, port_id):
-    query = session.query(l3_db.RouterPort)
-    return query.filter_by(port_id=port_id).first()
-
-
-def get_subnet_l2dom_by_nuage_id(session, id):
-    query = session.query(nuage_models.SubnetL2Domain)
-    return query.filter_by(nuage_subnet_id=str(id)).first()
-
-
-def get_subnet_l2dom_by_nuage_id_and_ipversion(session, id, ipversion):
-    query = session.query(nuage_models.SubnetL2Domain)
-    return query.filter_by(nuage_subnet_id=str(id)).filter_by(
-        ip_version=str(ipversion)).first()
-
-
 def get_subnet_l2dom_with_lock(session, id):
     query = session.query(nuage_models.SubnetL2Domain)
-    subl2dom = query.filter_by(subnet_id=id).with_lockmode('update').one()
-    return subl2dom
+    return query.filter_by(subnet_id=id).with_lockmode('update').one()
+
+
+def get_subnet_info_by_nuage_id(session, id, ip_type=None):
+    if ip_type is not None:
+        # provide specific info about requested ip type
+        mappings = get_subnet_l2doms_by_nuage_id_and_ipversion(session, id,
+                                                               ip_type)
+    else:
+        # provide info about the v4 mappings if available, else v6
+        mappings = get_subnet_l2doms_by_nuage_id_and_ipversion(session, id, 4)
+        if not mappings:
+            mappings = get_subnet_l2doms_by_nuage_id_and_ipversion(
+                session, id, 6)
+
+    if not mappings:
+        return None
+
+    subnet_info = {
+        'subnet_type': (constants.L2DOMAIN
+                        if mappings[0]['nuage_l2dom_tmplt_id']
+                        else constants.SUBNET),
+        'vsd_managed': mappings[0]["nuage_managed_subnet"],
+        'mappings': mappings
+    }
+
+    if len(mappings) == 1:
+        subnet_info['subnet_id'] = mappings[0]['subnet_id']
+
+    return subnet_info
+
+
+def get_subnet_l2dom_by_nuage_id_and_port(session, id, port_id):
+    subnet_mappings = get_subnet_l2doms_by_nuage_id(session, id)
+    if not subnet_mappings:
+        return None
+    elif len(subnet_mappings) == 1:
+        return subnet_mappings[0]
+    else:
+        query = (session.query(nuage_models.SubnetL2Domain)
+                 .join(models_v2.Subnet)
+                 .join(models_v2.IPAllocation)
+                 .filter_by(nuage_subnet_id=str(id))
+                 .filter(models_v2.IPAllocation.port_id == port_id))
+        try:
+            return query.one()
+        except sql_exc.NoResultFound:
+            return None
+        except sql_exc.MultipleResultsFound:
+            return query.first()
+
+
+def get_subnet_l2doms_by_nuage_id(session, id):
+    query = session.query(nuage_models.SubnetL2Domain)
+    return query.filter_by(nuage_subnet_id=str(id)).all()
+
+
+def get_subnet_l2doms_by_nuage_id_and_ipversion(session, id, ipversion):
+    query = session.query(nuage_models.SubnetL2Domain)
+    return query.filter_by(nuage_subnet_id=str(id)).filter_by(
+        ip_version=ipversion).all()
 
 
 def get_ent_rtr_mapping_by_entid(session, entid):
@@ -363,6 +398,31 @@ def get_ent_rtr_mapping_by_rtrids(session, rtrids):
             nuage_models.NetPartitionRouter.router_id.in_(rtrids)
         )
     ).all()
+
+
+def get_floatingip_per_vip_in_network(session, network_id):
+    result = (
+        session.query(l3_db.FloatingIP, models_v2.Port)
+        .join(
+            (models_v2.Port,
+             l3_db.FloatingIP.fixed_port_id == models_v2.Port.id))
+        .filter(
+            models_v2.Port.network_id == network_id,
+            models_v2.Port.device_owner.in_(utils.get_device_owners_vip())
+        )
+    ).all()
+    fips_per_vip = {}
+    for row in result:
+        fip = row[0]
+        vip_port = row[1]
+        for fixed_ip in vip_port.fixed_ips:
+            fips_per_vip[fixed_ip.ip_address] = fip
+    return fips_per_vip
+
+
+def get_routerport_by_port_id(session, port_id):
+    query = session.query(l3_db.RouterPort)
+    return query.filter_by(port_id=port_id).first()
 
 
 def add_network_binding(session, network_id, network_type, physical_network,

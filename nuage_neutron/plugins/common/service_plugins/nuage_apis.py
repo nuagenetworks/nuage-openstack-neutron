@@ -303,7 +303,7 @@ class NuageApi(NuageApiWrapper):
     @log_helpers.log_method_call
     @TimeTracker.tracked
     def get_vsd_subnet(self, context, id, fields=None):
-        subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
+        subnet = self.vsdclient.get_nuage_subnet_by_id(
             id, required=True)
         vsd_subnet = {'id': subnet['ID'],
                       'name': subnet['name'],
@@ -345,6 +345,46 @@ class NuageApi(NuageApiWrapper):
                 self._return_val, filters['vsd_zone_id'][0]): 'vsd_zone_id'
         }
         return self._trans_vsd_to_os(l3subs, vsd_to_os, filters, fields)
+
+    @nuage_utils.handle_nuage_api_error
+    @log_helpers.log_method_call
+    @TimeTracker.tracked
+    def get_vsd_domains(self, context, filters=None, fields=None):
+        if 'vsd_organisation_id' not in filters:
+            msg = _('vsd_organisation_id is a required filter parameter for '
+                    'this API.')
+            raise n_exc.BadRequest(resource='vsd-domains', msg=msg)
+        vsd_domains = self.vsdclient.get_routers_by_netpart(
+            filters['vsd_organisation_id'][0])
+        vsd_l2domains = self.vsdclient.get_subnet_by_netpart(
+            filters['vsd_organisation_id'][0])
+        if vsd_domains:
+            vsd_domains = [self._update_dict(vsd_domain, 'type', 'L3')
+                           for vsd_domain in vsd_domains]
+        if vsd_l2domains:
+            vsd_l2domains = [self._update_dict(l2domain, 'type', 'L2')
+                             for l2domain in vsd_l2domains
+                             if self.l2domain_not_linked(context.session,
+                                                         l2domain)]
+        vsd_domains = (vsd_domains or []) + (vsd_l2domains or [])
+        vsd_domains = [self._update_dict(vsd_domain, 'net_partition_id',
+                                         filters['vsd_organisation_id'][0])
+                       for vsd_domain in vsd_domains]
+        vsd_to_os = {
+            'domain_id': 'id',
+            'domain_name': 'name',
+            'type': 'type',
+            'net_partition_id': 'net_partition_id'
+        }
+        return self._trans_vsd_to_os(vsd_domains, vsd_to_os, filters, fields)
+
+    def l2domain_not_linked(self, session, l2domain):
+        if l2domain['subnet_os_id']:
+            return False
+
+        l2dom_mapping = nuagedb.get_subnet_l2doms_by_nuage_id(
+            session, l2domain['domain_id'])
+        return l2dom_mapping is None
 
     def _calc_cidr(self, subnet):
         if (not subnet['address']) and (
@@ -406,47 +446,6 @@ class NuageApi(NuageApiWrapper):
         }
         return self._trans_vsd_to_os(vsd_zones, vsd_to_os, filters, fields)
 
-    @nuage_utils.handle_nuage_api_error
-    @log_helpers.log_method_call
-    @TimeTracker.tracked
-    def get_vsd_domains(self, context, filters=None, fields=None):
-        if 'vsd_organisation_id' not in filters:
-            msg = _('vsd_organisation_id is a required filter parameter for '
-                    'this API.')
-            raise n_exc.BadRequest(resource='vsd-domains', msg=msg)
-        vsd_domains = self.vsdclient.get_routers_by_netpart(
-            filters['vsd_organisation_id'][0])
-        vsd_l2domains = self.vsdclient.get_subnet_by_netpart(
-            filters['vsd_organisation_id'][0])
-        if vsd_domains:
-            vsd_domains = [self._update_dict(vsd_domain, 'type', 'L3')
-                           for vsd_domain in vsd_domains]
-        if vsd_l2domains:
-            vsd_l2domains = [self._update_dict(l2domain, 'type', 'L2')
-                             for l2domain in vsd_l2domains
-                             if self.l2domain_not_linked(context.session,
-                                                         l2domain)]
-        vsd_domains = ((vsd_domains if vsd_domains else [])
-                       + (vsd_l2domains if vsd_l2domains else []))
-        vsd_domains = [self._update_dict(vsd_domain, 'net_partition_id',
-                                         filters['vsd_organisation_id'][0])
-                       for vsd_domain in vsd_domains]
-        vsd_to_os = {
-            'domain_id': 'id',
-            'domain_name': 'name',
-            'type': 'type',
-            'net_partition_id': 'net_partition_id'
-        }
-        return self._trans_vsd_to_os(vsd_domains, vsd_to_os, filters, fields)
-
-    def l2domain_not_linked(self, session, l2domain):
-        if l2domain['subnet_os_id']:
-            return False
-
-        l2dom_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
-            session, l2domain['domain_id'])
-        return l2dom_mapping is None
-
     def _update_dict(self, dict, key, val):
         dict[key] = val
         return dict
@@ -483,17 +482,20 @@ class NuageApi(NuageApiWrapper):
 
         return os_list
 
-    def _passes_filters(self, obj, filters):
+    @staticmethod
+    def _passes_filters(obj, filters):
         for filter in filters:
-            if (filter in obj
-                    and str(obj[filter]).lower() not in filters[filter]):
+            if (filter in obj and
+                    str(obj[filter]).lower() not in filters[filter]):
                 return False
         return True
 
-    def _return_val(self, val, dummy):
+    @staticmethod
+    def _return_val(val, dummy):  # this must be the dummiest method ever
         return val
 
-    def _filter_fields(self, subnet, fields):
+    @staticmethod
+    def _filter_fields(subnet, fields):
         for key in subnet:
             if key not in fields:
                 del subnet[key]

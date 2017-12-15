@@ -62,12 +62,6 @@ class ProviderNetBinding(model_base.BASEV2):
 
 class SubnetL2Domain(model_base.BASEV2):
     __tablename__ = 'nuage_subnet_l2dom_mapping'
-    __table_args__ = (
-        sa.UniqueConstraint(
-            'nuage_subnet_id', 'ip_version',
-            name='uniq_nuage_subnet_l2dom_mapping0nuage_subnet_id0ip_version'),
-        model_base.BASEV2.__table_args__
-    )
     subnet_id = sa.Column(sa.String(36),
                           sa.ForeignKey('subnets.id', ondelete="CASCADE"),
                           primary_key=True)

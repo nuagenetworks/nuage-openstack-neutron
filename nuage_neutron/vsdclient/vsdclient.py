@@ -123,7 +123,7 @@ class VsdClient(object):
     def get_gateway_ip_for_advsub(self, vsd_subnet):
         pass
 
-    def check_if_l2Dom_in_correct_ent(self, nuage_l2dom_id, nuage_netpart):
+    def check_if_l2_dom_in_correct_ent(self, nuage_l2dom_id, nuage_netpart):
         pass
 
     def get_router_by_external(self, id):
@@ -223,10 +223,11 @@ class VsdClient(object):
     def get_router_np_id(self, router_id):
         pass
 
-    def get_subnet_or_domain_subnet_by_id(self, nuage_id, required=False):
+    def get_nuage_subnet_by_id(self, nuage_id, subnet_type=None,
+                               required=False):
         pass
 
-    def get_nuage_subnet_by_id(self, subnet_mapping, required=False):
+    def get_nuage_subnet_by_mapping(self, subnet_mapping, required=False):
         pass
 
     def get_gw_from_dhcp_l2domain(self, nuage_id):
