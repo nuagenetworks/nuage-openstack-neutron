@@ -19,7 +19,9 @@ try:
 except ImportError:
     from neutron.i18n import _
 
+from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
+
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
@@ -801,29 +803,29 @@ class NuageGateway(object):
                 LOG.debug("Deleted policygroup associated with "
                           "interface %s", interface)
 
-    def delete_nuage_gateway_vport(self, context,
-                                   nuage_vport_id, def_netpart_id):
+    def delete_nuage_gateway_vport(self, context, nuage_vport_id,
+                                   def_netpart_id):
         # Get the gw interface and vport info
         tenant_id = context.tenant_id
         resp = self.get_gateway_vport(context, tenant_id, None, nuage_vport_id)
         if not resp:
             return
-        subnet_id = resp['nuage_subnet_id']
 
-        # Get the neutron subnet-id associated with the vport
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
-            context.session, subnet_id)
+        nuage_subnet_id = resp['nuage_subnet_id']
+        subnet_info = nuagedb.get_subnet_info_by_nuage_id(context.session,
+                                                          nuage_subnet_id)
+        if not subnet_info:
+            raise nuage_exc.NuageAPIException(
+                msg='No subnet info could not be retrieved')
 
         # Delete the interface and vport
         if resp['vport_type'] == constants.BRIDGE_VPORT_TYPE:
             # Bridge/Host vport will always have a vlan associated with it
             nuage_vlan = gw_helper.get_gateway_port_vlan(self.restproxy,
                                                          resp['vlanid'])
-
             # Get the gateway associated with vlan
             nuage_gw = gw_helper.get_gateway(self.restproxy,
                                              nuage_vlan['gatewayID'])
-
             if resp['interface']:
                 # Delete interface
                 gw_helper.delete_nuage_interface(self.restproxy,
@@ -833,23 +835,26 @@ class NuageGateway(object):
 
             # do not attempt to delete policygroup on vsd managed subnets
             # as we do not create it in that case
-            if not subnet_mapping["nuage_managed_subnet"]:
-                if subnet_mapping['nuage_l2dom_tmplt_id']:
-                    subnet_type = constants.L2DOMAIN
-                else:
-                    subnet_type = constants.SUBNET
-
+            if not subnet_info['vsd_managed']:
+                # need to get the neutron subnet id as we put it in PG name ...
+                subnet_id = subnet_info.get('subnet_id')
+                if not subnet_id:
+                    # one would not be able to get here as for OpenStack mgd
+                    # subnet there would always be a unique mapping
+                    raise nuage_exc.NuageAPIException(
+                        msg='Subnet_id could not be retrieved')
                 nuage_policygroup = gw_helper.get_policygroup_for_interface(
                     self.restproxy,
-                    subnet_mapping["subnet_id"],
+                    subnet_id,
                     nuage_gw['personality'],
                     resp['vport_type'],
-                    subnet_type)
+                    subnet_info['subnet_type'])
 
                 if nuage_policygroup:
                     # Check if policygroup has more than 1 vport associated
                     self._delete_policygroup(resp['interface'],
                                              nuage_policygroup[0])
+
         elif resp['vport_type'] == constants.HOST_VPORT_TYPE:
             if resp['interface']:
                 # Delete the policygroup and interface
@@ -859,9 +864,9 @@ class NuageGateway(object):
                 LOG.debug("Deleted host interface %s", resp['interface'])
 
             # do not attempt to delete policygroup on vsd managed subnets
-            # as we do not create it in that case        g
-            if not subnet_mapping["nuage_managed_subnet"]:
-                # Delete the policugroup
+            # as we do not create it in that case
+            if not subnet_info['vsd_managed']:
+                # Delete the policygroup
                 policy_group_id = gw_helper.get_policygroup_for_host_vport(
                     self.restproxy,
                     resp['vport_id'])
@@ -922,9 +927,7 @@ class NuageGateway(object):
             # Just return empty list. Plugin will throw 404
             return []
 
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
-            context.session, nuage_vport['parentID'])
-
+        nuage_subnet_id = nuage_vport['parentID']
         if nuage_vport['VLANID']:
             nuage_gw_vport = self._get_gateway_vport(context, tenant_id,
                                                      netpart_id,
@@ -933,10 +936,7 @@ class NuageGateway(object):
             return nuage_gw_vport
 
         ret = dict()
-        ret['subnet_id'] = strip_cms_id(subnet_mapping["subnet_id"])
-        # gridinv - for VSD managed subnets external ID is empty,
-        # se we have to compute subnet_id in plugin from nuage_subnet_id
-        ret['nuage_subnet_id'] = subnet_mapping["nuage_subnet_id"]
+        ret['nuage_subnet_id'] = nuage_subnet_id
 
         nuage_vport_type = nuage_vport['type']
         if nuage_vport_type == constants.BRIDGE_VPORT_TYPE:
@@ -945,19 +945,19 @@ class NuageGateway(object):
                 self.restproxy,
                 nuage_vport_id,
                 nuage_vport_type)
-
             if nuage_br_intf:
                 ret['interface'] = nuage_br_intf['ID']
+
         elif nuage_vport_type == constants.HOST_VPORT_TYPE:
-                # Get the host interface on the vport
-                nuage_host_intf = gw_helper.get_interface_by_vport(
-                    self.restproxy,
-                    nuage_vport_id,
-                    nuage_vport_type)
-                if nuage_host_intf:
-                    ret['interface'] = nuage_host_intf['ID']
-                    ret['port_id'] = strip_cms_id(
-                        nuage_host_intf['externalID'])
+            # Get the host interface on the vport
+            nuage_host_intf = gw_helper.get_interface_by_vport(
+                self.restproxy,
+                nuage_vport_id,
+                nuage_vport_type)
+            if nuage_host_intf:
+                ret['interface'] = nuage_host_intf['ID']
+                ret['port_id'] = strip_cms_id(
+                    nuage_host_intf['externalID'])
 
         ret['vport_type'] = nuage_vport_type
         ret['vport_name'] = nuage_vport['name']
@@ -966,10 +966,7 @@ class NuageGateway(object):
 
     def _get_gateway_vport(self, context, tenant_id, netpart_id,
                            nuage_vlan_id):
-        # subnet is required to keep the o/p format consistent with
-        # create_gateway_vport o/p
         ret = {
-            'subnet_id': None,
             'interface': None,
             'vport_id': None,
             'vport_type': None,
@@ -1018,9 +1015,6 @@ class NuageGateway(object):
         # Get the vport
         nuage_vport = gw_helper.get_nuage_vport(self.restproxy, nuage_vport_id)
         if nuage_vport:
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
-                context.session, nuage_vport['parentID'])
-            ret['subnet_id'] = subnet_mapping["subnet_id"]
             ret['nuage_subnet_id'] = nuage_vport['parentID']
             nuage_vport_type = nuage_vport['type']
             if nuage_vport_type == constants.BRIDGE_VPORT_TYPE:
@@ -1029,9 +1023,9 @@ class NuageGateway(object):
                     self.restproxy,
                     nuage_vport_id,
                     nuage_vport_type)
-
                 if nuage_br_intf:
                     ret['interface'] = nuage_br_intf['ID']
+
             elif nuage_vport_type == constants.HOST_VPORT_TYPE:
                 # Get the host interface on the vport
                 nuage_host_intf = gw_helper.get_interface_by_vport(
@@ -1060,40 +1054,37 @@ class NuageGateway(object):
         # Get the nuage l2domain/subnet corresponding to neutron subnet
         # nuage_subnet_id passed in filters by plugin
 
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
+        subnet_info = nuagedb.get_subnet_info_by_nuage_id(
             context.session, nuage_subnet_id)
+        if not subnet_info:
+            raise nuage_exc.NuageAPIException(
+                msg='No subnet info could be retrieved')
 
-        if not subnet_mapping:
-            msg = _("Nuage subnet for neutron subnet %(subn)s not found "
-                    % {'subn': subnet_id})  # noqa H702
-            raise restproxy.RESTProxyError(msg)
-
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
-            subnet_type = constants.L2DOMAIN
-        else:
-            subnet_type = constants.SUBNET
+        subnet_type = subnet_info['subnet_type']
 
         if 'id' in filters:
             # This is to get vport by id
             vport = gw_helper.get_nuage_vport(self.restproxy, filters['id'][0])
+
             # Return an empty list for neutronclient get_res_by_id_or_name()
             if not vport:
                 return []
 
-            if vport['parentID'] != subnet_mapping['nuage_subnet_id']:
+            if vport['parentID'] != nuage_subnet_id:
                 return []
 
             vport_list = [vport]
         elif 'name' in filters:
             # This is to get vport by name
             vport = gw_helper.get_nuage_vport_by_name(
-                self.restproxy, subnet_mapping['nuage_subnet_id'],
-                filters['name'][0], subnet_type)
+                self.restproxy, nuage_subnet_id, filters['name'][0],
+                subnet_type)
+
             # Return an empty list for neutronclient get_res_by_id_or_name()
             if not vport:
                 return []
 
-            if vport['parentID'] != subnet_mapping['nuage_subnet_id']:
+            if vport['parentID'] != nuage_subnet_id:
                 return []
 
             vport_list = [vport]
@@ -1101,13 +1092,11 @@ class NuageGateway(object):
             if subnet_type == constants.SUBNET:
                 # Get all host/bridge vports
                 vport_list = gw_helper.get_vports_for_subnet(
-                    self.restproxy,
-                    subnet_mapping['nuage_subnet_id'])
+                    self.restproxy, nuage_subnet_id)
             else:
                 # Get all host/bridge vports
                 vport_list = gw_helper.get_vports_for_l2domain(
-                    self.restproxy,
-                    subnet_mapping['nuage_subnet_id'])
+                    self.restproxy, nuage_subnet_id)
 
         resp_list = []
         for vport in vport_list:
@@ -1129,10 +1118,7 @@ class NuageGateway(object):
                     resp['port_id'] = strip_cms_id(
                         nuage_interface['externalID'])
 
-                if vport_type == constants.HOST_VPORT_TYPE:
-                    resp['subnet_id'] = subnet_id
-                else:
-                    resp['subnet_id'] = subnet_id
+                resp['subnet_id'] = subnet_id
 
                 if not vport['VLANID']:
                     # Skip this vport as it does not have any vlan.

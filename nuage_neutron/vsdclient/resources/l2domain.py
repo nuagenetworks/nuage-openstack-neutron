@@ -600,7 +600,7 @@ class NuageL2Domain(object):
                     gw_ip = nuagel2dom.get_gwIp_set_via_dhcp(dhcpoption)
             return gw_ip
 
-    def check_if_l2Dom_in_correct_ent(self, nuage_l2dom_id, nuage_netpart):
+    def check_if_l2_dom_in_correct_ent(self, nuage_l2dom_id, nuage_netpart):
         nuagesubn = nuagelib.NuageSubnet()
         resp_subn = self.restproxy.rest_call(
             'GET',
@@ -609,9 +609,8 @@ class NuageL2Domain(object):
         if not nuagesubn.validate(resp_subn):
             nuagel2dom = nuagelib.NuageL2Domain()
             response = self.restproxy.rest_call(
-                'GET',
-                nuagel2dom.get_resource(nuage_l2dom_id),
-                '')
+                'GET', nuagel2dom.get_resource(nuage_l2dom_id), '')
+
             if not nuagel2dom.validate(response):
                 raise restproxy.RESTProxyError(nuagel2dom.error_msg)
             else:

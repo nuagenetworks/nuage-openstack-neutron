@@ -158,7 +158,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    def test_create_subnet_precommit_in_flat_network(self, m1, m2, m3, m4, m5):
+    def test_create_subnet_precommit_in_flat_network(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -178,10 +178,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
-    def test_create_subnet_precommit_in_flat_net_with_nuagenet(
-            self, m1, m2, m3, m4, m5):
+    def test_create_subnet_precommit_in_flat_net_with_nuagenet(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -206,10 +203,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
-    def test_create_vsd_mgd_subnet_precommit_in_flat_net(
-            self, m1, m2, m3, m4, m5):
+    def test_create_vsd_mgd_subnet_precommit_in_flat_net(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -238,9 +232,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
-    def test_create_subnet_precommit_with_nuagenet(self, m1, m2, m3, m4, m5):
+    def test_create_subnet_precommit_with_nuagenet(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -266,8 +258,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
     def test_create_vsd_mgd_subnet_precommit(self, *mocks):
         nmd = self.get_me_a_nmd()
 
@@ -290,9 +280,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    @mock.patch.object(nuagedb,
-                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
     @mock.patch.object(nuagedb, 'get_net_partition_by_id',
                        return_value={'id': 1})
     def test_create_vsd_mgd_v6_subnet_precommit(self, *mocks):
@@ -346,9 +333,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(NuageMechanismDriver,
                        '_create_openstack_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    @mock.patch.object(nuagedb,
-                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
     def test_create_v6_subnet_precommit(self, *mocks):
         nmd = self.get_me_a_nmd()
 
@@ -370,10 +354,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    @mock.patch.object(nuagedb,
-                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
-    def test_create_two_v6_subnets_precommit(self, m1, m2, m3, m4, m5, m6):
+    def test_create_two_v6_subnets_precommit(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -401,9 +382,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(NuageMechanismDriver,
                        '_create_openstack_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    @mock.patch.object(nuagedb,
-                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
     def test_create_v4_v6_subnet_precommit(self, *mocks):
         nmd = self.get_me_a_nmd()
 
@@ -426,10 +404,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    @mock.patch.object(nuagedb,
-                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
-    def test_create_two_v4_v6_subnets_precommit(self, m1, m2, m3, m4, m5, m6):
+    def test_create_two_v4_v6_subnets_precommit(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -457,10 +432,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    @mock.patch.object(nuagedb,
-                       'get_subnet_l2dom_by_nuage_id_and_ipversion',
-                       return_value=[])
-    def test_create_v4_v6_v4_subnets_precommit(self, m1, m2, m3, m4, m5, m6):
+    def test_create_v4_v6_v4_subnets_precommit(self, *mocks):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',

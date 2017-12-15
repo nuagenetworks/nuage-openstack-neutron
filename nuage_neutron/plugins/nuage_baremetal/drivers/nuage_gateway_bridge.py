@@ -78,7 +78,7 @@ class NuageGatewayDriverBridge(base_plugin.RootNuagePlugin,
             'personality': vsd_port['personality']
         }
         vsd_subnet = self.vsdclient \
-            .get_subnet_or_domain_subnet_by_id(
+            .get_nuage_subnet_by_id(
                 port_dict['subnet_mapping']['nuage_subnet_id'])
         params['vsd_subnet'] = vsd_subnet
 

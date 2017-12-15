@@ -153,6 +153,57 @@ class RootNuagePlugin(object):
 
         validate("subnet", subnet, subnet_validate)
 
+    def _validate_allocation_pools(self, context, subnet, subnet_info):
+        if not subnet_info:
+            return  # no other linked subnet, all good
+
+        # this is not the only subnet linked to same nuage subnet
+        # need to validate allocation pools being disjunct
+
+        LOG.debug('_validate_allocation_pools: subnet {} has allocation pools '
+                  '{}'.format(subnet['id'], subnet['allocation_pools']))
+
+        def pools_to_ip_sets(_ip_pools, _ip_sets, _ip_ranges):
+
+            def pools_to_ip_range(ip_pools):
+                __ip_ranges = []
+                for ip_pool in ip_pools:
+                    __ip_ranges.append(netaddr.IPRange(ip_pool['start'],
+                                                       ip_pool['end']))
+                return __ip_ranges
+
+            for ip_range in pools_to_ip_range(_ip_pools):
+                _ip_sets.append(netaddr.IPSet(ip_range.cidrs()))
+                _ip_ranges.append(ip_range)
+
+            return _ip_sets
+
+        # Create an IPSet for it for easily verifying overlaps
+        # Initiate it with the new subnet itself
+        ip_ranges = []
+        ip_sets = pools_to_ip_sets(subnet['allocation_pools'], [], ip_ranges)
+
+        # add other ip pools
+        for mapping in subnet_info['mappings']:
+            sub = self.core_plugin.get_subnet(context, mapping['subnet_id'])
+            pools_to_ip_sets(sub['allocation_pools'], ip_sets, ip_ranges)
+
+            LOG.debug('_validate_allocation_pools: validating with subnet {} '
+                      'with allocation pools {}'.format(
+                          sub, sub['allocation_pools']))
+
+        # inspired by IpamBackendMixin.validate_allocation_pools:
+        #                    ~    ~    ~
+        # Use integer cursors as an efficient way for implementing
+        # comparison and avoiding comparing the same pair twice
+        for l_cursor in range(len(ip_sets)):
+            for r_cursor in range(l_cursor + 1, len(ip_sets)):
+                if ip_sets[l_cursor] & ip_sets[r_cursor]:
+                    msg = "Found overlapping allocation pools {} with {}".\
+                        format(ip_ranges[l_cursor], ip_ranges[r_cursor])
+                    LOG.debug('_validate_allocation_pools: ' + msg)
+                    raise NuageBadRequest(msg=msg)
+
     @log_helpers.log_method_call
     def _resource_finder(self, context, for_resource, resource_type,
                          resource):
@@ -260,7 +311,7 @@ class RootNuagePlugin(object):
     @log_helpers.log_method_call
     def _find_vsd_subnet(self, context, subnet_mapping):
         try:
-            vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+            vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(
                 subnet_mapping,
                 required=True)
             return vsd_subnet
