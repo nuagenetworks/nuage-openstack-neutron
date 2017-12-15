@@ -23,9 +23,8 @@ Create Date: 2015-11-16 13:54:29.874191
 revision = '4fdefabb76a8'
 down_revision = '13129a71ae66'
 
-import sqlalchemy as sa
-
 from alembic import op
+import sqlalchemy as sa
 from sqlalchemy.inspection import inspect
 
 

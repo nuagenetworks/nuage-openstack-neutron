@@ -208,7 +208,8 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                   port.get(ext_sg.SECURITYGROUPS) else set())
         if (port.get(ext_sg.SECURITYGROUPS)
                 != original_port.get(ext_sg.SECURITYGROUPS)):
-            vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
+            vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(
+                subnet_mapping)
             self._process_port_security_group(context,
                                               port,
                                               vport,
