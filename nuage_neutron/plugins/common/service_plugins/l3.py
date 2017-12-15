@@ -149,7 +149,7 @@ class NuageL3Plugin(NuageL3Wrapper):
                     session, subnet_id)
                 nuage_id = subnet_l2dom.get('nuage_subnet_id')
                 if nuage_id:
-                    vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                    vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(
                         subnet_l2dom)
                     if vsd_subnet:
                         msg = "In add_router_interface exception, " \
@@ -216,7 +216,7 @@ class NuageL3Plugin(NuageL3Wrapper):
     def _nuage_dualstack_valid_dss_rtr(self, dual_stack_subnet,
                                        dss_l2dom,
                                        router_id):
-        vsd_dss = self.vsdclient.get_nuage_subnet_by_id(
+        vsd_dss = self.vsdclient.get_nuage_subnet_by_mapping(
             dss_l2dom
         )
         if vsd_dss and not dss_l2dom['nuage_l2dom_tmplt_id']:

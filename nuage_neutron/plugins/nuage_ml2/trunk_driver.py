@@ -258,7 +258,7 @@ class NuageTrunkHandler(object):
                 'nuage_subnet_id': subnet_mapping.get('nuage_subnet_id')
             }
             nuage_subnet, _ = self.plugin_driver._get_nuage_subnet(
-                subnet_mapping, subnet_mapping['nuage_subnet_id'])
+                subnet_mapping['nuage_subnet_id'], subnet_db=subnet_mapping)
             # TODO(gridinv): should we handle shared network resources
             if nuage_subnet['type'] == p_consts.L2DOMAIN:
                 shared_resource_id = nuage_subnet.get(

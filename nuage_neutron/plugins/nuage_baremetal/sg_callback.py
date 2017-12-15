@@ -122,7 +122,8 @@ class NuageBmSecurityGroupHandler(object):
             return
 
         if port[ext_sg.SECURITYGROUPS]:
-            vsd_subnet = self.client.get_nuage_subnet_by_id(subnet_mapping)
+            vsd_subnet = self.client.get_nuage_subnet_by_mapping(
+                subnet_mapping)
             vport = self._get_nuage_vport(port, subnet_mapping,
                                           required=False)
             self._process_port_security_group(context,
@@ -156,7 +157,8 @@ class NuageBmSecurityGroupHandler(object):
         if not new_sg and new_sg == orig_sg:
             update_sg = False
         if update_sg:
-            vsd_subnet = self.client.get_nuage_subnet_by_id(subnet_mapping)
+            vsd_subnet = self.client.get_nuage_subnet_by_mapping(
+                subnet_mapping)
             vport = self._get_nuage_vport(updated_port, subnet_mapping,
                                           required=False)
             self._process_port_security_group(

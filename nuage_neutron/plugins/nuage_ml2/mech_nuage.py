@@ -337,16 +337,20 @@ class NuageMechanismDriver(NuageML2Wrapper):
         nuage_subnet_id = subnet['nuagenet']
         original_gateway = subnet['gateway_ip']
         nuage_npid = self._validate_net_partition(subnet, context)
-        if not self.vsdclient.check_if_l2Dom_in_correct_ent(
+        if not self.vsdclient.check_if_l2_dom_in_correct_ent(
                 nuage_subnet_id, {'id': nuage_npid}):
             msg = ("Provided Nuage subnet not in the provided"
                    " Nuage net-partition")
             raise NuageBadRequest(msg=msg)
-        subnet_db = nuagedb.get_subnet_l2dom_by_nuage_id(
-            context.session, nuage_subnet_id)
+        subnet_info = nuagedb.get_subnet_info_by_nuage_id(
+            context.session, nuage_subnet_id, ip_type=subnet['ip_version'])
+        # retrieve subnet type - it could yield None is not yet known
+        subnet_type = subnet_info['subnet_type'] if subnet_info else None
         nuage_subnet, shared_subnet = self._get_nuage_subnet(
-            subnet_db, nuage_subnet_id)
+            nuage_subnet_id, subnet_type=subnet_type)
         self._validate_cidr(subnet, nuage_subnet, shared_subnet)
+        self._validate_allocation_pools(
+            context, subnet, subnet_info)
         self._set_gateway_from_vsd(nuage_subnet, shared_subnet, subnet)
         result = self.vsdclient.attach_nuage_group_to_nuagenet(
             context.tenant, nuage_npid, nuage_subnet_id, subnet.get('shared'),
@@ -799,6 +803,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
                         raise
                 ipv6_subnet = self.get_dual_stack_subnet(db_context, subnet)
                 if ipv6_subnet:
+                    # normally mappings are deleted by CASCADING but in this
+                    # case the ipv6 subnet still exists in neutron; hence now
+                    # cleaning up the mapping
                     ipv6_mapping = nuagedb.get_subnet_l2dom_by_id(
                         db_context.session,
                         ipv6_subnet['id'])
@@ -806,20 +813,24 @@ class NuageMechanismDriver(NuageML2Wrapper):
                         nuagedb.delete_subnetl2dom_mapping(
                             db_context.session,
                             ipv6_mapping)
+
         else:
             # VSD managed could be ipv6 + ipv4. If only one of the 2 is
             # deleted, the use permission should not be removed yet.
+            # Also, there can be multiple subnets mapped to same VSD subnet.
             clean_groups = True
-            other_mapping = nuagedb.get_subnet_l2dom_by_nuage_id(
+            other_mappings = nuagedb.get_subnet_l2doms_by_nuage_id(
                 db_context.session,
                 mapping['nuage_subnet_id'])
 
-            if other_mapping is not None:
-                other_subnet = context._plugin.get_subnet(
-                    db_context,
-                    other_mapping['subnet_id'])
-                if subnet['tenant_id'] == other_subnet['tenant_id']:
-                    clean_groups = False
+            if other_mappings:
+                for other_mapping in other_mappings:
+                    other_subnet = context._plugin.get_subnet(
+                        db_context,
+                        other_mapping['subnet_id'])
+                    if subnet['tenant_id'] == other_subnet['tenant_id']:
+                        clean_groups = False
+                        break
 
             if clean_groups:
                 self._cleanup_group(db_context,
@@ -1298,20 +1309,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
         subnet_mappings = nuagedb.get_subnet_l2dom_by_network_id(
             context.session,
             subnet['network_id'])
+
         # For loop to guard against inconsistent state -> Should be max 1.
         for mapping in subnet_mappings:
             if mapping['nuage_subnet_id'] != subnet['nuagenet']:
                 msg = _("The network already has a subnet linked to a "
                         "different vsd subnet.")
                 raise NuageBadRequest(msg=msg)
-
-        # Check for VSD Subnet already linked to OS subnet
-        linked_subnet = nuagedb.get_subnet_l2dom_by_nuage_id_and_ipversion(
-            context.session, subnet['nuagenet'], subnet['ip_version'])
-        if linked_subnet:
-            msg = _("Multiple OpenStack Subnets with the same ip version "
-                    "cannot be linked to the same Nuage Subnet")
-            raise NuageBadRequest(msg=msg)
 
         subnet_validate = {'net_partition': IsSet(),
                            'nuagenet': IsSet()}
@@ -1359,13 +1363,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
             session, netpartition['id'], None, None,
             netpartition['name'], None, None)
 
-    def _get_nuage_subnet(self, subnet_db, nuage_subnet_id):
-        # subnet_db will be None in case of 1st time creation of subnet.
+    def _get_nuage_subnet(self, nuage_subnet_id, subnet_db=None,
+                          subnet_type=None):
         if subnet_db is None:
-            nuage_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(
-                nuage_subnet_id)
-        else:
             nuage_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                nuage_subnet_id, subnet_type=subnet_type)
+        else:
+            nuage_subnet = self.vsdclient.get_nuage_subnet_by_mapping(
                 subnet_db)
         require(nuage_subnet, 'subnet or domain', nuage_subnet_id)
         shared = nuage_subnet['associatedSharedNetworkResourceID']
@@ -1392,6 +1396,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             gw_ip = None
             subnet['dns_nameservers'] = []
             LOG.warn("Nuage ml2 plugin will ignore dns_nameservers.")
+        LOG.warn("Nuage ml2 plugin will overwrite gateway_ip")
         subnet['gateway_ip'] = gw_ip
 
     def _update_gw_and_pools(self, db_context, subnet, original_gateway):
@@ -1570,11 +1575,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @staticmethod
     def get_subnet_mapping_by_port(db_context, port):
-        if port['fixed_ips']:
-            subnet_id = port['fixed_ips'][0]['subnet_id']
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
-                                                            subnet_id)
-            return subnet_mapping
+        return nuagedb.get_subnet_l2dom_by_port(db_context.session, port)
 
     @staticmethod
     def _port_should_have_vm(port):
@@ -1722,7 +1723,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         # Check if l2domain/subnet exist. In case of router_interface_delete,
         # subnet is deleted and then call comes to delete_port. In that
         # case, we just return
-        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping)
+        vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(subnet_mapping)
 
         if not vsd_subnet:
             return

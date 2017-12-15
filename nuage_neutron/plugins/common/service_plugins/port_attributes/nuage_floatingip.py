@@ -107,7 +107,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
     def _get_available_nuage_floatingips(self, vsd_mapping, filters):
         vsd_filters = self.osfilters_to_vsdfilters(filters)
         vsd_id = vsd_mapping['nuage_subnet_id']
-        vsd_subnet = self.vsdclient.get_subnet_or_domain_subnet_by_id(vsd_id)
+        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(vsd_id)
         if not vsd_subnet:
             raise exceptions.VsdSubnetNotFound(id=vsd_id)
         if vsd_subnet['type'] == constants.L2DOMAIN:
