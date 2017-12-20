@@ -33,11 +33,11 @@ from sqlalchemy.orm import exc
 
 from neutron._i18n import _
 from neutron.db import api as db
-from neutron.extensions import l3
 
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.plugins import directory
 from neutron_lib.utils import helpers
 
@@ -780,7 +780,7 @@ class NuageL3Plugin(NuageL3Wrapper):
             }
             ports = self.core_plugin.get_ports(context, filters)
             if ports:
-                raise l3.RouterInUse(router_id=id)
+                raise l3_exc.RouterInUse(router_id=id)
             nuage_domain_id = ent_rtr_mapping['nuage_router_id']
             self.vsdclient.delete_router(nuage_domain_id)
 
