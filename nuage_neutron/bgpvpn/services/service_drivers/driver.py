@@ -15,6 +15,7 @@
 from oslo_utils import excutils
 
 from neutron._i18n import _
+from neutron_lib.api.definitions import bgpvpn as bgpvpn_def
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as n_const
 from neutron_lib import exceptions as n_exc
@@ -22,8 +23,6 @@ from neutron_lib.plugins import directory
 
 from networking_bgpvpn.neutron.db import bgpvpn_db
 from networking_bgpvpn.neutron.extensions import bgpvpn as bgpvpn_ext
-from networking_bgpvpn.neutron.services.common \
-    import constants as bgpvpn_constants
 from networking_bgpvpn.neutron.services.service_drivers import driver_api
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
@@ -60,7 +59,7 @@ class NuageBGPVPNDriver(driver_api.BGPVPNDriver,
     def bgpvpn_plugin(self):
         if not hasattr(self, '_bgpvpn_plugin'):
             self._bgpvpn_plugin = directory.get_plugin(
-                bgpvpn_constants.BGPVPN)
+                bgpvpn_def.LABEL)
         return self._bgpvpn_plugin
 
     def __init__(self, service_plugin):
@@ -71,7 +70,7 @@ class NuageBGPVPNDriver(driver_api.BGPVPNDriver,
                                        constants.AFTER_UPDATE)
 
     def create_bgpvpn(self, context, bgpvpn):
-        if bgpvpn['type'] != bgpvpn_constants.BGPVPN_L3:
+        if bgpvpn['type'] != bgpvpn_def.BGPVPN_L3:
             raise bgpvpn_ext.BGPVPNTypeNotSupported(
                 driver=NUAGE_BGPVPN_DRIVER_NAME, type=bgpvpn['type'])
         return super(NuageBGPVPNDriver, self).create_bgpvpn(context, bgpvpn)
