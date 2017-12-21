@@ -412,7 +412,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
 
                 vport = self.vsdclient.create_gateway_vport_no_usergroup(
                     ctx.tenant_id,
-                    params)
+                    params, create_policy_group=True)
                 LOG.debug("created vport: %(vport_dict)s",
                           {'vport_dict': vport})
                 bridge_port_id = vport.get('vport').get('ID')

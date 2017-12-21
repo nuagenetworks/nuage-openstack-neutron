@@ -500,7 +500,8 @@ class VsdClient(object):
     def create_gateway_vport(self, tenant_id, vport_dict):
         pass
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict):
+    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict,
+                                          create_policy_group=False):
         pass
 
     def delete_nuage_gateway_vport_no_usergroup(self, tenant_id, vport):
