@@ -212,8 +212,8 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             if self._check_segment(segment, context):
                 if self._can_bind(context):
                         vif_binding = self.vif_details
-                        vif_binding['vlan'] = self._segmentation_id(
-                            db_context, context.current)
+                        vif_binding['vlan'] = str(self._segmentation_id(
+                            db_context, context.current))
                         context.set_binding(segment[api.ID],
                                             portbindings.VIF_TYPE_OTHER,
                                             vif_binding,
