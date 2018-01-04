@@ -192,7 +192,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                         context.set_binding(
                             segment[api.ID],
                             portbindings.VIF_TYPE_BINDING_FAILED,
-                            self.vif_details)
+                            {})
                         LOG.error("Failed to bind port")
                         return
                     if (context.current.get('device_owner') in
@@ -254,9 +254,9 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         subnet_mapping = self._validate_port(context._plugin_context,
                                              port)
         if not subnet_mapping:
-            LOG.debug("_make_port_dict can not get subnet_mapping"
-                      " for port %(port)s",
-                      {'port': port})
+            LOG.warning("_make_port_dict can not get subnet_mapping"
+                        " for port %(port)s",
+                        {'port': port})
             return None
         profile = self._get_binding_profile(port)
         host_id = port['binding:host_id']
@@ -264,10 +264,10 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
             context._plugin_context,
             {'host_id': host_id, 'pci_slot': profile.get('pci_slot')})
         if not gw_port_mapping:
-            LOG.debug("_make_port_dict can not get gateway_port_mapping "
-                      "for %(vif)s",
-                      {'vif': {'host_id': host_id,
-                               'pci_slot': profile.get('pci_slot')}})
+            LOG.warning("_make_port_dict can not get switchport_mapping "
+                        "for %(vif)s",
+                        {'vif': {'host_id': host_id,
+                                 'pci_slot': profile.get('pci_slot')}})
             local_link_information = None
         else:
             local_link_information = [{
@@ -302,7 +302,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
     def _get_binding_profile(self, port):
         profile = port.get(portbindings.PROFILE, {})
         if not profile:
-            LOG.debug("Missing profile in port binding")
+            LOG.warning("Missing profile in port binding")
         return profile
 
     def _can_bind(self, context):
@@ -364,6 +364,9 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """Create a BRIDGE VPort on VSD"""
         port = port_dict['port']
         gw_ports = port.get('link_info')
+        if not gw_ports:
+            raise exceptions.DirectPortSwithportMappingNotFound(
+                port=port['id'])
         segmentation_id = port_dict['segmentation_id']
         ctx = neutron_context.get_admin_context()
         vport_exist = ext_db.get_switchport_binding_by_neutron_port(
@@ -371,9 +374,9 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
             port['id'],
             segmentation_id)
         if vport_exist:
-            LOG.debug("bridge port %(bp)s for port %(port_id)s already exist",
-                      {'bp': vport_exist['nuage_vport_id'],
-                       'port_id': vport_exist['neutron_port_id']})
+            LOG.info("bridge port %(bp)s for port %(port_id)s already exist",
+                     {'bp': vport_exist['nuage_vport_id'],
+                      'port_id': vport_exist['neutron_port_id']})
             return
         for gwport in gw_ports:
             vports = ext_db.get_switchport_bindings_by_switchport_vlan(
@@ -436,12 +439,10 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         port where sriov instance is connected.
         """
 
-        LOG.debug("bind_port with port dict %(port)s",
-                  {'port': port})
         try:
             self._create_nuage_bridge_vport(port)
         except Exception as ex:
-            LOG.debug("exception creating bridge vport: %(msg)s", {'msg': ex})
+            LOG.error("exception creating bridge vport: %(msg)s", {'msg': ex})
             return portbindings.VIF_TYPE_BINDING_FAILED
         return portbindings.VIF_TYPE_OTHER
 
