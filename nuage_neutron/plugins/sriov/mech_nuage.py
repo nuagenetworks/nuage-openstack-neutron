@@ -199,7 +199,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     if (context.current.get('device_owner') in
                             [t_consts.TRUNK_SUBPORT_OWNER]):
                         vif_binding = self.vif_details
-                        vif_binding['vlan'] = segmentation_id
+                        vif_binding['vlan'] = str(segmentation_id)
                         context.set_binding(segment[api.ID],
                                             vif_type,
                                             vif_binding,
@@ -441,7 +441,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         except Exception as ex:
             LOG.error("exception creating bridge vport: %(msg)s", {'msg': ex})
             return portbindings.VIF_TYPE_BINDING_FAILED
-        return portbindings.VIF_TYPE_OTHER
+        return portbindings.VIF_TYPE_HW_VEB
 
     def _delete_port(self, port):
         """delete_port. This call makes the REST request to VSD
