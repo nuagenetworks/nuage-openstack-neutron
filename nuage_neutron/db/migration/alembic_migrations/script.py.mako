@@ -1,4 +1,4 @@
-# Copyright ${create_date.year}  Alcatel-Lucent USA Inc.
+# Copyright ${create_date.year} NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -11,6 +11,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+from alembic import op
+import sqlalchemy as sa
+${imports if imports else ""}
 
 """${message}
 
@@ -26,10 +30,6 @@ down_revision = ${repr(down_revision)}
 % if branch_labels:
 branch_labels = ${repr(branch_labels)}
 %endif
-
-from alembic import op
-import sqlalchemy as sa
-${imports if imports else ""}
 
 
 def upgrade():

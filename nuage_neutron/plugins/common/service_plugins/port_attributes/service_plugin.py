@@ -1,4 +1,4 @@
-# Copyright 2016 Alcatel-Lucent USA Inc.
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -13,6 +13,7 @@
 #    under the License.
 
 from neutron.services import service_base
+
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.service_plugins.port_attributes \
     import nuage_floatingip

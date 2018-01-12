@@ -1,5 +1,4 @@
-# Copyright 2014 Alcatel-Lucent USA Inc.
-# All Rights Reserved.
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -135,4 +134,24 @@ class NuageConfig(model_base.BASEV2):
 
 class NuageConfigParameter(model_base.BASEV2):
     __tablename__ = 'nuage_config_parameter'
+    name = sa.Column(sa.String(255), primary_key=True, nullable=False)
+
+
+class NuageSecurityGroup(model_base.BASEV2):
+    __tablename__ = 'nuage_security_group'
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('security_group_id', 'parameter_name'),
+    )
+    security_group_id = sa.Column('security_group_id', sa.String(255),
+                                  nullable=False)
+    parameter_name = sa.Column(sa.String(255),
+                               sa.ForeignKey(
+                                   'nuage_security_group_parameter.name',
+                                   ondelete='CASCADE'),
+                               nullable=False)
+    parameter_value = sa.Column(sa.String(255), nullable=False)
+
+
+class NuageSecurityGroupParameter(model_base.BASEV2):
+    __tablename__ = 'nuage_security_group_parameter'
     name = sa.Column(sa.String(255), primary_key=True, nullable=False)

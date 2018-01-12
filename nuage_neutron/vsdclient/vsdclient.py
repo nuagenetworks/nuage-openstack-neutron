@@ -587,9 +587,6 @@ class VsdClient(object):
                                       **filters):
         pass
 
-    def check_interconnect_rules(self, domain_id, domain_type, policygroup_id):
-        pass
-
     def get_nuage_vport_redirect_targets(self, vport_id, required=False,
                                          **filters):
         pass
