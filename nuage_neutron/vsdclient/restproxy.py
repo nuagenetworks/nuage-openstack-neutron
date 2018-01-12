@@ -347,7 +347,7 @@ class RESTProxyServer(object):
         if resp[0] in self.success_codes and resp[3][0].get('APIKey'):
             uname = self.serverauth.split(':')[0]
             if not auth_token:
-                session = db_api.get_session()
+                session = db_api.get_writer_session()
                 self.create_or_update_nuage_config_param(
                     session, self.organization, uname, 'auth_token',
                     resp[3][0]['APIKey'])
@@ -382,7 +382,7 @@ class RESTProxyServer(object):
             # different from what we have in the database, as that determines
             # whether we have to reauthenticate or whether we just have to
             # start using the new db token
-            session = db_api.get_session()
+            session = db_api.get_reader_session()
             with session.begin(subtransactions=True):
                 auth_token = self.get_config_parameter_by_name(
                     session,

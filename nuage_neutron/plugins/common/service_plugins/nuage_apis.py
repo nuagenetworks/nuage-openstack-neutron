@@ -190,7 +190,7 @@ class NuageApi(NuageApiWrapper):
             raise n_exc.BadRequest(resource='net_partition', msg=msg)
 
         # basic verifications passed. add default netpartition to the DB
-        session = db.get_session()
+        session = db.get_writer_session()
         netpartition = nuagedb.get_net_partition_by_name(session,
                                                          netpart_name)
 
@@ -224,7 +224,7 @@ class NuageApi(NuageApiWrapper):
                                        msg=msg)
         else:
             default_netpart = self._validate_create_net_partition(
-                netpart_name, db.get_session())
+                netpart_name, db.get_writer_session())
             self.default_np_id = default_netpart['id']
             return default_netpart
 

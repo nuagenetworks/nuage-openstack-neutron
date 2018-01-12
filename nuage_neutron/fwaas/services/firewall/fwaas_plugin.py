@@ -65,8 +65,9 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
         neutron_extensions.append_api_extensions_path(extensions.__path__)
         self.agent_rpc = NuageNoOpAgent()
         enterprise_name = cfg.CONF.RESTPROXY.default_net_partition_name
-        netpart_db = nuagedb.get_net_partition_by_name(db_api.get_session(),
-                                                       enterprise_name)
+        netpart_db = nuagedb.get_net_partition_by_name(
+            db_api.get_reader_session(),
+            enterprise_name)
         self.enterprise_id = netpart_db.id
 
     def _rpc_update_firewall_policy(self, context, firewall_policy_id):
