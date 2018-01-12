@@ -1,4 +1,4 @@
-# Copyright 2014 Alcatel-Lucent USA Inc.
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -11,6 +11,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 from sqlalchemy import func
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm import exc as sql_exc
@@ -511,6 +512,27 @@ def get_port_bindings_for_sg(session, sg_ids, vnic_types, bound_only=False):
     if bound_only:
         query = query.filter(ml2_models.PortBinding.host.notin_(['']))
     return query.all()
+
+
+def get_nuage_sg_parameter(session, sg_id, parameter_name):
+    return (
+        session.query(nuage_models.NuageSecurityGroup)
+        .filter_by(security_group_id=sg_id)
+        .filter_by(parameter_name=parameter_name)
+    ).first()
+
+
+def set_nuage_sg_parameter(session, sg_id, parameter_name, value):
+    nuage_sg = nuage_models.NuageSecurityGroup(security_group_id=sg_id,
+                                               parameter_name=parameter_name,
+                                               parameter_value=value)
+    session.merge(nuage_sg)
+
+
+def delete_nuage_sg_parameter(session, sg_id, parameter_name):
+    row = get_nuage_sg_parameter(session, sg_id, parameter_name)
+    if row:
+        session.delete(row)
 
 
 def check_ports_to_router_mapping(context, port_ids):

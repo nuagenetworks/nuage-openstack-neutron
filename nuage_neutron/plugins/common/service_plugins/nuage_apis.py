@@ -1,4 +1,4 @@
-# Copyright 2016 NOKIA
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -17,6 +17,7 @@ import netaddr
 
 from neutron._i18n import _
 from neutron.db import api as db
+from neutron.db import db_base_plugin_v2
 
 from neutron_lib import exceptions as n_exc
 from oslo_config import cfg
@@ -38,11 +39,14 @@ LOG = logging.getLogger(__name__)
 class NuageApi(NuageApiWrapper):
     supported_extension_aliases = ['net-partition', 'nuage-gateway',
                                    'vsd-resource',
-                                   'nuage-external-security-group']
+                                   'nuage-external-security-group',
+                                   'nuage-security-group']
 
     def __init__(self):
         super(NuageApi, self).__init__()
         self._prepare_default_netpartition()
+        db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
+            'security_groups', [self._extend_resource_dict])
 
     def get_plugin_type(self):
         return constants.NUAGE_APIS
@@ -498,3 +502,15 @@ class NuageApi(NuageApiWrapper):
             if key not in fields:
                 del subnet[key]
         return subnet
+
+    def _extend_resource_dict(self, resource_res, resource_db):
+        if resource_db:
+            sg_id = resource_res['id']
+            resource_res['stateful'] = self.get_sg_stateful_value(sg_id)
+
+    @staticmethod
+    def get_sg_stateful_value(sg_id):
+        session = db.get_reader_session()
+        value = nuagedb.get_nuage_sg_parameter(session, sg_id, 'STATEFUL')
+        session.close()
+        return not (value and value.parameter_value == '0')
