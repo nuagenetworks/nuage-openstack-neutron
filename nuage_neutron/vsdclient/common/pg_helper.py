@@ -1,4 +1,4 @@
-# Copyright 2016 NOKIA
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -90,7 +90,6 @@ def get_policygroup_by_sgid(restproxy_serv, params):
         'nuage_l2dom_id': l2dom_id,
         'policygroup_id': policygroup_id
     }
-
     return result
 
 
@@ -206,9 +205,7 @@ def get_remote_policygroup_id(restproxy_serv, sg_id, resourcetype,
     if policygroups:
         return policygroups[0]['ID']
     else:
-        policygroups = restproxy_serv.post(
-            url,
-            nuage_policygroup.post_data())
+        policygroups = restproxy_serv.post(url, nuage_policygroup.post_data())
         return policygroups[0]['ID']
 
 
@@ -236,8 +233,7 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
         'ipv6_net': ipv6_net,
         'IPType': sg_rule['IPType']
     }
-    nuage_np_net = nuagelib.NuageNetPartitionNetwork(
-        create_params=req_params)
+    nuage_np_net = nuagelib.NuageNetPartitionNetwork(create_params=req_params)
     response = restproxy_serv.rest_call(
         'GET',
         nuage_np_net.get_resource(), '',
@@ -253,11 +249,9 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
         if response[0] != constants.CONFLICT_ERR_CODE:
             raise restproxy.RESTProxyError(nuage_np_net.error_msg)
         else:
-            # to handle concurrecy case where
-            # at first attempt it didn't find it but
-            # another thread have already created the same
-            # network marco in parallel and it errors out
-            # during POST command.
+            # To handle concurrency case where at first attempt it didn't find
+            # it but another thread has already created the same network macro
+            # in parallel and it errors out during POST command.
             response = restproxy_serv.rest_call(
                 'GET',
                 nuage_np_net.get_resource(), '',

@@ -44,9 +44,8 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
 
     def _is_network_external(self, session, net_id):
         try:
-            session.query(
-                external_net.ExternalNetwork).filter_by(
-                    network_id=net_id).one()
+            session.query(external_net.ExternalNetwork)\
+                .filter_by(network_id=net_id).one()
             return True
         except exc.NoResultFound:
             return False
