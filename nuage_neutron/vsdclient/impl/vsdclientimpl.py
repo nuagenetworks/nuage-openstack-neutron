@@ -594,11 +594,6 @@ class VsdClientImpl(VsdClient):
     def create_nuage_sgrule(self, params):
         return self.policygroups.create_nuage_sgrule(params)
 
-    def check_interconnect_rules(self, domain_id, domain_type, policygroup_id):
-        return self.policygroups.check_interconnect_rules(domain_id,
-                                                          domain_type,
-                                                          policygroup_id)
-
     def create_nuage_redirect_target(self, redirect_target, subnet_id=None,
                                      domain_id=None):
         return self.redirecttargets.create_nuage_redirect_target(
