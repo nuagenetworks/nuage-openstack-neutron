@@ -2375,6 +2375,8 @@ class NuageVIP(NuageServerBaseClass):
                 data['associatedFloatingIPID'] = self.extra_params['fip']
             else:
                 data['associatedFloatingIPID'] = None
+        if 'IPType' in self.extra_params:
+            data['IPType'] = self.extra_params['IPType']
         if 'externalID' in self.create_params:
             data['externalID'] = self.create_params['externalID']
         return data
