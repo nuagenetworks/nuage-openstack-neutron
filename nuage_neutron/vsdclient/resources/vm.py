@@ -532,6 +532,8 @@ class NuageVM(object):
                     # Vip address already in use by other vminterface.
                     # Workaround by allowing source address spoofing.
                     return True
+                elif e.code == constants.REST_SERV_INTERNAL_ERROR:
+                    raise
             return False
         else:
             return True
@@ -669,9 +671,7 @@ class NuageVM(object):
         key = (full_cidr, diff_mac, same_ip, same_subn)
         action = self._get_vip_action(key)
         if action == ACTION_VIP and IPNetwork(params['vip']).version == 6:
-            LOG.debug("Allowed address pair is ipv6. Will allow spoofing "
-                      "instead of creating VIP.")
-            action = ACTION_MACSPOOFING
+            params['IPType'] = constants.IPV6
         LOG.debug("Key is %s and action is %s", key, action)
         return key, action
 
@@ -703,6 +703,11 @@ class NuageVM(object):
             'subnet': params['subnet_id'],
             'mac': params['mac']
         }
+
+        if params.get('IPType') == constants.IPV6:
+            extra_params['IPType'] = constants.IPV6
+        else:
+            extra_params['IPType'] = constants.IPV4
 
         nuage_vip = nuagelib.NuageVIP(create_params=req_params,
                                       extra_params=extra_params)

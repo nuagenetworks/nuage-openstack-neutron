@@ -234,6 +234,17 @@ def get_subnet_l2dom_by_network_id(session, network_id):
     ).all()
 
 
+def get_subnet_mapping_by_network_id_and_ip_version(session, network_id,
+                                                    ip_version):
+    return (
+        session.query(nuage_models.SubnetL2Domain)
+        .join(models_v2.Subnet)
+        .filter(
+            models_v2.Subnet.network_id == network_id,
+            models_v2.Subnet.ip_version == ip_version)
+    ).all()
+
+
 def get_nuage_subnet_info(session, subnet, fields):
     if not fields or not \
             any(x in fields for x in
