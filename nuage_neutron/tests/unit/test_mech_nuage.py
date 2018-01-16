@@ -150,7 +150,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     # FLAT NETWORKS
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    @mock.patch.object(NuageMechanismDriver, '_network_is_external',
+    @mock.patch.object(NuageMechanismDriver, 'is_external',
                        return_value=False)
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[])
@@ -313,7 +313,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'default_np_id',
                        return_value=1)
-    @mock.patch.object(NuageMechanismDriver, '_network_is_external',
+    @mock.patch.object(NuageMechanismDriver, 'is_external',
                        return_value=False)
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[])
@@ -340,7 +340,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets')
-    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external')
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(NuageMechanismDriver,
@@ -366,7 +366,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[{'id': 'subnet1', 'ip_version': 6},
                                      {'id': 'subnet2', 'ip_version': 6}])
-    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external')
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
@@ -395,7 +395,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[{'id': 'subnet1', 'ip_version': 4}])
-    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external')
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(NuageMechanismDriver,
@@ -422,7 +422,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[{'id': 'subnet1', 'ip_version': 4},
                                      {'id': 'subnet2', 'ip_version': 4},
                                      {'id': 'subnet2', 'ip_version': 6}])
-    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external')
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
@@ -453,7 +453,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[{'id': 'subnet1', 'ip_version': 4},
                                      {'id': 'subnet2', 'ip_version': 6},
                                      {'id': 'subnet2', 'ip_version': 4}])
-    @mock.patch.object(NuageMechanismDriver, '_network_is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external')
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
