@@ -34,10 +34,13 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_fip_underlay $NUAGE_FIP_UNDERLAY
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
+
     iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
+    if is_service_enabled n-cell; then
+        iniset $NOVA_CELLS_CONF neutron ovs_bridge $OVS_BRIDGE
+    fi
+
     Q_PLUGIN_EXTRA_CONF_FILES=(${Q_PLUGIN_EXTRA_CONF_FILES[@]} $NUAGE_PLUGIN_CONF_FILE)
-
-
     _neutron_deploy_rootwrap_filters $DIR_NUAGE
 }
 
