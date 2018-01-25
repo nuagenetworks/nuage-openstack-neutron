@@ -1522,6 +1522,9 @@ class NuagePolicygroup(NuageServerBaseClass):
         return '/%s/%s/%s?responseChoice=1' % (parent_resource, parent_id,
                                                self.resource)
 
+    def put_resource(self, pg_id):
+        return '/%s/%s?responseChoice=1' % (self.resource, pg_id)
+
     def post_resource(self):
         return '/domains/%s/%s' % (self.create_params['domain_id'],
                                    self.resource)

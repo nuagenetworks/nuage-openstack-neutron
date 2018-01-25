@@ -945,6 +945,18 @@ class VsdClientImpl(VsdClient):
         return self.policygroups.get_policy_group(id, required=required,
                                                   **filters)
 
+    def get_sg_policygroup_by_external_id(self, sg_id,
+                                          sg_type=constants.SOFTWARE,
+                                          required=False):
+        return self.policygroups.get_sg_policygroup_by_external_id(
+            sg_id,
+            sg_type=sg_type,
+            required=required
+        )
+
+    def update_policygroup(self, policygroup_id, data):
+        return self.policygroups.update_policygroup(policygroup_id, data)
+
     def get_nuage_policy_groups(self, required=False, **filters):
         return self.policygroups.get_policy_groups(required=required,
                                                    **filters)
