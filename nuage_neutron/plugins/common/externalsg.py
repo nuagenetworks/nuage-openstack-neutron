@@ -22,7 +22,6 @@ from neutron_lib.plugins import directory
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 
 
@@ -32,7 +31,6 @@ LOG = logging.getLogger(__name__)
 class NuageexternalsgMixin(object):
 
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def _make_external_security_group_dict(self, redirect_target,
                                            context=None, fields=None):
         res = {
@@ -47,7 +45,6 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def create_nuage_external_security_group(self, context,
                                              nuage_external_security_group):
         external_sg = nuage_external_security_group[
@@ -97,7 +94,6 @@ class NuageexternalsgMixin(object):
                                                        context=context)
 
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_nuage_external_security_group(self, context, ext_sg_id,
                                           fields=None):
         try:
@@ -112,7 +108,6 @@ class NuageexternalsgMixin(object):
                                                        fields=fields)
 
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_nuage_external_security_groups(self, context, filters=None,
                                            fields=None):
         # get all redirect targets
@@ -153,7 +148,6 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def delete_nuage_external_security_group(self, context, ext_sg_id):
         self.vsdclient.delete_nuage_external_security_group(ext_sg_id)
 
@@ -162,7 +156,6 @@ class NuageexternalsgMixin(object):
         return 0
 
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def _make_external_security_group_rule_dict(self, ext_sg_rule,
                                                 context=None, fields=None):
         port_range_min = None
@@ -195,7 +188,6 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def create_nuage_external_security_group_rule(
             self, context, nuage_external_security_group_rule):
         external_sg_rule = (
@@ -215,7 +207,6 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_nuage_external_security_group_rule(self, context, external_rule_id,
                                                fields=None):
         try:
@@ -231,14 +222,12 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def delete_nuage_external_security_group_rule(self, context,
                                                   external_rule_id):
         self.vsdclient.delete_nuage_external_sg_rule(external_rule_id)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_nuage_external_security_group_rules(self, context, filters=None,
                                                 fields=None):
         params = {}

@@ -23,7 +23,6 @@ from neutron_lib.plugins.ml2 import api
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 from sqlalchemy.orm import exc
 
@@ -75,7 +74,6 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
                 self._store_change(result, data, attribute)
 
     @utils.exception_logger()
-    @TimeTracker.tracked
     def extend_subnet_dict(self, session, db_data, result):
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, result['id'])
         if subnet_mapping:

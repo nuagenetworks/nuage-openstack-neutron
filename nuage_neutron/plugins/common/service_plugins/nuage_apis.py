@@ -27,9 +27,7 @@ from oslo_log import log as logging
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
-
 from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageApiWrapper
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
@@ -244,7 +242,6 @@ class NuageApi(NuageApiWrapper):
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
         return self._validate_create_net_partition(ent["name"],
@@ -269,7 +266,6 @@ class NuageApi(NuageApiWrapper):
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def delete_net_partition(self, context, id):
         net_partition = nuagedb.get_net_partition_by_id(context.session, id)
         if not net_partition:
@@ -283,7 +279,6 @@ class NuageApi(NuageApiWrapper):
 
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_net_partition(self, context, id, fields=None):
         net_partition = nuagedb.get_net_partition_by_id(context.session,
                                                         id)
@@ -294,7 +289,6 @@ class NuageApi(NuageApiWrapper):
 
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_net_partitions(self, context, filters=None, fields=None):
         net_partitions = nuagedb.get_net_partitions(context.session,
                                                     filters=filters,
@@ -305,7 +299,6 @@ class NuageApi(NuageApiWrapper):
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_vsd_subnet(self, context, id, fields=None):
         subnet = self.vsdclient.get_nuage_subnet_by_id(
             id, required=True)
@@ -330,7 +323,6 @@ class NuageApi(NuageApiWrapper):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_vsd_subnets(self, context, filters=None, fields=None):
         if 'vsd_zone_id' not in filters:
             msg = _('vsd_zone_id is a required filter parameter for this API.')
@@ -352,7 +344,6 @@ class NuageApi(NuageApiWrapper):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_vsd_domains(self, context, filters=None, fields=None):
         if 'vsd_organisation_id' not in filters:
             msg = _('vsd_organisation_id is a required filter parameter for '
@@ -425,7 +416,6 @@ class NuageApi(NuageApiWrapper):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_vsd_zones(self, context, filters=None, fields=None):
         if 'vsd_domain_id' not in filters:
             msg = _('vsd_domain_id is a required filter parameter for this '
@@ -456,7 +446,6 @@ class NuageApi(NuageApiWrapper):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_vsd_organisations(self, context, filters=None, fields=None):
         netpartitions = self.vsdclient.get_net_partitions()
         vsd_to_os = {

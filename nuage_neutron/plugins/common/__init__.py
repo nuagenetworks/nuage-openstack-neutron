@@ -13,10 +13,6 @@
 #    under the License.
 
 from nuage_neutron.plugins.common import config
-from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 # Load Nuage configuration
 config.nuage_register_cfg_opts()
-TimeTracker.enable_time_tracking(config.is_enabled(
-    constants.DEBUG_TIMING_STATS))

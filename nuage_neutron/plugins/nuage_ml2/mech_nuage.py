@@ -51,7 +51,6 @@ from nuage_neutron.plugins.common.extensions import nuagefloatingip
 from nuage_neutron.plugins.common.extensions import nuagepolicygroup
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import routing_mechanisms
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
@@ -183,7 +182,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    @TimeTracker.tracked
     def update_network_precommit(self, context):
         updated_network = context.current
         original_network = context.original
@@ -197,7 +195,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    @TimeTracker.tracked
     def update_network_postcommit(self, context):
         updated_network = context.current
         original_network = context.original
@@ -258,7 +255,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return False
 
     @handle_nuage_api_errorcode
-    @TimeTracker.tracked
     def create_subnet_precommit(self, context):
         subnet = context.current
         network = context.network.current
@@ -622,7 +618,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return False
 
     @utils.context_log
-    @TimeTracker.tracked
     def update_subnet_precommit(self, context):
         updated_subnet = context.current
         original_subnet = context.original
@@ -729,7 +724,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                              port['id'])
 
     @utils.context_log
-    @TimeTracker.tracked
     def delete_subnet_precommit(self, context):
         """Get subnet_l2dom_mapping for later.
 
@@ -774,7 +768,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                         raise NuageBadRequest(msg=msg)
 
     @handle_nuage_api_errorcode
-    @TimeTracker.tracked
     def delete_subnet_postcommit(self, context):
         db_context = context._plugin_context
         subnet = context.current
@@ -866,7 +859,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    @TimeTracker.tracked
     def create_port_postcommit(self, context):
         self._create_port(context._plugin_context,
                           context.current,
@@ -959,7 +951,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    @TimeTracker.tracked
     def update_port_precommit(self, context):
         db_context = context._plugin_context
         port = context.current
@@ -1182,7 +1173,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                       nuage_subnet)
 
     @utils.context_log
-    @TimeTracker.tracked
     def delete_port_postcommit(self, context):
         db_context = context._plugin_context
         port = context.current
