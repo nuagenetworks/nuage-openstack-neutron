@@ -440,11 +440,6 @@ class NuageVM(object):
                 vsd_error_codes=[(constants.CONFLICT_ERR_CODE,
                                   constants.VSD_VPORT_ATTACHED_NET_ID_CHANGED)]
             )(updated_if.delete_resource(), updated_if.put_data())
-            resync = nuagelib.Resync
-            self.restproxy.post(
-                resync.post_url(parent=nuagelib.NuageVM.resource,
-                                parent_id=vm_interface['parentID']),
-                '')
 
     def create_vport(self, params):
         type_class = {constants.SUBNET: nuagelib.NuageSubnet,
