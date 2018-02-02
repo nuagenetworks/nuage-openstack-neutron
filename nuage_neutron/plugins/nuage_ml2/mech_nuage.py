@@ -1418,19 +1418,22 @@ class NuageMechanismDriver(NuageML2Wrapper):
         subnet['gateway_ip'] = gw_ip
 
     def _update_gw_and_pools(self, db_context, subnet, original_gateway):
-        if original_gateway == subnet['gateway_ip']:
+        if ((original_gateway is None and subnet['gateway_ip'] is None) or
+                (original_gateway is not None and
+                 subnet['gateway_ip'] is not None and
+                 netaddr.IPAddress(original_gateway) ==
+                 netaddr.IPAddress(subnet['gateway_ip']))):
             # The gateway from vsd is what openstack already had.
             return
 
-        if original_gateway != subnet['gateway_ip']:
-            # Gateway from vsd is different, we must recalculate the allocation
-            # pools.
-            new_pools = self._set_allocation_pools(subnet)
-            self.core_plugin.ipam._update_subnet_allocation_pools(
-                db_context, subnet['id'], {'allocation_pools': new_pools,
-                                           'id': subnet['id']})
         LOG.warn("Nuage ml2 plugin will overwrite subnet gateway ip "
                  "and allocation pools")
+
+        # Gateway from vsd is different, we must recalculate allocation pools
+        new_pools = self._set_allocation_pools(subnet)
+        self.core_plugin.ipam._update_subnet_allocation_pools(
+            db_context, subnet['id'], {'allocation_pools': new_pools,
+                                       'id': subnet['id']})
         db_subnet = self.core_plugin._get_subnet(db_context, subnet['id'])
         update_subnet = {'gateway_ip': subnet['gateway_ip']}
         db_subnet.update(update_subnet)
