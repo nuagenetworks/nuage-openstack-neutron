@@ -252,9 +252,7 @@ class NuageVM(object):
         return l2_shared.get('DHCPManaged')
 
     def create_vms(self, params):
-        # no_of_ports as of Queens means number of ports previously attached
-        # to vm. This tends to change between Openstack releases.
-        if params['no_of_ports'] >= 1:
+        if params['no_of_ports'] > 1:
             nuage_vm = self._create_nuage_vm_if(params)
         else:
             nuage_vm = self._create_nuage_vm(params)
