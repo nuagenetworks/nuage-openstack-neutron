@@ -88,6 +88,12 @@ def _is_ipv6(subnet):
     return subnet['ip_version'] == os_constants.IP_VERSION_6
 
 
+def _is_equal_ip(ip1, ip2):
+    return ((ip1 is None and ip2 is None) or
+            (ip1 is not None and ip2 is not None and
+             netaddr.IPAddress(ip1) == netaddr.IPAddress(ip2)))
+
+
 def _is_l2(nuage_subnet_mapping):
     """_is_l2 : indicated whether the subnet ~ this mapping is a l2 subnet
 
@@ -336,7 +342,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _create_vsd_managed_subnet(self, context, subnet):
         nuage_subnet_id = subnet['nuagenet']
-        original_gateway = subnet['gateway_ip']
         nuage_npid = self._validate_net_partition(subnet, context)
         if not self.vsdclient.check_if_l2_dom_in_correct_ent(
                 nuage_subnet_id, {'id': nuage_npid}):
@@ -350,16 +355,18 @@ class NuageMechanismDriver(NuageML2Wrapper):
         nuage_subnet, shared_subnet = self._get_nuage_subnet(
             nuage_subnet_id, subnet_type=subnet_type)
         self._validate_cidr(subnet, nuage_subnet, shared_subnet)
-        self._validate_allocation_pools(
-            context, subnet, subnet_info)
-        self._set_gateway_from_vsd(nuage_subnet, shared_subnet, subnet)
-        result = self.vsdclient.attach_nuage_group_to_nuagenet(
+        self._validate_allocation_pools(context, subnet, subnet_info)
+        match, os_gw_ip, vsd_gw_ip = self._check_gateway_from_vsd(
+            nuage_subnet, shared_subnet, subnet)
+        if not match:
+            msg = ("The specified gateway {} does not match with "
+                   "gateway on VSD {}".format(os_gw_ip, vsd_gw_ip))
+            raise NuageBadRequest(msg=msg)
+        nuage_uid, nuage_gid = self.vsdclient.attach_nuage_group_to_nuagenet(
             context.tenant, nuage_npid, nuage_subnet_id, subnet.get('shared'),
             context.tenant_name)
-        (nuage_uid, nuage_gid) = result
         try:
             with context.session.begin(subtransactions=True):
-                self._update_gw_and_pools(context, subnet, original_gateway)
                 self._reserve_dhcp_ip(context, subnet, nuage_subnet,
                                       shared_subnet)
                 l2dom_id = None
@@ -1410,67 +1417,71 @@ class NuageMechanismDriver(NuageML2Wrapper):
             shared_subnet['subnet_id'] = shared
         return nuage_subnet, shared_subnet
 
-    def _set_gateway_from_vsd(self, nuage_subnet, shared_subnet, subnet):
+    def _check_gateway_from_vsd(self, nuage_subnet, shared_subnet, subnet):
+        """_check_gateway_from_vsd
+
+        This methods checks the openstack gateway with the VSD gateway and
+        returns whether they match, as well as their values which are used in
+        the error report when they don't match.
+
+        One side effect of this function is that in case of L2, v4 and
+        in OpenStack a GW is specified as the .1 IP, and in VSD no option 3
+        is set, we tolerate (so match will be True), but we _clear_ the
+        gateway IP in OpenStack also.
+
+        :rtype: (bool, string, string)
+        :returns matching_gws: boolean report whether the gateways match
+        :returns os_gw_ip: the OpenStack gateway, used for error reporting
+        :returns vsd_gw_ip: the VSD gateway, used for error reporting
+
+        """
         gateway_subnet = shared_subnet or nuage_subnet
-        if (_is_ipv6(subnet) and
-                nuage_subnet['type'] != constants.L2DOMAIN):
-            gw_ip = gateway_subnet['IPv6Gateway']
-        elif subnet['enable_dhcp'] and _is_ipv4(subnet):
-            if nuage_subnet['type'] == constants.L2DOMAIN:
-                gw_ip = self.vsdclient.get_gw_from_dhcp_l2domain(
+        is_l2 = nuage_subnet['type'] == constants.L2DOMAIN
+        is_v6 = _is_ipv6(subnet)
+        os_gw_ip = subnet['gateway_ip']
+
+        if is_l2:
+            if is_v6:
+                # Always fine as we are not the dhcp provider we don't know
+                # which default route the vm will obtain.
+                # Hence we act as good, by acting as if vsd_gw_ip just equals
+                # the os_gw_ip. This will make the match check yield True.
+                vsd_gw_ip = os_gw_ip
+
+            else:  # v4
+
+                # fetch option 3 from vsd
+                vsd_gw_ip = self.vsdclient.get_gw_from_dhcp_l2domain(
                     gateway_subnet['ID'])
-            else:
-                gw_ip = gateway_subnet['gateway']
-            gw_ip = gw_ip or None
+                dot_one_ip = netaddr.IPNetwork(subnet['cidr'])[1]
+
+                if not vsd_gw_ip and os_gw_ip:
+                    if _is_equal_ip(os_gw_ip, dot_one_ip):
+                        # special case : tolerate but clear gw
+                        os_gw_ip = subnet['gateway_ip'] = None
+
+                    else:
+                        # improve the error message (better than 'None')
+                        vsd_gw_ip = 'not being present'
+
+                # in other cases, default compare
+
+        # l3
+        elif is_v6:
+            vsd_gw_ip = gateway_subnet['IPv6Gateway']
         else:
-            gw_ip = None
-            subnet['dns_nameservers'] = []
-            LOG.warn("Nuage ml2 plugin will ignore dns_nameservers.")
-        LOG.warn("Nuage ml2 plugin will overwrite gateway_ip")
-        subnet['gateway_ip'] = gw_ip
+            vsd_gw_ip = gateway_subnet['gateway']
 
-    def _update_gw_and_pools(self, db_context, subnet, original_gateway):
-        if ((original_gateway is None and subnet['gateway_ip'] is None) or
-                (original_gateway is not None and
-                 subnet['gateway_ip'] is not None and
-                 netaddr.IPAddress(original_gateway) ==
-                 netaddr.IPAddress(subnet['gateway_ip']))):
-            # The gateway from vsd is what openstack already had.
-            return
+        matching_gws = _is_equal_ip(os_gw_ip, vsd_gw_ip)
 
-        LOG.warn("Nuage ml2 plugin will overwrite subnet gateway ip "
-                 "and allocation pools")
-
-        # Gateway from vsd is different, we must recalculate allocation pools
-        new_pools = self._set_allocation_pools(subnet)
-        self.core_plugin.ipam._update_subnet_allocation_pools(
-            db_context, subnet['id'], {'allocation_pools': new_pools,
-                                       'id': subnet['id']})
-        db_subnet = self.core_plugin._get_subnet(db_context, subnet['id'])
-        update_subnet = {'gateway_ip': subnet['gateway_ip']}
-        db_subnet.update(update_subnet)
+        return matching_gws, os_gw_ip, vsd_gw_ip
 
     def _reserve_dhcp_ip(self, db_context, subnet, nuage_subnet,
                          shared_subnet):
         nuage_subnet = shared_subnet or nuage_subnet
-        if nuage_subnet.get('DHCPManaged', True) is False:
-            # Nothing to reserve for L2 unmanaged or L3 subnets
-            return
-        if _is_ipv6(subnet):
-            dhcp_ip = nuage_subnet.get('IPv6Gateway')
-        else:
+        if nuage_subnet.get('DHCPManaged', True) and _is_ipv4(subnet):
             dhcp_ip = nuage_subnet['gateway']
-        if dhcp_ip:
             self._reserve_ip(db_context, subnet, dhcp_ip)
-
-    def _set_allocation_pools(self, subnet):
-        pools = self.core_plugin.ipam.generate_pools(subnet['cidr'],
-                                                     subnet['gateway_ip'])
-        subnet['allocation_pools'] = [
-            {'start': str(netaddr.IPAddress(pool.first, pool.version)),
-             'end': str(netaddr.IPAddress(pool.last, pool.version))}
-            for pool in pools]
-        return pools
 
     def _cleanup_group(self, db_context, nuage_npid, nuage_subnet_id, subnet):
         try:
@@ -1751,8 +1762,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     except restproxy.RESTProxyError as e:
                         LOG.debug("Policy group retry %s times.", attempt)
                         msg = e.msg.lower()
-                        if (e.code not in (404, 409)
-                                and 'policygroup' not in msg and
+                        if (e.code not in (404, 409) and
+                                'policygroup' not in msg and
                                 'policy group' not in msg):
                             raise
                         elif attempt < max_attempts:
