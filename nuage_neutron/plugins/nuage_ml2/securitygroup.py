@@ -1,4 +1,4 @@
-# Copyright 2016 NOKIA
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -11,8 +11,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 from neutron._i18n import _
 from neutron.db.common_db_mixin import CommonDbMixin
+from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
@@ -22,10 +24,12 @@ from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import uuidutils
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
+from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import cms_id_helper
@@ -36,10 +40,12 @@ LOG = logging.getLogger(__name__)
 
 
 class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
-                         CommonDbMixin):
+                         CommonDbMixin,
+                         sg_db.SecurityGroupDbMixin):
     def __init__(self):
         super(NuageSecurityGroup, self).__init__()
         self._l2_plugin = None
+        self.stateful = None
 
     @property
     def core_plugin(self):
@@ -54,9 +60,21 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                        resources.PORT, constants.AFTER_UPDATE)
         self.nuage_callbacks.subscribe(self.post_port_delete,
                                        resources.PORT, constants.AFTER_DELETE)
+        registry.subscribe(self.pre_create_security_group,
+                           resources.SECURITY_GROUP,
+                           events.BEFORE_CREATE)
         registry.subscribe(self.pre_delete_security_group,
                            resources.SECURITY_GROUP,
                            events.BEFORE_DELETE)
+        registry.subscribe(self.delete_security_group_precommit,
+                           resources.SECURITY_GROUP,
+                           events.PRECOMMIT_DELETE)
+        registry.subscribe(self.pre_update_security_group,
+                           resources.SECURITY_GROUP,
+                           events.BEFORE_UPDATE)
+        registry.subscribe(self.update_security_group_precommit,
+                           resources.SECURITY_GROUP,
+                           events.PRECOMMIT_UPDATE)
         registry.subscribe(self.pre_create_security_group_rule,
                            resources.SECURITY_GROUP_RULE,
                            events.BEFORE_CREATE)
@@ -70,8 +88,51 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     @TimeTracker.tracked
+    def pre_create_security_group(self, resource, event, trigger, **kwargs):
+        session = kwargs['context'].session
+        stateful = kwargs['security_group'].get('stateful', True)
+        kwargs['security_group']['id'] = sg_id = \
+            kwargs['security_group'].get('id') or uuidutils.generate_uuid()
+        if not stateful:
+            nuagedb.set_nuage_sg_parameter(session, sg_id, 'STATEFUL', '0')
+
+    @nuage_utils.handle_nuage_api_error
+    @log_helpers.log_method_call
+    @TimeTracker.tracked
     def pre_delete_security_group(self, resource, event, trigger, **kwargs):
-        self.vsdclient.delete_nuage_secgroup(kwargs['security_group_id'])
+        sg_id = kwargs['security_group_id']
+        self.vsdclient.delete_nuage_secgroup(sg_id)
+
+    @nuage_utils.handle_nuage_api_error
+    @log_helpers.log_method_call
+    @TimeTracker.tracked
+    def delete_security_group_precommit(self, resource, event, trigger,
+                                        **kwargs):
+        session = kwargs['context'].session
+        sg_id = kwargs['security_group_id']
+        nuagedb.delete_nuage_sg_parameter(session, sg_id, 'STATEFUL')
+
+    @nuage_utils.handle_nuage_api_error
+    @log_helpers.log_method_call
+    @TimeTracker.tracked
+    def pre_update_security_group(self, resource, event, trigger, **kwargs):
+        context = kwargs['context']
+        sg_id = kwargs['security_group_id']
+        if 'stateful' in kwargs['security_group']:
+            self._check_for_security_group_in_use(context, sg_id)
+            self.stateful = kwargs['security_group']['stateful']
+
+    @nuage_utils.handle_nuage_api_error
+    @log_helpers.log_method_call
+    @TimeTracker.tracked
+    def update_security_group_precommit(self, resource, event, trigger,
+                                        **kwargs):
+        session = kwargs['context'].session
+        sg_id = kwargs['security_group_id']
+        if self.stateful is not None:
+            self._update_stateful_parameter(session, sg_id, self.stateful)
+            kwargs['security_group']['stateful'] = self.stateful
+            self.stateful = None
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -101,7 +162,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                 sg_params = {
                     'sg_id': sg_id,
                     'neutron_sg_rule': sg_rule,
-                    'policygroup': nuage_policygroup
+                    'policygroup': nuage_policygroup,
                 }
                 if remote_sg:
                     sg_params['remote_group_name'] = remote_sg['name']
@@ -273,3 +334,15 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         self.vsdclient.create_security_group_rules(policy_group,
                                                    security_group_rules)
         return policy_group
+
+    def _check_for_security_group_in_use(self, context, sg_id):
+        filters = {'security_group_id': [sg_id]}
+        bound_ports = self._get_port_security_group_bindings(context, filters)
+        if bound_ports:
+            raise ext_sg.SecurityGroupInUse(id=sg_id)
+
+    def _update_stateful_parameter(self, session, sg_id, stateful):
+        if stateful:
+            nuagedb.delete_nuage_sg_parameter(session, sg_id, 'STATEFUL')
+        else:
+            nuagedb.set_nuage_sg_parameter(session, sg_id, 'STATEFUL', '0')

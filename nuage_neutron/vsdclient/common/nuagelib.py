@@ -1,4 +1,4 @@
-# Copyright 2016 NOKIA
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -1574,39 +1574,41 @@ class NuagePolicygroup(NuageServerBaseClass):
         return '/%s/%s' % (self.resource, id)
 
     def extra_headers_get(self):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "externalID IS '%s'" % \
-                                    get_vsd_external_id(
-                                        self.create_params['externalID'])
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "externalID IS '%s'" % get_vsd_external_id(
+                self.create_params['externalID']),
+        }
         return headers
 
     def extra_headers_get_name(self, name):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "name IS '%s'" % name
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "name IS '%s'" % name,
+        }
         return headers
 
     def extra_headers_get_external(self, is_external):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "external IS '%s'" % is_external
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "external IS '%s'" % is_external,
+        }
         return headers
 
     def extra_headers_get_name_and_external(self, name, is_external):
-        headers = {}
-        headers['X-Nuage-Filter'] = "name IS '%s' and external IS '%s'" %\
-                                    (name, is_external)
-
+        headers = {
+            'X-Nuage-Filter': "name IS '%s' and external IS '%s'" %
+                              (name, is_external),
+        }
         return headers
 
     def extra_headers_get_type_and_id(self, sg_type):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "type IS '%s' and externalID IS '%s'" %\
-                                    (sg_type,
-                                     get_vsd_external_id(
-                                         self.create_params['externalID']))
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "type IS '%s' and externalID IS '%s'" %
+                              (sg_type, get_vsd_external_id(
+                                  self.create_params['externalID'])),
+        }
         return headers
 
 

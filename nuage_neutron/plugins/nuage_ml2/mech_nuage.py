@@ -1,4 +1,4 @@
-# Copyright 2017 NOKIA
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -152,7 +152,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                                extensions)
 
     def _wrap_vsdclient(self):
-        """Wraps nuagecient methods with try-except to ignore certain errors.
+        """Wraps nuageclient methods with try-except to ignore certain errors.
 
         When updating an entity on the VSD and there is nothing to actually
         update because the values don't change, VSD will throw an error. This
