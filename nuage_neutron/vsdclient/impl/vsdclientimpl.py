@@ -254,9 +254,9 @@ class VsdClientImpl(VsdClient):
     def get_gateway_ip_for_advsub(self, vsd_subnet):
         return self.l2domain.get_gateway_ip_for_advsub(vsd_subnet)
 
-    def check_if_l2Dom_in_correct_ent(self, nuage_l2dom_id, nuage_netpart):
-        return self.l2domain.check_if_l2Dom_in_correct_ent(nuage_l2dom_id,
-                                                           nuage_netpart)
+    def check_if_l2_dom_in_correct_ent(self, nuage_l2dom_id, nuage_netpart):
+        return self.l2domain.check_if_l2_dom_in_correct_ent(nuage_l2dom_id,
+                                                            nuage_netpart)
 
     def get_router_by_external(self, id):
         return self.domain.get_router_by_external(id)
@@ -423,7 +423,7 @@ class VsdClientImpl(VsdClient):
         if response[3]:
             return response[3][0]['parentID']
 
-    def get_nuage_subnet_by_id(self, subnet_mapping, required=False):
+    def get_nuage_subnet_by_mapping(self, subnet_mapping, required=False):
         nuage_id = subnet_mapping['nuage_subnet_id']
         try:
             if subnet_mapping['nuage_l2dom_tmplt_id']:
@@ -436,17 +436,27 @@ class VsdClientImpl(VsdClient):
             else:
                 return None
 
-    def get_subnet_or_domain_subnet_by_id(self, nuage_id, required=False):
+    def get_nuage_subnet_by_id(self, nuage_id, subnet_type=None,
+                               required=False):
         try:
-            return self.get_l2domain_by_id(nuage_id)
-        except restproxy.RESTProxyError:
-            try:
-                return self.get_domain_subnet_by_id(nuage_id)
-            except restproxy.ResourceNotFoundException:
-                if required:
-                    raise
+            if subnet_type:
+                # best case scenario : i know what i am looking for
+                if subnet_type == constants.L2DOMAIN:
+                    return self.get_l2domain_by_id(nuage_id)
                 else:
-                    return None
+                    return self.get_domain_subnet_by_id(nuage_id)
+            else:
+                # legacy case : i don't know what i am looking for
+                try:
+                    return self.get_l2domain_by_id(nuage_id)
+                except restproxy.RESTProxyError:
+                    return self.get_domain_subnet_by_id(nuage_id)
+
+        except restproxy.ResourceNotFoundException:
+            if required:
+                raise
+            else:
+                return None
 
     def get_gw_from_dhcp_l2domain(self, nuage_id):
         return self.l2domain.get_gw_from_dhcp_options(nuage_id)

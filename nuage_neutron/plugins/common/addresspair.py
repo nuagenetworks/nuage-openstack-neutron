@@ -66,8 +66,8 @@ class NuageAddressPair(BaseNuagePlugin):
     def _create_vips(self, context, subnet_mapping, port, nuage_vport):
         nuage_vip_dict = dict()
         enable_spoofing = False
-        vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(subnet_mapping,
-                                                           required=True)
+        vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(subnet_mapping,
+                                                                required=True)
         fips_per_vip = nuagedb.get_floatingip_per_vip_in_network(
             context.session,
             port['network_id'])
