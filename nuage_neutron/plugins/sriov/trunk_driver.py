@@ -92,7 +92,8 @@ class NuageTrunkHandler(object):
                                                       trunk.id,
                                                       trunk.sub_ports)
         if len(trunk.sub_ports) != len(updated_ports[trunk.id]):
-            LOG.error("Updated: %(up)s, subports: %(sub)s",
+            LOG.error("Failed to update some of the trunk subports "
+                      "updated: %(up)s, subports: %(sub)s",
                       {'up': len(updated_ports[trunk.id]),
                        'sub': len(trunk.sub_ports)})
             self.set_trunk_status(context, trunk.id, t_consts.DEGRADED_STATUS)
@@ -264,9 +265,11 @@ class NuageTrunkHandler(object):
         updated_ports = self._update_subport_bindings(ctx,
                                                       trunk_id,
                                                       subports)
-        if len(subports) != len(updated_ports):
-            LOG.error("Updated: %(up)s, subports: %(sub)s",
-                      {'up': len(updated_ports), 'sub': len(subports)})
+        if len(subports) != len(updated_ports[trunk_id]):
+            LOG.error("Failed to update some of the trunk subports "
+                      "updated: %(up)s, subports: %(sub)s",
+                      {'up': len(updated_ports[trunk_id]),
+                       'sub': len(subports)})
             self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
 
     def _unset_sub_ports(self, trunk_id, subports):
