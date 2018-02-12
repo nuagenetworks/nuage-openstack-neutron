@@ -63,6 +63,11 @@ class RtrItfAddDualSSAlreadyAttachedToAnotherRtr(exceptions.BadRequest):
                 "Router-IF add not permitted")
 
 
+class RtrItfAddSubnetForMultipleRouters(exceptions.BadRequest):
+    message = _("Cannot attach Subnet %(subnet)s to multiple routers. "
+                "Router-IF add failed")
+
+
 def _ecmp_count_info():
     return _("ecmp count must be a number between 1 and 8 (inclusive)")
 
