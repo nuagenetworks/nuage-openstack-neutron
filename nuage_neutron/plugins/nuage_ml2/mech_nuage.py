@@ -1073,17 +1073,29 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                                 required=True)
             return nuage_vport
         except (restproxy.ResourceNotFoundException, NuageBadRequest):
-            if not self._check_port_exists_in_neutron(db_context,
-                                                      port):
+            port_db = self._check_port_exists_in_neutron(db_context,
+                                                         port)
+            if not port_db:
                 LOG.info("Port %s has been deleted concurrently",
                          port['id'])
                 return
-            if not self._check_subnet_exists_in_neutron(
-                    db_context,
-                    subnet_mapping['subnet_id']):
-                LOG.info("Subnet %s has been deleted concurrently",
-                         subnet_mapping['subnet_id'])
-                return
+            else:
+                ipv4_subnet_exists = False
+                for fixed_ip in port_db['fixed_ips']:
+                    subnet_db = self._check_subnet_exists_in_neutron(
+                        db_context,
+                        fixed_ip['subnet_id'])
+                    if not subnet_db:
+                        LOG.info("Subnet %s has been deleted concurrently",
+                                 fixed_ip['subnet_id'])
+                    elif _is_ipv4(subnet_db):
+                        ipv4_subnet_exists = True
+                        subnet_mapping['subnet_id'] = subnet_db['id']
+                        LOG.info("found ipv4 address in the port")
+                if not ipv4_subnet_exists:
+                    LOG.info("VPort does not exist as Ipv4 neutron subnet"
+                             "has been concurrently deleted.")
+                    return
             LOG.debug("Retrying to get new subnet mapping from vsd")
             subnet_mapping = self._get_updated_subnet_mapping_from_vsd(
                 subnet_mapping)
@@ -1119,7 +1131,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
         original_ipv4s, original_ipv6s = utils.count_fixed_ips_per_version(
             original_fixed_ips)
 
-        return (ipv4s == 1 and ipv6s == 1 and
+        return (ipv4s == 1 and
                 original_ipv4s == 0 and original_ipv6s == 1)
 
     @staticmethod
@@ -1136,7 +1148,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
             original_fixed_ips)
 
         return (ipv4s == 0 and ipv6s == 1 and
-                original_ipv4s == 1 and original_ipv6s == 1)
+                original_ipv4s == 1)
 
     def _port_device_change(self, context, db_context, nuage_vport, original,
                             port, subnet_mapping,
@@ -1715,20 +1727,57 @@ class NuageMechanismDriver(NuageML2Wrapper):
             }
             nuage_port = self.vsdclient.get_nuage_vport_for_port_sec(params)
             if nuage_port:
-                nuage_vport_id = nuage_port.get('ID')
-                if port.get(portsecurity.PORTSECURITY):
-                    self.vsdclient.update_vport_policygroups(
-                        nuage_vport_id, policygroup_ids)
-                else:
-                    sg_id = (self.vsdclient.
-                             create_nuage_sec_grp_for_port_sec(params))
-                    if sg_id:
-                        params['sg_id'] = sg_id
-                        (self.vsdclient.
-                         create_nuage_sec_grp_rule_for_port_sec(params))
-                        policygroup_ids.append(sg_id)
-                        self.vsdclient.update_vport_policygroups(
-                            nuage_vport_id, policygroup_ids)
+                successful = False
+                attempt = 1
+                max_attempts = 4
+                while not successful:
+                    try:
+                        nuage_vport_id = nuage_port.get('ID')
+                        if port.get(portsecurity.PORTSECURITY):
+                            self.vsdclient.update_vport_policygroups(
+                                nuage_vport_id, policygroup_ids)
+                        else:
+                            sg_id = (self.vsdclient.
+                                     create_nuage_sec_grp_for_port_sec(params))
+                            if sg_id:
+                                params['sg_id'] = sg_id
+                                (self.vsdclient.
+                                 create_nuage_sec_grp_rule_for_port_sec(params)
+                                 )
+                                policygroup_ids.append(sg_id)
+                                self.vsdclient.update_vport_policygroups(
+                                    nuage_vport_id, policygroup_ids)
+                        successful = True
+                    except restproxy.RESTProxyError as e:
+                        LOG.debug("Policy group retry %s times.", attempt)
+                        msg = e.msg.lower()
+                        if (e.code not in (404, 409)
+                                and 'policygroup' not in msg and
+                                'policy group' not in msg):
+                            raise
+                        elif attempt < max_attempts:
+                            attempt += 1
+                            if (e.vsd_code ==
+                                    vsd_constants.PG_VPORT_DOMAIN_CONFLICT):
+                                vsd_subnet = self._find_vsd_subnet(
+                                    context,
+                                    subnet_mapping)
+                                if not vsd_subnet:
+                                    return
+                                if vsd_subnet.get('parentType') == 'zone':
+                                    params['l2dom_id'] = None
+                                    params['l3dom_id'] = vsd_subnet['ID']
+                                    params['rtr_id'] = (
+                                        self.vsdclient.
+                                        get_nuage_domain_id_from_subnet(
+                                            params['l3dom_id']))
+                                else:
+                                    params['l2dom_id'] = vsd_subnet['ID']
+                                    params['l3dom_id'] = None
+                                    params['rtr_id'] = None
+                        else:
+                            LOG.debug("Retry failed %s times.", max_attempts)
+                            raise
 
     def _is_port_vxlan_normal(self, port, db_context):
         if port.get('binding:vnic_type') != portbindings.VNIC_NORMAL:

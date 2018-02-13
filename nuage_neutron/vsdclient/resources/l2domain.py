@@ -157,8 +157,13 @@ class NuageL2Domain(object):
         return subnet_dict
 
     def delete_subnet_ipv6(self, mapping):
-        data = helper.get_ipv6_vsd_data(None)
-        self.update_l2domain_template(mapping['nuage_l2dom_tmplt_id'], **data)
+        try:
+            data = helper.get_ipv6_vsd_data(None)
+            self.update_l2domain_template(mapping['nuage_l2dom_tmplt_id'],
+                                          **data)
+        except restproxy.RESTProxyError as e:
+            if e.code != constants.RES_NOT_FOUND:
+                raise
 
     def get_l2domain_by_external_id(self, neutron_id, required=True):
         params = {
