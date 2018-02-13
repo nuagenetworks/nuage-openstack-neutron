@@ -16,6 +16,8 @@ import logging
 from netaddr import IPAddress
 from netaddr import IPNetwork
 
+from nuage_neutron.plugins.common import utils
+
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper
@@ -433,8 +435,11 @@ class NuageVM(object):
                 'ipv6': params['ipv6']
             }
             updated_if = nuagelib.NuageVMInterface(create_params=params)
-            self.restproxy.put(updated_if.delete_resource(),
-                               updated_if.put_data())
+            utils.retry_on_vsdclient_error(
+                self.restproxy.put,
+                vsd_error_codes=[(constants.CONFLICT_ERR_CODE,
+                                  constants.VSD_VPORT_ATTACHED_NET_ID_CHANGED)]
+            )(updated_if.delete_resource(), updated_if.put_data())
             resync = nuagelib.Resync
             self.restproxy.post(
                 resync.post_url(parent=nuagelib.NuageVM.resource,
