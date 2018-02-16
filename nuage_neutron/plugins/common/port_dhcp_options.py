@@ -26,7 +26,6 @@ from neutron_lib import exceptions as n_exc
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 LOG = logging.getLogger(__name__)
 
@@ -65,7 +64,6 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
             response.append(resp)
         return response
 
-    @TimeTracker.tracked
     def _validate_port_dhcp_opts(self, resource, event, trigger, **kwargs):
         request_port = kwargs.get('request_port')
         if not request_port or \
@@ -189,7 +187,6 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
         return self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 
-    @TimeTracker.tracked
     def post_port_create_dhcp_opts(self, resource, event, trigger, port,
                                    vport, **kwargs):
         if (not lib_validators.is_attr_set(port.get('extra_dhcp_opts')) or
@@ -204,7 +201,6 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
         self._create_update_extra_dhcp_options(
             dhcp_options, vport, port['id'])
 
-    @TimeTracker.tracked
     def post_port_update_dhcp_opts(self, resource, event, trigger,
                                    port, original_port, vport, subnet_mapping,
                                    **kwargs):

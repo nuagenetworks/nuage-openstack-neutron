@@ -61,8 +61,8 @@ class NuageVMDriver(object):
                     return None
         except Exception:
             ''' Retry 5 times every second '''
-            if (socket.errno in [errno.EBUSY, errno.EAGAIN]
-                    and max_retries > 0):
+            if (socket.errno in [errno.EBUSY, errno.EAGAIN] and
+                    max_retries > 0):
                 time.sleep(1)
                 LOG.debug(_("retrying some error"))
                 return cls.ovsdb_transaction(

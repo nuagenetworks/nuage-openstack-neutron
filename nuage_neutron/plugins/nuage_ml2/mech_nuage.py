@@ -51,8 +51,8 @@ from nuage_neutron.plugins.common.extensions import nuagefloatingip
 from nuage_neutron.plugins.common.extensions import nuagepolicygroup
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import routing_mechanisms
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils
+from nuage_neutron.plugins.common.utils import compare_ip
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
@@ -89,9 +89,7 @@ def _is_ipv6(subnet):
 
 
 def _is_equal_ip(ip1, ip2):
-    return ((ip1 is None and ip2 is None) or
-            (ip1 is not None and ip2 is not None and
-             netaddr.IPAddress(ip1) == netaddr.IPAddress(ip2)))
+    return compare_ip(ip1, ip2)
 
 
 def _is_l2(nuage_subnet_mapping):
@@ -183,7 +181,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    @TimeTracker.tracked
     def update_network_precommit(self, context):
         updated_network = context.current
         original_network = context.original
@@ -197,7 +194,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    @TimeTracker.tracked
     def update_network_postcommit(self, context):
         updated_network = context.current
         original_network = context.original
@@ -258,7 +254,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return False
 
     @handle_nuage_api_errorcode
-    @TimeTracker.tracked
     def create_subnet_precommit(self, context):
         subnet = context.current
         network = context.network.current
@@ -622,7 +617,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         return False
 
     @utils.context_log
-    @TimeTracker.tracked
     def update_subnet_precommit(self, context):
         updated_subnet = context.current
         original_subnet = context.original
@@ -729,7 +723,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                              port['id'])
 
     @utils.context_log
-    @TimeTracker.tracked
     def delete_subnet_precommit(self, context):
         """Get subnet_l2dom_mapping for later.
 
@@ -774,7 +767,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                         raise NuageBadRequest(msg=msg)
 
     @handle_nuage_api_errorcode
-    @TimeTracker.tracked
     def delete_subnet_postcommit(self, context):
         db_context = context._plugin_context
         subnet = context.current
@@ -866,7 +858,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    @TimeTracker.tracked
     def create_port_postcommit(self, context):
         self._create_port(context._plugin_context,
                           context.current,
@@ -909,7 +900,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             if (not port[portsecurity.PORTSECURITY] and
                     _is_os_mgd(subnet_mapping)):
                 self._process_port_create_secgrp_for_port_sec(db_context, port)
-
+            self.calculate_vips_for_port_ips(db_context,
+                                             port)
         except (restproxy.RESTProxyError, NuageBadRequest) as ex:
             # TODO(gridinv): looks like in some cases we convert 404 to 400
             # so i have to catch both. Question here is - don't we hide
@@ -959,7 +951,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @handle_nuage_api_errorcode
     @utils.context_log
-    @TimeTracker.tracked
     def update_port_precommit(self, context):
         db_context = context._plugin_context
         port = context.current
@@ -1018,28 +1009,38 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         if not nuage_vport:
             return
+        new_ips = self.calculate_vips_for_port_ips(
+            db_context, port)
+        old_ips = self.calculate_vips_for_port_ips(
+            db_context, original)
         if vm_if_update_required:
-            fixed_ips = port['fixed_ips']
-            ips = {4: None, 6: None}
-            for fixed_ip in fixed_ips:
-                subnet = self.core_plugin.get_subnet(db_context,
-                                                     fixed_ip['subnet_id'])
-                ips[subnet['ip_version']] = fixed_ip['ip_address']
+            new_ipv4_ip = new_ips[4][-1] if new_ips[4] else None
+            new_ipv6_ip = new_ips[6][-1] if new_ips[6] else None
             data = {
                 'mac': port['mac_address'],
-                'ipv4': ips[4],
-                'ipv6': ips[6],
-                'nuage_vport_id': nuage_vport['ID']
+                'ipv4': new_ipv4_ip,
+                'ipv6': new_ipv6_ip,
+                'nuage_vport_id': nuage_vport['ID'],
             }
             if _is_trunk_subport(port):
                 # (gridinv) : subport can be updated only if port
                 # is not in use - so no need for vm resync
                 self.vsdclient.update_subport(port, nuage_vport, data)
             else:
+                nuage_vip_dict = dict()
                 try:
+                    self.delete_vips_for_interface_update(data, new_ipv4_ip,
+                                                          new_ipv6_ip,
+                                                          nuage_vip_dict,
+                                                          nuage_vport, old_ips,
+                                                          subnet_mapping,
+                                                          original)
                     self.vsdclient.update_nuage_vm_if(data)
                 except restproxy.RESTProxyError as e:
                     if e.vsd_code != vsd_constants.VSD_VM_ALREADY_RESYNC:
+                        self.rollback_deleted_vips(data, new_ipv4_ip,
+                                                   nuage_vip_dict, nuage_vport,
+                                                   port, subnet_mapping)
                         raise
 
         self._port_device_change(context, db_context, nuage_vport,
@@ -1054,24 +1055,63 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                         original_port=original,
                                         vport=nuage_vport, rollbacks=rollbacks,
                                         subnet_mapping=subnet_mapping)
-            if _is_os_mgd(subnet_mapping):
-                new_sg = port.get('security_groups')
-                prt_sec_updt_rqd = (original.get(portsecurity.PORTSECURITY) !=
-                                    port.get(portsecurity.PORTSECURITY))
-                if prt_sec_updt_rqd and not new_sg:
-                    self._process_port_create_secgrp_for_port_sec(db_context,
-                                                                  port)
-                if prt_sec_updt_rqd:
-                    status = (constants.DISABLED
-                              if port.get(portsecurity.PORTSECURITY, True)
-                              else constants.ENABLED)
-                    self.vsdclient.update_mac_spoofing_on_vport(
-                        nuage_vport['ID'],
-                        status)
+            new_sg = port.get('security_groups')
+            prt_sec_updt_rqd = (original.get(portsecurity.PORTSECURITY) !=
+                                port.get(portsecurity.PORTSECURITY))
+            if (_is_os_mgd(subnet_mapping) and
+                    prt_sec_updt_rqd and not new_sg):
+                self._process_port_create_secgrp_for_port_sec(db_context,
+                                                              port)
+            if prt_sec_updt_rqd:
+                status = (constants.DISABLED
+                          if port.get(portsecurity.PORTSECURITY, True)
+                          else constants.ENABLED)
+                self.vsdclient.update_mac_spoofing_on_vport(
+                    nuage_vport['ID'],
+                    status)
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
                     rollback[0](*rollback[1], **rollback[2])
+
+    def rollback_deleted_vips(self, data, new_ipv4_ip, nuage_vip_dict,
+                              nuage_vport, port, subnet_mapping):
+        for vip in nuage_vip_dict.keys():
+            params = {
+                'vport_id': nuage_vport['ID'],
+                'externalID': port['id'],
+                'vip': vip,
+                'subnet_id': subnet_mapping['nuage_subnet_id'],
+                'mac': data['mac']
+            }
+            if vip == new_ipv4_ip:
+                params['IPType'] = 'IPV4'
+            else:
+                params['IPType'] = 'IPV6'
+            LOG.debug("Rolling back due to update interface failure by"
+                      " creating deleted vip ")
+            self.vsdclient.create_vip_on_vport(params)
+
+    def delete_vips_for_interface_update(self, data, new_ipv4_ip, new_ipv6_ip,
+                                         nuage_vip_dict, nuage_vport, old_ips,
+                                         subnet_mapping, original_port):
+        if (new_ipv4_ip in old_ips[4][:-1] and
+                not subnet_mapping['nuage_l2dom_tmplt_id']):
+            #  New fixed ip is in use as vip, delete ipv4 vip
+            nuage_vip_dict[new_ipv4_ip] = data['mac']
+        if (new_ipv6_ip in old_ips[6][:-1] and
+                not subnet_mapping['nuage_l2dom_tmplt_id']):
+            # New fixed ip is in use as vip, delete ipv6 vip
+            nuage_vip_dict[new_ipv6_ip] = data['mac']
+        for addrpair in original_port['allowed_address_pairs']:
+            if (addrpair['ip_address'] == new_ipv4_ip or
+                    addrpair['ip_address'] == new_ipv6_ip):
+                # New fixed ip is in use as vip, delete vip
+                nuage_vip_dict[addrpair['ip_address']] = (
+                    addrpair['mac_address'])
+        self.vsdclient.delete_vips(nuage_vport['ID'],
+                                   nuage_vip_dict,
+                                   nuage_vip_dict.keys())
 
     def _find_vport(self, db_context, port, subnet_mapping):
         try:
@@ -1182,7 +1222,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                       nuage_subnet)
 
     @utils.context_log
-    @TimeTracker.tracked
     def delete_port_postcommit(self, context):
         db_context = context._plugin_context
         port = context.current
@@ -1515,13 +1554,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                  old_ips=orig_port['fixed_ips'],
                                  new_ips=port['fixed_ips'])
         if ips_change:
-            # Only one fixed ip per neutron subnet allowed
-            subnets = [ip["subnet_id"] for ip in new_ips]
-            if len(set(subnets)) != len(subnets):
-                msg = _("It is not allowed to add more than one ip "
-                        "per neutron subnet to port {}.").format(port["id"])
-                raise NuageBadRequest(msg=msg)
-
             # Only 1 corresponding VSD subnet allowed
             orig_vsd_subnets = self._get_vsd_subnet_ids_by_port(db_context,
                                                                 orig_port)
@@ -1537,6 +1569,14 @@ class NuageMechanismDriver(NuageML2Wrapper):
                 msg = _("One neutron port cannot correspond to multiple "
                         "VSD subnets").format(port["id"])
                 raise NuageBadRequest(msg=msg)
+            subnet_ids = set([x['subnet_id'] for x in port['fixed_ips']])
+            subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
+                db_context.session, subnet_ids)
+            l2dom = next((subnet for subnet in subnet_mappings
+                          if _is_l2(subnet)), None)
+            if l2dom and not self.get_subnet(
+                    db_context, l2dom['subnet_id'])['enable_dhcp']:
+                return False
         return vm_if_update
 
     @staticmethod
@@ -1642,7 +1682,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         fixed_ips = port['fixed_ips']
         subnets = {4: {}, 6: {}}
-        ips = {4: None, 6: None}
+        ips = {4: [], 6: []}
         for fixed_ip in fixed_ips:
             try:
                 subnet = self.core_plugin.get_subnet(db_context,
@@ -1652,7 +1692,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
                          fixed_ip['subnet_id'])
                 return
             subnets[subnet['ip_version']] = subnet
-            ips[subnet['ip_version']] = fixed_ip['ip_address']
+            ips[subnet['ip_version']].append(fixed_ip['ip_address'])
+        for key in ips.keys():
+            ips[key] = utils.sort_ips(ips[key])
 
         # Only when the tenant who creates the port is different from both
         # ipv4 and ipv6 tenant, we have to add extra permissions on the subnet.
@@ -1671,8 +1713,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             'id': vm_id,
             'mac': port['mac_address'],
             'netpart_name': np_name,
-            'ipv4': ips[4],
-            'ipv6': ips[6],
+            'ipv4': ips[4][-1] if ips[4] else None,
+            'ipv6': ips[6][-1] if ips[6] else None,
             'no_of_ports': no_of_ports,
             'tenant': port['tenant_id'],
             'netpart_id': subnet_mapping['net_partition_id'],
