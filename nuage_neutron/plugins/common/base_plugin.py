@@ -34,6 +34,7 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.utils import compare_cidr
+from nuage_neutron.plugins.common.utils import sort_ips
 from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.vsdclient import restproxy
@@ -331,6 +332,25 @@ class RootNuagePlugin(object):
                         subnet_mapping['subnet_id'])
             else:
                 raise
+
+    @log_helpers.log_method_call
+    def calculate_vips_for_port_ips(self, context, port):
+        fixed_ips = port['fixed_ips']
+        ips = {4: [], 6: []}
+        for fixed_ip in fixed_ips:
+            try:
+                subnet = self.core_plugin.get_subnet(context,
+                                                     fixed_ip['subnet_id'])
+            except n_exc.SubnetNotFound:
+                LOG.info("Subnet %s has been deleted concurrently",
+                         fixed_ip['subnet_id'])
+                continue
+            ips[subnet['ip_version']].append(fixed_ip['ip_address'])
+        for key in ips.keys():
+            ips[key] = sort_ips(ips[key])
+        port[constants.VIPS_FOR_PORT_IPS] = (ips[4][:-1] +
+                                             ips[6][:-1])
+        return ips
 
 
 class BaseNuagePlugin(RootNuagePlugin):

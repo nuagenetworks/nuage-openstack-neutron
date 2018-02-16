@@ -539,6 +539,9 @@ class VsdClient(object):
     def get_vips(self, vport_id):
         pass
 
+    def create_vip_on_vport(self, params):
+        pass
+
     def delete_vips(self, vport_id, vip_dict, vips):
         pass
 

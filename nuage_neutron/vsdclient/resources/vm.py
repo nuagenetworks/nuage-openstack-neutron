@@ -536,6 +536,9 @@ class NuageVM(object):
                 if e.vsd_code == constants.VSD_IP_IN_USE_ERR_CODE:
                     # Vip address already in use by other vminterface.
                     # Workaround by allowing source address spoofing.
+                    LOG.warn("Could not create VIP as it's in use"
+                             " by other VM interface, hence we will"
+                             " enable MAC spoofing.")
                     return True
                 elif e.code == constants.REST_SERV_INTERNAL_ERROR:
                     raise

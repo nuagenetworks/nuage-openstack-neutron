@@ -18,6 +18,7 @@ from oslo_utils import excutils
 
 from neutron.callbacks import resources
 from neutron.extensions import allowedaddresspairs as addr_pair
+from neutron.extensions import portbindings
 from neutron.extensions import portsecurity
 from neutron import manager
 from neutron.plugins.common import constants as service_constants
@@ -66,7 +67,7 @@ class NuageAddressPair(BaseNuagePlugin):
         return fip_dict
 
     def _create_vips(self, context, subnet_mapping, port, nuage_vport):
-        nuage_vip_dict = dict()
+        port_vip_dict = nuage_vip_dict = dict()
         enable_spoofing = False
         vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(subnet_mapping,
                                                                 required=True)
@@ -75,6 +76,35 @@ class NuageAddressPair(BaseNuagePlugin):
             port['network_id'])
         fips_per_vip = {vip: self._make_fip_dict_with_subnet_id(fip)
                         for vip, fip in six.iteritems(fips_per_vip)}
+
+        if (port.get(constants.VIPS_FOR_PORT_IPS) and
+                not subnet_mapping['nuage_l2dom_tmplt_id']):
+            for vip_ip in port.get(constants.VIPS_FOR_PORT_IPS):
+                params = {
+                    'vip': vip_ip,
+                    'mac': port['mac_address'],
+                    'subnet_id': subnet_mapping['nuage_subnet_id'],
+                    'vsd_subnet': vsd_subnet,
+                    'vport_id': nuage_vport['ID'],
+                    'port_ips': [],
+                    'port_mac': '',
+                    'externalID': port['id'],
+                    'os_fip': None,
+                    'vsd_l3domain_id': None
+                }
+                try:
+                    enable_spoofing |= self.vsdclient.create_vip(params)
+                    port_vip_dict[params['vip']] = params['mac']
+                except Exception as e:
+                    with excutils.save_and_reraise_exception():
+                        LOG.error(
+                            "Error in creating vip for ip %(vip)s and mac "
+                            "%(mac)s: %(err)s", {'vip': vip_ip,
+                                                 'mac': port['mac_address'],
+                                                 'err': e.message})
+                        self.vsdclient.delete_vips(nuage_vport['ID'],
+                                                   port_vip_dict,
+                                                   port_vip_dict.keys())
 
         for allowed_addr_pair in port[addr_pair.ADDRESS_PAIRS]:
             vip = allowed_addr_pair['ip_address']
@@ -104,7 +134,6 @@ class NuageAddressPair(BaseNuagePlugin):
             try:
                 enable_spoofing |= self.vsdclient.create_vip(params)
                 nuage_vip_dict[params['vip']] = params['mac']
-
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     LOG.error("Error in creating vip for ip %(vip)s and mac "
@@ -143,6 +172,7 @@ class NuageAddressPair(BaseNuagePlugin):
             nuage_vip_dict[nuage_vip['vip']] = nuage_vip['mac']
 
         os_vip_dict = dict()
+        vip_for_ip_dict = dict()
         if addr_pair.ADDRESS_PAIRS in port:
             for allowed_addr_pair in port[addr_pair.ADDRESS_PAIRS]:
                 # OS allows addr pairs with same ip and different mac,
@@ -155,13 +185,26 @@ class NuageAddressPair(BaseNuagePlugin):
                     continue
                 os_vip_dict[allowed_addr_pair['ip_address']] = (
                     allowed_addr_pair['mac_address'])
+                vip_for_ip_dict[allowed_addr_pair['ip_address']] = (
+                    allowed_addr_pair['mac_address'])
+        port_ip_vip_add_list = []
+        if port.get(constants.VIPS_FOR_PORT_IPS):
+            for vip in port.get(constants.VIPS_FOR_PORT_IPS):
+                if vip not in nuage_vip_dict:
+                    port_ip_vip_add_list.append(vip)
+                elif port['mac_address'] != nuage_vip_dict[vip]:
+                    port_ip_vip_add_list.append(vip)
+                else:
+                    os_vip_dict[vip] = port['mac_address']
 
         vips_add_list = []
         vips_delete_set = set()
         for vip, mac in os_vip_dict.iteritems():
             if vip in nuage_vip_dict:
                 # Check if mac is same
-                if mac != nuage_vip_dict.get(vip):
+                if (mac != nuage_vip_dict.get(vip) or
+                        (vip in port.get(constants.VIPS_FOR_PORT_IPS)
+                         and mac != port['mac_address'])):
                     vips_add_dict = {
                         'ip_address': vip,
                         'mac_address': mac
@@ -177,7 +220,9 @@ class NuageAddressPair(BaseNuagePlugin):
         for vip, mac in nuage_vip_dict.iteritems():
             if vip in os_vip_dict:
                 # Check if mac is same
-                if mac != os_vip_dict.get(vip):
+                if (mac != os_vip_dict.get(vip) or
+                        (vip in port.get(constants.VIPS_FOR_PORT_IPS)
+                         and mac != port['mac_address'])):
                     vips_delete_set.add(vip)
             else:
                 vips_delete_set.add(vip)
@@ -192,14 +237,17 @@ class NuageAddressPair(BaseNuagePlugin):
                     LOG.error("Error in deleting vips on vport %(port)s: %("
                               "err)s", {'port': nuage_vport['ID'],
                                         'err': e})
-
-        if vips_add_list:
+        need_vips_for_ips = True if (
+            not subnet_mapping['nuage_l2dom_tmplt_id'] and
+            port.get(constants.VIPS_FOR_PORT_IPS)) else False
+        if vips_add_list or need_vips_for_ips:
             port_dict = {
                 addr_pair.ADDRESS_PAIRS: vips_add_list,
                 'fixed_ips': port['fixed_ips'],
                 'mac_address': port['mac_address'],
                 'id': port['id'],
-                'network_id': port['network_id']
+                'network_id': port['network_id'],
+                constants.VIPS_FOR_PORT_IPS: port_ip_vip_add_list
             }
             self._create_vips(context, subnet_mapping, port_dict, nuage_vport)
 
@@ -216,9 +264,12 @@ class NuageAddressPair(BaseNuagePlugin):
                     self._update_vips(context, subnet_mapping,
                                       port, vport, delete_addr_pairs)
 
-    def _verify_allowed_address_pairs(self, port, original_port):
+    @staticmethod
+    def _verify_allowed_address_pairs(port, original_port):
         if (port.get(addr_pair.ADDRESS_PAIRS) ==
-                original_port.get(addr_pair.ADDRESS_PAIRS)):
+                original_port.get(addr_pair.ADDRESS_PAIRS) and
+                original_port.get(constants.VIPS_FOR_PORT_IPS) ==
+                port.get(constants.VIPS_FOR_PORT_IPS)):
             LOG.info('No allowed address pairs update required for port %s',
                      port['id'])
             return False
@@ -236,15 +287,23 @@ class NuageAddressPair(BaseNuagePlugin):
         old_addr_pairs = original_port[addr_pair.ADDRESS_PAIRS]
         new_addr_pairs = port[addr_pair.ADDRESS_PAIRS]
         delete_addr_pairs = self._get_deleted_addr_pairs(old_addr_pairs,
-                                                         new_addr_pairs)
+                                                         new_addr_pairs,
+                                                         port)
+        self._get_deleted_vips_for_port_ips(delete_addr_pairs,
+                                            original_port, port)
         self._process_allowed_address_pairs(context, port, vport,
                                             False, delete_addr_pairs)
 
-    def _get_deleted_addr_pairs(self, old_addr_pairs, new_addr_pairs):
+    def _get_deleted_addr_pairs(self, old_addr_pairs, new_addr_pairs,
+                                new_port):
         addr_pair_dict = dict()
         deleted_addr_pairs = []
         for addrpair in new_addr_pairs:
             addr_pair_dict[addrpair['ip_address']] = addrpair['mac_address']
+
+        if new_port.get(constants.VIPS_FOR_PORT_IPS):
+            for vip in new_port.get(constants.VIPS_FOR_PORT_IPS):
+                addr_pair_dict[vip] = new_port['mac_address']
 
         for addrpair in old_addr_pairs:
             if addrpair['ip_address'] in addr_pair_dict:
@@ -255,6 +314,17 @@ class NuageAddressPair(BaseNuagePlugin):
             else:
                 deleted_addr_pairs.append(addrpair)
 
+        return deleted_addr_pairs
+
+    @staticmethod
+    def _get_deleted_vips_for_port_ips(deleted_addr_pairs,
+                                       old_port, new_port):
+        if old_port.get(constants.VIPS_FOR_PORT_IPS):
+            for vip in old_port.get(constants.VIPS_FOR_PORT_IPS):
+                if vip not in new_port.get(constants.VIPS_FOR_PORT_IPS):
+                    deleted_addr_pairs.append(
+                        {'ip_address': vip,
+                         'mac_address': new_port['mac_address']})
         return deleted_addr_pairs
 
     def process_address_pairs_of_subnet(self, context, subnet_mapping,
@@ -274,6 +344,8 @@ class NuageAddressPair(BaseNuagePlugin):
             vport = vports_by_port_id.get(port['id'])
             LOG.debug("Process address pairs for port: %s", port)
             if vport:
+                self.calculate_vips_for_port_ips(context,
+                                                 port)
                 self.create_allowed_address_pairs(context, port, vport)
 
     @TimeTracker.tracked
@@ -281,10 +353,11 @@ class NuageAddressPair(BaseNuagePlugin):
         port = kwargs.get('port')
         vport = kwargs.get('vport')
         context = kwargs.get('context')
-        if not port.get("allowed_address_pairs"):
+        if (not port.get(constants.VIPS_FOR_PORT_IPS) and
+                not port.get("allowed_address_pairs") and
+                (port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL) or
+                port[portsecurity.PORTSECURITY] is False):
             # If there are no allowed_address_pair in the request
-            return
-        if port[portsecurity.PORTSECURITY] is False:
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron
             return
@@ -298,10 +371,12 @@ class NuageAddressPair(BaseNuagePlugin):
     def post_port_update_addresspair(self, resource, event, plugin, context,
                                      port, original_port, vport, rollbacks,
                                      **kwargs):
-        if port[portsecurity.PORTSECURITY] is False:
+        if (port[portsecurity.PORTSECURITY] is False or
+                port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL):
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron
             return
+
         self.update_allowed_address_pairs(context, port, original_port, vport)
         rollbacks.append((self.update_allowed_address_pairs,
                           [context, original_port, port, vport], {}))

@@ -54,12 +54,12 @@ class TestNuageExtensions(testtools.TestCase):
 class TestNuagePortExtensionDriver(TestNuageExtensions):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_init_nuage_port_extension_driver(self, m1):
+    def test_init_nuage_port_extension_driver(self, *mocks):
         NuagePortExtensionDriver().initialize()
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'verify_cms')
-    def test_init_nuage_port_extension_driver2(self, m1, m2):
+    def test_init_nuage_port_extension_driver2(self, *mocks):
         self.set_config_fixture()
         NuagePortExtensionDriver().initialize()
 
@@ -67,12 +67,12 @@ class TestNuagePortExtensionDriver(TestNuageExtensions):
 class TestNuageSubnetExtensionDriver(TestNuageExtensions):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_init_nuage_subnet_extension_driver(self, m1):
+    def test_init_nuage_subnet_extension_driver(self, *mocks):
         NuageSubnetExtensionDriver().initialize()
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'verify_cms')
-    def test_init_nuage_subnet_extension_driver2(self, m1, m2):
+    def test_init_nuage_subnet_extension_driver2(self, *mocks):
         self.set_config_fixture()
         NuageSubnetExtensionDriver().initialize()
 
@@ -80,12 +80,12 @@ class TestNuageSubnetExtensionDriver(TestNuageExtensions):
 class TestNuageSecurityGroupExtensionDriver(TestNuageExtensions):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_init_nuage_sg_extension_driver(self, m1):
+    def test_init_nuage_sg_extension_driver(self, *mocks):
         NuageSecurityGroup()
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'verify_cms')
-    def test_init_nuage_sg_extension_driver2(self, m1, m2):
+    def test_init_nuage_sg_extension_driver2(self, *mocks):
         self.set_config_fixture()
         NuageSecurityGroup()
 

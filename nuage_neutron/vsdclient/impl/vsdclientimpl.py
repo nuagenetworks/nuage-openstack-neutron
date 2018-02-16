@@ -914,6 +914,9 @@ class VsdClientImpl(VsdClient):
     def disassociate_fip_from_vips(self, neutron_subnet_id, vip):
         self.vm.disassociate_fip_from_vips(neutron_subnet_id, vip)
 
+    def create_vip_on_vport(self, params):
+        self.vm.create_vip_on_vport(params)
+
     def process_deleted_addr_pair(self, params):
         self.vm.process_deleted_addr_pair(params)
 
