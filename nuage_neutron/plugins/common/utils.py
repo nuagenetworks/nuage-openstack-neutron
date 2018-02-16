@@ -12,20 +12,50 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import print_function
+
 import contextlib
 import functools
 import netaddr
 import six
+import socket
+import struct
 import sys
 
 from neutron._i18n import _
 from neutron_lib import constants as neutron_constants
 from oslo_config import cfg
-from oslo_log import log as logging
 
 from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
+
+
+def get_logger(name=None, fn=None):
+    try:
+        from oslo_log import log as logging
+        return logging.getLogger(fn.__module__ if fn else name)
+
+    except ImportError:
+        # cygwin does not support oslo logging
+        class SimpleLogger(object):
+            def __init__(self, mod_name=None):
+                self.name = mod_name if mod_name else ''
+                self.debug('Caution: SimpleLogger activated.')
+
+            def debug(self, debug_str, *args):
+                print('[%s] [DEBUG] %s' % (self.name, debug_str), *args)
+
+            def info(self, info_str, *args):
+                print('[%s] [INFO] %s' % (self.name, info_str), *args)
+
+            def warn(self, warn_str, *args):
+                print('[%s] [WARN] %s' % (self.name, warn_str), *args)
+
+            def error(self, error_str, *args):
+                print('[%s] [ERROR] %s' % (self.name, error_str), *args)
+
+        return SimpleLogger(fn.__module__ if fn else name)
 
 
 def handle_nuage_api_error(fn):
@@ -40,9 +70,16 @@ def handle_nuage_api_error(fn):
     return wrapped
 
 
+def compare_ip(ip1, ip2):
+    return ((ip1 is None and ip2 is None) or
+            (ip1 is not None and ip2 is not None and
+             netaddr.IPAddress(ip1) == netaddr.IPAddress(ip2)))
+
+
 def compare_cidr(cidr1, cidr2):
-    return cidr1 is not None and cidr2 is not None and \
-        normalize_cidr(cidr1) == normalize_cidr(cidr2)
+    return ((cidr1 is None and cidr2 is None) or
+            (cidr1 is not None and cidr2 is not None and
+             normalize_cidr(cidr1) == normalize_cidr(cidr2)))
 
 
 def normalize_cidr(value):
@@ -67,7 +104,7 @@ def context_log(fn):
         class_name = instance.__class__.__name__
         method_name = fn.__name__
         context = args[1]
-        LOG = logging.getLogger(fn.__module__)
+        LOG = get_logger(fn=fn)
         LOG.debug('%s method %s is getting called with context.current %s, '
                   'context.original %s' % (class_name, method_name,
                                            context.current,
@@ -106,7 +143,7 @@ def retry_on_vsdclient_error(fn, nr_retries=3, vsd_error_codes=None):
             try:
                 return fn(*args, **kwargs)
             except RESTProxyError as e:
-                LOG = logging.getLogger(fn.__module__)
+                LOG = get_logger(fn=fn)
                 if tries == nr_retries:
                     LOG.debug('Failed to execute {} {} times.'.format(
                         fn.func_name, nr_retries)
@@ -209,7 +246,7 @@ def add_rollback(rollbacks, method, *args, **kwargs):
 @contextlib.contextmanager
 def rollback():
     rollbacks = []
-    log = logging.getLogger()
+    log = get_logger()
     try:
         yield functools.partial(add_rollback, rollbacks)
     except Exception:
@@ -257,3 +294,20 @@ def count_fixed_ips_per_version(fixed_ips):
         if netaddr.valid_ipv6(fixed_ip['ip_address']):
             ipv6s += 1
     return ipv4s, ipv6s
+
+
+def _convert_ipv6(ip):
+    hi, lo = struct.unpack('!QQ', socket.inet_pton(socket.AF_INET6, ip))
+    return (hi << 64) | lo
+
+
+def sort_ips(ips):
+    # (gridinv): attempt first ipv4 conversion
+    # on socket.error assume ipv6
+    try:
+        return sorted(ips,
+                      key=lambda ip: struct.unpack(
+                          '!I', socket.inet_pton(socket.AF_INET, ip))[0])
+    except socket.error:
+        return sorted(ips,
+                      key=lambda ip: _convert_ipv6(ip))
