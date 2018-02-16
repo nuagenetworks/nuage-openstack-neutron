@@ -510,9 +510,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         return True
 
     def _validate_port_request_attributes(self, current, original=None):
-        unsupported_attributes = ['extra_dhcp_opts', 'allowed_address_pairs',
-                                  'security_groups']
-        no_update_attributes = ['port_security_enabled', 'admin_state_up']
+        unsupported_attributes = ['extra_dhcp_opts']
+        no_update_attributes = ['admin_state_up']
         for attribute in unsupported_attributes:
             if current.get(attribute):
                 msg = _("Unsupported attribute %(attr)s can't be set for "
