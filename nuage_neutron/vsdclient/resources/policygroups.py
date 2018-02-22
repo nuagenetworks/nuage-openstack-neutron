@@ -853,7 +853,7 @@ class NuagePolicyGroups(object):
                         ext_id,
                         constants.NUAGE_ACL_EGRESS,
                         name=acl_tmpl_name,
-                        priority=1)[0]
+                        priority=1)
                     self.create_default_deny_rule(parent_id,
                                                   parent_type,
                                                   deny_all_tmpl,
@@ -887,7 +887,7 @@ class NuagePolicyGroups(object):
         return self.restproxy.post(
             rest_path, rest_data,
             on_res_exists=self.restproxy.retrieve_by_external_id,
-            ignore_err_codes=['2533'])
+            ignore_err_codes=[restproxy.REST_DUPLICATE_ACL_PRIORITY])[0]
 
     def create_default_deny_rule(self, parent_id, parent_type,
                                  acl_tpml_id, direction, pg_id):
