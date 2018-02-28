@@ -174,13 +174,13 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             fc_filter)
         with nuage_utils.rollback() as on_exc:
             vlan_subnet_mapping = self.get_subnet_vlan_bit_map_with_lock(
-                context.session,
+                context,
                 subnet_id=domain_id)
             if vlan_subnet_mapping:
                 vlan_label_id = self._set_vlanid(domain_id,
                                                  vlan_subnet_mapping)
                 on_exc(self.update_subnet_vlan_bit_map_unset,
-                       context.session,
+                       context,
                        vlan_label_id,
                        domain_id)
             else:
@@ -189,11 +189,11 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                 mask = 1 << 0
                 vlan_bit_map &= ~mask
                 self.add_subnet_vlan_bit_map(
-                    context.session,
+                    context,
                     subnet_id=domain_id,
                     vlan_bit_map=binascii.unhexlify('%x' % vlan_bit_map))
                 on_exc(self.delete_subnet_vlan_bit_map,
-                       context.session, domain_id)
+                       context, domain_id)
             port_chain_dict['chain_parameters']['correlation_id'] = (
                 vlan_label_id)
             pc = nuage_sfc_db.NuageSfcDbPlugin.create_port_chain(
@@ -270,6 +270,11 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                           'fc_' + fc_info['logical_destination_port']]
 
             flow_classifiers.append(fc_info)
+
+        if not domain_id and not pc_fcs:
+            port = self.core_plugin.get_port(context,
+                                             id=port_for_parent_validation)
+            domain_id = self._check_ports_on_same_l2_or_l3_domain([port], '')
         return domain_id, fc_filter, flow_classifiers
 
     def _map_ppg_names_for_filtering(self, context, port_pair_groups):
@@ -460,7 +465,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         port_info = self.core_plugin.get_port(context, id=pp['ingress'])
         if port_info:
             self.update_subnet_vlan_bit_map_unset(
-                context.session,
+                context,
                 pc['chain_parameters']['correlation_id'],
                 port_info['fixed_ips'][0]['subnet_id'])
 

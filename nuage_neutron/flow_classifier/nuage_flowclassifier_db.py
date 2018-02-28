@@ -13,10 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import six
-
 from networking_sfc.db import flowclassifier_db
 from networking_sfc.extensions import flowclassifier as fc_ext
+from neutron.db import api as db_api
 
 from oslo_utils import uuidutils
 
@@ -54,10 +53,11 @@ class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
 
     def create_flow_classifier(self, context, flow_classifier):
         fc = flow_classifier['flow_classifier']
-        tenant_id = fc['tenant_id']
+        project_id = fc['project_id']
         l7_parameters = {
+            # Overriding the method due to change of below line only
             key: flowclassifier_db.L7Parameter(keyword=key, value=val)
-            for key, val in six.iteritems(fc['l7_parameters'])}
+            for key, val in fc['l7_parameters'].items()}
         ethertype = fc['ethertype']
         protocol = fc['protocol']
         source_port_range_min = fc['source_port_range_min']
@@ -76,7 +76,7 @@ class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
         self._check_ip_prefix_valid(destination_ip_prefix, ethertype)
         logical_source_port = fc['logical_source_port']
         logical_destination_port = fc['logical_destination_port']
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             if logical_source_port is not None:
                 self._get_port(context, logical_source_port)
             if logical_destination_port is not None:
@@ -93,7 +93,7 @@ class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
                     )
             flow_classifier_db = flowclassifier_db.FlowClassifier(
                 id=uuidutils.generate_uuid(),
-                tenant_id=tenant_id,
+                project_id=project_id,
                 name=fc['name'],
                 description=fc['description'],
                 ethertype=ethertype,
