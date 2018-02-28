@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.db import api as db_api
 from neutron_lib import constants as lib_constants
 from nuage_neutron.flow_classifier import extensions  # noqa
 from nuage_neutron.flow_classifier import nuage_flowclassifier_db
@@ -63,7 +64,7 @@ class NuageFlowClassifierPlugin(
         src_prt_details, dst_prt_details = self._validate_flow_classifier(
             context,
             flow_classifier_dict)
-        with context.session.begin(subtransactions=True):
+        with db_api.context_manager.writer.using(context):
             fc_db = (nuage_flowclassifier_db.NuageFlowClassifierDbPlugin.
                      create_flow_classifier(self, context, flow_classifier))
         with nuage_utils.rollback() as on_exc:
