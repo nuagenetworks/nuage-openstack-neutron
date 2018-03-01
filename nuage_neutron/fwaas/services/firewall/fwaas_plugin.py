@@ -18,8 +18,8 @@ import logging
 
 from neutron._i18n import _
 from neutron.db import api as db_api
-from neutron.plugins.common import constants as const
 from neutron_fwaas.services.firewall import fwaas_plugin as original
+from neutron_lib import constants as const
 from neutron_lib import exceptions
 
 from oslo_config import cfg
