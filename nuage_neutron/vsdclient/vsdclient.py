@@ -88,10 +88,14 @@ class VsdClient(object):
     def create_subnet(self, ipv4_subnet, params, ipv6_subnet=None):
         pass
 
-    def delete_subnet(self, id, mapping=None, l3_vsd_subnet_id=None):
+    def delete_subnet(self, mapping=None, l2dom_id=None,
+                      l3_vsd_subnet_id=None):
         pass
 
     def update_subnet(self, neutron_subnet, params):
+        pass
+
+    def update_subnet_description(self, nuage_id, new_description):
         pass
 
     def update_domain_subnet(self, neutron_subnet, params):
@@ -150,7 +154,7 @@ class VsdClient(object):
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
                                   ipv4_subnet_mapping, pnet_binding,
-                                  ipv6_subnet_mapping):
+                                  subnet, ipv6_subnet_mapping):
         pass
 
     def create_nuage_floatingip(self, params):
@@ -212,13 +216,13 @@ class VsdClient(object):
     def get_domain_subnet_by_id(self, subnet_id):
         pass
 
-    def get_domain_subnet_by_external_id(self, neutron_id):
+    def get_domain_subnet_by_external_id(self, subnet):
         pass
 
     def get_l2domain_by_id(self, l2domain_id):
         pass
 
-    def get_l2domain_by_external_id(self, neutron_id):
+    def get_l2domain_by_external_id(self, subnet):
         pass
 
     def get_l3domain_by_id(self, l3domain_id, required=False):
@@ -336,7 +340,7 @@ class VsdClient(object):
                                             portchain_id):
         pass
 
-    def create_nuage_redirect_target(self, redirect_target, subnet_id=None,
+    def create_nuage_redirect_target(self, redirect_target, l2dom_id=None,
                                      domain_id=None):
         pass
 
@@ -530,9 +534,6 @@ class VsdClient(object):
         pass
 
     def get_nuage_prefix_macro(self, net_macro_id):
-        pass
-
-    def set_subn_external_id(self, neutron_subn_id, nuage_subn_id):
         pass
 
     def get_nuage_fip(self, nuage_fip_id):

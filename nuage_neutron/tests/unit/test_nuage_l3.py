@@ -1,4 +1,4 @@
-# Copyright 2017 Nokia
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -12,7 +12,22 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nuage_neutron.plugins.common import config
+# run me using :
+# python -m testtools.run nuage_neutron/tests/unit/test_nuage_l3.py
 
-# Load Nuage configuration
-config.nuage_register_cfg_opts()
+import mock
+import testtools
+
+from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
+from nuage_neutron.plugins.common.service_plugins.l3 import NuageL3Plugin
+
+
+class TestNuageL3Plugin(testtools.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestNuageL3Plugin, cls).setUpClass()
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    def test_l3_init(self, *mocks):
+        NuageL3Plugin()

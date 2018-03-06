@@ -83,33 +83,16 @@ class NuagePolicyGroups(object):
         response = None
         nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
         if rtr_id:
-            response = self.restproxy.rest_call(
-                'POST', nuage_policygroup.post_resource(),
-                nuage_policygroup.post_data())
+            response = self.restproxy.post(
+                nuage_policygroup.post_resource(),
+                nuage_policygroup.post_data(),
+                ignore_err_codes=[restproxy.REST_PG_EXISTS_ERR_CODE])
         elif l2dom_id:
-            response = self.restproxy.rest_call(
-                'POST', nuage_policygroup.post_resource_l2dom(),
-                nuage_policygroup.post_data())
-        if not nuage_policygroup.validate(response):
-            if response[0] != constants.CONFLICT_ERR_CODE:
-                raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
-            else:
-                LOG.debug(nuage_policygroup.error_msg)
-                # Return already existing policygroup id
-                # router
-                if rtr_id:
-                    nuage_policygroup_id = (
-                        pg_helper.get_l3dom_policygroup_by_sgid(
-                            self.restproxy, rtr_id, sg_id, sg_type))
-                # l2 domain
-                else:
-                    nuage_policygroup_id = (
-                        pg_helper.get_l2dom_policygroup_by_sgid(
-                            self.restproxy, l2dom_id, sg_id, sg_type))
-                return nuage_policygroup_id
-
-        nuage_policygroup_id = nuage_policygroup.get_policygroup_id(response)
-        return nuage_policygroup_id
+            response = self.restproxy.post(
+                nuage_policygroup.post_resource_l2dom(),
+                nuage_policygroup.post_data(),
+                ignore_err_codes=[restproxy.REST_PG_EXISTS_ERR_CODE])
+        return response[0]['ID']
 
     def delete_nuage_policy_group(self, nuage_policy_id):
         nuage_policygroup = nuagelib.NuagePolicygroup()
@@ -1014,7 +997,7 @@ class NuagePolicyGroups(object):
         return not (value and value.parameter_value == '0')
 
     def create_policygroup_default_allow_any_rule(self, l2dom_id, rtr_id,
-                                                  neutron_subnet_id, gw_type,
+                                                  neutron_subnet, gw_type,
                                                   pg_name=None):
         sg_type = constants.SOFTWARE
         if gw_type == "VSG":
@@ -1022,10 +1005,11 @@ class NuagePolicyGroups(object):
         params = {
             'nuage_router_id': rtr_id,
             'nuage_l2dom_id': l2dom_id,
-            'name': 'defaultPG-' + neutron_subnet_id,
+            'name': 'defaultPG-' +
+                    (neutron_subnet['nuage_l2bridge'] or neutron_subnet['id']),
             'sg_id': None,
             'sg_type': sg_type,
-            'externalID': get_vsd_external_id(neutron_subnet_id)
+            'externalID': helper.get_subnet_external_id(neutron_subnet)
         }
 
         if pg_name:
@@ -1061,7 +1045,8 @@ class NuagePolicyGroups(object):
                     'policygroup': policygroup,
                     'neutron_sg_rule': neutron_sg_rule,
                     'sg_type': constants.HARDWARE,
-                    'externalID': get_vsd_external_id(neutron_subnet_id),
+                    'externalID': helper.get_subnet_external_id(
+                        neutron_subnet),
                     'legacy': True
                 }
                 self.create_nuage_sgrule(params)
@@ -1507,19 +1492,19 @@ class NuageRedirectTargets(object):
         self.stats_collection_enabled = (cfg.CONF.PLUGIN.
                                          stats_collection_enabled)
 
-    def create_nuage_redirect_target(self, redirect_target, subnet_id=None,
+    def create_nuage_redirect_target(self, redirect_target, l2dom_id=None,
                                      domain_id=None):
         rtarget = nuagelib.NuageRedirectTarget()
-        if subnet_id:
+        if l2dom_id:
             try:
                 redirect_target['externalID'] = get_vsd_external_id(
                     redirect_target.get('subnet_id'))
                 return self.restproxy.post(
-                    rtarget.post_resource_l2dom(subnet_id),
+                    rtarget.post_resource_l2dom(l2dom_id),
                     rtarget.post_rtarget_data(redirect_target))[0]
             except restproxy.ResourceNotFoundException:
                 domain_id = helper._get_nuage_domain_id_from_subnet(
-                    self.restproxy, subnet_id)
+                    self.restproxy, l2dom_id)
         if domain_id:
             if redirect_target.get('router_id'):
                 redirect_target['externalID'] = get_vsd_external_id(
