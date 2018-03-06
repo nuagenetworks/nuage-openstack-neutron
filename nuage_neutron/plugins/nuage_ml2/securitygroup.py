@@ -187,7 +187,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
     def post_port_create(self, resource, event, trigger, context, port, vport,
                          subnet_mapping, **kwargs):
-        if subnet_mapping['nuage_managed_subnet']:
+        if self._is_vsd_mgd(subnet_mapping):
             return
 
         if port[ext_sg.SECURITYGROUPS]:
@@ -203,7 +203,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     def post_port_update(self, resource, event, trigger, context, port,
                          original_port, vport, rollbacks, subnet_mapping,
                          **kwargs):
-        if subnet_mapping['nuage_managed_subnet']:
+        if self._is_vsd_mgd(subnet_mapping):
             return
         new_sg = (set(port.get(ext_sg.SECURITYGROUPS)) if
                   port.get(ext_sg.SECURITYGROUPS) else set())
@@ -229,7 +229,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     def post_port_delete(self, resource, event, trigger, **kwargs):
         port = kwargs['port']
         subnet_mapping = kwargs['subnet_mapping']
-        if subnet_mapping['nuage_managed_subnet']:
+        if self._is_vsd_mgd(subnet_mapping):
             return
 
         securitygroups = port.get(ext_sg.SECURITYGROUPS, [])
@@ -342,7 +342,8 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         if bound_ports:
             raise ext_sg.SecurityGroupInUse(id=sg_id)
 
-    def _update_stateful_parameter(self, session, sg_id, stateful):
+    @staticmethod
+    def _update_stateful_parameter(session, sg_id, stateful):
         if stateful:
             nuagedb.delete_nuage_sg_parameter(session, sg_id, 'STATEFUL')
         else:

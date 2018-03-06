@@ -23,12 +23,13 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils
+
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 
 LOG = logging.getLogger(__name__)
 
 
-class NuagegatewayMixin(object):
+class NuagegatewayMixin(utils.SubnetUtilsBase):
 
     def __init__(self, *args, **kwargs):
         super(NuagegatewayMixin, self).__init__(*args, **kwargs)
@@ -130,14 +131,17 @@ class NuagegatewayMixin(object):
 
         if subnet_id:
             params['subnet'] = self.core_plugin.get_subnet(context, subnet_id)
+            params['type'] = constants.BRIDGE_VPORT_TYPE
 
         if port_id:
             p = self.core_plugin.get_port(context, port_id)
             if p.get('fixed_ips'):
                 subnet_id = p['fixed_ips'][0]['subnet_id']
                 subnet = self.core_plugin.get_subnet(context, subnet_id)
+                params['subnet'] = subnet
                 params['enable_dhcp'] = subnet.get('enable_dhcp')
             params['port'] = p
+            params['type'] = constants.HOST_VPORT
 
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
             context.session, subnet_id)
@@ -438,7 +442,7 @@ class NuagegatewayMixin(object):
         if not vsd_subnet:
             return
 
-        if subnet_mapping['nuage_managed_subnet']:
+        if self._is_vsd_mgd(subnet_mapping):
             port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
             port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
         else:

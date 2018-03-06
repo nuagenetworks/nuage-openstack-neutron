@@ -124,11 +124,13 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
     @utils.context_log
     def create_port_precommit(self, context):
         port = context.current
+        db_context = context._plugin_context
         if (port.get(portbindings.VNIC_TYPE, "")
                 not in self._supported_vnic_types()):
             return
         self._validate_fixed_ip(context)
         self._validate_security_groups(context)
+        self._validate_nuage_l2bridges(db_context, port)
 
     @handle_nuage_api_errorcode
     @utils.context_log
@@ -239,7 +241,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             return
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
                                                         subnet_id)
-        if subnet_mapping['nuage_managed_subnet']:
+        if self._is_vsd_mgd(subnet_mapping):
             return
         normal_ports = nuagedb.get_port_bindings_for_sg(
             db_context.session,

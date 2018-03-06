@@ -95,6 +95,12 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'is_visible': True,
             'enforce_policy': True,
             'convert_to': convert_nuage_underlay
+        },
+        'nuage_l2bridge': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
         }
     },
 }

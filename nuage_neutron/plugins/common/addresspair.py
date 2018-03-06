@@ -68,13 +68,12 @@ class NuageAddressPair(BaseNuagePlugin):
         enable_spoofing = False
         vsd_subnet = self._find_vsd_subnet(context, subnet_mapping)
         fips_per_vip = nuagedb.get_floatingip_per_vip_in_network(
-            context.session,
-            port['network_id'])
+            context.session, port['network_id'], self.get_device_owners_vip())
         fips_per_vip = {vip: self._make_fip_dict_with_subnet_id(fip)
                         for vip, fip in six.iteritems(fips_per_vip)}
 
         if (port.get(constants.VIPS_FOR_PORT_IPS) and
-                not subnet_mapping['nuage_l2dom_tmplt_id']):
+                self._is_l3(subnet_mapping)):
             for vip_ip in port.get(constants.VIPS_FOR_PORT_IPS):
                 params = {
                     'vip': vip_ip,
@@ -210,8 +209,8 @@ class NuageAddressPair(BaseNuagePlugin):
             if vip in nuage_vip_dict:
                 # Check if mac is same
                 if (mac != nuage_vip_dict.get(vip) or
-                        (vip in port.get(constants.VIPS_FOR_PORT_IPS)
-                         and mac != port['mac_address'])):
+                        (vip in port.get(constants.VIPS_FOR_PORT_IPS) and
+                         mac != port['mac_address'])):
                     vips_add_dict = {
                         'ip_address': vip,
                         'mac_address': mac
@@ -228,8 +227,8 @@ class NuageAddressPair(BaseNuagePlugin):
             if vip in os_vip_dict:
                 # Check if mac is same
                 if (mac != os_vip_dict.get(vip) or
-                        (vip in port.get(constants.VIPS_FOR_PORT_IPS)
-                         and mac != port['mac_address'])):
+                        (vip in port.get(constants.VIPS_FOR_PORT_IPS) and
+                         mac != port['mac_address'])):
                     vips_delete_set.add(vip)
             else:
                 vips_delete_set.add(vip)
@@ -245,7 +244,7 @@ class NuageAddressPair(BaseNuagePlugin):
                               "err)s", {'port': nuage_vport['ID'],
                                         'err': e})
         need_vips_for_ips = True if (
-            not subnet_mapping['nuage_l2dom_tmplt_id'] and
+            self._is_l3(subnet_mapping) and
             port.get(constants.VIPS_FOR_PORT_IPS)) else False
         if vips_add_list or need_vips_for_ips:
             port_dict = {

@@ -679,9 +679,9 @@ class NuageDomainSubnet(object):
         return self.restproxy.get(nuagesubnet.get_resource(nuage_id),
                                   required=True)[0]
 
-    def get_domain_subnet_by_external_id(self, neutron_id):
+    def get_domain_subnet_by_external_id(self, neutron_subnet):
         params = {
-            'externalID': get_vsd_external_id(neutron_id)
+            'externalID': helper.get_subnet_external_id(neutron_subnet)
         }
         nuagesubnet = nuagelib.NuageSubnet(create_params=params)
         subnets = self.restproxy.get(
@@ -691,7 +691,7 @@ class NuageDomainSubnet(object):
             return subnets[0]
         else:
             msg = ("Cannot find subnet with ID %s"
-                   " in L3domains on VSD" % neutron_id)
+                   " in L3domains on VSD" % params['externalID'])
             raise restproxy.ResourceNotFoundException(message=msg)
 
     def get_domain_subnet_by_zone_id(self, zone_id):
@@ -714,16 +714,18 @@ class NuageDomainSubnet(object):
         vsd_subnet = nuagelib.NuageSubnet()
         self.restproxy.put(vsd_subnet.put_resource(domain_subnet_id), data)
 
-    def create_domain_subnet(
-            self, vsd_zone, ipv4_subnet, pnet_binding, ipv6_subnet=None):
+    def create_domain_subnet(self, vsd_zone, ipv4_subnet, pnet_binding,
+                             ipv6_subnet=None):
+        external_id = helper.get_subnet_external_id(ipv4_subnet)
         req_params = {
-            'name': ipv4_subnet['id'],
+            'name': helper.get_subnet_name(ipv4_subnet),
             'net': netaddr.IPNetwork(ipv4_subnet['cidr']),
             'zone': vsd_zone['ID'],
             'gateway': ipv4_subnet['gateway_ip'],
-            'externalID': get_vsd_external_id(ipv4_subnet['id'])
+            'externalID': external_id
         }
-        extra_params = {'description': ipv4_subnet.get('name'),
+        description = helper.get_subnet_description(ipv4_subnet)
+        extra_params = {'description': description,
                         'entityState': 'UNDER_CONSTRUCTION',
                         'dynamicIpv6Address': False}
         extra_params.update(helper.get_ipv6_vsd_data(ipv6_subnet))
@@ -760,9 +762,9 @@ class NuageDomainSubnet(object):
         return vsd_subnet
 
     def _process_provider_network(
-            self, pnet_binding, vsd_subnet_id, np_id, subnet_id):
+            self, pnet_binding, vsd_subnet_id, np_id, subnet):
         pnet_params = helper.get_pnet_params(
-            pnet_binding, vsd_subnet_id, np_id, subnet_id)
+            pnet_binding, vsd_subnet_id, np_id, subnet)
         pnet_helper.process_provider_network(self.restproxy,
                                              self.policygroups,
                                              pnet_params)

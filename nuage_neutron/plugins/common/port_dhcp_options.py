@@ -180,7 +180,7 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
 
     def _get_nuage_vport(self, port, subnet_mapping, required=True):
         port_params = {'neutron_port_id': port['id']}
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
+        if self._is_l2(subnet_mapping):
             port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
             port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']

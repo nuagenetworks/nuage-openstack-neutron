@@ -503,9 +503,8 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             egress_ports.append(egress_port_details)
         return ingress_ports, egress_ports, one_ingress_egress_port
 
-    @staticmethod
-    def _validate_port_config(context, port_details):
-        non_supported_ports = (nuage_utils.get_auto_create_port_owners() +
+    def _validate_port_config(self, context, port_details):
+        non_supported_ports = (self.get_auto_create_port_owners() +
                                [t_consts.TRUNK_SUBPORT_OWNER])
         if port_details['device_owner'] in non_supported_ports:
             msg = ("Do not support having port pair group where"
@@ -520,12 +519,12 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                    ' the port-id %s ' % port_details['id'])
             raise nuage_exc.NuageBadRequest(msg=msg)
         if (port_details['port_security_enabled'] and
-                not subnet_mapping['nuage_managed_subnet']):
+                self._is_os_mgd(subnet_mapping)):
             msg = ("Nuage do not support having port pair group when"
                    " port security is enabled, port-id: %s" %
                    port_details['id'])
             raise nuage_exc.NuageBadRequest(msg=msg)
-        elif subnet_mapping['nuage_managed_subnet']:
+        elif self._is_vsd_mgd(subnet_mapping):
             LOG.warning("Nuage requires spoofing to be enabled on VSD for"
                         " port-id: %s", port_details['id'])
 
@@ -852,36 +851,34 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             context.session,
             ports[0]['fixed_ips'][0]['subnet_id'])
         if subnet_mapping:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
+            if self._is_l2(subnet_mapping):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3subnet_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = (
-                    self.vsdclient.get_nuage_domain_id_from_subnet(
-                        l3subnet_id)
-                )
+                rtr_id = self.vsdclient.get_nuage_domain_id_from_subnet(
+                    l3subnet_id)
         else:
             msg = ('Cannot find subnet mapping for'
                    ' the port-id %s ' % ports[0]['id'])
             raise nuage_exc.NuageBadRequest(msg=msg)
-        instertion_mode = 'VIRTUAL_WIRE'
+        insertion_mode = 'VIRTUAL_WIRE'
         if one_ingress_egress:
             dir_ppg = 'ingress_egress' + '_' + ppg['id']
         else:
             dir_ppg = ports[0]['direction'] + '_' + ppg['id']
-        params = {'l2dom_id': l2dom_id}
-        params['rtr_id'] = rtr_id
-        params['l3dom_id'] = rtr_id
-        params['dir_ppg'] = dir_ppg
+        params = {'l2dom_id': l2dom_id,
+                  'rtr_id': rtr_id,
+                  'l3dom_id': rtr_id,
+                  'dir_ppg': dir_ppg}
         nuage_sg_id = self._create_port_pair_policy_group(params)
         on_exc(self.vsdclient.delete_nuage_policy_group,
                nuage_sg_id)
         params['name'] = dir_ppg
         params['redundancy_enabled'] = 'false'
-        params['insertion_mode'] = instertion_mode
+        params['insertion_mode'] = insertion_mode
         params['subnet_id'] = dir_ppg  # for external_id
         rt = self.vsdclient.create_nuage_redirect_target(
-            params, subnet_id=l2dom_id, domain_id=rtr_id)
+            params, l2dom_id=l2dom_id, domain_id=rtr_id)
         on_exc(self.vsdclient.delete_nuage_redirect_target, rt['ID'])
         nuage_port_ids = self._get_vports_for_ports(l2dom_id,
                                                     l3subnet_id,
@@ -904,7 +901,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         if subnet_mapping:
             l2dom_id = None
             l3subnet_id = None
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
+            if self._is_l2(subnet_mapping):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3subnet_id = subnet_mapping['nuage_subnet_id']
@@ -970,7 +967,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         if subnet_mapping:
             l2dom_id = None
             l3subnet_id = None
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
+            if self._is_l2(subnet_mapping):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3subnet_id = subnet_mapping['nuage_subnet_id']
