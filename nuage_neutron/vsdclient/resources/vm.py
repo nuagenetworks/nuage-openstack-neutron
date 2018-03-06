@@ -43,10 +43,10 @@ class NuageVM(object):
             nuagel2dom.vm_get_resource(l2dom_id))
         return response
 
-    def vms_on_subnet(self, subnet_id):
+    def vms_on_subnet(self, nuage_subnet_id):
         nuagesubnet = nuagelib.NuageSubnet()
         response = self.restproxy.get(
-            nuagesubnet.vm_get_resource(subnet_id))
+            nuagesubnet.vm_get_resource(nuage_subnet_id))
         return response
 
     def _get_nuage_vm(self, params, isdelete=False):
@@ -474,18 +474,18 @@ class NuageVM(object):
                 'GET', nuagel2dom.get_all_vports(l2dom_id), '')
         return nuagel2dom.get_validate(response)
 
-    def nuage_vports_on_subnet(self, subnet_id, pnet_binding):
+    def nuage_vports_on_subnet(self, nuage_subnet_id, pnet_binding):
         nuagesubnet = nuagelib.NuageSubnet()
         if pnet_binding:
             response = self.restproxy.rest_call(
                 'GET',
-                nuagesubnet.get_all_vports(subnet_id),
+                nuagesubnet.get_all_vports(nuage_subnet_id),
                 '',
                 extra_headers=(
                     nuagesubnet.extra_headers_host_and_vm_vport_get()))
         else:
             response = self.restproxy.rest_call(
-                'GET', nuagesubnet.get_all_vports(subnet_id), '')
+                'GET', nuagesubnet.get_all_vports(nuage_subnet_id), '')
         return nuagesubnet.get_validate(response)
 
     @staticmethod
@@ -776,13 +776,13 @@ class NuageVM(object):
             nuage_vip.get_child_resource(parent, parent_id),
             extra_headers=headers)
 
-    def _get_vips_for_subnet(self, neutron_subnet_id, **filters):
-        external_id = get_vsd_external_id(neutron_subnet_id)
+    def _get_vips_for_subnet(self, neutron_subnet, **filters):
+        external_id = helper.get_subnet_external_id(neutron_subnet)
         subnets = helper.get_l3_subnets(self.restproxy,
                                         externalID=external_id)
         if not subnets:
             msg = ("Could not find subnet with externalID '%s'"
-                   % neutron_subnet_id)
+                   % neutron_subnet['id'])
             raise restproxy.ResourceNotFoundException(msg)
         return self.get_vips(nuagelib.NuageSubnet.resource,
                              subnets[0]['ID'],
@@ -794,8 +794,8 @@ class NuageVM(object):
         self.restproxy.put(nuage_vip.put_resource(),
                            {'associatedFloatingIPID': vsd_fip_id})
 
-    def update_fip_to_vips(self, neutron_subnet_id, vip, vsd_fip_id):
-        vip_list = self._get_vips_for_subnet(neutron_subnet_id,
+    def update_fip_to_vips(self, neutron_subnet, vip, vsd_fip_id):
+        vip_list = self._get_vips_for_subnet(neutron_subnet,
                                              virtualIP=vip)
         for vip in vip_list:
             self._update_fip_to_vip(vip, vsd_fip_id)

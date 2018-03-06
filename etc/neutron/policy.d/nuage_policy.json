@@ -8,5 +8,8 @@
     "update_router:tunnel_type": "rule:admin_only",
     "create_switchport_mapping": "rule:admin_only",
     "update_switchport_mapping": "rule:admin_only",
-    "delete_switchport_mapping": "rule:admin_only"
+    "delete_switchport_mapping": "rule:admin_only",
+    "create_nuage_l2bridge": "rule:admin_only",
+    "update_nuage_l2bridge": "rule:admin_only",
+    "delete_nuage_l2bridge": "rule:admin_only"
 }

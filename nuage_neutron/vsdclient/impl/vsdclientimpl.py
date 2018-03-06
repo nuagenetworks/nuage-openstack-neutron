@@ -19,6 +19,7 @@ from time import sleep
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
+from nuage_neutron.plugins.common.utils import SubnetUtilsBase
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import gw_helper
@@ -41,7 +42,7 @@ LOG = logging.getLogger(__name__)
 
 
 @six.add_metaclass(helper.MemoizeClass)
-class VsdClientImpl(VsdClient):
+class VsdClientImpl(VsdClient, SubnetUtilsBase):
     __renew_auth_key = True
 
     @classmethod
@@ -203,11 +204,12 @@ class VsdClientImpl(VsdClient):
         l3_subnet['nuage_l2domain_id'] = l3_subnet['ID']
         return l3_subnet
 
-    def delete_subnet(self, id, mapping=None, l3_vsd_subnet_id=None):
+    def delete_subnet(self, mapping=None, l2dom_id=None,
+                      l3_vsd_subnet_id=None):
         if l3_vsd_subnet_id:
             self.domain.domainsubnet.delete_l3domain_subnet(l3_vsd_subnet_id)
-        elif mapping is None:
-            self.l2domain.delete_subnet(id)
+        elif l2dom_id:
+            self.l2domain.delete_subnet(l2dom_id, mapping)
         else:  # eg. delete ipv6 only
             template_id = mapping['nuage_l2dom_tmplt_id']
             if template_id:
@@ -218,6 +220,12 @@ class VsdClientImpl(VsdClient):
 
     def update_subnet(self, neutron_subnet, params):
         self.l2domain.update_subnet(neutron_subnet, params)
+
+    def update_subnet_description(self, nuage_id, new_description):
+        try:
+            self.l2domain.update_subnet_description(nuage_id, new_description)
+        except restproxy.ResourceNotFoundException:
+            raise
 
     def update_domain_subnet(self, neutron_subnet, params):
         self.domain.domainsubnet.update_domain_subnet(
@@ -293,12 +301,13 @@ class VsdClientImpl(VsdClient):
             return self.l2domain.create_subnet(
                 ipv4_subnet, req_params, ipv6_subnet)
         except Exception:
-            self.delete_subnet(ipv4_subnet['id'])
+            self.delete_subnet(
+                l3_vsd_subnet_id=subnet_mapping['nuage_subnet_id'])
             raise
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
                                   ipv4_subnet_mapping, pnet_binding,
-                                  ipv6_subnet_mapping=None):
+                                  subnet, ipv6_subnet_mapping):
         self.domain.domainsubnet.move_to_l2(l3subnetwork_id, l2domain_id)
         if pnet_binding:
 
@@ -306,7 +315,7 @@ class VsdClientImpl(VsdClient):
                 pnet_binding,
                 ipv4_subnet_mapping['net_partition_id'],
                 l2domain_id,
-                ipv4_subnet_mapping['subnet_id']
+                subnet,
             )
             pnet_helper.process_provider_network(self.restproxy,
                                                  self.policygroups,
@@ -316,7 +325,7 @@ class VsdClientImpl(VsdClient):
                     pnet_binding,
                     ipv6_subnet_mapping['net_partition_id'],
                     l2domain_id,
-                    ipv6_subnet_mapping['subnet_id']
+                    subnet,
                 )
                 pnet_helper.process_provider_network(self.restproxy,
                                                      self.policygroups,
@@ -391,9 +400,9 @@ class VsdClientImpl(VsdClient):
         subnet['type'] = constants.SUBNET
         return subnet
 
-    def get_domain_subnet_by_external_id(self, neutron_id):
+    def get_domain_subnet_by_external_id(self, subnet):
         subnet = self.domain.domainsubnet.get_domain_subnet_by_external_id(
-            neutron_id)
+            subnet)
         subnet['type'] = constants.SUBNET
         return subnet
 
@@ -402,8 +411,8 @@ class VsdClientImpl(VsdClient):
         l2domain['type'] = constants.L2DOMAIN
         return l2domain
 
-    def get_l2domain_by_external_id(self, neutron_id):
-        l2domain = self.l2domain.get_l2domain_by_external_id(neutron_id)
+    def get_l2domain_by_external_id(self, subnet):
+        l2domain = self.l2domain.get_l2domain_by_external_id(subnet)
         l2domain['type'] = constants.L2DOMAIN
         return l2domain
 
@@ -429,7 +438,7 @@ class VsdClientImpl(VsdClient):
     def get_nuage_subnet_by_mapping(self, subnet_mapping, required=False):
         nuage_id = subnet_mapping['nuage_subnet_id']
         try:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
+            if self._is_l2(subnet_mapping):
                 return self.get_l2domain_by_id(nuage_id)
             else:
                 return self.get_domain_subnet_by_id(nuage_id)
@@ -606,10 +615,10 @@ class VsdClientImpl(VsdClient):
     def create_nuage_sgrule(self, params):
         return self.policygroups.create_nuage_sgrule(params)
 
-    def create_nuage_redirect_target(self, redirect_target, subnet_id=None,
+    def create_nuage_redirect_target(self, redirect_target, l2dom_id=None,
                                      domain_id=None):
         return self.redirecttargets.create_nuage_redirect_target(
-            redirect_target, subnet_id, domain_id)
+            redirect_target, l2dom_id, domain_id)
 
     def get_nuage_redirect_target(self, rtarget_id):
         return self.redirecttargets.get_nuage_redirect_target(rtarget_id)
@@ -882,10 +891,6 @@ class VsdClientImpl(VsdClient):
 
     def get_nuage_prefix_macro(self, net_macro_id):
         return helper.get_nuage_prefix_macro(self.restproxy, net_macro_id)
-
-    def set_subn_external_id(self, neutron_subn_id, nuage_subn_id):
-        return helper.set_subn_external_id(self.restproxy, neutron_subn_id,
-                                           nuage_subn_id)
 
     def get_nuage_fip(self, nuage_fip_id):
         return helper.get_nuage_fip(self.restproxy, nuage_fip_id)

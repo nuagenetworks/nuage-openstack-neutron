@@ -71,7 +71,8 @@ class NuageGatewayDriverHost(base_plugin.RootNuagePlugin,
                 port_dict['subnet_mapping']['nuage_managed_subnet'],
             'port_security_enabled': False,
             'redundant': vsd_port['redundant'],
-            'personality': vsd_port['personality']
+            'personality': vsd_port['personality'],
+            'type': const.HOST_VPORT
         }
         vsd_subnet = self.vsdclient \
             .get_subnet_or_domain_subnet_by_id(

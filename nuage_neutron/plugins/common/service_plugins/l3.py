@@ -15,6 +15,7 @@
 import copy
 from logging import handlers
 import netaddr
+
 from oslo_config import cfg
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
@@ -22,23 +23,12 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from sqlalchemy.orm import exc
 
-from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuage_neutron.plugins.common.extensions import nuage_router
-from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common import utils as nuage_utils
-
-from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
-from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
-from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
-
 from neutron._i18n import _
 from neutron.db import api as db
 from neutron.db.common_db_mixin import CommonDbMixin
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
-
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
@@ -48,14 +38,18 @@ from neutron_lib.services import base as service_base
 from neutron_lib.utils import helpers
 
 from nuage_neutron.plugins.common import base_plugin
+from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import exceptions as nuage_exc
+from nuage_neutron.plugins.common.extensions import nuage_router
+from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import routing_mechanisms
+from nuage_neutron.plugins.common import utils as nuage_utils
+from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
+from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
+from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 
 
 LOG = logging.getLogger(__name__)
-
-
-def _is_ipv4(subnet):
-    return subnet['ip_version'] == lib_constants.IP_VERSION_4
 
 
 class NuageL3Plugin(base_plugin.BaseNuagePlugin,
@@ -138,6 +132,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         try:
             network = self.core_plugin.get_network(context,
                                                    rtr_if_info['network_id'])
+            if nuagedb.get_nuage_l2bridge_id_for_network(session,
+                                                         network['id']):
+                msg = _("It is not allowed to add a router interface to a"
+                        "subnet that is attached to a nuage_l2bridge.")
+                raise nuage_exc.NuageBadRequest(msg=msg)
+
             if not self.is_vxlan_network(network):
                 return rtr_if_info
             if network['router:external']:
@@ -167,7 +167,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                   vsd_subnet['ID'], exc)
                         LOG.warn(msg)
                         # this subnet has already moved to l3
-                        # in concurrency, so we are good here.
+                        # concurrently, so we are good here.
 
                         self._notify_add_del_router_interface(
                             constants.AFTER_CREATE,
@@ -193,7 +193,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return next(other_subnets, None)
 
     def seperate_ipv4_ipv6_subnet(self, subnet, dual_stack_subnet):
-        if _is_ipv4(subnet):
+        if self._is_ipv4(subnet):
             ipv4_subnet, ipv6_subnet = subnet, dual_stack_subnet
         else:
             ipv4_subnet, ipv6_subnet = dual_stack_subnet, subnet
@@ -226,7 +226,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                        router_id):
         vsd_dss = self.vsdclient.get_nuage_subnet_by_mapping(dss_l2dom)
 
-        if vsd_dss and not dss_l2dom['nuage_l2dom_tmplt_id']:
+        if vsd_dss and self._is_l3(dss_l2dom):
             nuage_dss_rtr_id = self.vsdclient.get_router_by_domain_subnet_id(
                 vsd_dss['ID'])
             nuage_rtr_id = self.vsdclient.get_router_by_external(
@@ -244,7 +244,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session, subnet_id)
             port_params = {'neutron_port_id': port['id']}
 
-            if subnet_l2dom['nuage_l2dom_tmplt_id']:
+            if self._is_l2(subnet_l2dom):
                 port_params['l2dom_id'] = subnet_l2dom['nuage_subnet_id']
             else:
                 port_params['l3dom_id'] = subnet_l2dom['nuage_subnet_id']
@@ -271,6 +271,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         dual_stack_subnet = self.get_dual_stack_subnet(context, subnet)
         ipv4_subnet, ipv6_subnet = self.seperate_ipv4_ipv6_subnet(
             subnet, dual_stack_subnet)
+        dss_l2dom = None
         if dual_stack_subnet:
             dss_l2dom = nuagedb.get_subnet_l2dom_by_id(
                 session, dual_stack_subnet['id'])
@@ -279,7 +280,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         self._nuage_validate_add_rtr_itf(session, router_id,
                                          subnet, subnet_l2dom, vsd_zone)
 
-        if subnet_l2dom and subnet_l2dom['nuage_l2dom_tmplt_id'] is None:
+        if subnet_l2dom and self._is_l3(subnet_l2dom):
             # This subnet is already l3
             self._notify_add_del_router_interface(
                 constants.AFTER_CREATE,
@@ -404,7 +405,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 filters = {'device_id': [router_id],
                            'device_owner':
                            [lib_constants.DEVICE_OWNER_ROUTER_INTF],
-                           'network_id': [subnet['network_id']]}
+                           'network_id': [subnet['network_id']],
+                           }
                 ports = self.core_plugin.get_ports(context, filters)
 
                 for p in ports:
@@ -487,7 +489,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 vsd_l2domain = \
                     self.vsdclient.create_l2domain_for_router_detach(
                         ipv4_subnet, ipv4_subnet_mapping, ipv6_subnet)
-                on_exc(self.vsdclient.delete_subnet, ipv4_subnet['id'])
+                on_exc(self.vsdclient.delete_subnet,
+                       l2dom_id=vsd_l2domain['nuage_l2domain_id'])
             result = super(NuageL3Plugin,
                            self).remove_router_interface(context, router_id,
                                                          interface_info)
@@ -509,6 +512,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 vsd_l2domain['nuage_l2domain_id'],
                 ipv4_subnet_mapping,
                 pnet_binding,
+                subnet,
                 ipv6_subnet_mapping
             )
 
@@ -800,7 +804,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             fixed_ips = port['fixed_ips']
             if not fixed_ips:
                 return
-            ipv4s, ipv6s = nuage_utils.count_fixed_ips_per_version(fixed_ips)
+            ipv4s, ipv6s = self.count_fixed_ips_per_version(fixed_ips)
             if ipv4s > 1 or ipv6s > 1:
                 msg = _('floating ip cannot be associated to '
                         'port {} because it has multiple ipv4 or multiple ipv6'
@@ -945,7 +949,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                    msg=msg)
         if port_id:
             port_details = self.core_plugin._get_port(context, port_id)
-            if nuage_utils.needs_vport_for_fip_association(
+            if self.needs_vport_for_fip_association(
                     port_details.get('device_owner')):
                 nuage_vport = self._get_vport_for_fip(context, port_id,
                                                       vport_type=vport_type,
@@ -995,7 +999,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         fip = super(NuageL3Plugin, self).get_floatingip(context, id)
 
         if ((not fields or 'nuage_egress_fip_rate_kbps' in fields or
-             'nuage_ingress_fip_rate_kbps' in fields) and
+            'nuage_ingress_fip_rate_kbps' in fields) and
                 fip.get('port_id')):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
@@ -1311,18 +1315,18 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
     def _process_fip_to_vip(self, context, port_id, nuage_fip_id):
         port = self.core_plugin._get_port(context, port_id)
-        if port.get('device_owner') in nuage_utils.get_device_owners_vip():
+        if port.get('device_owner') in self.get_device_owners_vip():
             # TODO(Team) Take fixed ip on floating ip attach into account
             for fixed_ip in port['fixed_ips']:
                 neutron_subnet_id = fixed_ip['subnet_id']
                 neutron_subnet = self.core_plugin.get_subnet(context,
                                                              neutron_subnet_id)
-                if _is_ipv4(neutron_subnet):
+                if self._is_ipv4(neutron_subnet):
                     vip = fixed_ip['ip_address']
-                    self.vsdclient.update_fip_to_vips(neutron_subnet_id,
+                    self.vsdclient.update_fip_to_vips(neutron_subnet,
                                                       vip,
                                                       nuage_fip_id)
-                    return
+                    return  # exit loop
 
     @log_helpers.log_method_call
     def _delete_nuage_fip(self, context, fip_dict):

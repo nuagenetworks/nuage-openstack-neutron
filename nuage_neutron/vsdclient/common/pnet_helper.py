@@ -147,13 +147,14 @@ def create_bridge_vport_iface_for_pnet(restproxy_serv, pg_obj, params):
     nuage_subnet_id = params.get('nuage_subnet_id')
     gw_type = params.get('gw_type')
     nuage_vlan_id = params.get('nuage_vlan_id')
+    neutron_subnet = params.get('neutron_subnet')
 
     # Create vport of type bridge and attach vlan
     vport_params = {
         'vlan': nuage_vlan_id,
         'type': 'BRIDGE',
         'name': 'Bridge Vport ' + nuage_vlan_id,
-        'externalID': params.get('neutron_subnet_id')
+        'externalID': helper.get_subnet_external_id(neutron_subnet)
     }
 
     if l2domain_id:
@@ -172,13 +173,12 @@ def create_bridge_vport_iface_for_pnet(restproxy_serv, pg_obj, params):
             vport_id = None  # TODO(Team) Doesn't this need to be raised?
         # Create Bridge interface in the vport
         nuage_vport = nuagelib.NuageVPort()
-
         bridge_iface = restproxy_serv.rest_call(
             'POST', nuage_vport.post_bridge_interface(vport_id),
             nuage_vport.post_bridge_iface_data(
                 constants.L2DOMAIN.upper(),
                 "BRIDGE INTERFACE(" + vport_id + ")",
-                params.get('neutron_subnet_id')))
+                helper.get_subnet_external_id(params.get('neutron_subnet'))))
         if not nuage_vport.validate(bridge_iface):
             raise restproxy.RESTProxyError(nuage_vport.error_msg)
 

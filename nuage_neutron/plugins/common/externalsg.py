@@ -28,7 +28,7 @@ from nuage_neutron.plugins.common import utils as nuage_utils
 LOG = logging.getLogger(__name__)
 
 
-class NuageexternalsgMixin(object):
+class NuageexternalsgMixin(nuage_utils.SubnetUtilsBase):
 
     @log_helpers.log_method_call
     def _make_external_security_group_dict(self, redirect_target,
@@ -63,7 +63,7 @@ class NuageexternalsgMixin(object):
         if subnet_id:
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, subnet_id)
-            if subnet_mapping and subnet_mapping['nuage_l2dom_tmplt_id']:
+            if subnet_mapping and self._is_l2(subnet_mapping):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
                 external_id = subnet_id
             if not l2dom_id:
@@ -117,7 +117,7 @@ class NuageexternalsgMixin(object):
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, filters['subnet'][0])
             if subnet_mapping:
-                if not subnet_mapping['nuage_l2dom_tmplt_id']:
+                if self._is_l3(subnet_mapping):
                     message = ("Subnet %s doesn't have mapping l2domain on "
                                "VSD " % filters['subnet'][0])
                     raise nuage_exc.NuageBadRequest(msg=message)
@@ -236,7 +236,7 @@ class NuageexternalsgMixin(object):
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, filters['subnet'][0])
             if subnet_mapping:
-                if not subnet_mapping['nuage_l2dom_tmplt_id']:
+                if self._is_l3(subnet_mapping):
                     message = ("Subnet %s doesn't have mapping l2domain on "
                                "VSD " % filters['subnet'][0])
                     raise nuage_exc.NuageBadRequest(msg=message)
