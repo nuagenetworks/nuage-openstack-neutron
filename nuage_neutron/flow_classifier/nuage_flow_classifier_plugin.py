@@ -14,6 +14,7 @@
 #    under the License.
 
 from neutron_lib import constants as lib_constants
+# This loads in the extensions for flow classifier.
 from nuage_neutron.flow_classifier import extensions  # noqa
 from nuage_neutron.flow_classifier import nuage_flowclassifier_db
 from nuage_neutron.plugins.common import base_plugin
@@ -51,8 +52,8 @@ class NuageFlowClassifierPlugin(
         if vlan_min_specified or vlan_max_specified:
             vlan_min_value = flow_classifier_dict.get('vlan_range_min')
             vlan_max_value = flow_classifier_dict.get('vlan_range_max')
-            if (vlan_min_specified and vlan_max_specified
-                    and vlan_min_value != vlan_max_value):
+            if (vlan_min_specified and vlan_max_specified and
+                    vlan_min_value != vlan_max_value):
                 msg = ("Currently nuage only supports flow classifier where,"
                        " the minimum and maximum VLAN range values are equal.")
                 raise nuage_exc.NuageBadRequest(msg=msg)
@@ -122,7 +123,7 @@ class NuageFlowClassifierPlugin(
             context,
             id=logical_port)
         if (prt_details['device_owner'] in
-                nuage_utils.get_auto_create_port_owners()):
+                self.get_auto_create_port_owners()):
             msg = ("Do not support port chain where"
                    " logical %s port has port device owner as %s."
                    % port_type % prt_details['device_owner'])
@@ -152,12 +153,12 @@ class NuageFlowClassifierPlugin(
             on_exc(self.vsdclient.delete_nuage_policy_group,
                    nuage_sg_id)
             rt = self.vsdclient.create_nuage_redirect_target(
-                params, subnet_id=l2dom_id, domain_id=rtr_id)
+                params, l2dom_id=l2dom_id, domain_id=rtr_id)
             on_exc(self.vsdclient.delete_nuage_redirect_target, rt['ID'])
-            port_details = {'neutron_port_id': port_info['id']}
-            port_details['l2dom_id'] = l2dom_id
-            port_details['rtr_id'] = rtr_id
-            port_details['l3dom_id'] = l3subnet_id
+            port_details = {'neutron_port_id': port_info['id'],
+                            'l2dom_id': l2dom_id,
+                            'rtr_id': rtr_id,
+                            'l3dom_id': l3subnet_id}
             nuage_port = self.vsdclient.get_nuage_vport_for_port_sec(
                 port_details)
             self.vsdclient.update_vports_in_policy_group(nuage_sg_id,
@@ -176,14 +177,12 @@ class NuageFlowClassifierPlugin(
             context.session,
             port_info['fixed_ips'][0]['subnet_id'])
         if subnet_mapping:
-            if subnet_mapping['nuage_l2dom_tmplt_id']:
+            if self._is_l2(subnet_mapping):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3subnet_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = (
-                    self.vsdclient.get_nuage_domain_id_from_subnet(
-                        l3subnet_id)
-                )
+                rtr_id = self.vsdclient.get_nuage_domain_id_from_subnet(
+                    l3subnet_id)
         else:
             msg = ('Cannot find subnet mapping for'
                    ' the port-id %s ' % port_info['id'])

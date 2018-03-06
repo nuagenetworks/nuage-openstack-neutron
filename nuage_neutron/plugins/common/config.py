@@ -15,8 +15,11 @@
 
 import constants
 from oslo_config import cfg
+from oslo_log import log
 
 from neutron._i18n import _
+
+LOG = log.getLogger(__name__)
 
 nuage_pat_choices = [constants.NUAGE_PAT_NOT_AVAILABLE,
                      constants.NUAGE_PAT_DEF_ENABLED,
@@ -124,12 +127,9 @@ def nuage_register_cfg_opts():
     cfg.CONF.register_opts(plugin_opts, "PLUGIN")
 
 
-class InternalFeatureFlags(object):
-    SAMPLE_FEATURE_FLAG = True  # use this construct for internal feature flags
-
-
 def is_enabled(name):
     if name in cfg.CONF.PLUGIN.experimental_features:
+        LOG.info('Experimental feature %s enabled!', name)
         return True
     if name in cfg.CONF.PLUGIN.enable_debug:
         return True

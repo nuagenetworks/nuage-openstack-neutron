@@ -28,12 +28,13 @@ from nuage_neutron.vsdclient import restproxy
 LOG = logging.getLogger(__name__)
 
 
-def _create_policygroup_for_vport(gw_type, subn_id, rtr_id, neutron_subn_id,
+def _create_policygroup_for_vport(gw_type, subn_id, rtr_id, neutron_subnet,
                                   pg_obj, restproxy_serv, vport, subn_type):
     # Create a policygroup for this bridge vport and create default rules
     create_policygroup = True
     nuage_policygroup = get_policygroup_for_interface(
-        restproxy_serv, neutron_subn_id, gw_type, vport['type'], subn_type)
+        restproxy_serv, neutron_subnet,
+        gw_type, vport['type'], subn_type)
     if nuage_policygroup:
         nuage_policygroup_id = nuage_policygroup[0]
         if (nuage_policygroup[1] == constants.HARDWARE and
@@ -49,10 +50,11 @@ def _create_policygroup_for_vport(gw_type, subn_id, rtr_id, neutron_subn_id,
         # Add the vport type to the gateway type, because when we need a way
         # to distinguish policygroups for bridge/host vport on the same subnet.
         pg_name = ''.join(['defaultPG-', gw_type, '-', vport['type'], '-',
-                           neutron_subn_id])
+                           helper.get_subnet_name(neutron_subnet)])
         nuage_policygroup_id = (
             pg_obj.create_policygroup_default_allow_any_rule(
-                subn_id, rtr_id, neutron_subn_id, gw_type, pg_name))
+                subn_id, rtr_id, neutron_subnet, gw_type,
+                pg_name))
 
     # Add vport to the policygroup
     try:
@@ -100,9 +102,6 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
     if vport_type == constants.BRIDGE_VPORT_TYPE:
         extra_params['type'] = constants.BRIDGE_VPORT_TYPE
         extra_params['name'] = 'Bridge Vport ' + nuage_vlan_id
-        if policy_group:
-            extra_params['externalID'] = get_vsd_external_id(
-                params['neutron_subnet_id'])
     else:
         extra_params['type'] = constants.HOST_VPORT_TYPE
         extra_params['name'] = 'Host Vport ' + nuage_vlan_id
@@ -163,12 +162,12 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
                     restproxy_serv,
                     subnet_id)
                 _create_policygroup_for_vport(gw_type, None, nuage_rtr_id,
-                                              params.get('neutron_subnet_id'),
+                                              params.get('neutron_subnet'),
                                               pg_obj, restproxy_serv, vport,
                                               subn_type)
             else:
                 _create_policygroup_for_vport(gw_type, subnet_id, None,
-                                              params.get('neutron_subnet_id'),
+                                              params.get('neutron_subnet'),
                                               pg_obj, restproxy_serv, vport,
                                               subn_type)
         if (not params.get('nuage_managed_subnet') and
@@ -423,10 +422,11 @@ def delete_nuage_interface(restproxy_serv, nuage_intf_id, type):
         raise restproxy.RESTProxyError(nuage_intf.error_msg)
 
 
-def get_policygroup_for_interface(restproxy_serv, neutron_subn_id, gw_type,
+def get_policygroup_for_interface(restproxy_serv, neutron_subnet, gw_type,
                                   vport_type, subn_type):
     nuage_policygroup = nuagelib.NuagePolicygroup()
-    pg_name = '-'.join(['defaultPG', gw_type, vport_type, neutron_subn_id])
+    pg_name = '-'.join(['defaultPG', gw_type, vport_type,
+                        helper.get_subnet_name(neutron_subnet)])
     policygroups = restproxy_serv.get(
         nuage_policygroup.get_all_resources(),
         extra_headers=nuage_policygroup.extra_header_filter(name=pg_name))

@@ -23,6 +23,7 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
+from nuage_neutron.plugins.common.utils import SubnetUtilsBase
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -31,7 +32,7 @@ from oslo_utils import excutils
 LOG = logging.getLogger(__name__)
 
 
-class NuageBmSecurityGroupHandler(object):
+class NuageBmSecurityGroupHandler(SubnetUtilsBase):
 
     _core_plugin = None
 
@@ -51,7 +52,7 @@ class NuageBmSecurityGroupHandler(object):
 
     def _get_nuage_vport(self, port, subnet_mapping, required=True):
         port_params = {'neutron_port_id': port['id']}
-        if subnet_mapping['nuage_l2dom_tmplt_id']:
+        if self._is_l2(subnet_mapping):
             port_params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
             port_params['l3dom_id'] = subnet_mapping['nuage_subnet_id']
@@ -118,7 +119,7 @@ class NuageBmSecurityGroupHandler(object):
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
-        if subnet_mapping['nuage_managed_subnet']:
+        if self._is_vsd_mgd(subnet_mapping):
             return
 
         if port[ext_sg.SECURITYGROUPS]:
@@ -138,8 +139,8 @@ class NuageBmSecurityGroupHandler(object):
         updated_port = kwargs['port']
         original_port = kwargs['original_port']
         if (updated_port.get(portbindings.VNIC_TYPE)
-                not in self._supported_vnic_types()
-                and original_port.get(portbindings.VNIC_TYPE)
+                not in self._supported_vnic_types() and
+                original_port.get(portbindings.VNIC_TYPE)
                 not in self._supported_vnic_types()):
             return
 
@@ -147,7 +148,7 @@ class NuageBmSecurityGroupHandler(object):
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
 
-        if subnet_mapping['nuage_managed_subnet']:
+        if self._is_vsd_mgd(subnet_mapping):
             return
 
         new_sg = (set(updated_port.get(ext_sg.SECURITYGROUPS)) if
@@ -184,7 +185,7 @@ class NuageBmSecurityGroupHandler(object):
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
-        if subnet_mapping['nuage_managed_subnet']:
+        if self._is_vsd_mgd(subnet_mapping):
             return
 
         securitygroups = port.get(ext_sg.SECURITYGROUPS, [])

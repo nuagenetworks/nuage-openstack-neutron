@@ -28,7 +28,6 @@ from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from nuage_neutron.vsdclient.impl.vsdclientimpl import VsdClientImpl
@@ -41,6 +40,7 @@ class ConfigTypes(object):
     MISSING_ML2_EXTENSION = 3
     NUAGE_UNDERLAY_CONFIG_ONLY = 4
     NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG = 5
+    NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK = 6
 
 
 class TestNuageMechanismDriver(testtools.TestCase):
@@ -89,6 +89,10 @@ class TestNuageMechanismDriver(testtools.TestCase):
             conf.config(group='RESTPROXY', nuage_pat='not_available')
             conf.config(group='RESTPROXY',
                         nuage_underlay_default='not_available')
+        if config_type == ConfigTypes.NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK:
+            conf.config(service_plugins=['NuagePortAttributes',
+                                         'NuageL3', 'NuageAPI',
+                                         'NuageL2Bridge'])
         return conf
 
     # get me a Nuage mechanism driver
@@ -158,6 +162,18 @@ class TestNuageMechanismDriver(testtools.TestCase):
                              '[\'port_security\'] '
                              'for mechanism driver nuage', str(e))
 
+    def test_init_missing_nuage_network_ml2_extension_for_l2bridge(self):
+        self.set_config_fixture(
+            ConfigTypes.NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK)
+        try:
+            NuageMechanismDriver().initialize()
+            self.fail('Plugin should not have successfully initialized.')
+
+        except Exception as e:
+            self.assertEqual("Missing required extension "
+                             "'nuage_network' for service plugin "
+                             "NuageL2Bridge", str(e))
+
     def test_init_native_nmd_invalid_server(self):
         self.set_config_fixture()
         try:
@@ -183,13 +199,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
 
         # validate no api call is made - we don't count authentication calls!
         self.assertEqual(0, nmd1.vsdclient.restproxy.api_count)
-
-        # validate no time is tracked
-        self.assertFalse(TimeTracker.is_tracking_enabled())
-        self.assertEqual(0, TimeTracker.get_time_tracked(),
-                         'time tracked')
-        self.assertEqual(0, TimeTracker.get_time_not_tracked(),
-                         'time not tracked')
 
     # FLAT NETWORKS
 
@@ -237,8 +246,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('Subnet precommit should not have succeeded')
         except NuageBadRequest as e:
-            self.assertEqual('Bad request: Parameter net-partition required '
-                             'when passing nuagenet', str(e))
+            self.assertEqual('Bad request: Network should have \'provider:'
+                             'network_type\' vxlan or have such a segment',
+                             str(e))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
@@ -370,8 +380,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
         nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    @mock.patch.object(NuageMechanismDriver, 'get_subnets')
-    @mock.patch.object(NuageMechanismDriver, 'is_external')
+    @mock.patch.object(NuageMechanismDriver, 'get_subnets',
+                       return_value=[])
+    @mock.patch.object(NuageMechanismDriver, 'is_external', return_value=False)
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(NuageMechanismDriver,
@@ -394,7 +405,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[{'id': 'subnet1', 'ip_version': 6},
                                      {'id': 'subnet2', 'ip_version': 6}])
-    @mock.patch.object(NuageMechanismDriver, 'is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external', return_value=False)
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
@@ -420,7 +431,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[{'id': 'subnet1', 'ip_version': 4}])
-    @mock.patch.object(NuageMechanismDriver, 'is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external', return_value=False)
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(NuageMechanismDriver,
@@ -444,7 +455,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[{'id': 'subnet1', 'ip_version': 4},
                                      {'id': 'subnet2', 'ip_version': 4},
                                      {'id': 'subnet2', 'ip_version': 6}])
-    @mock.patch.object(NuageMechanismDriver, 'is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external', return_value=False)
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
@@ -484,7 +495,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[{'id': 'subnet1', 'ip_version': 4},
                                      {'id': 'subnet2', 'ip_version': 6},
                                      {'id': 'subnet2', 'ip_version': 4}])
-    @mock.patch.object(NuageMechanismDriver, 'is_external')
+    @mock.patch.object(NuageMechanismDriver, 'is_external', return_value=False)
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
@@ -524,6 +535,54 @@ class TestNuageMechanismDriver(testtools.TestCase):
 
         self.assertTrue(config.default_allow_non_ip())
 
+    # ip utility checks
+
+    def test_ip_comparison(self):
+        self.assertTrue(NuageMechanismDriver.compare_ip(
+            'cafe:babe::1', 'cafe:babe:0::1'))
+
+        self.assertFalse(NuageMechanismDriver.compare_cidr(
+            'cafe:babe::1', 'cafe:babe:1::1'))
+
+    def test_cidr_comparison(self):
+        self.assertTrue(NuageMechanismDriver.compare_cidr(
+            'cafe:babe::1/64', 'cafe:babe:0::1/64'))
+
+        self.assertFalse(NuageMechanismDriver.compare_cidr(
+            'cafe:babe::1/64', 'cafe:babe::1/63'))
+
+    def test_needs_vport_creation_basic(self):
+        self.assertFalse(NuageMechanismDriver.needs_vport_creation(
+            'nuage:vip'))
+
+    def test_needs_vport_creation_using_prefix(self):
+        from oslo_config import cfg
+        from oslo_config import fixture as oslo_fixture
+
+        conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
+        conf.config(group='PLUGIN', device_owner_prefix='no_vport')
+
+        # test match
+        self.assertFalse(NuageMechanismDriver.needs_vport_creation(
+            'no_vport:something'))
+
+        # test no match
+        self.assertTrue(NuageMechanismDriver.needs_vport_creation(
+            'something:no_vport'))
+
+    def test_count_fixed_ips_per_version(self):
+        self.assertEqual(
+            (1, 2), NuageMechanismDriver.count_fixed_ips_per_version(
+                [{'ip_address': 'cafe:babe::1'},
+                 {'ip_address': '69.69.69.69'},
+                 {'ip_address': 'dead:beef::1'}]))
+
+    def test_sort_ips(self):
+        self.assertEqual([], NuageMechanismDriver.sort_ips([]))
+        self.assertEqual(['cafe:babe:1::1', 'cafe:babe:12::1'],
+                         NuageMechanismDriver.sort_ips(
+                             ['cafe:babe:12::1', 'cafe:babe:1::1']))
+
 
 class Context(object):
     def __init__(self, network, subnet):
@@ -532,10 +591,26 @@ class Context(object):
         self.db_context = self
         self._plugin_context = self
 
+        class Transaction(object):
+            def __init__(self):
+                pass
+
+            def __enter__(self):
+                pass
+
+            def __exit__(self, type, value, traceback):
+                pass
+
+            def __del__(self):
+                pass
+
         class Session(object):
             @staticmethod
             def is_active():
                 return True
+
+            def begin(self, **kwargs):
+                return Transaction()
 
         self.session = Session()
 

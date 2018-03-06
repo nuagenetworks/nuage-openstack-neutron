@@ -651,23 +651,18 @@ class NuageGateway(object):
         subnet = params.get('subnet')
         enable_dhcp = params.get('enable_dhcp')
         port = params.get('port')
-
-        if subnet:
-            subn_id = subnet['id']
-            type = constants.BRIDGE_VPORT_TYPE
-        else:
-            subn_id = port['fixed_ips'][0]['subnet_id']
-            type = constants.HOST_VPORT_TYPE
+        type = params.get('type')
+        subn_id = subnet['id']
 
         nuage_subnet = params.get('vsd_subnet')
         if not nuage_subnet:
-            msg = _("Nuage subnet for neutron subnet %(subn)s not found "
-                    % {'subn': subn_id})  # noqa H702
+            msg = (_("Nuage subnet for neutron subnet %(subn)s not found")
+                   % {'subn': subn_id})
             raise restproxy.RESTProxyError(msg)
         # Create a vport with bridge/host interface
         req_params = {
             'nuage_vlan_id': params['gatewayinterface'],
-            'neutron_subnet_id': subn_id,
+            'neutron_subnet': subnet,
             'nuage_managed_subnet': params.get('nuage_managed_subnet')
         }
 
@@ -696,6 +691,8 @@ class NuageGateway(object):
         ret = dict()
         if type == constants.BRIDGE_VPORT_TYPE:
             req_params[constants.PORTSECURITY] = True
+            req_params['externalid'] = get_vsd_external_id(
+                port['id'] if port else subn_id)
             resp = gw_helper.create_vport_interface(self.restproxy,
                                                     self.policygroup,
                                                     req_params, type)
@@ -725,14 +722,8 @@ class NuageGateway(object):
         subnet = params.get('subnet')
         enable_dhcp = params.get('enable_dhcp')
         port = params.get('port')
-
-        if subnet:
-            subn_id = subnet['id']
-            type = constants.BRIDGE_VPORT_TYPE
-        else:
-            subn_id = port['fixed_ips'][0]['subnet_id']
-            type = constants.HOST_VPORT_TYPE
-
+        type = params.get('type')
+        subn_id = subnet['id']
         nuage_subnet = params.get('vsd_subnet')
         if not nuage_subnet:
             msg = (_("Nuage subnet for neutron subnet %(subn)s not found")
@@ -741,7 +732,7 @@ class NuageGateway(object):
         # Create a vport with bridge/host interface
         req_params = {
             'nuage_vlan_id': params['gatewayinterface'],
-            'neutron_subnet_id': subn_id,
+            'neutron_subnet': subnet,
             'nuage_managed_subnet': params.get('nuage_managed_subnet'),
             'gw_type': params['personality'],
             'externalid': get_vsd_external_id(port['id'] if port else subn_id)
@@ -838,14 +829,20 @@ class NuageGateway(object):
             if not subnet_info['vsd_managed']:
                 # need to get the neutron subnet id as we put it in PG name ...
                 subnet_id = subnet_info.get('subnet_id')
+                nuage_l2bridge = nuagedb.get_nuage_l2bridge_id_for_subnet(
+                    context.session, subnet_id)
                 if not subnet_id:
                     # one would not be able to get here as for OpenStack mgd
                     # subnet there would always be a unique mapping
                     raise nuage_exc.NuageAPIException(
                         msg='Subnet_id could not be retrieved')
+                subnet = {
+                    'nuage_l2bridge': nuage_l2bridge,
+                    'id': subnet_id
+                }
                 nuage_policygroup = gw_helper.get_policygroup_for_interface(
                     self.restproxy,
-                    subnet_id,
+                    subnet,
                     nuage_gw['personality'],
                     resp['vport_type'],
                     subnet_info['subnet_type'])

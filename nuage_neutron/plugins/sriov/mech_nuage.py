@@ -101,6 +101,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         db_context = context._plugin_context
         if vnic_type not in self._supported_vnic_types():
             return
+        self._validate_nuage_l2bridges(db_context, port)
         self._validate_port_request_attributes(context.current)
         subnets = self.core_plugin._get_subnets_by_network(
             db_context,
@@ -293,6 +294,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                      }
         subnet = context._plugin.get_subnet(context._plugin_context,
                                             subnet_mapping['subnet_id'])
+        port_dict['subnet'] = subnet
         port_dict['enable_dhcp'] = subnet['enable_dhcp']
         if segmentation_id is not None:
             port_dict['segmentation_id'] = segmentation_id
@@ -391,18 +393,17 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 vlan = self.vsdclient.create_gateway_vlan(params)
                 LOG.debug("created vlan: %(vlan_dict)s", {'vlan_dict': vlan})
                 # create dummy subnet - we need only id
-
-                subnet = {'id': port['fixed_ips'][0]['subnet_id']}
                 params = {
                     'gatewayinterface': vlan['ID'],
                     'np_id': port_dict['subnet_mapping']['net_partition_id'],
                     'tenant': port['tenant_id'],
-                    'subnet': subnet,
+                    'subnet': port_dict['subnet'],
                     'enable_dhcp': port_dict['enable_dhcp'],
                     'nuage_managed_subnet':
                         port_dict['subnet_mapping']['nuage_managed_subnet'],
                     'port_security_enabled': False,
-                    'personality': 'VSG'
+                    'personality': 'VSG',
+                    'type': nuage_const.BRIDGE_VPORT_TYPE
                 }
                 vsd_subnet = self.vsdclient \
                     .get_nuage_subnet_by_id(

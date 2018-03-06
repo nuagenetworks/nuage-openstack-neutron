@@ -22,6 +22,7 @@ try:
     from neutron._i18n import _
 except ImportError:
     from neutron.i18n import _
+from neutron.db import api as db_api
 
 from nuage_neutron.vsdclient.common.cms_id_helper import extra_headers_get
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
@@ -29,6 +30,8 @@ from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import nuagelib
 from nuage_neutron.vsdclient import restproxy
+
+from nuage_neutron.plugins.common import nuagedb
 
 CONFLICT_ERR_CODE = constants.CONFLICT_ERR_CODE
 VSD_RESP_OBJ = constants.VSD_RESP_OBJ
@@ -102,32 +105,30 @@ def get_l2domid_for_netpartition(restproxy_serv, np_id, name):
     return nuagel2domtemplate.get_templateid(response)
 
 
-def create_nuage_l2dom_ingress_tmplt(restproxy_serv, id, neutron_subnet_id):
+def create_nuage_l2dom_ingress_tmplt(restproxy_serv, id, neutron_subnet):
     req_params = {
         'parent_id': id,
         'name': id,
-        'externalID': get_vsd_external_id(neutron_subnet_id)
+        'externalID': get_subnet_external_id(neutron_subnet)
     }
     nuageibacl = nuagelib.NuageInboundACL(create_params=req_params)
-    response = restproxy_serv.rest_call('POST',
-                                        nuageibacl.post_resource_l2(),
-                                        nuageibacl.post_data_default_l2())
-    if not nuageibacl.validate(response):
-        raise restproxy.RESTProxyError(nuageibacl.error_msg)
+    restproxy_serv.post(
+        nuageibacl.post_resource_l2(),
+        nuageibacl.post_data_default_l2(),
+        ignore_err_codes=[restproxy.REST_DUPLICATE_ACL_PRIORITY])
 
 
-def create_nuage_l2dom_egress_tmplt(restproxy_serv, id, neutron_subnet_id):
+def create_nuage_l2dom_egress_tmplt(restproxy_serv, id, neutron_subnet):
     req_params = {
         'parent_id': id,
         'name': id,
-        'externalID': get_vsd_external_id(neutron_subnet_id)
+        'externalID': get_subnet_external_id(neutron_subnet)
     }
     nuageobacl = nuagelib.NuageOutboundACL(create_params=req_params)
-    response = restproxy_serv.rest_call('POST',
-                                        nuageobacl.post_resource_l2(),
-                                        nuageobacl.post_data_default_l2())
-    if not nuageobacl.validate(response):
-        raise restproxy.RESTProxyError(nuageobacl.error_msg)
+    restproxy_serv.post(
+        nuageobacl.post_resource_l2(),
+        nuageobacl.post_data_default_l2(),
+        ignore_err_codes=[restproxy.REST_DUPLICATE_ACL_PRIORITY])
 
 
 def create_usergroup(restproxy_serv, tenant, net_partition_id,
@@ -568,47 +569,17 @@ def get_l3subnet(restproxy_serv, nuage_id, required=False):
 def get_nuage_subnet(restproxy_serv, subnet_mapping):
     if subnet_mapping is None:
         return None
-    params = {
-        'externalID': get_vsd_external_id(subnet_mapping["subnet_id"])
-    }
     nuage_subnet_id = subnet_mapping["nuage_subnet_id"]
     if subnet_mapping['nuage_l2dom_tmplt_id']:
-        resource_class = nuagelib.NuageL2Domain(create_params=params)
+        resource_class = nuagelib.NuageL2Domain()
     else:
-        resource_class = nuagelib.NuageSubnet(create_params=params)
+        resource_class = nuagelib.NuageSubnet()
     try:
         response = restproxy_serv.get(resource_class.get_resource(
             nuage_subnet_id))
         return response[0]
     except restproxy.RESTProxyError:
         return None
-
-
-def get_subnet_by_externalID(restproxy_serv, subnet_id):
-    req_params = {
-        'externalID': get_vsd_external_id(subnet_id)
-    }
-    nuage_subnet = None
-    nuage_l2_domain = nuagelib.NuageL2Domain(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_l2_domain.get_all_resources(),
-                                        '',
-                                        nuage_l2_domain.extra_headers_get())
-
-    if nuage_l2_domain.get_validate(response):
-        nuage_subnet = nuage_l2_domain.get_response_obj(response)
-        nuage_subnet['type'] = constants.L2DOMAIN
-    else:
-        nuage_domainsubn = nuagelib.NuageSubnet(
-            create_params=req_params)
-        response = restproxy_serv.rest_call(
-            'GET',
-            nuage_domainsubn.get_all_resources(), '',
-            nuage_l2_domain.extra_headers_get())
-        if nuage_domainsubn.get_validate(response):
-            nuage_subnet = nuage_domainsubn.get_response_obj(response)
-            nuage_subnet['type'] = constants.SUBNET
-    return nuage_subnet
 
 
 def get_l3_subnets(restproxy_serv, **filters):
@@ -841,13 +812,6 @@ def is_vlan_valid(vlan_val):
     return True
 
 
-def set_subn_external_id(restproxy_serv, neutron_subn_id, nuage_subn_id):
-    nuagel3domsub = nuagelib.NuageSubnet()
-    data = {'externalID': get_vsd_external_id(neutron_subn_id)}
-    restproxy_serv.rest_call('PUT', nuagel3domsub.put_resource(nuage_subn_id),
-                             data)
-
-
 def set_external_id_only(restproxy_serv, resource, id):
     update_params = {"externalID": get_vsd_external_id(id)}
     response = restproxy_serv.rest_call('PUT', resource, update_params)
@@ -998,11 +962,32 @@ def get_ipv6_vsd_data(ipv6_subnet):
         }
 
 
-def get_pnet_params(pnet_binding, vsd_subnet_id, np_id, subnet_id):
+def get_pnet_params(pnet_binding, vsd_subnet_id, np_id, subnet):
     pnet_params = {
         'pnet_binding': pnet_binding,
         'nuage_subnet_id': vsd_subnet_id,
         'netpart_id': np_id,
-        'neutron_subnet_id': subnet_id
+        'neutron_subnet': subnet,
     }
     return pnet_params
+
+
+def get_subnet_external_id(subnet):
+    if not subnet:
+        raise restproxy.RESTProxyError("Unable to calculate external ID for "
+                                       "subnet.")
+    neutron_id = subnet['nuage_l2bridge'] or subnet['id']
+    return get_vsd_external_id(neutron_id)
+
+
+def get_subnet_name(subnet):
+    return subnet['nuage_l2bridge'] or subnet['id']
+
+
+def get_subnet_description(subnet):
+    if subnet['nuage_l2bridge']:
+        session = db_api.get_reader_session()
+        return nuagedb.get_nuage_l2bridge(session,
+                                          subnet['nuage_l2bridge'])['name']
+    else:
+        return subnet['name']

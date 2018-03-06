@@ -45,7 +45,8 @@ class NuageDhcpOptions(object):
             "externalID": _external_id
         }
 
-    def create_nuage_dhcp(self, subnet, parent_id=None, network_type=None):
+    def create_nuage_dhcp(self, subnet, parent_id=None,
+                          network_type=None):
         """Function:  create_nuage_dhcp
 
         Creates the nuage DHCP options on a l2 only domain and domain/subnet
@@ -72,7 +73,8 @@ class NuageDhcpOptions(object):
                                             network_type,
                                             opt)
 
-    def update_nuage_dhcp(self, subnet, parent_id=None, network_type=None):
+    def update_nuage_dhcp(self, subnet, parent_id=None,
+                          network_type=None):
         """Function:  update_nuage_dhcp
 
         Update the nuage DHCP options on a l2 only domain and domain/subnet
@@ -169,8 +171,8 @@ class NuageDhcpOptions(object):
             else:
                 raise restproxy.RESTProxyError(nuage_dhcpoptions.error_msg)
 
-    def _create_nuage_dhcp_options(self, subnet, _resource_id, type,
-                                   _dhcp_option):
+    def _create_nuage_dhcp_options(self, subnet, _resource_id,
+                                   type, _dhcp_option):
         """Function:  create_nuage_dhcp_options
 
         Creates the nuage DHCP options on a l2 only doamain and domain/subnet
@@ -201,7 +203,7 @@ class NuageDhcpOptions(object):
             _data = self._get_gateway_ip_tmpl(subnet['gateway_ip'])
         else:
             raise Exception("Unknown DHCP option")
-        _data['externalID'] = cms_id_helper.get_vsd_external_id(subnet['id'])
+        _data['externalID'] = helper.get_subnet_external_id(subnet)
         resp = self._set_nuage_dhcp_options(_resource_id, _data,
                                             dhcp_id, type)
 
