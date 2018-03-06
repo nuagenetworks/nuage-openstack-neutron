@@ -14,6 +14,8 @@
 
 import netaddr
 import re
+import socket
+import struct
 
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -21,30 +23,35 @@ from oslo_log import log
 
 from neutron._i18n import _
 from neutron.api.v2 import attributes
+from neutron.db import db_base_plugin_v2
+from neutron.extensions import portbindings
 from neutron.extensions import portsecurity as psec
 from neutron.manager import NeutronManager
 from neutron.plugins.common import constants as plugin_constants
 from neutron.plugins.common import utils as plugin_utils
+from neutron.services.trunk import constants as t_consts
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.exceptions import PortNotFound
 
 from nuage_neutron.plugins.common import callback_manager
+from nuage_neutron.plugins.common.capabilities import Capabilities
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.utils import compare_cidr
-from nuage_neutron.plugins.common.utils import sort_ips
+from nuage_neutron.plugins.common.utils import SubnetUtilsBase
 from nuage_neutron.plugins.common.validation import Is
 from nuage_neutron.plugins.common.validation import require
 from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient_fac import VsdClientFactory
 
+
 LOG = log.getLogger(__name__)
 
 
-class RootNuagePlugin(object):
+class RootNuagePlugin(SubnetUtilsBase):
 
     def __init__(self):
         super(RootNuagePlugin, self).__init__()
@@ -54,6 +61,10 @@ class RootNuagePlugin(object):
         self._default_np_id = None
         self._l2_plugin = None
         self._l3_plugin = None
+
+    @staticmethod
+    def _is_trunk_subport(port):
+        return t_consts.TRUNK_SUBPORT_OWNER == port.get('device_owner')
 
     @property
     def core_plugin(self):
@@ -156,7 +167,7 @@ class RootNuagePlugin(object):
                 nuage_cidr = netaddr.IPNetwork(nuage_subnet['IPv6Address'])
                 subnet_validate = {}
 
-            if not compare_cidr(subnet['cidr'], nuage_cidr):
+            if not self.compare_cidr(subnet['cidr'], nuage_cidr):
                 msg = 'OSP cidr %s and NuageVsd cidr %s do not match' % \
                       (subnet['cidr'], nuage_cidr)
                 raise NuageBadRequest(msg=msg)
@@ -259,7 +270,8 @@ class RootNuagePlugin(object):
                                             p_data)
         return self.core_plugin._create_port_db(context, {'port': port})[0]
 
-    def is_vxlan_network(self, network):
+    @staticmethod
+    def is_vxlan_network(network):
         net_type = 'provider:network_type'
         if str(network.get(net_type)).lower() == 'vxlan':
             return True
@@ -286,6 +298,23 @@ class RootNuagePlugin(object):
                            min_required_extensions,
                            'extension(s)',
                            nuage_driver)
+        # Additional check: extension driver nuage_network is required
+        # only when NuageL2Bridge service plugin is enabled.
+        nuagel2bridge = ('NuageL2Bridge',
+                         'nuage_neutron.plugins.common.service_plugins.'
+                         'nuage_l2bridge.NuageL2BridgePlugin')
+        nuage_network = ('nuage_network',
+                         'nuage_neutron.plugins.nuage_ml2.'
+                         'nuage_network_ext_driver.'
+                         'NuageNetworkExtensionDriver')
+        if (nuagel2bridge[0] in mentioned_service_plugins or
+                nuagel2bridge[1] in mentioned_service_plugins):
+            if (nuage_network[0] not in mentioned_extensions and
+                    nuage_network[1] not in mentioned_extensions):
+                msg = ("Missing required extension "
+                       "'nuage_network' for service plugin "
+                       "NuageL2Bridge")
+                raise cfg.ConfigFileValueError(msg)
 
     @staticmethod
     def _check_config(mentioned, min_required, resource, driver_name):
@@ -304,6 +333,10 @@ class RootNuagePlugin(object):
 
     @log_helpers.log_method_call
     def _check_subnet_exists_in_neutron(self, db_context, subnet_id):
+        """_check_subnet_exists_in_neutron
+
+        :rtype: dict
+        """
         try:
             subnet_db = self.core_plugin.get_subnet(db_context, subnet_id)
             return subnet_db
@@ -312,6 +345,10 @@ class RootNuagePlugin(object):
 
     @log_helpers.log_method_call
     def _check_port_exists_in_neutron(self, db_context, port):
+        """_check_port_exists_in_neutron
+
+        :rtype: dict
+        """
         try:
             port_db = self.core_plugin.get_port(db_context, port['id'])
             return port_db
@@ -349,20 +386,24 @@ class RootNuagePlugin(object):
                 LOG.info("Subnet %s has been deleted concurrently",
                          subnet_mapping['subnet_id'])
                 return
-            if neutron_subnet['ip_version'] == lib_constants.IP_VERSION_6:
+            if self._is_ipv6(neutron_subnet):
                 neutron_subnet = self.get_dual_stack_subnet(
                     context, neutron_subnet)
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                     context.session,
                     neutron_subnet['id'])
-            if not subnet_mapping['nuage_managed_subnet']:
+            if self._is_os_mgd(subnet_mapping):
                 LOG.debug("Retrying to get the subnet from vsd.")
-                if subnet_mapping['nuage_l2dom_tmplt_id']:
+                l2bridge_id = nuagedb.get_nuage_l2bridge_id_for_subnet(
+                    context.session, subnet_mapping['subnet_id'])
+                subnet = {'id': subnet_mapping['subnet_id'],
+                          'nuage_l2bridge': l2bridge_id}
+                if self._is_l2(subnet_mapping):
                     return self.vsdclient.get_domain_subnet_by_external_id(
-                        subnet_mapping['subnet_id'])
+                        subnet)
                 else:
                     return self.vsdclient.get_l2domain_by_external_id(
-                        subnet_mapping['subnet_id'])
+                        subnet)
             else:
                 raise
 
@@ -437,10 +478,93 @@ class RootNuagePlugin(object):
                 continue
             ips[subnet['ip_version']].append(fixed_ip['ip_address'])
         for key in ips.keys():
-            ips[key] = sort_ips(ips[key])
+            ips[key] = self.sort_ips(ips[key])
         port[constants.VIPS_FOR_PORT_IPS] = (ips[4][:-1] +
                                              ips[6][:-1])
         return ips
+
+    @staticmethod
+    def vnic_is_l2bridge_compatible(port_vnic_type):
+        return Capabilities.by_port_vnic_type[port_vnic_type][
+            Capabilities.BRIDGED_NETWORKS]
+
+    def _validate_nuage_l2bridges(self, db_context, port):
+        nuage_l2bridge = nuagedb.get_nuage_l2bridge_id_for_network(
+            db_context.session, port['network_id'])
+        if nuage_l2bridge:
+            if not self.vnic_is_l2bridge_compatible(
+                    port.get(portbindings.VNIC_TYPE)):
+                msg = _("This port is being created on a network connected "
+                        "to nuage_l2bridge {}. It is not allowed to create "
+                        "ports with vnic type {} on such a network.").format(
+                    nuage_l2bridge, port.get(portbindings.VNIC_TYPE))
+                raise NuageBadRequest(resource='port', msg=msg)
+
+    @log_helpers.log_method_call
+    def _delete_gateway_port(self, context, ports):
+        for port in ports:
+            try:
+                db_base_plugin_v2.NeutronDbPluginV2.delete_port(
+                    self.core_plugin, context, port['id'])
+            except PortNotFound:
+                LOG.info("Port %s has been deleted concurrently",
+                         port['id'])
+
+    @staticmethod
+    def get_auto_create_port_owners():
+        return [lib_constants.DEVICE_OWNER_ROUTER_INTF,
+                lib_constants.DEVICE_OWNER_ROUTER_GW,
+                lib_constants.DEVICE_OWNER_FLOATINGIP,
+                constants.DEVICE_OWNER_VIP_NUAGE,
+                constants.DEVICE_OWNER_IRONIC
+                ]
+
+    @staticmethod
+    def needs_vport_for_fip_association(device_owner):
+        return (device_owner not in
+                RootNuagePlugin.get_device_owners_vip() +
+                [constants.DEVICE_OWNER_IRONIC])
+
+    @staticmethod
+    def needs_vport_creation(device_owner):
+        if (device_owner in RootNuagePlugin.get_auto_create_port_owners() or
+                device_owner.startswith(tuple(
+                    cfg.CONF.PLUGIN.device_owner_prefix))):
+            return False
+        return True
+
+    @staticmethod
+    def get_device_owners_vip():
+        return ([constants.DEVICE_OWNER_VIP_NUAGE] +
+                cfg.CONF.PLUGIN.device_owner_prefix)
+
+    @staticmethod
+    def count_fixed_ips_per_version(fixed_ips):
+        ipv4s = 0
+        ipv6s = 0
+        for fixed_ip in fixed_ips:
+            if netaddr.valid_ipv4(fixed_ip['ip_address']):
+                ipv4s += 1
+            if netaddr.valid_ipv6(fixed_ip['ip_address']):
+                ipv6s += 1
+        return ipv4s, ipv6s
+
+    @staticmethod
+    def _convert_ipv6(ip):
+        hi, lo = struct.unpack('!QQ', socket.inet_pton(socket.AF_INET6, ip))
+        return (hi << 64) | lo
+
+    @staticmethod
+    def sort_ips(ips):
+        # (gridinv): attempt first ipv4 conversion
+        # on socket.error assume ipv6
+        try:
+            return sorted(ips,
+                          key=lambda ip: struct.unpack(
+                              '!I', socket.inet_pton(socket.AF_INET, ip))[0])
+        except socket.error:
+            return sorted(ips,
+                          key=lambda ip: RootNuagePlugin._convert_ipv6(ip))
 
 
 class BaseNuagePlugin(RootNuagePlugin):

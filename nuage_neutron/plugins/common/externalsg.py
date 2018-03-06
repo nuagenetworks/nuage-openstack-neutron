@@ -22,17 +22,15 @@ from neutron_lib import exceptions as n_exc
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 
 
 LOG = logging.getLogger(__name__)
 
 
-class NuageexternalsgMixin(object):
+class NuageexternalsgMixin(nuage_utils.SubnetUtilsBase):
 
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def _make_external_security_group_dict(self, redirect_target,
                                            context=None, fields=None):
         res = {
@@ -47,7 +45,6 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def create_nuage_external_security_group(self, context,
                                              nuage_external_security_group):
         external_sg = nuage_external_security_group[
@@ -66,7 +63,7 @@ class NuageexternalsgMixin(object):
         if subnet_id:
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, subnet_id)
-            if subnet_mapping and subnet_mapping['nuage_l2dom_tmplt_id']:
+            if subnet_mapping and self._is_l2(subnet_mapping):
                 l2dom_id = subnet_mapping['nuage_subnet_id']
                 external_id = subnet_id
             if not l2dom_id:
@@ -98,7 +95,6 @@ class NuageexternalsgMixin(object):
                                                        context=context)
 
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_nuage_external_security_group(self, context, ext_sg_id,
                                           fields=None):
         try:
@@ -113,7 +109,6 @@ class NuageexternalsgMixin(object):
                                                        fields=fields)
 
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_nuage_external_security_groups(self, context, filters=None,
                                            fields=None):
         # get all redirect targets
@@ -123,7 +118,7 @@ class NuageexternalsgMixin(object):
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, filters['subnet'][0])
             if subnet_mapping:
-                if not subnet_mapping['nuage_l2dom_tmplt_id']:
+                if self._is_l3(subnet_mapping):
                     message = ("Subnet %s doesn't have mapping l2domain on "
                                "VSD " % filters['subnet'][0])
                     raise nuage_exc.NuageBadRequest(msg=message)
@@ -154,7 +149,6 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def delete_nuage_external_security_group(self, context, ext_sg_id):
         self.vsdclient.delete_nuage_external_security_group(ext_sg_id)
 
@@ -163,7 +157,6 @@ class NuageexternalsgMixin(object):
         return 0
 
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def _make_external_security_group_rule_dict(self, ext_sg_rule,
                                                 context=None, fields=None):
         port_range_min = None
@@ -196,7 +189,6 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def create_nuage_external_security_group_rule(
             self, context, nuage_external_security_group_rule):
         external_sg_rule = (
@@ -216,7 +208,6 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_nuage_external_security_group_rule(self, context, external_rule_id,
                                                fields=None):
         try:
@@ -232,14 +223,12 @@ class NuageexternalsgMixin(object):
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def delete_nuage_external_security_group_rule(self, context,
                                                   external_rule_id):
         self.vsdclient.delete_nuage_external_sg_rule(external_rule_id)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    @TimeTracker.tracked
     def get_nuage_external_security_group_rules(self, context, filters=None,
                                                 fields=None):
         params = {}
@@ -248,7 +237,7 @@ class NuageexternalsgMixin(object):
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, filters['subnet'][0])
             if subnet_mapping:
-                if not subnet_mapping['nuage_l2dom_tmplt_id']:
+                if self._is_l3(subnet_mapping):
                     message = ("Subnet %s doesn't have mapping l2domain on "
                                "VSD " % filters['subnet'][0])
                     raise nuage_exc.NuageBadRequest(msg=message)

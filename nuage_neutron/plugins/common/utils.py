@@ -18,17 +18,84 @@ import contextlib
 import functools
 import netaddr
 import six
-import socket
-import struct
 import sys
 
 from neutron._i18n import _
-from neutron_lib import constants as neutron_constants
-from oslo_config import cfg
+from neutron_lib import constants as lib_constants
 
-from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
+
+
+class SubnetUtilsBase(object):
+
+    @staticmethod
+    def _is_v4_ip(ip):
+        return (netaddr.IPAddress(ip['ip_address']).version ==
+                lib_constants.IP_VERSION_4)
+
+    @staticmethod
+    def _is_v6_ip(ip):
+        return (netaddr.IPAddress(ip['ip_address']).version ==
+                lib_constants.IP_VERSION_6)
+
+    @staticmethod
+    def _is_ipv4(subnet):
+        return subnet['ip_version'] == lib_constants.IP_VERSION_4
+
+    @staticmethod
+    def _is_ipv6(subnet):
+        return subnet['ip_version'] == lib_constants.IP_VERSION_6
+
+    @staticmethod
+    def _is_equal_ip(ip1, ip2):
+        return SubnetUtilsBase.compare_ip(ip1, ip2)
+
+    @staticmethod
+    def _is_l2(nuage_subnet_mapping):
+        """_is_l2 : indicated whether the subnet ~ this mapping is a l2 subnet
+
+        :type nuage_subnet_mapping: dict
+        """
+        return bool(nuage_subnet_mapping['nuage_l2dom_tmplt_id'])
+
+    @staticmethod
+    def _is_l3(nuage_subnet_mapping):
+        return not SubnetUtilsBase._is_l2(nuage_subnet_mapping)
+
+    @staticmethod
+    def _is_vsd_mgd(nuage_subnet_mapping):
+        """_is_vsd_mgd : indicated whether the subnet ~ this mapping is vsd mgd
+
+        :type nuage_subnet_mapping: dict
+        """
+        return bool(nuage_subnet_mapping['nuage_managed_subnet'])
+
+    @staticmethod
+    def _is_os_mgd(nuage_subnet_mapping):
+        return not SubnetUtilsBase._is_vsd_mgd(nuage_subnet_mapping)
+
+    @staticmethod
+    def compare_ip(ip1, ip2):
+        return ((ip1 is None and ip2 is None) or
+                (ip1 is not None and ip2 is not None and
+                 netaddr.IPAddress(ip1) == netaddr.IPAddress(ip2)))
+
+    @staticmethod
+    def compare_cidr(cidr1, cidr2):
+        return ((cidr1 is None and cidr2 is None) or
+                (cidr1 is not None and cidr2 is not None and
+                 SubnetUtilsBase.normalize_cidr(cidr1) ==
+                 SubnetUtilsBase.normalize_cidr(cidr2)))
+
+    @staticmethod
+    def normalize_cidr(value):
+        try:
+            ip = netaddr.IPNetwork(value).cidr
+            return six.text_type(ip)
+        except netaddr.core.AddrFormatError:
+            pass
+        return value
 
 
 def get_logger(name=None, fn=None):
@@ -68,34 +135,6 @@ def handle_nuage_api_error(fn):
                         nuage_exc.NuageAPIException(msg=ex.message),
                         tb)
     return wrapped
-
-
-def compare_ip(ip1, ip2):
-    return ((ip1 is None and ip2 is None) or
-            (ip1 is not None and ip2 is not None and
-             netaddr.IPAddress(ip1) == netaddr.IPAddress(ip2)))
-
-
-def compare_cidr(cidr1, cidr2):
-    return ((cidr1 is None and cidr2 is None) or
-            (cidr1 is not None and cidr2 is not None and
-             normalize_cidr(cidr1) == normalize_cidr(cidr2)))
-
-
-def normalize_cidr(value):
-    try:
-        ip = netaddr.IPNetwork(value).cidr
-        return six.text_type(ip)
-    except netaddr.core.AddrFormatError:
-        pass
-    return value
-
-
-def check_vport_creation(device_owner, prefix_list):
-    if (device_owner in get_auto_create_port_owners() or
-            device_owner.startswith(tuple(prefix_list))):
-        return False
-    return True
 
 
 def context_log(fn):
@@ -255,58 +294,3 @@ def rollback():
             except Exception:
                 log.exception("Rollback failed.")
         raise
-
-
-def get_auto_create_port_owners():
-    return [neutron_constants.DEVICE_OWNER_ROUTER_INTF,
-            neutron_constants.DEVICE_OWNER_ROUTER_GW,
-            neutron_constants.DEVICE_OWNER_FLOATINGIP,
-            nuage_constants.DEVICE_OWNER_VIP_NUAGE,
-            nuage_constants.DEVICE_OWNER_IRONIC
-            ]
-
-
-def needs_vport_for_fip_association(device_owner):
-    return (device_owner not in
-            get_device_owners_vip() + [nuage_constants.DEVICE_OWNER_IRONIC])
-
-
-def needs_vport_creation(device_owner):
-    if (device_owner in get_auto_create_port_owners() or
-            device_owner.startswith(tuple(
-                cfg.CONF.PLUGIN.device_owner_prefix))):
-        return False
-    return True
-
-
-def get_device_owners_vip():
-    return ([nuage_constants.DEVICE_OWNER_VIP_NUAGE] +
-            cfg.CONF.PLUGIN.device_owner_prefix)
-
-
-def count_fixed_ips_per_version(fixed_ips):
-    ipv4s = 0
-    ipv6s = 0
-    for fixed_ip in fixed_ips:
-        if netaddr.valid_ipv4(fixed_ip['ip_address']):
-            ipv4s += 1
-        if netaddr.valid_ipv6(fixed_ip['ip_address']):
-            ipv6s += 1
-    return ipv4s, ipv6s
-
-
-def _convert_ipv6(ip):
-    hi, lo = struct.unpack('!QQ', socket.inet_pton(socket.AF_INET6, ip))
-    return (hi << 64) | lo
-
-
-def sort_ips(ips):
-    # (gridinv): attempt first ipv4 conversion
-    # on socket.error assume ipv6
-    try:
-        return sorted(ips,
-                      key=lambda ip: struct.unpack(
-                          '!I', socket.inet_pton(socket.AF_INET, ip))[0])
-    except socket.error:
-        return sorted(ips,
-                      key=lambda ip: _convert_ipv6(ip))

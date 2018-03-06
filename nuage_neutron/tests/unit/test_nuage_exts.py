@@ -1,4 +1,4 @@
-# Copyright 2016 NOKIA
+# Copyright 2018 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -22,6 +22,8 @@ from oslo_config import cfg
 from oslo_config import fixture as oslo_fixture
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
+from nuage_neutron.plugins.nuage_ml2.nuage_network_ext_driver import \
+    NuageNetworkExtensionDriver
 from nuage_neutron.plugins.nuage_ml2.nuage_port_ext_driver import \
     NuagePortExtensionDriver
 from nuage_neutron.plugins.nuage_ml2.nuage_subnet_ext_driver import \
@@ -75,6 +77,19 @@ class TestNuageSubnetExtensionDriver(TestNuageExtensions):
     def test_init_nuage_subnet_extension_driver2(self, *mocks):
         self.set_config_fixture()
         NuageSubnetExtensionDriver().initialize()
+
+
+class TestNuageNetworkExtensionDriver(TestNuageExtensions):
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    def test_init_nuage_network_extension_driver(self, *mocks):
+        NuageNetworkExtensionDriver().initialize()
+
+    @mock.patch.object(RESTProxyServer, 'raise_rest_error')
+    @mock.patch.object(VsdClientImpl, 'verify_cms')
+    def test_init_nuage_network_extension_driver2(self, *mocks):
+        self.set_config_fixture()
+        NuageNetworkExtensionDriver().initialize()
 
 
 class TestNuageSecurityGroupExtensionDriver(TestNuageExtensions):

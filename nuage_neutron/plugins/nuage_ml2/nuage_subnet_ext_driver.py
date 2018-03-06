@@ -22,7 +22,6 @@ from neutron_lib import constants
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 
 LOG = logging.getLogger(__name__)
@@ -66,7 +65,6 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
             self._store_change(result, data, attribute)
 
     @utils.exception_logger()
-    @TimeTracker.tracked
     def extend_subnet_dict(self, session, db_data, result):
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, result['id'])
         if subnet_mapping:
@@ -76,6 +74,8 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
                 result['nuagenet'] = subnet_mapping['nuage_subnet_id']
         else:
             result['vsd_managed'] = False
+        result['nuage_l2bridge'] = nuagedb.get_nuage_l2bridge_id_for_network(
+            session, result['network_id'])
 
         if db_data['networks'] and db_data['networks'].get('external'):
             nuage_subnet = self.get_vsd_shared_subnet_attributes(
@@ -91,11 +91,11 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
             nuage_underlay_db = nuagedb.get_subnet_parameter(
                 session, result['id'], nuage_constants.NUAGE_UNDERLAY)
 
-            if (update is constants.ATTR_NOT_SPECIFIED
-                    and not result['vsd_managed']
-                    and not result['ip_version'] == constants.IP_VERSION_6
-                    and subnet_mapping
-                    and not subnet_mapping['nuage_l2dom_tmplt_id']):
+            if (update is constants.ATTR_NOT_SPECIFIED and
+                    not result['vsd_managed'] and
+                    not self._is_ipv6(result) and
+                    subnet_mapping and
+                    self._is_l3(subnet_mapping)):
                 # No update, db value
                 result['nuage_underlay'] = (
                     nuage_underlay_db['parameter_value']

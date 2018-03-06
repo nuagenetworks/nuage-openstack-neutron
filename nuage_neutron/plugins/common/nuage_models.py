@@ -189,3 +189,27 @@ class NuageSecurityGroup(model_base.BASEV2):
 class NuageSecurityGroupParameter(model_base.BASEV2):
     __tablename__ = 'nuage_security_group_parameter'
     name = sa.Column(sa.String(255), primary_key=True, nullable=False)
+
+
+class NuageL2bridge(model_base.BASEV2, model_base.HasId,
+                    model_base.HasProject):
+    __tablename__ = 'nuage_l2bridge'
+    name = sa.Column(sa.String(255), nullable=True)
+    nuage_subnet_id = sa.Column(sa.String(36), nullable=True)
+
+
+class NuageL2bridgePhysnetMapping(model_base.BASEV2):
+    __tablename__ = 'nuage_l2bridge_physnet_mapping'
+    l2bridge_id = sa.Column(sa.String(36), sa.ForeignKey('nuage_l2bridge.id',
+                                                         ondelete='CASCADE'),
+                            primary_key=True, nullable=False)
+    physnet = sa.Column(sa.String(64), nullable=False, primary_key=True)
+    segmentation_id = sa.Column(sa.Integer, nullable=False, primary_key=True)
+    segmentation_type = sa.Column(sa.String(32), nullable=False,
+                                  default='vlan')
+    __table_args__ = (
+        sa.UniqueConstraint(
+            physnet, segmentation_id,
+            name='uniq_physnet_segmentationid'),
+        model_base.BASEV2.__table_args__
+    )

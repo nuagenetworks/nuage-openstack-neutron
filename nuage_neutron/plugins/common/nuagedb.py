@@ -23,12 +23,12 @@ from neutron.db import l3_db
 from neutron.db.models import allowed_address_pair as addr_pair_models
 from neutron.db import models_v2
 from neutron.db import securitygroups_db
+from neutron.db import segments_db
 from neutron.plugins.ml2 import models as ml2_models
 from neutron_lib import constants as os_constants
 
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import nuage_models
-from nuage_neutron.plugins.common import utils
 
 from nuage_neutron.vsdclient.common import constants
 
@@ -402,7 +402,7 @@ def get_ent_rtr_mapping_by_rtrids(session, rtrids):
     ).all()
 
 
-def get_floatingip_per_vip_in_network(session, network_id):
+def get_floatingip_per_vip_in_network(session, network_id, device_owners_vip):
     result = (
         session.query(l3_db.FloatingIP, models_v2.Port)
         .join(
@@ -410,7 +410,7 @@ def get_floatingip_per_vip_in_network(session, network_id):
              l3_db.FloatingIP.fixed_port_id == models_v2.Port.id))
         .filter(
             models_v2.Port.network_id == network_id,
-            models_v2.Port.device_owner.in_(utils.get_device_owners_vip())
+            models_v2.Port.device_owner.in_(device_owners_vip)
         )
     ).all()
     fips_per_vip = {}
@@ -484,6 +484,15 @@ def get_default_net_partition(context, def_net_part):
 def get_all_routes(session):
     routes = session.query(extraroute_db.RouterRoute)
     return make_route_list(routes)
+
+
+def is_network_external(session, net_id):
+    try:
+        session.query(external_net_db.ExternalNetwork)\
+            .filter_by(network_id=net_id).one()
+        return True
+    except sql_exc.NoResultFound:
+        return False
 
 
 def get_ext_network_ids(session):
@@ -663,3 +672,112 @@ def delete_subnet_parameter(session, subnet_parameter):
 
 def delete_router_parameter(session, router_parameter):
     session.delete(router_parameter)
+
+
+def get_nuage_l2bridge_physnet_mappings(session, l2bridge_id=None,
+                                        physnet=None,
+                                        segmentation_id=None,
+                                        segmentation_type=None):
+    query = session.query(nuage_models.NuageL2bridgePhysnetMapping)
+    if l2bridge_id:
+        query = query.filter_by(l2bridge_id=l2bridge_id)
+    if physnet:
+        query = query.filter_by(physnet=physnet)
+    if segmentation_id:
+        query = query.filter_by(segmentation_id=segmentation_id)
+    if segmentation_type:
+        query = query.filter_by(segmentation_type=segmentation_type)
+    return query.all()
+
+
+def get_nuage_l2bridge_blocking(session, l2bridge_id):
+    return session.query(nuage_models.NuageL2bridge).filter_by(
+        id=l2bridge_id).with_for_update().first()
+
+
+def get_nuage_l2bridge(session, l2bridge_id):
+    return session.query(
+        nuage_models.NuageL2bridge).filter_by(
+        id=l2bridge_id
+    ).first()
+
+
+def get_subnets_for_nuage_l2bridge(session, l2bridge_id):
+    results = session.query(
+        models_v2.Subnet, segments_db.NetworkSegment,
+        nuage_models.NuageL2bridgePhysnetMapping
+    ).filter(
+        nuage_models.NuageL2bridgePhysnetMapping.l2bridge_id == l2bridge_id,
+        models_v2.Subnet.network_id ==
+        segments_db.NetworkSegment.network_id,
+        segments_db.NetworkSegment.physical_network ==
+        nuage_models.NuageL2bridgePhysnetMapping.physnet,
+        segments_db.NetworkSegment.segmentation_id ==
+        nuage_models.NuageL2bridgePhysnetMapping.segmentation_id,
+        segments_db.NetworkSegment.network_type ==
+        nuage_models.NuageL2bridgePhysnetMapping.segmentation_type
+    ).with_for_update().all()
+    return [s for s, _, _ in results]
+
+
+def get_networks_for_nuage_l2bridge(session, l2bridge_id):
+    results = session.query(
+        models_v2.Network, segments_db.NetworkSegment,
+        nuage_models.NuageL2bridgePhysnetMapping
+    ).filter(
+        nuage_models.NuageL2bridgePhysnetMapping.l2bridge_id == l2bridge_id,
+        models_v2.Network.id ==
+        segments_db.NetworkSegment.network_id,
+        segments_db.NetworkSegment.physical_network ==
+        nuage_models.NuageL2bridgePhysnetMapping.physnet,
+        segments_db.NetworkSegment.segmentation_id ==
+        nuage_models.NuageL2bridgePhysnetMapping.segmentation_id,
+        segments_db.NetworkSegment.network_type ==
+        nuage_models.NuageL2bridgePhysnetMapping.segmentation_type
+    ).with_for_update().all()
+    return [s for s, _, _ in results]
+
+
+def get_subnets_for_physnet(session, physnet_name, segmentation_id,
+                            segmentation_type):
+    results = session.query(
+        models_v2.Subnet, segments_db.NetworkSegment
+    ).filter(
+        segments_db.NetworkSegment.network_type == segmentation_type,
+        segments_db.NetworkSegment.physical_network == physnet_name,
+        segments_db.NetworkSegment.segmentation_id == segmentation_id,
+        segments_db.NetworkSegment.network_id == models_v2.Subnet.network_id
+    )
+    return [s for s, _ in results]
+
+
+def get_nuage_l2bridge_id_for_subnet(session, subnet_id):
+    result = session.query(
+        nuage_models.NuageL2bridgePhysnetMapping, segments_db.NetworkSegment,
+        models_v2.Subnet
+    ).filter(
+        models_v2.Subnet.id == subnet_id,
+        models_v2.Subnet.network_id == segments_db.NetworkSegment.network_id,
+        segments_db.NetworkSegment.physical_network ==
+        nuage_models.NuageL2bridgePhysnetMapping.physnet,
+        segments_db.NetworkSegment.segmentation_id ==
+        nuage_models.NuageL2bridgePhysnetMapping.segmentation_id,
+        segments_db.NetworkSegment.network_type ==
+        nuage_models.NuageL2bridgePhysnetMapping.segmentation_type,
+    ).first()
+    return result[0]['l2bridge_id'] if result else None
+
+
+def get_nuage_l2bridge_id_for_network(session, network_id):
+    result = session.query(
+        nuage_models.NuageL2bridgePhysnetMapping, segments_db.NetworkSegment,
+    ).filter(
+        segments_db.NetworkSegment.network_id == network_id,
+        segments_db.NetworkSegment.physical_network ==
+        nuage_models.NuageL2bridgePhysnetMapping.physnet,
+        segments_db.NetworkSegment.segmentation_id ==
+        nuage_models.NuageL2bridgePhysnetMapping.segmentation_id,
+        segments_db.NetworkSegment.network_type ==
+        nuage_models.NuageL2bridgePhysnetMapping.segmentation_type,
+    ).first()
+    return result[0]['l2bridge_id'] if result else None

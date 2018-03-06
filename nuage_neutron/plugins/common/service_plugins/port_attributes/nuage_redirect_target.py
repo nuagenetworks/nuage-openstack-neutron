@@ -33,7 +33,6 @@ from nuage_neutron.plugins.common.extensions import (
 from nuage_neutron.plugins.common.extensions.nuage_redirect_target \
     import REDIRECTTARGETS
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
@@ -77,13 +76,12 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 context.session, filters['subnet'][0])
             if not subnet_mapping:
                 return []
-            if (subnet_mapping['nuage_managed_subnet'] or
-                    not subnet_mapping['nuage_l2dom_tmplt_id']):
+            if self._is_vsd_mgd(subnet_mapping) or self._is_l3(subnet_mapping):
                 domain_id = self.vsdclient.get_router_by_domain_subnet_id(
                     subnet_mapping['nuage_subnet_id'])
                 if domain_id:
                     params['parentID'] = domain_id
-                elif subnet_mapping['nuage_managed_subnet']:
+                elif self._is_vsd_mgd(subnet_mapping):
                     params['parentID'] = subnet_mapping['nuage_subnet_id']
                 else:
                     return []
@@ -157,7 +155,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             nuage_redirect_target = self.vsdclient\
                 .create_nuage_redirect_target(
                     redirect_target,
-                    subnet_id=subnet_mapping.get('nuage_subnet_id'),
+                    l2dom_id=subnet_mapping.get('nuage_subnet_id'),
                     domain_id=router_mapping.get('nuage_router_id'))
         except Exception as e:
             if getattr(e, "vsd_code", None) == '7016':
@@ -444,7 +442,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, filters['subnet'][0])
             if subnet_mapping:
-                if not subnet_mapping['nuage_l2dom_tmplt_id']:
+                if self._is_l3(subnet_mapping):
                     message = ("Subnet %s doesn't have mapping l2domain on "
                                "VSD " % filters['subnet'][0])
                     raise nuage_exc.NuageBadRequest(msg=message)
@@ -586,7 +584,6 @@ class NuageRedirectTarget(BaseNuagePlugin):
                        subnet_mapping['subnet_id'])
                 raise nuage_exc.NuageBadRequest(msg=msg)
 
-    @TimeTracker.tracked
     def post_port_update_redirect_target(self, resource, event, trigger,
                                          context, port, original_port,
                                          **kwargs):
@@ -605,7 +602,6 @@ class NuageRedirectTarget(BaseNuagePlugin):
             context, port, port[ext_rtarget.REDIRECTTARGETS],
             nuage_rtargets_ids)
 
-    @TimeTracker.tracked
     def post_port_create_redirect_target(self, resource, event, trigger,
                                          context, port, **kwargs):
         if ext_rtarget.REDIRECTTARGETS not in port:
@@ -618,7 +614,6 @@ class NuageRedirectTarget(BaseNuagePlugin):
             context, port, port[ext_rtarget.REDIRECTTARGETS],
             n_rtarget_ids)
 
-    @TimeTracker.tracked
     def post_port_show_redirect_target(self, resource, event, trigger,
                                        **kwargs):
         port = kwargs.get('port')

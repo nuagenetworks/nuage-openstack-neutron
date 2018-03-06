@@ -68,14 +68,15 @@ class NuageL2Domain(object):
         net = netaddr.IPNetwork(ipv4_subnet['cidr'])
         req_params = {
             'net_partition_id': params['netpart_id'],
-            'name': ipv4_subnet['id'],
+            'name': helper.get_subnet_name(ipv4_subnet)
         }
+        external_id = helper.get_subnet_external_id(ipv4_subnet)
         ext_params = {
             "DHCPManaged": ipv4_subnet['enable_dhcp'],
             "address": str(net.ip),
             "netmask": str(net.netmask),
             "gateway": params['dhcp_ip'],
-            'externalID': get_vsd_external_id(ipv4_subnet['id']),
+            'externalID': external_id,
             'dynamicIpv6Address': False
         }
         ext_params.update(helper.get_ipv6_vsd_data(ipv6_subnet))
@@ -90,12 +91,13 @@ class NuageL2Domain(object):
 
         req_params = {
             'net_partition_id': params['netpart_id'],
-            'name': ipv4_subnet['id'],
+            'name': helper.get_subnet_name(ipv4_subnet),
             'template': l2dom_tmplt_id,
-            'externalID': get_vsd_external_id(ipv4_subnet['id'])
+            'externalID': external_id
         }
+        description = helper.get_subnet_description(ipv4_subnet)
         ext_params = {
-            'description': ipv4_subnet['name']
+            'description': description
         }
         nuagel2domain = nuagelib.NuageL2Domain(create_params=req_params,
                                                extra_params=ext_params)
@@ -134,9 +136,9 @@ class NuageL2Domain(object):
                                              params['netpart_id'],
                                              params.get('shared'),
                                              params['tenant_id'])
-        self._create_nuage_def_l2domain_acl(l2domain_id, ipv4_subnet['id'])
+        self._create_nuage_def_l2domain_acl(l2domain_id, ipv4_subnet)
         self._create_nuage_def_l2domain_adv_fwd_template(l2domain_id,
-                                                         ipv4_subnet['id'])
+                                                         ipv4_subnet)
 
         pnet_binding = params.get('pnet_binding', None)
         if pnet_binding:
@@ -144,14 +146,14 @@ class NuageL2Domain(object):
                 'pnet_binding': pnet_binding,
                 'netpart_id': params['netpart_id'],
                 'l2domain_id': l2domain_id,
-                'neutron_subnet_id': ipv4_subnet['id']
+                'neutron_subnet_id': ipv4_subnet,
             }
             try:
                 pnet_helper.process_provider_network(self.restproxy,
                                                      self.policygroups,
                                                      pnet_params)
             except Exception:
-                self.delete_subnet(ipv4_subnet['id'])
+                self.delete_subnet(ipv4_subnet['id'], {})
                 raise
 
         return subnet_dict
@@ -165,9 +167,9 @@ class NuageL2Domain(object):
             if e.code != constants.RES_NOT_FOUND:
                 raise
 
-    def get_l2domain_by_external_id(self, neutron_id, required=True):
+    def get_l2domain_by_external_id(self, subnet, required=True):
         params = {
-            'externalID': get_vsd_external_id(neutron_id)
+            'externalID': helper.get_subnet_external_id(subnet)
         }
         nuagel2domain = nuagelib.NuageL2Domain(create_params=params)
         l2domains = self.restproxy.get(
@@ -178,55 +180,38 @@ class NuageL2Domain(object):
             return l2domains[0]
         else:
             msg = ("Cannot find subnet with ID %s"
-                   " in L2domains on VSD" % neutron_id)
+                   " in L2domains on VSD" % params['externalID'])
             raise restproxy.ResourceNotFoundException(message=msg)
 
-    def delete_subnet(self, id):
-        params = {
-            'externalID': get_vsd_external_id(id)
-        }
-        nuagel2domain = nuagelib.NuageL2Domain(create_params=params)
-        response = self.restproxy.rest_call(
-            'GET', nuagel2domain.get_resource_with_ext_id(), '',
-            extra_headers=nuagel2domain.extra_headers_get())
+    def delete_subnet(self, l2dom_id, mapping):
+        nuagel2domain = nuagelib.NuageL2Domain()
+        l2dom = self.restproxy.get(nuagel2domain.get_resource(l2dom_id))[0]
+        nuagel2domtemplate = nuagelib.NuageL2DomTemplate()
+        if l2dom:
+            template_id = l2dom['templateID']
+            template = self.restproxy.get(
+                nuagel2domtemplate.get_resource(template_id))[0]
+            l2domain_id = l2dom['ID']
 
-        if nuagel2domain.get_validate(response):
-            nuagel2domtemplates = nuagelib.NuageL2DomTemplate()
-            template_id = nuagel2domain.get_template_id(response)
-            resp_temp = self.restproxy.rest_call(
-                'GET', nuagel2domtemplates.get_resource(template_id), '')
-            if not nuagel2domtemplates.validate(resp_temp):
-                raise restproxy.RESTProxyError(nuagel2domtemplates.error_msg)
-            l2domain_id = nuagel2domain.get_domainid(response)
+            # Delete bridge_interface and bridge vport if it is subnet
+            # created for providernet
+            pnet_helper.delete_resources_created_for_l2dom_providernet(
+                self.restproxy, l2domain_id)
+            # delete subnet
+            self.restproxy.delete(nuagel2domain.delete_resource(l2domain_id))
 
-            try:
-                # Delete bridge_interface and bridge vport if it is subnet
-                # created for providernet
-                pnet_helper.delete_resources_created_for_l2dom_providernet(
-                    self.restproxy, l2domain_id)
-                # delete subnet
-                l2dom_delete_response = self.restproxy.rest_call(
-                    'DELETE', nuagel2domain.delete_resource(l2domain_id), '')
-                if not nuagel2domain.delete_validate(l2dom_delete_response):
-                    code = nuagel2domain.get_error_code(l2dom_delete_response)
-                    raise restproxy.RESTProxyError(
-                        nuagel2domain.error_msg,
-                        error_code=code,
-                        vsd_code=nuagel2domain.vsd_error_code)
-            except Exception:
-                raise
+            if template and l2dom['name'] == template['name']:
+                self.restproxy.delete(
+                    nuagel2domtemplate.delete_resource(template_id))
 
-            if response[3][0]['name'] == resp_temp[3][0]['name']:
-                try:
-                    self.restproxy.rest_call(
-                        'DELETE',
-                        nuagel2domtemplates.delete_resource(template_id),
-                        '')
-                except Exception:
-                    raise
+        elif mapping and mapping['nuage_l2dom_tmplt_id']:
+            # Delete hanging l2dom_template
+            self.restproxy.delete(
+                nuagel2domtemplate.delete_resource(
+                    mapping['nuage_l2dom_tmplt_id']))
 
     def update_subnet(self, neutron_subnet, params):
-        new_name = neutron_subnet.get('name')
+        new_name = helper.get_subnet_description(neutron_subnet)
 
         if params.get('dhcp_opts_changed'):
             nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
@@ -275,7 +260,17 @@ class NuageL2Domain(object):
             if l2domain['description'] != new_name:
                 self.restproxy.put(
                     nuagel2domain.put_resource(params['parent_id']),
-                    {'description': neutron_subnet['name']})
+                    {'description': new_name})
+
+    def update_subnet_description(self, nuage_id, new_description):
+        nuagel2domain = nuagelib.NuageL2Domain()
+        l2domain = self.restproxy.get(
+            nuagel2domain.get_resource(nuage_id),
+            required=True)[0]
+        if l2domain['description'] != new_description:
+            self.restproxy.put(
+                nuagel2domain.put_resource(nuage_id),
+                {'description': new_description})
 
     def _attach_nuage_group_to_l2domain(self, nuage_groupid,
                                         nuage_subnetid, nuage_npid,
@@ -307,25 +302,23 @@ class NuageL2Domain(object):
                     constants.CONFLICT_ERR_CODE):
                 raise restproxy.RESTProxyError(nuage_permission.error_msg)
 
-    def _create_nuage_def_l2domain_acl(self, id, neutron_subnet_id):
+    def _create_nuage_def_l2domain_acl(self, id, neutron_subnet):
         helper.create_nuage_l2dom_ingress_tmplt(self.restproxy,
                                                 id,
-                                                neutron_subnet_id)
+                                                neutron_subnet)
         helper.create_nuage_l2dom_egress_tmplt(self.restproxy,
                                                id,
-                                               neutron_subnet_id)
+                                               neutron_subnet)
 
     def _create_nuage_def_l2domain_adv_fwd_template(self, l2dom_id,
-                                                    neutron_subnet_id):
+                                                    neutron_subnet):
         nuageadvfwdtmplt = nuagelib.NuageInAdvFwdTemplate()
-        response = self.restproxy.rest_call(
-            'POST',
+        external_id = helper.get_subnet_external_id(neutron_subnet)
+        response = self.restproxy.post(
             nuageadvfwdtmplt.post_resource_l2(l2dom_id),
-            nuageadvfwdtmplt.post_data_default_l2(
-                l2dom_id, get_vsd_external_id(neutron_subnet_id)))
-        if not nuageadvfwdtmplt.validate(response):
-            raise restproxy.RESTProxyError(nuageadvfwdtmplt.error_msg)
-        return nuageadvfwdtmplt.get_response_objid(response)
+            nuageadvfwdtmplt.post_data_default_l2(l2dom_id, external_id),
+            ignore_err_codes=[restproxy.REST_DUPLICATE_ACL_PRIORITY])
+        return response[0]['ID']
 
     def get_nuage_cidr(self, nuage_subnetid):
         nuagesubn = nuagelib.NuageSubnet()
