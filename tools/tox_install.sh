@@ -5,13 +5,14 @@
 set -ex
 
 ZUUL_CLONER=/usr/zuul-env/bin/zuul-cloner
-NEUTRON_BRANCH=${NEUTRON_BRANCH:-stable/newton}
-UPPER_CONSTRAINTS_FILE=${UPPER_CONSTRAINTS_FILE:-unconstrained}
+NEUTRON_BRANCH=${NEUTRON_BRANCH:-newton-eol}
+CONSTRAINTS_FILE=$1
+shift
 
 install_cmd="pip install"
 
-if [ "$UPPER_CONSTRAINTS_FILE" != "unconstrained" ]; then
-    install_cmd="$install_cmd -c$UPPER_CONSTRAINTS_FILE"
+if [ "$CONSTRAINTS_FILE" != "unconstrained" ]; then
+    install_cmd="$install_cmd -c$CONSTRAINTS_FILE"
 fi
 
 if $(python -c "import neutron" 2> /dev/null); then
