@@ -1382,10 +1382,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
     def _process_fip_to_vip(self, context, port_id, nuage_fip_id=None):
         port = self.core_plugin._get_port(context, port_id)
-        neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
-        vip = port['fixed_ips'][0]['ip_address']
-        self.vsdclient.associate_fip_to_vips(
-            neutron_subnet_id, vip, nuage_fip_id)
+        if port.get('device_owner') in nuage_utils.get_device_owners_vip():
+            neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
+            vip = port['fixed_ips'][0]['ip_address']
+            self.vsdclient.associate_fip_to_vips(neutron_subnet_id,
+                                                 vip,
+                                                 nuage_fip_id)
 
     @log_helpers.log_method_call
     def _delete_nuage_fip(self, context, fip_dict):
