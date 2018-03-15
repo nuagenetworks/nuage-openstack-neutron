@@ -490,16 +490,10 @@ class TestNuageMechanismDriver(testtools.TestCase):
         self.assertFalse(config.default_allow_non_ip())
 
     def test_default_allow_non_ip_set_empty_string(self):
-        try:
-            cfg = self.set_config_fixture()
-            cfg.config(group='PLUGIN', default_allow_non_ip='')
+        cfg = self.set_config_fixture()
+        cfg.config(group='PLUGIN', default_allow_non_ip='')
 
-            self.fail('From Ocata onwards oslo is correctly checking its '
-                      'config value parsing; '
-                      'hence this line shd not be reached.')
-
-        except ValueError as e:
-            self.assertEqual('Unexpected boolean value \'\'', str(e))
+        self.assertFalse(config.default_allow_non_ip())
 
     def test_default_allow_non_ip_set(self):
         cfg = self.set_config_fixture()
