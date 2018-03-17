@@ -146,7 +146,7 @@ class NuageDomain(object):
             'templateID': net_partition['l3dom_tmplt_id'],
             'externalID': get_vsd_external_id(neutron_router['id'])
         }
-        if router['nuage_router_template']:
+        if router.get('nuage_router_template'):
             req_params['templateID'] = router['nuage_router_template']
 
         extra_params = {
@@ -228,7 +228,7 @@ class NuageDomain(object):
         isolated_id = None
         shared_id = None
 
-        if router['nuage_router_template'] is not None:
+        if router.get('nuage_router_template'):
             for zone in nuage_zone.zone_list(response):
                 if (zone['name'] == TEMPLATE_ISOLATED_ZONE and
                         not zone['publicZone']):
