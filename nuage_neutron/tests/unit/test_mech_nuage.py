@@ -28,7 +28,6 @@ from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
 
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from nuage_neutron.vsdclient.impl.vsdclientimpl import VsdClientImpl
@@ -173,13 +172,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
 
         # validate no api call is made - we don't count authentication calls!
         self.assertEqual(0, nmd1.vsdclient.restproxy.api_count)
-
-        # validate no time is tracked
-        self.assertFalse(TimeTracker.is_tracking_enabled())
-        self.assertEqual(0, TimeTracker.get_time_tracked(),
-                         'time tracked')
-        self.assertEqual(0, TimeTracker.get_time_not_tracked(),
-                         'time not tracked')
 
     # FLAT NETWORKS
 

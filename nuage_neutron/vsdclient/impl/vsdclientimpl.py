@@ -14,12 +14,11 @@
 
 from eventlet.green import threading
 import logging
+import six
+from time import sleep
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
-from nuage_neutron.plugins.common.time_tracker import TimeTracker
-import six
-
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import gw_helper
@@ -37,9 +36,6 @@ from nuage_neutron.vsdclient.resources import trunk
 from nuage_neutron.vsdclient.resources import vm
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient import VsdClient
-
-from time import sleep
-
 
 LOG = logging.getLogger(__name__)
 
@@ -1039,12 +1035,6 @@ class VsdClientImpl(VsdClient):
         stats = {}
         if nuage_config.is_enabled(plugin_constants.DEBUG_API_STATS):
             stats['api_count'] = self.restproxy.api_count
-        if nuage_config.is_enabled(plugin_constants.DEBUG_TIMING_STATS):
-            stats['time_spent_in_nuage'] = TimeTracker.get_time_tracked()
-            stats['time_spent_in_core'] = TimeTracker.get_time_not_tracked()
-            stats["total_time_spent"] = TimeTracker.get_time_tracked() + \
-                TimeTracker.get_time_not_tracked()
-
         return stats
 
     # Trunk
