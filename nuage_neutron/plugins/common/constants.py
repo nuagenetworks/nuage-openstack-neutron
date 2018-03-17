@@ -22,6 +22,8 @@ DEVICE_OWNER_OCTAVIA_HEALTHMGR = "Octavia:health-mgr"
 
 DEVICE_OWNER_OCTAVIA = "Octavia"
 
+VIPS_FOR_PORT_IPS = 'vips_for_port_ips'
+
 DHCP_OPTION_NAME_TO_NUMBER = {
     'netmask': 1,
     'time-offset': 2,
