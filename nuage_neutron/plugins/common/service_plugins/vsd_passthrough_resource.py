@@ -25,8 +25,11 @@ class VsdPassthroughResource(BaseNuagePlugin):
     os_to_vsd = {}
     vsd_filterables = []
     extra_filters = []
+    filters_to_ignore = ['tenant_id']
 
     def osfilters_to_vsdfilters(self, filters):
+        for f in self.filters_to_ignore:
+            filters.pop(f, None)
         if not all(x in self.vsd_filterables for x in filters or []):
             msg = (_("Only %s are filterable fields")
                    % (self.vsd_filterables + self.extra_filters))
