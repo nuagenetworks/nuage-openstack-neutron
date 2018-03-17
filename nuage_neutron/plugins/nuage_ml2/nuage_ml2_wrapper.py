@@ -15,6 +15,7 @@
 from neutron.db import agents_db
 from neutron.db.common_db_mixin import CommonDbMixin
 from neutron.db import db_base_plugin_v2
+from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
 from neutron.db import securitygroups_db as sg_db
@@ -114,7 +115,8 @@ class NuageL3Wrapper(base_plugin.BaseNuagePlugin,
                      service_base.ServicePluginBase,
                      CommonDbMixin,
                      extraroute_db.ExtraRoute_db_mixin,
-                     l3_gwmode_db.L3_NAT_db_mixin):
+                     l3_gwmode_db.L3_NAT_db_mixin,
+                     dns_db.DNSDbMixin):
     def __init__(self):
         super(NuageL3Wrapper, self).__init__()
 
