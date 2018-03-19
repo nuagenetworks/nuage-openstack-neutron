@@ -14,15 +14,7 @@
 
 import copy
 from logging import handlers
-
 import netaddr
-from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuage_neutron.plugins.common.extensions import nuage_router
-from nuage_neutron.plugins.common import nuagedb
-from nuage_neutron.plugins.common import utils as nuage_utils
-from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
-from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 from oslo_config import cfg
 from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
@@ -30,24 +22,42 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from sqlalchemy.orm import exc
 
+from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import exceptions as nuage_exc
+from nuage_neutron.plugins.common.extensions import nuage_router
+from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import utils as nuage_utils
+from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
+from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
+
 from neutron._i18n import _
 from neutron.db import api as db
+from neutron.db.common_db_mixin import CommonDbMixin
+from neutron.db import dns_db
+from neutron.db import extraroute_db
+from neutron.db import l3_gwmode_db
 
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.plugins import directory
+from neutron_lib.services import base as service_base
 from neutron_lib.utils import helpers
 
+from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import routing_mechanisms
-from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageL3Wrapper
 
 
 LOG = logging.getLogger(__name__)
 
 
-class NuageL3Plugin(NuageL3Wrapper):
+class NuageL3Plugin(base_plugin.BaseNuagePlugin,
+                    service_base.ServicePluginBase,
+                    CommonDbMixin,
+                    extraroute_db.ExtraRoute_db_mixin,
+                    l3_gwmode_db.L3_NAT_db_mixin,
+                    dns_db.DNSDbMixin):
     supported_extension_aliases = ['router',
                                    'nuage-router',
                                    'nuage-floatingip',
@@ -981,9 +991,9 @@ class NuageL3Plugin(NuageL3Wrapper):
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuageL3Plugin, self).get_floatingip(context, id)
 
-        if (not fields or 'nuage_egress_fip_rate_kbps' in fields
-            or 'nuage_ingress_fip_rate_kbps' in fields) and fip.get(
-           'port_id'):
+        if ((not fields or 'nuage_egress_fip_rate_kbps' in fields or
+                'nuage_ingress_fip_rate_kbps' in fields) and
+                fip.get('port_id')):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
                 nuage_rate_limit = self.vsdclient.get_rate_limit(
@@ -1148,8 +1158,8 @@ class NuageL3Plugin(NuageL3Wrapper):
             if 'port_id' in fip or fip.get('description'):
                 neutron_fip = super(NuageL3Plugin, self).update_floatingip(
                     context, id, floatingip)
-            last_known_router_id = (orig_fip['last_known_router_id']
-                                    or orig_fip['router_id'])
+            last_known_router_id = (orig_fip['last_known_router_id'] or
+                                    orig_fip['router_id'])
             if fip.get('port_id'):
                 if not neutron_fip['router_id']:
                     ret_msg = 'floating-ip is not associated yet'
