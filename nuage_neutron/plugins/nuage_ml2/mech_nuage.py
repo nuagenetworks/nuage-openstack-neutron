@@ -999,8 +999,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
         self._check_subport_in_use(original, port)
 
-        vm_if_update_required = self._check_vm_if_update(
-            db_context, original, port)
         host_added = host_removed = False
         if not original['binding:host_id'] and port['binding:host_id']:
             host_added = True
@@ -1011,20 +1009,17 @@ class NuageMechanismDriver(NuageML2Wrapper):
             host_removed = True
 
         nuage_vport = self._find_vport(db_context, port, subnet_mapping)
-
         if not nuage_vport:
             return
-        new_ips = self.calculate_vips_for_port_ips(
-            db_context, port)
-        old_ips = self.calculate_vips_for_port_ips(
-            db_context, original)
+
+        vm_if_update_required = self._check_vm_if_update(
+            db_context, original, port)
+
         if vm_if_update_required:
-            new_ipv4_ip = new_ips[4][-1] if new_ips[4] else None
-            new_ipv6_ip = new_ips[6][-1] if new_ips[6] else None
             data = {
                 'mac': port['mac_address'],
-                'ipv4': new_ipv4_ip,
-                'ipv6': new_ipv6_ip,
+                'ipv4': port['new_ipv4'],
+                'ipv6': port['new_ipv6'],
                 'nuage_vport_id': nuage_vport['ID'],
             }
             if _is_trunk_subport(port):
@@ -1034,16 +1029,18 @@ class NuageMechanismDriver(NuageML2Wrapper):
             else:
                 nuage_vip_dict = dict()
                 try:
-                    self.delete_vips_for_interface_update(data, new_ipv4_ip,
-                                                          new_ipv6_ip,
+                    self.delete_vips_for_interface_update(data,
+                                                          port['new_ipv4'],
+                                                          port['new_ipv6'],
                                                           nuage_vip_dict,
-                                                          nuage_vport, old_ips,
+                                                          nuage_vport,
+                                                          port['orig_ips'],
                                                           subnet_mapping,
                                                           original)
                     self.vsdclient.update_nuage_vm_if(data)
                 except restproxy.RESTProxyError as e:
                     if e.vsd_code != vsd_constants.VSD_VM_ALREADY_RESYNC:
-                        self.rollback_deleted_vips(data, new_ipv4_ip,
+                        self.rollback_deleted_vips(data, port['new_ipv4'],
                                                    nuage_vip_dict, nuage_vport,
                                                    port, subnet_mapping)
                         raise
@@ -1544,10 +1541,17 @@ class NuageMechanismDriver(NuageML2Wrapper):
             raise e
 
     def _check_vm_if_update(self, db_context, orig_port, port):
-        orig_ips = orig_port.get('fixed_ips')
-        new_ips = port.get('fixed_ips')
-        ips_change = (new_ips is not None and
-                      orig_ips != new_ips)
+        new_ips = self.calculate_vips_for_port_ips(
+            db_context, port)
+        orig_ips = self.calculate_vips_for_port_ips(
+            db_context, orig_port)
+        orig_ipv4 = orig_ips[4][-1] if orig_ips[4] else None
+        orig_ipv6 = orig_ips[6][-1] if orig_ips[6] else None
+
+        new_ipv4 = new_ips[4][-1] if new_ips[4] else None
+        new_ipv6 = new_ips[6][-1] if new_ips[6] else None
+        ips_change = (orig_ipv4 != new_ipv4 or
+                      orig_ipv6 != new_ipv6)
         if (ips_change and
                 port['device_owner'] == os_constants.DEVICE_OWNER_DHCP):
             return True
@@ -1583,6 +1587,9 @@ class NuageMechanismDriver(NuageML2Wrapper):
             if l2dom and not self.get_subnet(
                     db_context, l2dom['subnet_id'])['enable_dhcp']:
                 return False
+        port['new_ipv4'] = new_ipv4
+        port['new_ipv6'] = new_ipv6
+        port['orig_ips'] = orig_ips
         return vm_if_update
 
     @staticmethod
