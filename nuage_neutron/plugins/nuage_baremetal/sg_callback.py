@@ -58,6 +58,7 @@ class NuageBmSecurityGroupHandler(object):
         return self.client.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 
+    @registry.receives(resources.SECURITY_GROUP_RULE, [events.BEFORE_DELETE])
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def pre_delete_security_group_rule(self, resource,
@@ -67,6 +68,7 @@ class NuageBmSecurityGroupHandler(object):
         local_sg_rule = self.core_plugin.get_security_group_rule(context, id)
         self.client.delete_nuage_sgrule([local_sg_rule], constants.HARDWARE)
 
+    @registry.receives(resources.SECURITY_GROUP_RULE, [events.BEFORE_CREATE])
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def pre_create_security_group_rule(self, resource,
@@ -74,6 +76,7 @@ class NuageBmSecurityGroupHandler(object):
         self.client.validate_nuage_sg_rule_definition(
             kwargs['security_group_rule'])
 
+    @registry.receives(resources.SECURITY_GROUP_RULE, [events.AFTER_CREATE])
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def post_create_security_group_rule(self, resource,
@@ -103,6 +106,7 @@ class NuageBmSecurityGroupHandler(object):
                 self.core_plugin.delete_security_group_rule(context,
                                                             sg_rule['id'])
 
+    @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_DELETE])
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def pre_delete_security_group(self, resource, event, trigger, **kwargs):
@@ -231,16 +235,3 @@ class NuageBmSecurityGroupHandler(object):
                            resources.PORT, events.AFTER_UPDATE)
         registry.subscribe(self.post_port_delete,
                            resources.PORT, events.AFTER_DELETE)
-
-        registry.subscribe(self.pre_delete_security_group,
-                           resources.SECURITY_GROUP,
-                           events.BEFORE_DELETE)
-        registry.subscribe(self.pre_create_security_group_rule,
-                           resources.SECURITY_GROUP_RULE,
-                           events.BEFORE_CREATE)
-        registry.subscribe(self.post_create_security_group_rule,
-                           resources.SECURITY_GROUP_RULE,
-                           events.AFTER_CREATE)
-        registry.subscribe(self.pre_delete_security_group_rule,
-                           resources.SECURITY_GROUP_RULE,
-                           events.BEFORE_DELETE)
