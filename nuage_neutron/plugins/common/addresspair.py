@@ -140,9 +140,10 @@ class NuageAddressPair(BaseNuagePlugin):
                     self.vsdclient.delete_vips(nuage_vport['ID'],
                                                nuage_vip_dict,
                                                nuage_vip_dict.keys())
-        self.vsdclient.update_mac_spoofing_on_vport(
-            nuage_vport['ID'],
-            constants.ENABLED if enable_spoofing else constants.INHERITED)
+        if port[portsecurity.PORTSECURITY] is not False:
+            self.vsdclient.update_mac_spoofing_on_vport(
+                nuage_vport['ID'],
+                constants.ENABLED if enable_spoofing else constants.INHERITED)
 
     def _update_vips(self, context, subnet_mapping, port, nuage_vport,
                      deleted_addr_pairs):
@@ -244,7 +245,8 @@ class NuageAddressPair(BaseNuagePlugin):
                 'mac_address': port['mac_address'],
                 'id': port['id'],
                 'network_id': port['network_id'],
-                constants.VIPS_FOR_PORT_IPS: port_ip_vip_add_list
+                constants.VIPS_FOR_PORT_IPS: port_ip_vip_add_list,
+                portsecurity.PORTSECURITY: port[portsecurity.PORTSECURITY]
             }
             self._create_vips(context, subnet_mapping, port_dict, nuage_vport)
 
@@ -351,8 +353,7 @@ class NuageAddressPair(BaseNuagePlugin):
         context = kwargs.get('context')
         if (not port.get(constants.VIPS_FOR_PORT_IPS) and
                 not port.get("allowed_address_pairs") and
-                (port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL) or
-                port[portsecurity.PORTSECURITY] is False):
+                port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL):
             # If there are no allowed_address_pair in the request
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron
@@ -367,10 +368,7 @@ class NuageAddressPair(BaseNuagePlugin):
     def post_port_update_addresspair(self, resource, event, plugin, context,
                                      port, original_port, vport, rollbacks,
                                      **kwargs):
-        if (port[portsecurity.PORTSECURITY] is False or
-                port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL):
-            # port_security_enabled False and allowed address pairs are
-            # mutually exclusive in Neutron
+        if port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL:
             return
 
         self.update_allowed_address_pairs(context, port, original_port, vport)
