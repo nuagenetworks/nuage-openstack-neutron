@@ -1392,17 +1392,18 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     @staticmethod
     def _validate_create_vsd_managed_subnet(context, network, subnet):
-        # Check for network already linked to VSD subnet
+        # Check for subnets already linked to a VSD subnet
         subnet_mappings = nuagedb.get_subnet_l2dom_by_network_id(
             context.session,
             subnet['network_id'])
-
-        # For loop to guard against inconsistent state -> Should be max 1.
         for mapping in subnet_mappings:
-            if mapping['nuage_subnet_id'] != subnet['nuagenet']:
-                msg = _("The network already has a subnet linked to a "
-                        "different vsd subnet.")
-                raise NuageBadRequest(msg=msg)
+            if ((mapping['ip_version'] == os_constants.IP_VERSION_6 or
+                    _is_ipv6(subnet)) and
+                    mapping['nuage_subnet_id'] != subnet['nuagenet']):
+                        msg = _("It is not allowed to have an ipv4 and ipv6 "
+                                "subnet in the same network linked to "
+                                "different vsd subnets.")
+                        raise NuageBadRequest(msg=msg)
 
         subnet_validate = {'net_partition': IsSet(),
                            'nuagenet': IsSet()}
