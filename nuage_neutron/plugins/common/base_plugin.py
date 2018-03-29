@@ -308,6 +308,23 @@ class RootNuagePlugin(object):
         except n_exc.PortNotFound:
             return False
 
+    def _check_existing_subnet_on_network(self, context, subnet):
+        subnets = self.core_plugin.get_subnets(
+            context,
+            filters={'network_id': [subnet['network_id']]})
+        other_subnets = (s for s in subnets if s['id'] != subnet['id'])
+        return next(other_subnets, None)
+
+    @log_helpers.log_method_call
+    def get_dual_stack_subnet(self, context, neutron_subnet):
+        existing_subnet = self._check_existing_subnet_on_network(
+            context, neutron_subnet)
+        if existing_subnet is None:
+            return None
+        if existing_subnet["ip_version"] != neutron_subnet["ip_version"]:
+            return existing_subnet
+        return None
+
     @log_helpers.log_method_call
     def _find_vsd_subnet(self, context, subnet_mapping):
         try:
@@ -316,11 +333,18 @@ class RootNuagePlugin(object):
                 required=True)
             return vsd_subnet
         except restproxy.ResourceNotFoundException:
-            if not self._check_subnet_exists_in_neutron(
-                    context, subnet_mapping['subnet_id']):
+            neutron_subnet = self._check_subnet_exists_in_neutron(
+                context, subnet_mapping['subnet_id'])
+            if not neutron_subnet:
                 LOG.info("Subnet %s has been deleted concurrently",
                          subnet_mapping['subnet_id'])
                 return
+            if neutron_subnet['ip_version'] == lib_constants.IP_VERSION_6:
+                neutron_subnet = self.get_dual_stack_subnet(
+                    context, neutron_subnet)
+                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+                    context.session,
+                    neutron_subnet['id'])
             if not subnet_mapping['nuage_managed_subnet']:
                 LOG.debug("Retrying to get the subnet from vsd.")
                 if subnet_mapping['nuage_l2dom_tmplt_id']:
