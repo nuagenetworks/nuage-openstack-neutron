@@ -165,9 +165,8 @@ class NuagePolicyGroups(object):
         l2dom_dhcp_managed = params.get('dhcp_managed')
         sg_type = params.get('sg_type', constants.SOFTWARE)
         is_hardware = sg_type == constants.HARDWARE
-        legacy = params.get('legacy', False)
         network_type = 'ENDPOINT_DOMAIN'
-        if l2dom_dhcp_managed == 'unmanaged' or not legacy and is_hardware:
+        if l2dom_dhcp_managed == 'unmanaged' or is_hardware:
             network_type = 'ANY'
         if is_hardware:
             stateful = False
@@ -1055,7 +1054,7 @@ class NuagePolicyGroups(object):
                     'neutron_sg_rule': neutron_sg_rule,
                     'sg_type': constants.HARDWARE,
                     'externalID': get_vsd_external_id(neutron_subnet_id),
-                    'legacy': True,
+                    'legacy': True
                 }
                 self.create_nuage_sgrule(params)
         return nuage_policygroup_id
