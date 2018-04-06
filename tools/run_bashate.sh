@@ -19,6 +19,7 @@ find  "$@"  -not \( -type d -name .?\* -prune \)    \
             -not -name \*.xml                       \
             -not -name \*.rst                       \
             -not -name \*.py                        \
+            -not -name \*.json                      \
             \(                                      \
                 -name \*.sh -or                     \
                 -wholename \*/lib/\* -or            \

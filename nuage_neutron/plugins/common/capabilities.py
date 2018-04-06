@@ -12,15 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nuage_neutron.plugins.common.config import is_enabled
-
 
 class ExperimentalFeatures(object):
     def __init__(self):
         pass
 
     # set of experimental features which can be dynamically enabled
-    VIRTIO_SUPPORT_IN_BRIDGED_NETWORKS = 'virtio_support_in_bridged_networks'
+
+    # -- None for now =-
 
 
 class Capabilities(object):
@@ -32,13 +31,12 @@ class Capabilities(object):
 
     by_port_vnic_type = {
         'normal': {
-            BRIDGED_NETWORKS: is_enabled(
-                ExperimentalFeatures.VIRTIO_SUPPORT_IN_BRIDGED_NETWORKS),
+            BRIDGED_NETWORKS: True
         },
         'direct': {
-            BRIDGED_NETWORKS: True,
+            BRIDGED_NETWORKS: True
         },
         'baremetal': {
-            BRIDGED_NETWORKS: False,
+            BRIDGED_NETWORKS: False
         }
     }

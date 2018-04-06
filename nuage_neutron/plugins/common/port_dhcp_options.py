@@ -19,6 +19,7 @@ import six
 from oslo_log import log as logging
 
 from neutron._i18n import _
+from neutron.objects import ports as port_obj
 from neutron_lib.api import validators as lib_validators
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as os_constants
@@ -191,6 +192,10 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
 
     def post_port_create_dhcp_opts(self, resource, event, trigger, port,
                                    vport, **kwargs):
+        context = kwargs.get('context')
+        port_db = port_obj.Port.get_object(context, id=port['id']).to_dict()
+        port['extra_dhcp_opts'] = port_db.get('dhcp_options')
+
         if (not lib_validators.is_attr_set(port.get('extra_dhcp_opts')) or
                 len(port.get('extra_dhcp_opts')) == 0):
             return

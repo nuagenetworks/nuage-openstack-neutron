@@ -96,9 +96,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
     @utils.context_log
     def create_port_precommit(self, context):
         port = context.current
-        vnic_type = port.get(portbindings.VNIC_TYPE, "")
         db_context = context._plugin_context
-        if vnic_type not in self._supported_vnic_types():
+        if not self.is_port_supported(port):
             return
         self._validate_nuage_l2bridges(db_context, port)
         self._validate_port_request_attributes(context.current)
@@ -116,9 +115,9 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """update_port_precommit."""
         port = context.current
         original = context.original
-        if (port.get(portbindings.VNIC_TYPE, "")
-                in self._supported_vnic_types()):
-            self._validate_port_request_attributes(port, original=original)
+        if not self.is_port_supported(port):
+            return
+        self._validate_port_request_attributes(port, original=original)
 
     @handle_nuage_api_errorcode
     @utils.context_log
@@ -126,34 +125,34 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """update_port_postcommit."""
         port = context.current
         original = context.original
-        if (port.get(portbindings.VNIC_TYPE, "")
-                in self._supported_vnic_types()):
-            host_added = host_removed = host_changed = False
-            if not original['binding:host_id'] and port['binding:host_id']:
-                host_added = True
-            elif original['binding:host_id'] and not port['binding:host_id']:
-                host_removed = True
-            elif original['binding:host_id'] != port['binding:host_id']:
-                host_changed = True
+        if not self.is_port_supported(port):
+            return
+        host_added = host_removed = host_changed = False
+        if not original['binding:host_id'] and port['binding:host_id']:
+            host_added = True
+        elif original['binding:host_id'] and not port['binding:host_id']:
+            host_removed = True
+        elif original['binding:host_id'] != port['binding:host_id']:
+            host_changed = True
 
-            if host_removed or host_changed:
-                self._delete_port(port)
-            if host_added:
-                port_dict = self._make_port_dict(context)
-                if port_dict:
-                    self._update_port(port_dict)
+        if host_removed or host_changed:
+            self._delete_port(port)
+        if host_added:
+            port_dict = self._make_port_dict(context)
+            if port_dict:
+                self._update_port(port_dict)
 
     @utils.context_log
     def delete_port_precommit(self, context):
         """delete_port_precommit."""
-        if (context.current.get(portbindings.VNIC_TYPE, "")
-                in self._supported_vnic_types()):
-            try:
-                self._delete_port(context.current)
-            except Exception as e:
-                LOG.error("Failed to delete vport from vsd {port id: %s}",
-                          context.current['id'])
-                raise e
+        if not self.is_port_supported(context.current):
+            return
+        try:
+            self._delete_port(context.current)
+        except Exception as e:
+            LOG.error("Failed to delete vport from vsd {port id: %s}",
+                      context.current['id'])
+            raise e
 
     @utils.context_log
     def bind_port(self, context):
@@ -313,9 +312,12 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """Check that all required binding info is present"""
         vnic_type = context.current.get(portbindings.VNIC_TYPE, "")
         if vnic_type not in self._supported_vnic_types():
+            LOG.debug("Refusing to bind due to unsupported vnic_type: %s",
+                      vnic_type)
             return False
-        binding_profile = self._get_binding_profile(context.current)
-        if not binding_profile:
+        if not self.is_port_supported(context.current):
+            LOG.debug("Refusing to bind due to unsupported vnic_type: %s "
+                      "with switchdev capability", portbindings.VNIC_DIRECT)
             return False
         return True
 
@@ -323,6 +325,16 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """Vnic type current driver does handle"""
         return [portbindings.VNIC_DIRECT,
                 portbindings.VNIC_DIRECT_PHYSICAL]
+
+    @staticmethod
+    def _direct_vnic_supported(port):
+        profile = port.get(portbindings.PROFILE)
+        capabilities = []
+        if profile:
+            capabilities = profile.get('capabilities', [])
+        return (port.get(portbindings.VNIC_TYPE) ==
+                portbindings.VNIC_DIRECT and
+                'switchdev' not in capabilities)
 
     def _validate_port(self, db_context, port):
         if 'fixed_ips' not in port or len(port.get('fixed_ips', [])) == 0:
@@ -533,3 +545,9 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 raise exceptions.NuageBadRequest(
                     msg=msg % {'attr': attribute,
                                'vnic': self._supported_vnic_types()})
+
+    @staticmethod
+    def is_port_supported(port):
+        return (NuageSriovMechanismDriver._direct_vnic_supported(port) or
+                port.get(portbindings.VNIC_TYPE, '') ==
+                portbindings.VNIC_DIRECT_PHYSICAL)

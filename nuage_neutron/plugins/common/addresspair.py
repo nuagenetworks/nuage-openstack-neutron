@@ -16,6 +16,7 @@ import six
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron.objects import ports as port_obj
 from neutron_lib.api.definitions import allowedaddresspairs as addr_pair
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
@@ -359,10 +360,16 @@ class NuageAddressPair(BaseNuagePlugin):
         port = kwargs.get('port')
         vport = kwargs.get('vport')
         context = kwargs.get('context')
+        # gridinv - workaround upstream issue, in case of vnic_type == direct
+        # port doesn't have allowed_address_pairs, so we will get it from db
+        # and remove port_id key from it.
+        port_db = port_obj.Port.get_object(context, id=port['id']).to_dict()
+        port['allowed_address_pairs'] = port_db.get('allowed_address_pairs')
+        for aap in port['allowed_address_pairs']:
+            aap.pop('port_id', None)
         configure_vips = (port.get(constants.VIPS_FOR_PORT_IPS) or
                           port.get("allowed_address_pairs"))
-        if (port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL or
-                not configure_vips):
+        if not self.is_port_supported(port) or not configure_vips:
             # If there are no allowed_address_pair in the request
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron
@@ -377,12 +384,11 @@ class NuageAddressPair(BaseNuagePlugin):
     def post_port_update_addresspair(self, resource, event, plugin, context,
                                      port, original_port, vport, rollbacks,
                                      **kwargs):
-        if port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL:
-            return
-
-        self.update_allowed_address_pairs(context, port, original_port, vport)
-        rollbacks.append((self.update_allowed_address_pairs,
-                          [context, original_port, port, vport], {}))
+        if self.is_port_supported(port):
+            self.update_allowed_address_pairs(context, port,
+                                              original_port, vport)
+            rollbacks.append((self.update_allowed_address_pairs,
+                              [context, original_port, port, vport], {}))
 
     def post_router_interface_create_addresspair(self, resource, event, plugin,
                                                  **kwargs):
@@ -399,3 +405,19 @@ class NuageAddressPair(BaseNuagePlugin):
         self.process_address_pairs_of_subnet(context,
                                              subnet_mapping,
                                              constants.L2DOMAIN)
+
+    @staticmethod
+    def _direct_vnic_supported(port):
+        profile = port.get(portbindings.PROFILE)
+        capabilities = []
+        if profile:
+            capabilities = profile.get('capabilities', [])
+        return (port.get(portbindings.VNIC_TYPE) ==
+                portbindings.VNIC_DIRECT and
+                'switchdev' in capabilities)
+
+    @staticmethod
+    def is_port_supported(port):
+        return (NuageAddressPair._direct_vnic_supported(port) or
+                port.get(portbindings.VNIC_TYPE, '') ==
+                portbindings.VNIC_NORMAL)
