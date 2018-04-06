@@ -84,6 +84,9 @@
     rally:
       jobs:
         - legacy-tempest-aio-rally
+    switchdev:
+      jobs:
+        - legacy-tempest-aio-switchdev
     upstream:
       jobs:
         - legacy-tempest-aio-upstream
@@ -301,6 +304,27 @@
       - openstack-infra/devstack-gate
       - openstack/networking-sfc
       - openstack/neutron-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-switchdev
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-switchdev/run.yaml
+    post-run: playbooks/tempest-aio-switchdev/post.yaml
+    vars:
+      job_flavor: switchdev
+      branch_override: default
+    timeout: 14400
+    required-projects:
+      - OpenStack/networking-testsriov
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack/placement
+      - openstack-infra/devstack-gate
+      - openstack/neutron-tempest-plugin
+      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:

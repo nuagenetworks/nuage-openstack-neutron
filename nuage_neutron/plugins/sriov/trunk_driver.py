@@ -78,6 +78,12 @@ class NuageTrunkHandler(object):
                       " %s due to unsupported VNIC type",
                       updated_port.get('id'))
 
+        if not self.plugin_driver.is_port_supported(updated_port):
+            LOG.debug("Ignoring trunk status change for port "
+                      "due to unsupported vnic_type: %s with "
+                      "switchdev capability", portbindings.VNIC_DIRECT)
+            return
+
         context = kwargs['context']
         if trunk_details.get('trunk_id'):
             trunk = trunk_objects.Trunk.get_object(
@@ -301,36 +307,36 @@ class NuageTrunkHandler(object):
         # handle trunk with parent port supported by
         # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if (trunk_port.get(portbindings.VNIC_TYPE) in
-                self.plugin_driver._supported_vnic_types()):
-            LOG.debug('trunk_created: %(trunk)s', {'trunk': trunk})
-            self._set_sub_ports(trunk.id, trunk.sub_ports)
+        if not self.plugin_driver.is_port_supported(trunk_port):
+            return
+        LOG.debug('trunk_created: %(trunk)s', {'trunk': trunk})
+        self._set_sub_ports(trunk.id, trunk.sub_ports)
 
     def trunk_deleted(self, trunk):
         ctx = n_ctx.get_admin_context()
         # handle trunk with parent port supported by
         # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if (trunk_port.get(portbindings.VNIC_TYPE) in
-                self.plugin_driver._supported_vnic_types()):
-            LOG.debug('trunk_deleted: %(trunk)s', {'trunk': trunk})
-            self._unset_sub_ports(trunk.id, trunk.sub_ports)
+        if not self.plugin_driver.is_port_supported(trunk_port):
+            return
+        LOG.debug('trunk_deleted: %(trunk)s', {'trunk': trunk})
+        self._unset_sub_ports(trunk.id, trunk.sub_ports)
 
     def subports_pre_create(self, context, trunk, subports):
         LOG.debug('subport_pre_create: %(trunk)s subports : %(sp)s',
                   {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if (trunk_port.get(portbindings.VNIC_TYPE) in
-                self.plugin_driver._supported_vnic_types()):
-            self._validate_subports_vnic_type(context, trunk,
-                                              trunk_port, subports)
-            self._validate_vlan_in_net(context, subports)
-            self._validate_vlan_allocated_by_net(context, trunk, subports)
-            trunk_subports = self._validate_subports_vlan(context, trunk)
-            self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
-            self._validate_same_netpartition(context, trunk_port,
-                                             trunk_subports)
+        if not self.plugin_driver.is_port_supported(trunk_port):
+            return
+        self._validate_subports_vnic_type(context, trunk,
+                                          trunk_port, subports)
+        self._validate_vlan_in_net(context, subports)
+        self._validate_vlan_allocated_by_net(context, trunk, subports)
+        trunk_subports = self._validate_subports_vlan(context, trunk)
+        self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
+        self._validate_same_netpartition(context, trunk_port,
+                                         trunk_subports)
 
     def trunk_pre_create(self, context, trunk):
         if trunk.sub_ports:
@@ -341,18 +347,18 @@ class NuageTrunkHandler(object):
                   {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if (trunk_port.get(portbindings.VNIC_TYPE) in
-                self.plugin_driver._supported_vnic_types()):
-            self._set_sub_ports(trunk.id, subports)
+        if not self.plugin_driver.is_port_supported(trunk_port):
+            return
+        self._set_sub_ports(trunk.id, subports)
 
     def subports_deleted(self, trunk, subports):
         LOG.debug('subport_deleted: %(trunk)s subports : %(sp)s',
                   {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if (trunk_port.get(portbindings.VNIC_TYPE) in
-                self.plugin_driver._supported_vnic_types()):
-            self._unset_sub_ports(trunk.id, subports)
+        if not self.plugin_driver.is_port_supported(trunk_port):
+            return
+        self._unset_sub_ports(trunk.id, subports)
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
         if event == events.PRECOMMIT_CREATE:
