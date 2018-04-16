@@ -422,6 +422,11 @@ def get_floatingip_per_vip_in_network(session, network_id):
     return fips_per_vip
 
 
+def get_floatingips_per_port_id(session, port_id):
+    query = session.query(l3_db.FloatingIP)
+    return query.filter_by(fixed_port_id=port_id).all()
+
+
 def get_routerport_by_port_id(session, port_id):
     query = session.query(l3_db.RouterPort)
     return query.filter_by(port_id=port_id).first()

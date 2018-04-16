@@ -809,6 +809,21 @@ class NuageL3Plugin(NuageL3Wrapper):
             self.vsdclient.delete_group(group_id)
 
     @log_helpers.log_method_call
+    def _check_fip_on_port_with_multiple_ips(self, context, port_id):
+        # Block associating a fip to a port with multiple ip as of 5.3.1
+        if port_id:
+            port = self.core_plugin._get_port(context, port_id)
+            fixed_ips = port['fixed_ips']
+            if not fixed_ips:
+                return
+            ipv4s, ipv6s = nuage_utils.count_fixed_ips_per_version(fixed_ips)
+            if ipv4s > 1 or ipv6s > 1:
+                msg = _('floating ip cannot be associated to '
+                        'port {} because it has multiple ipv4 or multiple ipv6'
+                        'ips.').format(port_id)
+                raise nuage_exc.NuageBadRequest(msg=msg)
+
+    @log_helpers.log_method_call
     @TimeTracker.tracked
     def _check_floatingip_update(self, context, port,
                                  vport_type=constants.VM_VPORT,
@@ -1024,6 +1039,7 @@ class NuageL3Plugin(NuageL3Wrapper):
                           initial_status=lib_constants.
                           FLOATINGIP_STATUS_ACTIVE):
         fip = floatingip['floatingip']
+        self._check_fip_on_port_with_multiple_ips(context, fip.get('port_id'))
         neutron_fip = super(NuageL3Plugin, self).create_floatingip(
             context, floatingip,
             initial_status=lib_constants.FLOATINGIP_STATUS_DOWN)
@@ -1159,6 +1175,7 @@ class NuageL3Plugin(NuageL3Wrapper):
             floatingip['floatingip'] = {'port_id': None}
         fip = floatingip['floatingip']
         orig_fip = self._get_floatingip(context, id)
+        self._check_fip_on_port_with_multiple_ips(context, fip.get('port_id'))
         if not self.is_vxlan_network_by_id(context,
                                            orig_fip['floating_network_id']):
             return super(NuageL3Plugin, self).update_floatingip(context,
