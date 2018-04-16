@@ -960,6 +960,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         original = context.original
 
         is_network_external = context.network._network.get('router:external')
+        self._check_fip_on_port_with_multiple_ips(db_context, port)
 
         if (len(port['fixed_ips']) == 0 and len(original['fixed_ips']) != 0 or
                 self._ipv4_addr_removed_from_dualstack_dhcp_port(
@@ -1606,6 +1607,17 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 raise PortInUse(port_id=port['id'],
                                 net_id=port['network_id'],
                                 device_id='trunk:subport')
+
+    @staticmethod
+    def _check_fip_on_port_with_multiple_ips(context, port):
+        # Block a port with fip getting multiple ips
+        fips = nuagedb.get_floatingips_per_port_id(context.session, port['id'])
+        ipv4s, ipv6s = utils.count_fixed_ips_per_version(port['fixed_ips'])
+        if fips and (ipv4s > 1 or ipv6s > 1):
+            msg = _("It is not possible to add multiple ipv4 or multiple ipv6"
+                    " addresses on port {} since it has fip {} associated"
+                    "to it.").format(port['id'], fips[0]['id'])
+            raise NuageBadRequest(msg=msg)
 
     def _validate_port(self, db_context, port, event,
                        is_network_external=False):
