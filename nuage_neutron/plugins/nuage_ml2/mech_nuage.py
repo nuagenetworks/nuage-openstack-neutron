@@ -1003,6 +1003,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
             return
 
         self._check_subport_in_use(original, port)
+        vm_if_update_required = self._check_vm_if_update(
+            db_context, original, port)
 
         host_added = host_removed = False
         if not original['binding:host_id'] and port['binding:host_id']:
@@ -1016,9 +1018,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         nuage_vport = self._find_vport(db_context, port, subnet_mapping)
         if not nuage_vport:
             return
-
-        vm_if_update_required = self._check_vm_if_update(
-            db_context, original, port)
 
         if vm_if_update_required:
             data = {
