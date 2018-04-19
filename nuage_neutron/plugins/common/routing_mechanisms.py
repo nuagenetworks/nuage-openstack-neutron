@@ -238,7 +238,7 @@ def validate_update_subnet(network_external, subnet_mapping, updated_subnet):
     if is_legacy() and updated_subnet.get(constants.NUAGE_UNDERLAY):
         msg = _("It is not allowed to configure {}"
                 " on a subnet when 'nuage_pat' "
-                "is set.").format(constants.NUAGE_UNDERLAY)
+                "is not legacy_disabled.").format(constants.NUAGE_UNDERLAY)
         raise NuageBadRequest(resource='subnet', msg=msg)
 
     if network_external and updated_subnet.get(constants.NUAGE_UNDERLAY):
