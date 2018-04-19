@@ -99,6 +99,17 @@ class TestNuageMechanismDriver(testtools.TestCase):
         nmd.initialize()
         return nmd
 
+    # get me a Restproxy client
+    def get_me_rest_proxy(self):
+        vsd_client = RESTProxyServer(server='localhost:9876',
+                                     base_uri='/nuage/api/v5_0',
+                                     serverssl=True,
+                                     verify_cert='False',
+                                     serverauth='1:1',
+                                     auth_resource='/me',
+                                     organization='org')
+        return vsd_client
+
     # NETWORK DRIVER INITIALIZATION CHECKS
 
     def test_init_with_nuage_underlay_only(self):
@@ -448,6 +459,18 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.assertEqual('Bad request: A network with an ipv6 subnet '
                              'may only have maximum 1 ipv4 and 1 ipv6 '
                              'subnet', str(e))
+
+    @mock.patch.object(RESTProxyServer, 'generate_nuage_auth')
+    @mock.patch.object(RESTProxyServer, '_rest_call',
+                       return_value=(401, 'Unauthorized', None, None, None,
+                                     None))
+    def test_rest_call_infinite_recursion(self, *mock):
+        rest_proxy = self.get_me_rest_proxy()
+        try:
+            rest_proxy.rest_call('get', '', '')
+        except Exception as e:
+            self.assertEqual(True, 'Unauthorized' in e.message,
+                             "Got an exception other than Unauthorized")
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',

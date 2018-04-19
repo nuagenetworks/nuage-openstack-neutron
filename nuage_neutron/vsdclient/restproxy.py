@@ -370,9 +370,16 @@ class RESTProxyServer(object):
             # only renew the auth key if it hasn't been renewed yet
             if response[5] == NUAGE_AUTH:
                 self.generate_nuage_auth()
-            response = self.rest_call(
-                action, resource, data, extra_headers=extra_headers,
-                ignore_marked_for_deletion=ignore_marked_for_deletion)
+                # When VSD license expires and if user will spin a VM
+                # in this state then a proper error should be raised
+                # eventually instead of going in to infinite loop.
+                response = self._rest_call(
+                    action, resource, data, extra_headers=extra_headers,
+                    ignore_marked_for_deletion=ignore_marked_for_deletion)
+            else:
+                response = self.rest_call(
+                    action, resource, data, extra_headers=extra_headers,
+                    ignore_marked_for_deletion=ignore_marked_for_deletion)
         return response
 
     def get(self, resource, data='', extra_headers=None, required=False):
