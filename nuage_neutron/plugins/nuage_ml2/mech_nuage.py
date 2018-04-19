@@ -1550,6 +1550,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         new_ipv6 = new_ips[6][-1] if new_ips[6] else None
         ips_change = (orig_ipv4 != new_ipv4 or
                       orig_ipv6 != new_ipv6)
+        port['new_ipv4'] = new_ipv4
+        port['new_ipv6'] = new_ipv6
+        port['orig_ips'] = orig_ips
         if (ips_change and
                 port['device_owner'] == os_constants.DEVICE_OWNER_DHCP):
             return True
@@ -1585,9 +1588,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             if l2dom and not self.get_subnet(
                     db_context, l2dom['subnet_id'])['enable_dhcp']:
                 return False
-        port['new_ipv4'] = new_ipv4
-        port['new_ipv6'] = new_ipv6
-        port['orig_ips'] = orig_ips
         return vm_if_update
 
     @staticmethod
