@@ -66,13 +66,15 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
         result.pop(nuage_constants.NUAGE_UNDERLAY, None)
 
     def process_update_subnet(self, plugin_context, data, result):
+        if nuage_constants.NUAGE_UNDERLAY not in data:
+            data[nuage_constants.NUAGE_UNDERLAY] = None
         self._copy_nuage_attributes(data, result)
 
     def _copy_nuage_attributes(self, data, result):
         nuage_attributes = ('net_partition', 'nuagenet', 'underlay',
                             'nuage_uplink', nuage_constants.NUAGE_UNDERLAY)
         for attribute in nuage_attributes:
-                self._store_change(result, data, attribute)
+            self._store_change(result, data, attribute)
 
     @utils.exception_logger()
     @TimeTracker.tracked
