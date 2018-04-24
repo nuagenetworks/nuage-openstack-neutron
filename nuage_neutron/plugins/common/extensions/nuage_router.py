@@ -120,7 +120,7 @@ def convert_nuage_underlay(value):
             constants.NUAGE_UNDERLAY_ROUTE,
             constants.NUAGE_UNDERLAY_SNAT
         )
-        raise nuage_exc.BadRequest(msg=msg)
+        raise nuage_exc.NuageBadRequest(msg=msg)
     return value
 
 
