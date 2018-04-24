@@ -226,9 +226,10 @@ def validate_update_subnet(network_external, subnet_mapping, updated_subnet):
     """Validate nuage_underlay for updated subnet
 
     """
-    if (is_not_available() and
-            updated_subnet.get(constants.NUAGE_UNDERLAY) !=
-            constants.NUAGE_UNDERLAY_OFF):
+    if (is_not_available() and (
+            updated_subnet.get(constants.NUAGE_UNDERLAY) in
+            [constants.NUAGE_UNDERLAY_SNAT,
+             constants.NUAGE_UNDERLAY_ROUTE])):
         msg = _("It is not allowed to configure {}"
                 " on a subnet when nuage_underlay is not available. "
                 "Contact your "
