@@ -116,7 +116,10 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     def pre_update_security_group(self, resource, event, trigger, **kwargs):
         context = kwargs['context']
         sg_id = kwargs['security_group_id']
-        if 'stateful' in kwargs['security_group']:
+        current = self.get_security_group(context, sg_id)
+        self.sg_name_before_update = current['name']
+        sg = kwargs['security_group']
+        if 'stateful' in sg and sg['stateful'] != current['stateful']:
             self._check_for_security_group_in_use(context, sg_id)
             self.stateful = kwargs['security_group']['stateful']
 
