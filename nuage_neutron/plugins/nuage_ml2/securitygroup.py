@@ -46,6 +46,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         super(NuageSecurityGroup, self).__init__()
         self._l2_plugin = None
         self.stateful = None
+        self.sg_name_before_update = None
 
     @property
     def core_plugin(self):
@@ -75,6 +76,9 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         registry.subscribe(self.update_security_group_precommit,
                            resources.SECURITY_GROUP,
                            events.PRECOMMIT_UPDATE)
+        registry.subscribe(self.update_security_group_postcommit,
+                           resources.SECURITY_GROUP,
+                           events.AFTER_UPDATE)
         registry.subscribe(self.pre_create_security_group_rule,
                            resources.SECURITY_GROUP_RULE,
                            events.BEFORE_CREATE)
@@ -118,6 +122,8 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     def pre_update_security_group(self, resource, event, trigger, **kwargs):
         context = kwargs['context']
         sg_id = kwargs['security_group_id']
+        sg = self._get_security_group(kwargs['context'], sg_id)
+        self.sg_name_before_update = sg['name']
         if 'stateful' in kwargs['security_group']:
             self._check_for_security_group_in_use(context, sg_id)
             self.stateful = kwargs['security_group']['stateful']
@@ -133,6 +139,31 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             self._update_stateful_parameter(session, sg_id, self.stateful)
             kwargs['security_group']['stateful'] = self.stateful
             self.stateful = None
+
+    @nuage_utils.handle_nuage_api_error
+    @log_helpers.log_method_call
+    @TimeTracker.tracked
+    def update_security_group_postcommit(self, resource, event, trigger,
+                                         **kwargs):
+        sg_id = kwargs['security_group_id']
+        if ('name' in kwargs['security_group'] and
+                kwargs['security_group']['name']
+                != self.sg_name_before_update):
+            data = {
+                'description': kwargs['security_group']['name']
+            }
+            nuage_policygroups = (
+                self.vsdclient.get_sg_policygroup_by_external_id(sg_id))
+            for nuage_policy in nuage_policygroups:
+                self.vsdclient.update_policygroup(nuage_policy['ID'],
+                                                  data)
+            nuage_hw_policygroups = (
+                self.vsdclient.get_sg_policygroup_by_external_id(
+                    sg_id,
+                    sg_type=constants.HARDWARE))
+            for nuage_policy in nuage_hw_policygroups:
+                self.vsdclient.update_policy_group(nuage_policy['ID'],
+                                                   data)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call

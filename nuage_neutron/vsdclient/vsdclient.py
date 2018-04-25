@@ -304,6 +304,14 @@ class VsdClient(object):
     def validate_nuage_sg_rule_definition(self, sg_rule):
         pass
 
+    def get_sg_policygroup_by_external_id(self, sg_id,
+                                          sg_type='SOFTWARE',
+                                          required=False):
+        pass
+
+    def update_policygroup(self, policygroup_id, data):
+        pass
+
     def get_sg_policygroup_mapping(self, sg_id, sg_type='SOFTWARE'):
         pass
 

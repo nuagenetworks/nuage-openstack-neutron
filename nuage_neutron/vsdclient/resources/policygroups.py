@@ -556,6 +556,12 @@ class NuagePolicyGroups(object):
                                             vport_id),
             policygroup_ids)
 
+    def update_policygroup(self, policygroup_id, data):
+        policygroups = nuagelib.NuagePolicygroup()
+        return self.restproxy.put(
+            policygroups.put_resource(policygroup_id),
+            data)
+
     def get_rate_limit(self, vport_id, neutron_fip_id):
         create_params = {'vport_id': vport_id,
                          'externalID': get_vsd_external_id(neutron_fip_id)}
@@ -650,37 +656,40 @@ class NuagePolicyGroups(object):
         if not qos.validate(response):
             raise restproxy.RESTProxyError(qos.error_msg)
 
-    def get_sg_policygroup_mapping(self, sg_id, sg_type=constants.SOFTWARE):
+    def get_sg_policygroup_by_external_id(self, sg_id,
+                                          sg_type=constants.SOFTWARE,
+                                          required=False):
         req_params = {
             'externalID': self._get_vsd_external_id(sg_id, sg_type)
         }
         nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
         nuage_policygroup_extra_headers = nuage_policygroup.extra_headers_get()
-        response = self.restproxy.rest_call(
-            'GET',
+        response = self.restproxy.get(
             nuage_policygroup.get_all_resources(),
             '',
-            extra_headers=nuage_policygroup_extra_headers)
+            extra_headers=nuage_policygroup_extra_headers,
+            required=required)
+        return response
 
-        if not nuage_policygroup.validate(response):
-            raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
-
+    def get_sg_policygroup_mapping(self, sg_id, sg_type=constants.SOFTWARE):
+        response = self.get_sg_policygroup_by_external_id(sg_id,
+                                                          sg_type=sg_type,
+                                                          required=True)
         l3dom_policygroup_list = []
         l2dom_policygroup_list = []
-        if response[3]:
-            for policygroup in response[3]:
-                if policygroup['parentType'] == constants.DOMAIN:
-                    l3dom_policygroup = {
-                        'l3dom_id': policygroup['parentID'],
-                        'policygroup_id': policygroup['ID']
-                    }
-                    l3dom_policygroup_list.append(l3dom_policygroup)
-                elif policygroup['parentType'] == constants.L2DOMAIN:
-                    l2dom_policygroup = {
-                        'l2dom_id': policygroup['parentID'],
-                        'policygroup_id': policygroup['ID']
-                    }
-                    l2dom_policygroup_list.append(l2dom_policygroup)
+        for policygroup in response:
+            if policygroup['parentType'] == constants.DOMAIN:
+                l3dom_policygroup = {
+                    'l3dom_id': policygroup['parentID'],
+                    'policygroup_id': policygroup['ID']
+                }
+                l3dom_policygroup_list.append(l3dom_policygroup)
+            elif policygroup['parentType'] == constants.L2DOMAIN:
+                l2dom_policygroup = {
+                    'l2dom_id': policygroup['parentID'],
+                    'policygroup_id': policygroup['ID']
+                }
+                l2dom_policygroup_list.append(l2dom_policygroup)
 
         if not l3dom_policygroup_list and not l2dom_policygroup_list:
             result = None
