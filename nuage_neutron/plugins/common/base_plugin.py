@@ -331,7 +331,7 @@ class RootNuagePlugin(SubnetUtilsBase):
             raise cfg.ConfigFileValueError(msg)
 
     @log_helpers.log_method_call
-    def _check_subnet_exists_in_neutron(self, db_context, subnet_id):
+    def _get_subnet_from_neutron(self, db_context, subnet_id):
         """_check_subnet_exists_in_neutron
 
         :rtype: dict
@@ -340,10 +340,10 @@ class RootNuagePlugin(SubnetUtilsBase):
             subnet_db = self.core_plugin.get_subnet(db_context, subnet_id)
             return subnet_db
         except n_exc.SubnetNotFound:
-            return False
+            return None
 
     @log_helpers.log_method_call
-    def _check_port_exists_in_neutron(self, db_context, port):
+    def _get_port_from_neutron(self, db_context, port):
         """_check_port_exists_in_neutron
 
         :rtype: dict
@@ -352,9 +352,12 @@ class RootNuagePlugin(SubnetUtilsBase):
             port_db = self.core_plugin.get_port(db_context, port['id'])
             return port_db
         except n_exc.PortNotFound:
-            return False
+            return None
 
-    def _check_existing_subnet_on_network(self, context, subnet):
+    # CAUTION : this method is dangerous as we are about to support multiple
+    #           vsd mgd dualstack combo's soon.
+    #           - TODO(team) this needs refactoring
+    def _get_any_other_subnet_in_network(self, context, subnet):
         subnets = self.core_plugin.get_subnets(
             context,
             filters={'network_id': [subnet['network_id']]})
@@ -363,12 +366,12 @@ class RootNuagePlugin(SubnetUtilsBase):
 
     @log_helpers.log_method_call
     def get_dual_stack_subnet(self, context, neutron_subnet):
-        existing_subnet = self._check_existing_subnet_on_network(
+        # TODO(team) CAUTION : this is dangerous code
+        any_other_subnet = self._get_any_other_subnet_in_network(
             context, neutron_subnet)
-        if existing_subnet is None:
-            return None
-        if existing_subnet["ip_version"] != neutron_subnet["ip_version"]:
-            return existing_subnet
+        if (any_other_subnet and any_other_subnet['ip_version'] !=
+                neutron_subnet['ip_version']):
+            return any_other_subnet
         return None
 
     @log_helpers.log_method_call
@@ -379,7 +382,7 @@ class RootNuagePlugin(SubnetUtilsBase):
                 required=True)
             return vsd_subnet
         except restproxy.ResourceNotFoundException:
-            neutron_subnet = self._check_subnet_exists_in_neutron(
+            neutron_subnet = self._get_subnet_from_neutron(
                 context, subnet_mapping['subnet_id'])
             if not neutron_subnet:
                 LOG.info("Subnet %s has been deleted concurrently",
