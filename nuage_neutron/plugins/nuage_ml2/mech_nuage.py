@@ -1006,7 +1006,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                           subnet_mapping)
             if nuage_vport:
                 self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
-            if self._check_port_exists_in_neutron(db_context, port):
+            if self._get_port_from_neutron(db_context, port):
                 raise
             else:
                 LOG.info("Port was deleted concurrently: %s", ex.message)
@@ -1201,8 +1201,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                 required=True)
             return nuage_vport
         except (restproxy.ResourceNotFoundException, NuageBadRequest):
-            port_db = self._check_port_exists_in_neutron(db_context,
-                                                         port)
+            port_db = self._get_port_from_neutron(db_context,
+                                                  port)
             if not port_db:
                 LOG.info("Port %s has been deleted concurrently",
                          port['id'])
@@ -1210,7 +1210,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             else:
                 ipv4_subnet_exists = False
                 for fixed_ip in port_db['fixed_ips']:
-                    subnet_db = self._check_subnet_exists_in_neutron(
+                    subnet_db = self._get_subnet_from_neutron(
                         db_context,
                         fixed_ip['subnet_id'])
                     if not subnet_db:
@@ -1730,7 +1730,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         """
         fixed_ips = port.get('fixed_ips', [])
         device_owner = port.get('device_owner')
-        is_dhcp_port = (device_owner == os_constants.DEVICE_OWNER_DHCP)
+        is_dhcp_port = device_owner == os_constants.DEVICE_OWNER_DHCP
+
         if len(fixed_ips) == 0:
             return False
         if is_dhcp_port and all(map(self._is_v6_ip, fixed_ips)):
@@ -1750,6 +1751,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         if not self.needs_vport_creation(device_owner):
             return False
+
         if is_dhcp_port and is_network_external:
             return False
 
@@ -1760,8 +1762,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if is_network_external:
             msg = "Cannot create port in a FIP pool Subnet"
             raise NuageBadRequest(resource='port', msg=msg)
-        if port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL) \
-                not in self._supported_vnic_types():
+
+        if (port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)
+                not in self._supported_vnic_types()):
             return False
         self._validate_nuage_l2bridges(db_context, port)
         # No update required on port with "network:dhcp:nuage"
@@ -1783,9 +1786,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         if not subnet_mappings:
             return False
+
         if len(vsd_subnet_ids) > 1 and all(nuage_managed):
             msg = _("Port has fixed ips for multiple vsd subnets.")
             raise NuageBadRequest(msg=msg)
+
         # It's okay to just return the first mapping because it's only 1 vport
         # on 1 subnet on VSD that has to be made.
         self.nuage_callbacks.notify(resources.PORT, event,
