@@ -185,27 +185,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 super(NuageL3Plugin, self).remove_router_interface(
                     context, router_id, interface_info)
 
-    def _check_existing_subnet_on_network(self, context, subnet):
-        subnets = self.core_plugin.get_subnets(
-            context,
-            filters={'network_id': [subnet['network_id']]})
-        other_subnets = (s for s in subnets if s['id'] != subnet['id'])
-        return next(other_subnets, None)
-
     def seperate_ipv4_ipv6_subnet(self, subnet, dual_stack_subnet):
         if self._is_ipv4(subnet):
             ipv4_subnet, ipv6_subnet = subnet, dual_stack_subnet
         else:
             ipv4_subnet, ipv6_subnet = dual_stack_subnet, subnet
         return ipv4_subnet, ipv6_subnet
-
-    def get_dual_stack_subnet(self, context, neutron_subnet):
-        existing_subnet = self._check_existing_subnet_on_network(
-            context, neutron_subnet)
-        if existing_subnet is None:
-            return None
-        if existing_subnet["ip_version"] != neutron_subnet["ip_version"]:
-            return existing_subnet
 
     def check_if_subnet_is_attached_to_router(self, context, subnet):
         filters = {
