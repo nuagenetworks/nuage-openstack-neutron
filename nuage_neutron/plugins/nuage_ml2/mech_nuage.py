@@ -458,16 +458,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         self.vsdclient.create_nuage_sharedresource(params)
 
     @log_helpers.log_method_call
-    def get_dual_stack_subnet(self, context, neutron_subnet):
-        existing_subnet = self._check_existing_subnet_on_network(
-            context, neutron_subnet)
-        if existing_subnet is None:
-            return None
-        if existing_subnet["ip_version"] != neutron_subnet["ip_version"]:
-            return existing_subnet
-        return None
-
-    @log_helpers.log_method_call
     def _get_dhcp_port(self, context, neutron_subnet, router_attached=False):
         if neutron_subnet.get('enable_dhcp'):
             if router_attached:
@@ -1216,8 +1206,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                       is_port_device_owner_removed=True)
         elif host_added:
             if self._port_should_have_vm(port):
-                nuage_subnet = self._find_vsd_subnet(db_context,
-                                                     subnet_mapping)
+                nuage_subnet = self._find_vsd_subnet(
+                    db_context, subnet_mapping)
                 self._create_nuage_vm(db_context, port,
                                       np_name, subnet_mapping, nuage_vport,
                                       nuage_subnet)
@@ -1356,13 +1346,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
             msg = (_('Only one subnet is allowed per external network %s')
                    % net_id)
             raise NuageBadRequest(msg=msg)
-
-    def _check_existing_subnet_on_network(self, context, subnet):
-        subnets = self.core_plugin.get_subnets(
-            context,
-            filters={'network_id': [subnet['network_id']]})
-        other_subnets = (s for s in subnets if s['id'] != subnet['id'])
-        return next(other_subnets, None)
 
     def _validate_create_openstack_managed_subnet(self, context, subnet):
         if (lib_validators.is_attr_set(subnet.get('gateway_ip')) and
