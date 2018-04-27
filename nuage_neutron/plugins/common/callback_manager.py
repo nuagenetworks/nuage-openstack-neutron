@@ -11,6 +11,8 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+import itertools
 from oslo_log import log as logging
 
 from neutron_lib.callbacks import manager
@@ -39,7 +41,9 @@ class NuageCallbacksManager(manager.CallbacksManager):
         LOG.debug("Notify callbacks for %(resource)s, %(event)s",
                   {'resource': resource, 'event': event})
 
-        callbacks = self._callbacks[resource].get(event, {}).items()
+        callbacks = list(itertools.chain(
+            *[pri_callbacks.items() for (priority, pri_callbacks)
+              in self._callbacks[resource].get(event, [])]))
         for callback_id, callback in callbacks:
             LOG.debug("Calling callback %s", callback_id)
             callback(resource, event, trigger, **kwargs)
