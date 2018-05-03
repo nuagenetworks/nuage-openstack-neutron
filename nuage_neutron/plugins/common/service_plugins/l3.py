@@ -50,6 +50,10 @@ from nuage_neutron.plugins.nuage_ml2.nuage_ml2_wrapper import NuageL3Wrapper
 LOG = logging.getLogger(__name__)
 
 
+def _is_ipv4(subnet):
+    return subnet['ip_version'] == lib_constants.IP_VERSION_4
+
+
 class NuageL3Plugin(NuageL3Wrapper):
     supported_extension_aliases = ['router',
                                    'nuage-router',
@@ -188,8 +192,7 @@ class NuageL3Plugin(NuageL3Wrapper):
         return next(other_subnets, None)
 
     def seperate_ipv4_ipv6_subnet(self, subnet, dual_stack_subnet):
-        is_ipv4 = subnet['ip_version'] == lib_constants.IP_VERSION_4
-        if is_ipv4:
+        if _is_ipv4(subnet):
             ipv4_subnet, ipv6_subnet = subnet, dual_stack_subnet
         else:
             ipv4_subnet, ipv6_subnet = dual_stack_subnet, subnet
@@ -1345,10 +1348,14 @@ class NuageL3Plugin(NuageL3Wrapper):
                 port = self.core_plugin.get_port(context, port_id)
                 if (port.get('device_owner') in
                         nuage_utils.get_device_owners_vip()):
-                    neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
-                    vip = port['fixed_ips'][0]['ip_address']
-                    self.vsdclient.disassociate_fip_from_vips(
-                        neutron_subnet_id, vip)
+                    for fixed_ip in port['fixed_ips']:
+                        neutron_subnet_id = fixed_ip['subnet_id']
+                        subnet = self.core_plugin.get_subnet(
+                            context, neutron_subnet_id)
+                        if _is_ipv4(subnet):
+                            vip = fixed_ip['ip_address']
+                            self.vsdclient.disassociate_fip_from_vips(
+                                neutron_subnet_id, vip)
             router_id = fip['router_id']
         else:
             router_id = fip['last_known_router_id']
@@ -1407,11 +1414,17 @@ class NuageL3Plugin(NuageL3Wrapper):
     def _process_fip_to_vip(self, context, port_id, nuage_fip_id=None):
         port = self.core_plugin._get_port(context, port_id)
         if port.get('device_owner') in nuage_utils.get_device_owners_vip():
-            neutron_subnet_id = port['fixed_ips'][0]['subnet_id']
-            vip = port['fixed_ips'][0]['ip_address']
-            self.vsdclient.associate_fip_to_vips(neutron_subnet_id,
-                                                 vip,
-                                                 nuage_fip_id)
+            # TODO(Team) Take fixed ip on floating ip attach into account
+            for fixed_ip in port['fixed_ips']:
+                neutron_subnet_id = fixed_ip['subnet_id']
+                neutron_subnet = self.core_plugin.get_subnet(context,
+                                                             neutron_subnet_id)
+                if _is_ipv4(neutron_subnet):
+                    vip = fixed_ip['ip_address']
+                    self.vsdclient.associate_fip_to_vips(neutron_subnet_id,
+                                                         vip,
+                                                         nuage_fip_id)
+                    return
 
     @log_helpers.log_method_call
     def _delete_nuage_fip(self, context, fip_dict):
