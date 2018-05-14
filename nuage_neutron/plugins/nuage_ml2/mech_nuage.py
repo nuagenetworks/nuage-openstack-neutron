@@ -79,6 +79,16 @@ DEVICE_OWNER_DHCP = os_constants.DEVICE_OWNER_DHCP
 LOG = log.getLogger(__name__)
 
 
+def _is_v4_ip(ip):
+    return (netaddr.IPAddress(ip['ip_address']).version ==
+            os_constants.IP_VERSION_4)
+
+
+def _is_v6_ip(ip):
+    return (netaddr.IPAddress(ip['ip_address']).version ==
+            os_constants.IP_VERSION_6)
+
+
 def _is_ipv4(subnet):
     return subnet['ip_version'] == os_constants.IP_VERSION_4
 
@@ -201,7 +211,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if not subnets:
             return
         else:
+            # There can only be one subnet due to validation
             subn = subnets[0]
+
         subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(db_context.session,
                                                       subn['id'])
         if subnet_l2dom and _is_external_set:
@@ -276,13 +288,15 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     resource='subnet',
                     msg=msg % {'attribute': attribute,
                                'allowed': os_constants.DHCPV6_STATEFUL})
+        network_subnets = self.core_plugin.get_subnets(
+            db_context,
+            filters={'network_id': [subnet['network_id']]})
         if self.is_vxlan_network(network):
             if vsd_managed:
-                self._validate_create_vsd_managed_subnet(
-                    db_context, network, subnet)
+                self._validate_create_vsd_managed_subnet(network, subnet)
             else:
                 self._validate_create_openstack_managed_subnet(
-                    db_context, subnet)
+                    db_context, subnet, network_subnets)
         else:
             if nuagenet_set or net_part_set:
                 # Nuage attributes set on non-vxlan network ...
@@ -292,10 +306,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             else:
                 return  # Not for us
 
-        subnets = self.core_plugin.get_subnets(
-            db_context,
-            filters={'network_id': [subnet['network_id']]})
-        subnet_ids = [s['id'] for s in subnets]
+        subnet_ids = [s['id'] for s in network_subnets]
         subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
             db_context.session,
             subnet_ids)
@@ -305,13 +316,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     "network.")
             raise NuageBadRequest(resource='subnet', msg=msg)
 
-        ipv4s = len([s for s in subnets if _is_ipv4(s)])
-        ipv6s = len([s for s in subnets if _is_ipv6(s)])
+        ipv4s = len([s for s in network_subnets if _is_ipv4(s)])
 
-        if ipv6s == 1 and ipv4s > 1 or ipv6s > 1:
-            msg = _("A network with an ipv6 subnet may only have maximum 1 "
-                    "ipv4 and 1 ipv6 subnet")
-            raise NuageBadRequest(msg=msg)
         if ipv4s > 1 and self.check_dhcp_agent_alive(db_context):
             msg = _("A network with multiple ipv4 subnets is not "
                     "allowed when neutron-dhcp-agent is enabled")
@@ -1319,7 +1325,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                    % net_id)
             raise NuageBadRequest(msg=msg)
 
-    def _validate_create_openstack_managed_subnet(self, context, subnet):
+    def _validate_create_openstack_managed_subnet(self, context, subnet,
+                                                  network_subnets):
         if (lib_validators.is_attr_set(subnet.get('gateway_ip')) and
                 netaddr.IPAddress(subnet['gateway_ip']) not in
                 netaddr.IPNetwork(subnet['cidr'])):
@@ -1336,21 +1343,16 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         "internal subnets")
                 raise NuageBadRequest(resource='subnet', msg=msg)
 
-    @staticmethod
-    def _validate_create_vsd_managed_subnet(context, network, subnet):
-        # Check for subnets already linked to a VSD subnet
-        subnet_mappings = nuagedb.get_subnet_l2dom_by_network_id(
-            context.session,
-            subnet['network_id'])
-        for mapping in subnet_mappings:
-            if ((mapping['ip_version'] == os_constants.IP_VERSION_6 or
-                    _is_ipv6(subnet)) and
-                    mapping['nuage_subnet_id'] != subnet['nuagenet']):
-                        msg = _("It is not allowed to have an ipv4 and ipv6 "
-                                "subnet in the same network linked to "
-                                "different vsd subnets.")
-                        raise NuageBadRequest(msg=msg)
+        ipv4s = len([s for s in network_subnets if _is_ipv4(s)])
+        ipv6s = len([s for s in network_subnets if _is_ipv6(s)])
 
+        if ipv6s == 1 and ipv4s > 1 or ipv6s > 1:
+            msg = _("A network with an ipv6 subnet may only have maximum 1 "
+                    "ipv4 and 1 ipv6 subnet")
+            raise NuageBadRequest(msg=msg)
+
+    @staticmethod
+    def _validate_create_vsd_managed_subnet(network, subnet):
         subnet_validate = {'net_partition': IsSet(),
                            'nuagenet': IsSet()}
         validate("subnet", subnet, subnet_validate)
@@ -1564,8 +1566,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         is_dhcp_port = (device_owner == os_constants.DEVICE_OWNER_DHCP)
         if len(fixed_ips) == 0:
             return False
-        if (len(fixed_ips) == 1 and is_dhcp_port and
-                netaddr.valid_ipv6(fixed_ips[0]['ip_address'])):
+        if is_dhcp_port and all(map(_is_v6_ip, fixed_ips)):
             # Delayed creation of vport until dualstack
             return False
         subnet_list = {4: [], 6: []}
@@ -1584,9 +1585,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return False
         if is_dhcp_port and is_network_external:
             return False
-        if (len(fixed_ips) == 1 and
-                netaddr.IPAddress(fixed_ips[0][
-                    'ip_address']).version == os_constants.IP_VERSION_6):
+
+        if all(map(_is_v6_ip, fixed_ips)):
             msg = _("Port can't be a pure ipv6 port. Need ipv4 fixed ip.")
             raise NuageBadRequest(msg=msg)
 
