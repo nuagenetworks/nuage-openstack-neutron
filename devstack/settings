@@ -16,7 +16,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+Q_PLUGIN=${Q_PLUGIN:-$NEUTRON_CORE_PLUGIN}
+
+# lib/neutron vs lib/neutron-legacy compat
+Q_META_DATA_IP=${Q_META_DATA_IP:-$SERVICE_HOST}
+
+Q_L3_ENABLED=True
+
+# integration bridge
+OVS_BRIDGE=${OVS_BRIDGE:-"alubr0"}
+
+
 # Nuage VSP related settings
+NUAGE_VSC_SERVER=${NUAGE_VSC_SERVER:-''}
 NUAGE_VSD_SERVERS=${NUAGE_VSD_SERVERS:-'vsd.example.com:8443'}
 NUAGE_VSD_SERVER_AUTH=${NUAGE_VSD_SERVER_AUTH:-'csproot:csproot'}
 NUAGE_VSD_ORGANIZATION=${NUAGE_VSD_ORGANIZATION:-'csp'}
@@ -31,13 +43,14 @@ NUAGE_VSD_CMS_NAME=${NUAGE_VSD_CMS_NAME:-''}
 NUAGE_FIP_UNDERLAY=${NUAGE_FIP_UNDERLAY:-'False'}
 NUAGE_PAT=${NUAGE_PAT:-'default_disabled'}
 
-# integration bridge
-OVS_BRIDGE=${OVS_BRIDGE:-"alubr0"}
+# Nuage metadata service
+NUAGE_USE_METADATA=${NUAGE_USE_METADATA:-False}
+NUAGE_NOVA_METADATA_URL=${NUAGE_NOVA_METADATA_URL:-http://${Q_META_DATA_IP}:8775}
+NUAGE_METADATA_SHARED_SECRET=${NUAGE_METADATA_SHARED_SECRET:-}
 
-# Enable L3 for core plugin
-if [ "${Q_PLUGIN}" == "nuage" ]; then
-    Q_L3_ENABLED=True
-fi
+# create the fake uplink for FIPtoUL
+NUAGE_CREATE_FAKE_UPLINK=${NUAGE_CREATE_FAKE_UPLINK:-$NUAGE_FIP_UNDERLAY}
+UPLINK_PREFIX_LEN=${UPLINK_PREFIX_LEN:-"24"}
 
 # Use IPv4
 IP_VERSION=4
