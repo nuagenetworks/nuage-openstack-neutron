@@ -8,12 +8,83 @@ NU_XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
 
+function ini_has_option_shell {
+    local xtrace
+    xtrace=$(set +o | grep xtrace)
+    set +o xtrace
+    local file=$1
+    local option=$2
+    local line
+
+    line=$(sed -ne "{ /^$option=/ p; }" "$file")
+    $xtrace
+    [ -n "$line" ]
+}
+
+function iniset_shell {
+    local xtrace
+    xtrace=$(set +o | grep xtrace)
+    set +o xtrace
+    local sudo=""
+    if [ $1 == "-sudo" ]; then
+        sudo="sudo "
+        shift
+    fi
+    local file=$1
+    local option=$2
+    local value=$3
+
+    if ! ini_has_option_shell "$file" "$option"; then
+        # Add it
+        $sudo sed -i -e "\$a\
+$option=$value
+" "$file"
+    else
+        local sep
+        sep=$(echo -ne "\x01")
+        # Replace it
+        $sudo sed -i -e 's'${sep}'^\('${option}'=\).*$'${sep}'\1'"${value}"${sep} "$file"
+    fi
+    $xtrace
+}
+
 function is_neutron_ovs_base_plugin {
-    return 1
+    return 0
 }
 
 function neutron_plugin_install_agent_packages {
    :
+}
+
+function configure_vrs_nuage {
+    if is_ubuntu; then
+        VRS_CONF_FILE="/etc/default/openvswitch-switch"
+        VRS_SERVICE_NAME="nuage-openvswitch-switch"
+    elif is_fedora; then
+        VRS_CONF_FILE="/etc/default/openvswitch"
+        VRS_SERVICE_NAME="openvswitch"
+    fi
+    local meta_conf_file="/etc/default/nuage-metadata-agent"
+    local conf_file=$VRS_CONF_FILE
+    iniset_shell -sudo $conf_file ACTIVE_CONTROLLER $NUAGE_VSC_SERVER
+    if [ "$NUAGE_CREATE_FAKE_UPLINK" == "True" ]; then
+        iniset_shell -sudo $conf_file NETWORK_UPLINK_INTF fake_interface
+    fi
+    if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
+       iniset_shell -sudo $meta_conf_file NUAGE_METADATA_AGENT_START_WITH_OVS "true"
+       iniset_shell -sudo $meta_conf_file METADATA_PROXY_SHARED_SECRET "$NUAGE_METADATA_SHARED_SECRET"
+       iniset_shell -sudo $meta_conf_file NOVA_METADATA_IP "$Q_META_DATA_IP"
+       iniset_shell -sudo $meta_conf_file ARP_REPLY "yes"
+       iniset_shell -sudo $meta_conf_file NOVA_OS_AUTH_URL "$KEYSTONE_AUTH_URI/v3"
+       iniset_shell -sudo $meta_conf_file IDENTITY_URL_VERSION 3
+       iniset_shell -sudo $meta_conf_file NOVA_PROJECT_NAME "$SERVICE_PROJECT_NAME"
+       iniset_shell -sudo $meta_conf_file NOVA_USER_DOMAIN_NAME "Default"
+       iniset_shell -sudo $meta_conf_file NOVA_PROJECT_DOMAIN_NAME "Default"
+       iniset_shell -sudo $meta_conf_file NOVA_OS_KEYSTONE_USERNAME "nova"
+       iniset_shell -sudo $meta_conf_file NOVA_OS_PASSWORD "$SERVICE_PASSWORD"
+       iniset_shell -sudo $meta_conf_file NOVA_REGION_NAME "$REGION_NAME"
+    fi
+    restart_service $VRS_SERVICE_NAME
 }
 
 function neutron_plugin_configure_dhcp_agent {
@@ -28,6 +99,21 @@ function neutron_plugin_setup_interface_driver {
     OVS_BRIDGE=${OVS_BRIDGE:-alubr0}
     iniset $conf_file DEFAULT interface_driver nuagevrs
     iniset $conf_file DEFAULT ovs_integration_bridge $OVS_BRIDGE
+}
+
+function configure_nova_nuage {
+    iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
+    if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
+        iniset $NOVA_CONF neutron service_metadata_proxy "True"
+        iniset $NOVA_CONF neutron metadata_proxy_shared_secret $NUAGE_METADATA_SHARED_SECRET
+    fi
+    if is_service_enabled n-cell; then
+        iniset $NOVA_CELLS_CONF neutron ovs_bridge $OVS_BRIDGE
+        if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
+            iniset $NOVA_CELLS_CONF neutron service_metadata_proxy "True"
+            iniset $NOVA_CELLS_CONF neutron metadata_proxy_shared_secret $NUAGE_METADATA_SHARED_SECRET
+        fi
+    fi
 }
 
 function create_or_retrieve_cms {
