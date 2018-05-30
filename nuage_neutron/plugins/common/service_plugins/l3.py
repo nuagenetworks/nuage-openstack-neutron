@@ -73,13 +73,6 @@ class NuageL3Plugin(NuageL3Wrapper):
             self._l2_plugin = directory.get_plugin()
         return self._l2_plugin
 
-    @property
-    def default_np_id(self):
-        if self._default_np_id is None:
-            self._default_np_id = directory.get_plugin(
-                constants.NUAGE_APIS).default_np_id
-        return self._default_np_id
-
     def get_plugin_type(self):
         return lib_constants.L3
 
@@ -223,9 +216,8 @@ class NuageL3Plugin(NuageL3Wrapper):
     def _nuage_dualstack_valid_dss_rtr(self, dual_stack_subnet,
                                        dss_l2dom,
                                        router_id):
-        vsd_dss = self.vsdclient.get_nuage_subnet_by_mapping(
-            dss_l2dom
-        )
+        vsd_dss = self.vsdclient.get_nuage_subnet_by_mapping(dss_l2dom)
+
         if vsd_dss and not dss_l2dom['nuage_l2dom_tmplt_id']:
             nuage_dss_rtr_id = self.vsdclient.get_router_by_domain_subnet_id(
                 vsd_dss['ID'])
@@ -267,7 +259,7 @@ class NuageL3Plugin(NuageL3Wrapper):
         subnet = self.core_plugin.get_subnet(context, subnet_id)
         vsd_zone = self.vsdclient.get_zone_by_routerid(router_id,
                                                        subnet['shared'])
-
+        dss_l2dom = None
         dual_stack_subnet = self.get_dual_stack_subnet(context, subnet)
         ipv4_subnet, ipv6_subnet = self.seperate_ipv4_ipv6_subnet(
             subnet, dual_stack_subnet)
@@ -524,26 +516,6 @@ class NuageL3Plugin(NuageL3Wrapper):
             LOG.debug("Deleted nuage domain subnet %s", nuage_subn_id)
             return result
 
-    @log_helpers.log_method_call
-    def _get_net_partition_for_router(self, context, rtr):
-        ent = rtr.get('net_partition', None)
-        if not ent:
-            net_partition = nuagedb.get_net_partition_by_id(context.session,
-                                                            self.default_np_id)
-        else:
-            net_partition = (
-                nuagedb.get_net_partition_by_id(context.session,
-                                                rtr['net_partition'])
-                or
-                nuagedb.get_net_partition_by_name(context.session,
-                                                  rtr['net_partition'])
-            )
-        if not net_partition:
-            msg = _("Either net_partition is not provided with router OR "
-                    "default net_partition is not created at the start")
-            raise n_exc.BadRequest(resource='router', msg=msg)
-        return net_partition
-
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
@@ -568,12 +540,16 @@ class NuageL3Plugin(NuageL3Wrapper):
         for router in routers:
             routing_mechanisms.add_nuage_router_attributes(context.session,
                                                            router)
-            router = self._fields(router, fields)
+            self._fields(router, fields)
         return routers
 
     def _add_nuage_router_attributes(self, session, router, nuage_router):
         if not nuage_router:
             return
+        ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
+            session, router['id'])
+        router['net_partition'] = ent_rtr_mapping['net_partition_id']
+
         router['tunnel_type'] = nuage_router.get('tunnelType')
         router['rd'] = nuage_router.get('routeDistinguisher')
         router['rt'] = nuage_router.get('routeTarget')
@@ -593,8 +569,7 @@ class NuageL3Plugin(NuageL3Wrapper):
             if nuage_route:
                 route['rd'] = nuage_route['rd']
 
-        router = routing_mechanisms.add_nuage_router_attributes(session,
-                                                                router)
+        routing_mechanisms.add_nuage_router_attributes(session, router)
 
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
@@ -604,9 +579,8 @@ class NuageL3Plugin(NuageL3Wrapper):
         routing_mechanisms.update_routing_values(router['router'])
 
         req_router = copy.deepcopy(router['router'])
-        net_partition = self._get_net_partition_for_router(
-            context,
-            router['router'])
+        net_partition = self._get_net_partition_for_entity(
+            context, router['router'])
         if 'ecmp_count' in router and not context.is_admin:
             msg = _("ecmp_count can only be set by an admin user.")
             raise nuage_exc.NuageNotAuthorized(resource='router', msg=msg)
@@ -632,6 +606,7 @@ class NuageL3Plugin(NuageL3Wrapper):
                                               nuage_router['nuage_domain_id'],
                                               nuage_router['rt'],
                                               nuage_router['rd'])
+            neutron_router['net_partition'] = net_partition['id']
             neutron_router['tunnel_type'] = nuage_router['tunnel_type']
             neutron_router['rd'] = nuage_router['rd']
             neutron_router['rt'] = nuage_router['rt']
@@ -1020,9 +995,9 @@ class NuageL3Plugin(NuageL3Wrapper):
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuageL3Plugin, self).get_floatingip(context, id)
 
-        if (not fields or 'nuage_egress_fip_rate_kbps' in fields
-            or 'nuage_ingress_fip_rate_kbps' in fields) and fip.get(
-           'port_id'):
+        if ((not fields or 'nuage_egress_fip_rate_kbps' in fields or
+             'nuage_ingress_fip_rate_kbps' in fields) and
+                fip.get('port_id')):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
                 nuage_rate_limit = self.vsdclient.get_rate_limit(
@@ -1157,9 +1132,8 @@ class NuageL3Plugin(NuageL3Wrapper):
         return self._get_missing_rate_values(fip_rate_values)
 
     def _get_missing_rate_values(self, fip_rate_values):
-        if not (fip_rate_values.get('egress_nuage_fip_rate_kbps') is not None
-                or fip_rate_values.get(
-                'egress_nuage_fip_rate_mbps') is not None):
+        if ((fip_rate_values.get('egress_nuage_fip_rate_kbps') is None and
+                fip_rate_values.get('egress_nuage_fip_rate_mbps') is None)):
             if self.def_egress_rate_kbps is not None:
                 fip_rate_values['egress_nuage_fip_rate_kbps'] = (
                     self.def_egress_rate_kbps)

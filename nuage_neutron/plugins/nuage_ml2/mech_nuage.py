@@ -38,7 +38,6 @@ from neutron_lib import constants as os_constants
 from neutron_lib.exceptions import PortInUse
 from neutron_lib.exceptions import PortNotFound
 from neutron_lib.exceptions import SubnetNotFound
-from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
 from nuage_neutron.plugins.common import constants
@@ -126,7 +125,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def __init__(self):
         self._core_plugin = None
-        self._default_np_id = None
         self.trunk_driver = None
 
         super(NuageMechanismDriver, self).__init__()
@@ -143,13 +141,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
             constants.DEVICE_OWNER_DHCP_NUAGE]
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         LOG.debug('Initializing complete')
-
-    @property
-    def default_np_id(self):
-        if self._default_np_id is None:
-            self._default_np_id = directory.get_plugin(
-                constants.NUAGE_APIS).default_np_id
-        return self._default_np_id
 
     def _validate_mech_nuage_configuration(self):
         service_plugins = constants.MIN_MECH_NUAGE_SERVICE_PLUGINS_IN_CONFIG
@@ -342,9 +333,10 @@ class NuageMechanismDriver(NuageML2Wrapper):
 
     def _create_vsd_managed_subnet(self, context, subnet):
         nuage_subnet_id = subnet['nuagenet']
-        nuage_npid = self._validate_net_partition(subnet, context)
+        nuage_np_id = self._validate_net_partition(
+            subnet['net_partition'], context)['id']
         if not self.vsdclient.check_if_l2_dom_in_correct_ent(
-                nuage_subnet_id, {'id': nuage_npid}):
+                nuage_subnet_id, {'id': nuage_np_id}):
             msg = ("Provided Nuage subnet not in the provided"
                    " Nuage net-partition")
             raise NuageBadRequest(msg=msg)
@@ -363,7 +355,7 @@ class NuageMechanismDriver(NuageML2Wrapper):
                    "gateway on VSD {}".format(os_gw_ip, vsd_gw_ip))
             raise NuageBadRequest(msg=msg)
         nuage_uid, nuage_gid = self.vsdclient.attach_nuage_group_to_nuagenet(
-            context.tenant, nuage_npid, nuage_subnet_id, subnet.get('shared'),
+            context.tenant, nuage_np_id, nuage_subnet_id, subnet.get('shared'),
             context.tenant_name)
         try:
             with context.session.begin(subtransactions=True):
@@ -374,13 +366,12 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     l2dom_id = nuage_subnet_id
                 nuagedb.add_subnetl2dom_mapping(
                     context.session, subnet['id'], nuage_subnet_id,
-                    nuage_npid, subnet['ip_version'],
+                    nuage_np_id, subnet['ip_version'],
                     nuage_user_id=nuage_uid, l2dom_id=l2dom_id,
                     nuage_group_id=nuage_gid, managed=True)
                 subnet['vsd_managed'] = True
         except Exception:
-            self._cleanup_group(context, nuage_npid, nuage_subnet_id,
-                                subnet)
+            self._cleanup_group(context, nuage_np_id, nuage_subnet_id, subnet)
             raise
 
     def is_external(self, context, net_id):
@@ -397,13 +388,13 @@ class NuageMechanismDriver(NuageML2Wrapper):
             return self._add_nuage_sharedresource(subnet, subnet['network_id'],
                                                   constants.SR_TYPE_FLOATING)
 
-        net_partition = self._get_net_partition_for_subnet(context, subnet)
+        nuage_np_id = self._get_net_partition_for_entity(context, subnet)['id']
         attempt = 0
         while True:
             try:
                 with context.session.begin(subtransactions=True):
                     self._create_nuage_subnet(
-                        context, subnet, net_partition['id'], None)
+                        context, subnet, nuage_np_id, None)
                 return
             except NuageDualstackSubnetNotFound:
                 if attempt < 25:
@@ -413,24 +404,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
                     continue
                 msg = "Failed to create subnet on vsd"
                 raise Exception(msg)
-
-    def _get_net_partition_for_subnet(self, context, subnet):
-        ent = subnet.get('net_partition', None)
-        if not ent:
-            net_partition = nuagedb.get_net_partition_by_id(context.session,
-                                                            self.default_np_id)
-        else:
-            net_partition = (
-                nuagedb.get_net_partition_by_id(context.session,
-                                                subnet['net_partition']) or
-                nuagedb.get_net_partition_by_name(context.session,
-                                                  subnet['net_partition'])
-            )
-        if not net_partition:
-            msg = _('Either net_partition is not provided with subnet OR '
-                    'default net_partition is not created at the start')
-            raise NuageBadRequest(resource='subnet', msg=msg)
-        return net_partition
 
     @log_helpers.log_method_call
     def _add_nuage_sharedresource(self, subnet, net_id, fip_type):
@@ -600,7 +573,8 @@ class NuageMechanismDriver(NuageML2Wrapper):
                                             nuage_user_id=user_id,
                                             nuage_group_id=group_id)
         neutron_subnet['net_partition'] = netpart_id
-        neutron_subnet['nuagenet'] = nuage_id
+        if neutron_subnet.get('vsd_managed'):
+            neutron_subnet['nuagenet'] = nuage_id
 
     @staticmethod
     def _validate_dhcp_opts_changed(original_subnet, updated_subnet):
@@ -1391,22 +1365,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
         net_validate = {'router:external': Is(False)}
         validate("network", network, net_validate)
 
-    def _validate_net_partition(self, subnet, db_context):
-        netpartition_db = nuagedb.get_net_partition_by_name(
-            db_context.session, subnet['net_partition'])
-        netpartition = self.vsdclient.get_netpartition_by_name(
-            subnet['net_partition'])
-        require(netpartition, "netpartition", subnet['net_partition'])
-        if netpartition_db:
-            if netpartition_db['id'] != netpartition['id']:
-                net_partdb = nuagedb.get_net_partition_with_lock(
-                    db_context.session, netpartition_db['id'])
-                nuagedb.delete_net_partition(db_context.session, net_partdb)
-                self._add_net_partition(db_context.session, netpartition)
-        else:
-            self._add_net_partition(db_context.session, netpartition)
-        return netpartition['id']
-
     @staticmethod
     def _validate_security_groups(context):
         port = context.current
@@ -1424,12 +1382,6 @@ class NuageMechanismDriver(NuageML2Wrapper):
             msg = ("Security Groups for baremetal and normal ports "
                    "are mutualy exclusive")
             raise NuageBadRequest(msg=msg)
-
-    @staticmethod
-    def _add_net_partition(session, netpartition):
-        return nuagedb.add_net_partition(
-            session, netpartition['id'], None, None,
-            netpartition['name'], None, None)
 
     def _get_nuage_subnet(self, nuage_subnet_id, subnet_db=None,
                           subnet_type=None):
