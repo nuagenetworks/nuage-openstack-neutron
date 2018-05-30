@@ -36,6 +36,7 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.utils import compare_cidr
 from nuage_neutron.plugins.common.utils import sort_ips
 from nuage_neutron.plugins.common.validation import Is
+from nuage_neutron.plugins.common.validation import require
 from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient_fac import VsdClientFactory
@@ -50,6 +51,7 @@ class RootNuagePlugin(object):
         config.nuage_register_cfg_opts()
         self.nuage_callbacks = callback_manager.get_callback_manager()
         self.vsdclient = None  # deferred initialization
+        self._default_np_id = None
         self._l2_plugin = None
         self._l3_plugin = None
 
@@ -65,6 +67,13 @@ class RootNuagePlugin(object):
             self._l3_plugin = NeutronManager.get_service_plugins()[
                 plugin_constants.L3_ROUTER_NAT]
         return self._l3_plugin
+
+    @property
+    def default_np_id(self):
+        if self._default_np_id is None:
+            self._default_np_id = NeutronManager.get_service_plugins()[
+                constants.NUAGE_APIS].get_default_np_id()
+        return self._default_np_id
 
     def init_vsd_client(self):
         cms_id = cfg.CONF.RESTPROXY.cms_id
@@ -356,6 +365,63 @@ class RootNuagePlugin(object):
                         subnet_mapping['subnet_id'])
             else:
                 raise
+
+    def _get_default_partition(self, session):
+        net_partition = nuagedb.get_net_partition_by_id(session,
+                                                        self.default_np_id)
+        if not net_partition:
+            msg = _('Default net_partition was not created at '
+                    'system startup.')
+            raise NuageBadRequest(resource='subnet', msg=msg)
+        return net_partition
+
+    @staticmethod
+    def _get_netpartition_from_db(session, np_id_or_name):
+        return (
+            nuagedb.get_net_partition_by_id(session, np_id_or_name) or
+            nuagedb.get_net_partition_by_name(session, np_id_or_name))
+
+    @staticmethod
+    def _add_net_partition(session, netpartition):
+        return nuagedb.add_net_partition(
+            session, netpartition['id'], None, None,
+            netpartition['name'], None, None)
+
+    def _validate_net_partition(self, np_id_or_name, context):
+        # check db first
+        netpartition_db = self._get_netpartition_from_db(context.session,
+                                                         np_id_or_name)
+
+        # check vsd by the net-partition in db if found, else try np_id_or_name
+        # - note that np_id_or_name only makes sense when a name is given -
+        netpartition = self.vsdclient.get_netpartition_by_name(
+            netpartition_db['name'] if netpartition_db else np_id_or_name)
+        require(netpartition, "netpartition", np_id_or_name)
+        if netpartition_db:
+            if netpartition_db['id'] == netpartition['id']:
+                return netpartition_db
+            else:
+                # fix neutron with enterprise id (it seems changed?)
+                # ... not sure how this would ever happen (legacy code) ...
+                net_part_db = nuagedb.get_net_partition_with_lock(
+                    context.session, netpartition_db['id'])
+                nuagedb.delete_net_partition(context.session, net_part_db)
+                return self._add_net_partition(context.session,
+                                               netpartition)
+        else:
+            # enterprise exists on VSD but not yet in neutron; add it
+            return self._add_net_partition(context.session, netpartition)
+
+    def _get_net_partition_for_entity(self, context, entity):
+        np_id_or_name = entity.get('net_partition')
+        if np_id_or_name:
+            np = self._get_netpartition_from_db(context.session, np_id_or_name)
+            if not np:
+                msg = _('Net-partition {} does not exist.').format(np)
+                raise NuageBadRequest(resource='subnet', msg=msg)
+            return np
+        else:
+            return self._get_default_partition(context.session)
 
     @log_helpers.log_method_call
     def calculate_vips_for_port_ips(self, context, port):

@@ -70,7 +70,10 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
     def extend_subnet_dict(self, session, db_data, result):
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session, result['id'])
         if subnet_mapping:
+            result['net_partition'] = subnet_mapping['net_partition_id']
             result['vsd_managed'] = subnet_mapping['nuage_managed_subnet']
+            if result['vsd_managed']:
+                result['nuagenet'] = subnet_mapping['nuage_subnet_id']
         else:
             result['vsd_managed'] = False
 
