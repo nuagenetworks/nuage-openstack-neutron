@@ -553,10 +553,7 @@ class VsdClient(object):
     def delete_vips(self, vport_id, vip_dict, vips):
         pass
 
-    def associate_fip_to_vips(self, neutron_subnet_id, vip, vsd_fip_id):
-        pass
-
-    def disassociate_fip_from_vips(self, neutron_subnet_id, vip):
+    def update_fip_to_vips(self, neutron_subnet_id, vip, vsd_fip_id):
         pass
 
     def process_deleted_addr_pair(self, params):

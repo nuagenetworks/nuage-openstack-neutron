@@ -559,7 +559,7 @@ class NuageVM(object):
         else:
             vsd_fip_id = vsd_fip['nuage_fip_id']
         if vsd_fip_id:
-            self._associate_fip_to_vip(vip, vsd_fip_id)
+            self._update_fip_to_vip(vip, vsd_fip_id)
 
     @staticmethod
     def get_net_size(netmask):
@@ -788,29 +788,14 @@ class NuageVM(object):
                              subnets[0]['ID'],
                              **filters)
 
-    def _associate_fip_to_vip(self, vip, vsd_fip_id):
+    def _update_fip_to_vip(self, vip, vsd_fip_id):
         create_params = {'vip_id': vip['ID']}
         nuage_vip = nuagelib.NuageVIP(create_params=create_params)
         self.restproxy.put(nuage_vip.put_resource(),
                            {'associatedFloatingIPID': vsd_fip_id})
 
-    def associate_fip_to_vips(self, neutron_subnet_id, vip, vsd_fip_id):
+    def update_fip_to_vips(self, neutron_subnet_id, vip, vsd_fip_id):
         vip_list = self._get_vips_for_subnet(neutron_subnet_id,
                                              virtualIP=vip)
         for vip in vip_list:
-            self._associate_fip_to_vip(vip, vsd_fip_id)
-
-    def _disassociate_fip_from_vip(self, vip):
-        create_params = {'vip_id': vip['ID']}
-        nuage_vip = nuagelib.NuageVIP(create_params=create_params)
-        self.restproxy.put(nuage_vip.put_resource(),
-                           {'associatedFloatingIPID': None})
-
-    def disassociate_fip_from_vips(self, neutron_subnet_id, vip):
-        try:
-            vip_list = self._get_vips_for_subnet(neutron_subnet_id,
-                                                 virtualIP=vip)
-        except restproxy.ResourceNotFoundException:
-            return
-        for vip in vip_list:
-            self._disassociate_fip_from_vip(vip)
+            self._update_fip_to_vip(vip, vsd_fip_id)
