@@ -144,8 +144,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     self._update_port(port_dict)
 
     @utils.context_log
-    def delete_port_postcommit(self, context):
-        """delete_port_postcommit."""
+    def delete_port_precommit(self, context):
+        """delete_port_precommit."""
         if (context.current.get(portbindings.VNIC_TYPE, "")
                 in self._supported_vnic_types()):
             try:
