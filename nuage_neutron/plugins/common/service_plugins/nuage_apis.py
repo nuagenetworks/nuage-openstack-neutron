@@ -54,6 +54,9 @@ class NuageApi(NuageApiWrapper):
     def get_plugin_description(self):
         return "Plugin providing Nuage-specific APIs."
 
+    def get_default_np_id(self):
+        return self._default_np_id
+
     @log_helpers.log_method_call
     def _make_net_partition_dict(self, net_partition,
                                  context=None, fields=None):
@@ -208,7 +211,7 @@ class NuageApi(NuageApiWrapper):
                                                           netpart_name,
                                                           l3isolated,
                                                           l3shared)
-        self.default_np_id = np_id
+        self._default_np_id = np_id
         return net_partitioninst
 
     @log_helpers.log_method_call
@@ -229,7 +232,7 @@ class NuageApi(NuageApiWrapper):
         else:
             default_netpart = self._validate_create_net_partition(
                 netpart_name, db.get_session())
-            self.default_np_id = default_netpart['id']
+            self._default_np_id = default_netpart['id']
             return default_netpart
 
         '''NetPartition and templates already created. Just sync the
