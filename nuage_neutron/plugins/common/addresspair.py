@@ -66,8 +66,7 @@ class NuageAddressPair(BaseNuagePlugin):
     def _create_vips(self, context, subnet_mapping, port, nuage_vport):
         port_vip_dict = nuage_vip_dict = dict()
         enable_spoofing = False
-        vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(subnet_mapping,
-                                                                required=True)
+        vsd_subnet = self._find_vsd_subnet(context, subnet_mapping)
         fips_per_vip = nuagedb.get_floatingip_per_vip_in_network(
             context.session,
             port['network_id'])
@@ -93,6 +92,8 @@ class NuageAddressPair(BaseNuagePlugin):
                     enable_spoofing |= self.vsdclient.create_vip(params)
                     port_vip_dict[params['vip']] = params['mac']
                 except Exception as e:
+                    if not self._check_port_exists_in_neutron(context, port):
+                        return
                     with excutils.save_and_reraise_exception():
                         LOG.error(
                             "Error in creating vip for ip %(vip)s and mac "
@@ -132,6 +133,8 @@ class NuageAddressPair(BaseNuagePlugin):
                 enable_spoofing |= self.vsdclient.create_vip(params)
                 nuage_vip_dict[params['vip']] = params['mac']
             except Exception as e:
+                if not self._check_port_exists_in_neutron(context, port):
+                    return
                 with excutils.save_and_reraise_exception():
                     LOG.error("Error in creating vip for ip %(vip)s and mac "
                               "%(mac)s: %(err)s", {'vip': vip,
@@ -141,9 +144,15 @@ class NuageAddressPair(BaseNuagePlugin):
                                                nuage_vip_dict,
                                                nuage_vip_dict.keys())
         if port[portsecurity.PORTSECURITY] is not False:
-            self.vsdclient.update_mac_spoofing_on_vport(
-                nuage_vport['ID'],
-                constants.ENABLED if enable_spoofing else constants.INHERITED)
+            try:
+                self.vsdclient.update_mac_spoofing_on_vport(
+                    nuage_vport['ID'],
+                    constants.ENABLED if enable_spoofing else
+                    constants.INHERITED)
+            except Exception:
+                if not self._check_port_exists_in_neutron(context, port):
+                    return
+                raise
 
     def _update_vips(self, context, subnet_mapping, port, nuage_vport,
                      deleted_addr_pairs):
@@ -351,9 +360,10 @@ class NuageAddressPair(BaseNuagePlugin):
         port = kwargs.get('port')
         vport = kwargs.get('vport')
         context = kwargs.get('context')
-        if (not port.get(constants.VIPS_FOR_PORT_IPS) and
-                not port.get("allowed_address_pairs") and
-                port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL):
+        configure_vips = (port.get(constants.VIPS_FOR_PORT_IPS) or
+                          port.get("allowed_address_pairs"))
+        if (port[portbindings.VNIC_TYPE] != portbindings.VNIC_NORMAL or
+                not configure_vips):
             # If there are no allowed_address_pair in the request
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron
