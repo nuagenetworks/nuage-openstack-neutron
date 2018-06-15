@@ -300,12 +300,12 @@ def get_nuage_subnets_info(session, subnets, fields, filters):
                                             if mapping else None)
         add = True
         if filters:
-            if 'vsd_managed' in filters.keys():
+            if 'vsd_managed' in filters:
                 add = (str(subnet['vsd_managed']).lower() ==
                        str(filters['vsd_managed'][0]).lower())
-            if 'vsd_id' in filters.keys():
+            if 'vsd_id' in filters:
                 add = str(subnet['vsd_id']) == str(filters['vsd_id'][0])
-            if 'nuage_net_partition_id' in filters.keys():
+            if 'nuage_net_partition_id' in filters:
                 add = (str(subnet['nuage_net_partition_id']) ==
                        str(filters['nuage_net_partition_id'][0]))
         if add:

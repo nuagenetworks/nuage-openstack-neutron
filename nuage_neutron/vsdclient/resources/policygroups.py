@@ -14,6 +14,7 @@
 
 import logging
 import random
+import six
 
 from neutron.db import api as db_api
 from oslo_config import cfg
@@ -121,7 +122,7 @@ class NuagePolicyGroups(object):
                 raise restproxy.RESTProxyError(msg)
 
     def validate_nuage_sg_rule_definition(self, sg_rule):
-        if 'ethertype' in sg_rule.keys():
+        if 'ethertype' in sg_rule:
             if str(sg_rule['ethertype']) not in NUAGE_SUPPORTED_ETHERTYPES:
                 raise restproxy.RESTProxyError(NOT_SUPPORTED_ACL_ATTR_MSG
                                                % sg_rule['ethertype'])
@@ -174,10 +175,10 @@ class NuagePolicyGroups(object):
         }
 
         min_port = max_port = None
-        for key, value in sg_rule.items():
+        for key, value in list(six.iteritems(sg_rule)):
             if value is None:
                 continue
-            elif str(key) == 'ethertype':
+            if str(key) == 'ethertype':
                 nuage_match_info['etherType'] = self._get_ethertype(
                     sg_rule['ethertype'])
             elif str(key) == 'protocol':
@@ -305,7 +306,7 @@ class NuagePolicyGroups(object):
                     'neutron_sg_rule': rule,
                     'sg_type': params.get('sg_type', constants.SOFTWARE)
                 }
-                if ('ethertype' in rule.keys() and
+                if ('ethertype' in rule and
                         str(rule['ethertype']) not in
                         NUAGE_SUPPORTED_ETHERTYPES):
                     continue
@@ -571,7 +572,7 @@ class NuagePolicyGroups(object):
     def create_update_rate_limiting(self, fip_rate_values, vport_id,
                                     neutron_fip_id):
         data = {}
-        for direction, value in fip_rate_values.iteritems():
+        for direction, value in six.iteritems(fip_rate_values):
             if float(value) == -1:
                 value = constants.INFINITY
             elif 'kbps' in direction:
@@ -1716,7 +1717,7 @@ class NuageRedirectTargets(object):
             'statsLoggingEnabled': self.stats_collection_enabled,
         }
         min_port = max_port = None
-        for key in rtarget_rule.keys():
+        for key in list(rtarget_rule):
             if rtarget_rule[key] is None:
                 continue
             if str(key) == 'protocol':

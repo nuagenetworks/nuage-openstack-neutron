@@ -13,7 +13,6 @@
 #    under the License.
 
 from __future__ import print_function
-
 import contextlib
 import functools
 import netaddr
@@ -163,7 +162,7 @@ class Ignored(object):
     def __init__(self, exception):
         self.exception = exception
 
-    def __nonzero__(self):
+    def __bool__(self):
         return False
 
 
@@ -184,17 +183,17 @@ def retry_on_vsdclient_error(fn, nr_retries=3, vsd_error_codes=None):
                 LOG = get_logger(fn=fn)
                 if tries == nr_retries:
                     LOG.debug('Failed to execute {} {} times.'.format(
-                        fn.func_name, nr_retries)
+                        fn.__name__, nr_retries)
                     )
                     raise
                 if (e.code, e.vsd_code) in vsd_error_codes:
                     LOG.debug('Attempt {} of {} to execute {} failed.'.format(
-                        tries, nr_retries, fn.func_name)
+                        tries, nr_retries, fn.__name__)
                     )
                     tries += 1
                 else:
                     LOG.debug('Non retry-able error '
-                              'encountered on {}.'.format(fn.func_name))
+                              'encountered on {}.'.format(fn.__name__))
                     raise
     return wrapped
 

@@ -181,9 +181,9 @@ class NuageDomain(object):
         extra_params = {
             'description': neutron_router['name']
         }
-        if 'rd' in router.keys() and router['rd']:
+        if 'rd' in router and router['rd']:
             extra_params['routeDistinguisher'] = router['rd']
-        if 'rt' in router.keys() and router['rt']:
+        if 'rt' in router and router['rt']:
             extra_params['routeTarget'] = router['rt']
         if router.get('tunnel_type'):
             neutron_tunnel_type = router['tunnel_type']
@@ -191,14 +191,14 @@ class NuageDomain(object):
             extra_params['tunnelType'] = vsd_types[neutron_tunnel_type]
         if 'ecmp_count' in router:
             extra_params['ECMPCount'] = router.get('ecmp_count')
-        if ('nuage_backhaul_vnid' in router.keys() and
+        if ('nuage_backhaul_vnid' in router and
                 router['nuage_backhaul_vnid']):
             extra_params['backHaulVNID'] = router['nuage_backhaul_vnid']
-        if ('nuage_backhaul_rd' in router.keys() and
+        if ('nuage_backhaul_rd' in router and
                 router['nuage_backhaul_rd']):
             extra_params['backHaulRouteDistinguisher'] = (
                 router['nuage_backhaul_rd'])
-        if ('nuage_backhaul_rt' in router.keys() and
+        if ('nuage_backhaul_rt' in router and
                 router['nuage_backhaul_rt']):
             extra_params['backHaulRouteTarget'] = router['nuage_backhaul_rt']
 

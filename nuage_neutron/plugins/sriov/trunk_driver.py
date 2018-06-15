@@ -14,9 +14,9 @@
 #    under the License.
 
 import collections
-
 from oslo_config import cfg
 from oslo_log import log as logging
+import six
 
 from neutron.db import api as db_api
 from neutron.objects import trunk as trunk_objects
@@ -103,7 +103,7 @@ class NuageTrunkHandler(object):
         updated_ports = collections.defaultdict(list)
         for s in subports:
             ports_by_trunk_id[s['trunk_id']].append(s)
-        for trunk_id, subports in ports_by_trunk_id.items():
+        for trunk_id, subports in six.iteritems(ports_by_trunk_id):
             trunk = trunk_objects.Trunk.get_object(el, id=trunk_id)
             if not trunk:
                 LOG.debug("Trunk not found. id : %s", trunk_id)
@@ -171,14 +171,14 @@ class NuageTrunkHandler(object):
             if port.sub_port.trunk_id == trunk['id']:
                 all_subports_in_trunk.append(port)
 
-        bad_vlan = next((vlan for vlan, subnets in subnets_per_vlan.items()
-                         if len(subnets) > 1), None)
+        bad_vlan = next((vlan for vlan, subnets in six.iteritems(
+            subnets_per_vlan) if len(subnets) > 1), None)
         if bad_vlan:
             raise nuage_exc.UniqueSubnetConflict(
                 subnets=subnets_per_vlan[bad_vlan],
                 vlan=bad_vlan)
-        bad_subnet = next((subnet for subnet, vlans in vlans_per_subnet.items()
-                           if len(vlans) > 1), None)
+        bad_subnet = next((subnet for subnet, vlans in six.iteritems(
+            vlans_per_subnet) if len(vlans) > 1), None)
         if bad_subnet:
             raise nuage_exc.UniqueVlanConflict(
                 subnet=bad_subnet,

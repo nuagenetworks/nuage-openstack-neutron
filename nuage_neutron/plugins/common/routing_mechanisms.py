@@ -20,8 +20,8 @@ from oslo_config import cfg
 from neutron._i18n import _
 from neutron_lib import constants as os_constants
 
-import constants
-import nuagedb
+from nuage_neutron.plugins.common import constants
+from nuage_neutron.plugins.common import nuagedb
 
 
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
