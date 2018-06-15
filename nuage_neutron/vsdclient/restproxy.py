@@ -37,7 +37,7 @@ except AttributeError:
 
 LOG = logging.getLogger(__name__)
 
-REST_SUCCESS_CODES = range(200, 207)
+REST_SUCCESS_CODES = range(200, 300)
 REST_UNAUTHORIZED = 401
 REST_NOT_FOUND = 404
 REST_CONFLICT = 409
@@ -333,7 +333,8 @@ class RESTProxyServer(object):
         if NUAGE_AUTH_SEMAPHORE.acquire(blocking=False):
             NUAGE_AUTH_RENEWING = True
             try:
-                encoded_auth = base64.encodestring(self.serverauth).strip()
+                encoded_auth = base64.b64encode(
+                    self.serverauth.encode()).decode()
                 # use a temporary auth key instead of the expired auth key
                 extra_headers = {'Authorization': 'Basic ' + encoded_auth}
                 resp = self._rest_call('GET', self.auth_resource, '',
@@ -353,7 +354,8 @@ class RESTProxyServer(object):
                 else:
                     uname = self.serverauth.split(':')[0]
                     new_uname_pass = uname + ':' + resp[3][0]['APIKey']
-                    encoded_auth = base64.encodestring(new_uname_pass).strip()
+                    encoded_auth = base64.b64encode(
+                        new_uname_pass.encode()).decode()
                     NUAGE_AUTH = 'Basic ' + encoded_auth
                     NUAGE_AUTH_RENEWING = False
                     LOG.debug("[RESTProxy] New auth-token received %s",

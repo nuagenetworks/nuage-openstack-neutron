@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import six
 
 from neutron._i18n import _
 
@@ -46,7 +47,7 @@ class VsdPassthroughResource(BaseNuagePlugin):
 
     def _translate_dict(self, resource, translation_mapping, fields=None):
         dict = {}
-        for key, value in translation_mapping.iteritems():
+        for key, value in six.iteritems(translation_mapping):
             if hasattr(value, '__call__'):
                 value(resource, dict)
             elif key in resource:
@@ -55,6 +56,6 @@ class VsdPassthroughResource(BaseNuagePlugin):
 
     def _fields(self, resource, fields):
         if fields:
-            return dict(((key, item) for key, item in resource.items()
+            return dict(((key, item) for key, item in six.iteritems(resource)
                          if key in fields))
         return resource

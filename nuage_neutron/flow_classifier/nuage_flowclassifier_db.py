@@ -13,11 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_utils import uuidutils
+import six
+
 from networking_sfc.db import flowclassifier_db
 from networking_sfc.extensions import flowclassifier as fc_ext
 from neutron.db import api as db_api
-
-from oslo_utils import uuidutils
 
 
 class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
@@ -57,7 +58,7 @@ class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
         l7_parameters = {
             # Overriding the method due to change of below line only
             key: flowclassifier_db.L7Parameter(keyword=key, value=val)
-            for key, val in fc['l7_parameters'].items()}
+            for key, val in six.iteritems(fc['l7_parameters'])}
         ethertype = fc['ethertype']
         protocol = fc['protocol']
         source_port_range_min = fc['source_port_range_min']

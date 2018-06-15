@@ -14,6 +14,7 @@
 
 import copy
 import itertools
+import six
 
 from oslo_log import log as logging
 
@@ -91,7 +92,8 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                     options[0]['opt_name'], e)
 
     def _build_dhcp_option_error_message(self, dhcpoption, e):
-        for name, number in constants.DHCP_OPTION_NAME_TO_NUMBER.iteritems():
+        for name, number in six.iteritems(
+                constants.DHCP_OPTION_NAME_TO_NUMBER):
             if number == dhcpoption:
                 if isinstance(e, n_exc.InvalidInput):
                     error = ("Neutron Error: DHCP Option %s that is being set"

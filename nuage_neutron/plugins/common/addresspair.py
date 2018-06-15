@@ -101,7 +101,7 @@ class NuageAddressPair(BaseNuagePlugin):
                                                  'err': e.message})
                         self.vsdclient.delete_vips(nuage_vport['ID'],
                                                    port_vip_dict,
-                                                   port_vip_dict.keys())
+                                                   port_vip_dict)
 
         for allowed_addr_pair in port[addr_pair.ADDRESS_PAIRS]:
             vip = allowed_addr_pair['ip_address']
@@ -141,7 +141,7 @@ class NuageAddressPair(BaseNuagePlugin):
                                                    'err': e.message})
                     self.vsdclient.delete_vips(nuage_vport['ID'],
                                                nuage_vip_dict,
-                                               nuage_vip_dict.keys())
+                                               nuage_vip_dict)
         if port[portsecurity.PORTSECURITY] is not False:
             try:
                 self.vsdclient.update_mac_spoofing_on_vport(
@@ -205,7 +205,7 @@ class NuageAddressPair(BaseNuagePlugin):
 
         vips_add_list = []
         vips_delete_set = set()
-        for vip, mac in os_vip_dict.iteritems():
+        for vip, mac in six.iteritems(os_vip_dict):
             if vip in nuage_vip_dict:
                 # Check if mac is same
                 if (mac != nuage_vip_dict.get(vip) or
@@ -223,7 +223,7 @@ class NuageAddressPair(BaseNuagePlugin):
                 }
                 vips_add_list.append(vips_add_dict)
 
-        for vip, mac in nuage_vip_dict.iteritems():
+        for vip, mac in six.iteritems(nuage_vip_dict):
             if vip in os_vip_dict:
                 # Check if mac is same
                 if (mac != os_vip_dict.get(vip) or

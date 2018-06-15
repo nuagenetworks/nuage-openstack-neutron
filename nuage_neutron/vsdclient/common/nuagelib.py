@@ -116,7 +116,7 @@ class NuageServerBaseClass(object):
 
     def extra_header_filter(self, **filters):
         filter = ''
-        for field, value in filters.iteritems():
+        for field, value in six.iteritems(filters):
             if isinstance(value, six.string_types):
                 value = "'%s'" % value
             if value is None:
@@ -127,8 +127,9 @@ class NuageServerBaseClass(object):
         return {'X-Nuage-Filter': filter} if filter else None
 
     def single_filter_header(self, **filters):
+        assert len(filters) == 1
         filter = ''
-        field = filters.keys()[0]
+        field = next(iter(filters))
         for value in filters[field]:
             if isinstance(value, six.string_types):
                 value = "'%s'" % value
@@ -2374,7 +2375,7 @@ class VsdResource(object):
     @staticmethod
     def extra_header_filter(**filters):
         filter = ''
-        for field, value in filters.iteritems():
+        for field, value in six.iteritems(filters):
             if isinstance(value, six.string_types):
                 value = "'%s'" % value
             if value is None:

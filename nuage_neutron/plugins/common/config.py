@@ -12,11 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import constants
 from oslo_config import cfg
 from oslo_log import log
 
 from neutron._i18n import _
+
+from nuage_neutron.plugins.common import constants
 
 LOG = log.getLogger(__name__)
 

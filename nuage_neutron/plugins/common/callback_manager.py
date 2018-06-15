@@ -14,6 +14,7 @@
 
 import itertools
 from oslo_log import log as logging
+import six
 
 from neutron_lib.callbacks import manager
 
@@ -42,7 +43,7 @@ class NuageCallbacksManager(manager.CallbacksManager):
                   {'resource': resource, 'event': event})
 
         callbacks = list(itertools.chain(
-            *[pri_callbacks.items() for (priority, pri_callbacks)
+            *[six.iteritems(pri_callbacks) for (priority, pri_callbacks)
               in self._callbacks[resource].get(event, [])]))
         for callback_id, callback in callbacks:
             LOG.debug("Calling callback %s", callback_id)

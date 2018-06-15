@@ -118,7 +118,6 @@ class Nuagepolicygroup(api_extensions.ExtensionDescriptor):
     @classmethod
     def get_extended_resources(cls, version):
         if version == "2.0":
-            return dict(EXTENDED_ATTRIBUTES_2_0.items() +
-                        RESOURCE_ATTRIBUTE_MAP.items())
+            return dict(EXTENDED_ATTRIBUTES_2_0, **RESOURCE_ATTRIBUTE_MAP)
         else:
             return {}

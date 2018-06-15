@@ -21,6 +21,7 @@ from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
+import six
 
 from neutron._i18n import _
 from neutron.db.common_db_mixin import CommonDbMixin
@@ -1033,7 +1034,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             self.vsdclient.create_update_rate_limiting(
                 nuage_fip_rate, nuage_vport['ID'],
                 neutron_fip['id'])
-            for direction, value in nuage_fip_rate.iteritems():
+            for direction, value in six.iteritems(nuage_fip_rate):
                 if 'kbps' in direction:
                     rate_unit = 'K'
                     if 'ingress' in direction:
@@ -1062,7 +1063,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
                 nuage_rate_limit = self.vsdclient.get_rate_limit(
                     nuage_vport['ID'], fip['id'])
-                for direction, value in nuage_rate_limit.iteritems():
+                for direction, value in six.iteritems(nuage_rate_limit):
                     if 'ingress' in direction:
                         fip['nuage_ingress_fip_rate_kbps'] = value
                     elif 'egress' in direction:
@@ -1239,7 +1240,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             self.vsdclient.create_update_rate_limiting(
                 nuage_fip_rate, nuage_vport['ID'],
                 orig_fip['id'])
-            for direction, value in nuage_fip_rate.iteritems():
+            for direction, value in six.iteritems(nuage_fip_rate):
                 if 'kbps' in direction:
                     rate_unit = 'K'
                     if 'ingress' in direction:
