@@ -1,0 +1,94 @@
+- hosts: all
+  name: CI sriov smoke job for nuage-openstack-neutron
+  tasks:
+
+    - name: Ensure legacy workspace directory
+      file:
+        path: '{{ ansible_user_dir }}/workspace'
+        state: directory
+
+    - shell:
+        cmd: |
+          set -e
+          set -x
+          cat > clonemap.yaml << EOF
+          clonemap:
+            - name: openstack-infra/devstack-gate
+              dest: devstack-gate
+          EOF
+          /usr/zuul-env/bin/zuul-cloner -m clonemap.yaml --cache-dir /opt/git \
+              git://git.openstack.org \
+              openstack-infra/devstack-gate
+        executable: /bin/bash
+        chdir: '{{ ansible_user_dir }}/workspace'
+      environment: '{{ zuul | zuul_legacy_vars }}'
+
+    - shell:
+        cmd: |
+          set -e
+          set -x
+          export PYTHONUNBUFFERED=true
+          export NODEPOOL_MIRROR_HOST={{ zuul_site_mirror_fqdn }}
+          export DEVSTACK_GATE_NEUTRON=1
+          export DEVSTACK_GATE_TEMPEST=1
+          export NUAGE_OS_RELEASE=${ZUUL_BRANCH#*/}
+          if [ -f /etc/ci/vsp_info.sh ]; then
+              source /etc/ci/vsp_info.sh
+          fi
+          if [ "{{ branch_override }}" != "default" ] ; then
+              export OVERRIDE_ZUUL_BRANCH={{ branch_override }}
+              export NUAGE_OS_RELEASE=${OVERRIDE_ZUUL_BRANCH#*/}
+          fi
+          export VSP_RELEASE={{ nuage_vsp_release }}
+          export DEVSTACK_GATE_TOPOLOGY=aio
+
+          # we will attempt to use cloned upper-contraints.txt
+          # prepared by zuul
+          export UPPER_CONSTRAINTS_FILE=/opt/stack/new/requirements/upper-constraints.txt
+
+          # by default devstack-gate will include bunch of projects
+          # we dont actually need. We ovewrite project list here
+          PROJECTS="openstack-infra/devstack-gate"
+          PROJECTS="openstack-dev/devstack $PROJECTS"
+          PROJECTS="openstack/cinder $PROJECTS"
+          PROJECTS="openstack/glance $PROJECTS"
+          PROJECTS="openstack/keystone $PROJECTS"
+          PROJECTS="openstack/neutron $PROJECTS"
+          PROJECTS="openstack/neutron-tempest-plugin $PROJECTS"
+          PROJECTS="openstack/nova $PROJECTS"
+          PROJECTS="openstack/requirements $PROJECTS"
+          PROJECTS="openstack/tempest $PROJECTS"
+
+          PROJECTS="OpenStack/networking-testsriov $PROJECTS"
+          PROJECTS="OpenStack/nuage-gate-utils $PROJECTS"
+          PROJECTS="OpenStack/nuage-openstack-neutron $PROJECTS"
+          PROJECTS="OpenStack/nuage-openstack-neutronclient $PROJECTS"
+          PROJECTS="OpenStack/nuage-tempest-plugin $PROJECTS"
+          export DEVSTACK_GATE_PROJECTS_OVERRIDE="$PROJECTS"
+
+          # get own ip and derrive cidr for public net from it,
+          # to avoid overlap on VSD by multiple gate hosts
+          PRIMARY_IP="{{ hostvars['primary']['ansible_default_ipv4']['address'] }}"
+          group=$(echo ${PRIMARY_IP} | awk -F.  '{print $3}')
+          GW="172.${group}.${PRIMARY_IP##*.}.1"
+          export DEVSTACK_GATE_FLOATING_RANGE="172.${group}.${PRIMARY_IP##*.}.0/24"
+          export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
+
+          function pre_test_hook {
+              sudo -H sed -i 's/$/,<10/' $BASE/new/devstack/tools/cap-pip.txt
+              sudo -H pip install -c $UPPER_CONSTRAINTS_FILE stestr
+          }
+          export -f pre_test_hook
+
+          function gate_hook {
+               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh ml2-sriov
+          }
+          export -f gate_hook
+
+          export DEVSTACK_GATE_SETTINGS=/opt/stack/new/nuage-gate-utils/devstackgaterc
+
+          cp devstack-gate/devstack-vm-gate-wrap.sh ./safe-devstack-vm-gate-wrap.sh
+          ./safe-devstack-vm-gate-wrap.sh
+        executable: /bin/bash
+        chdir: '{{ ansible_user_dir }}/workspace'
+      environment: '{{ zuul | zuul_legacy_vars }}'

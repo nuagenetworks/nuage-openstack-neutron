@@ -14,12 +14,12 @@
 #    under the License.
 #
 
-from rally import consts
-from rally.plugins.openstack import scenario
-from rally.plugins.openstack.scenarios.neutron import utils
-from rally.plugins.openstack.wrappers import network as network_wrapper
 from rally.task import atomic
 from rally.task import validation
+from rally_openstack import consts
+from rally_openstack import scenario
+from rally_openstack.scenarios.neutron import utils
+from rally_openstack.wrappers import network as network_wrapper
 
 
 @validation.add("required_services", services=[consts.Service.NEUTRON])

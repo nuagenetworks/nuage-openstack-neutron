@@ -1,0 +1,276 @@
+- project:
+    check:
+      jobs:
+        - openstack-tox-pep8:
+            required-projects:
+              - openstack/neutron
+        - legacy-tempest-aio-ml2:
+            irrelevant-files:
+              - ^(test-|)requirements.txt$
+              - ^.*\.rst$
+              - ^doc/.*$
+              - ^nuage_neutron/tests/unit/.*$
+              - ^setup.cfg$
+              - ^specs/.*$
+              - ^tox.ini$
+        - legacy-tempest-aio-sriov:
+            irrelevant-files:
+              - ^(test-|)requirements.txt$
+              - ^.*\.rst$
+              - ^doc/.*$
+              - ^nuage_neutron/tests/unit/.*$
+              - ^setup.cfg$
+              - ^specs/.*$
+              - ^tox.ini$
+        - legacy-tempest-aio-agent:
+            voting: false
+            irrelevant-files:
+              - ^(test-|)requirements.txt$
+              - ^.*\.rst$
+              - ^doc/.*$
+              - ^nuage_neutron/tests/unit/.*$
+              - ^setup.cfg$
+              - ^specs/.*$
+              - ^tox.ini$
+        - legacy-tempest-aio-underlay:
+            irrelevant-files:
+              - ^(test-|)requirements.txt$
+              - ^.*\.rst$
+              - ^doc/.*$
+              - ^nuage_neutron/tests/unit/.*$
+              - ^setup.cfg$
+              - ^specs/.*$
+              - ^tox.ini$
+    gate:
+      jobs:
+        - openstack-tox-pep8:
+            required-projects:
+              - openstack/neutron
+        - legacy-tempest-aio-ml2:
+            irrelevant-files:
+              - ^(test-|)requirements.txt$
+              - ^.*\.rst$
+              - ^doc/.*$
+              - ^nuage_neutron/tests/unit/.*$
+              - ^setup.cfg$
+              - ^specs/.*$
+              - ^tox.ini$
+        - legacy-tempest-aio-sriov:
+            irrelevant-files:
+              - ^(test-|)requirements.txt$
+              - ^.*\.rst$
+              - ^doc/.*$
+              - ^nuage_neutron/tests/unit/.*$
+              - ^setup.cfg$
+              - ^specs/.*$
+              - ^tox.ini$
+    experimental:
+      jobs:
+        - legacy-tempest-aio-full
+        - legacy-tempest-aio-fwaas
+        - legacy-tempest-aio-rally
+        - legacy-tempest-aio-lbaas
+        - legacy-tempest-aio-upstream
+    periodic:
+      jobs:
+        - legacy-tempest-aio-full:
+            branches:
+              - stable/newton
+              - stable/ocata
+              - stable/pike
+              - stable/queens
+              - master
+        - legacy-tempest-aio-upstream:
+            branches:
+              - stable/newton
+              - stable/ocata
+              - stable/pike
+              - stable/queens
+              - master
+
+- job:
+    name: legacy-tempest-aio-ml2
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-ml2/run.yaml
+    post-run: playbooks/tempest-aio-ml2/post.yaml
+    vars:
+      job_flavor: ml2
+      branch_override: default
+    timeout: 10800
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-agent
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-ml2/run.yaml
+    post-run: playbooks/tempest-aio-ml2/post.yaml
+    vars:
+      job_flavor: ml2-agent-nv
+      branch_override: default
+    timeout: 10800
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-underlay
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-ml2/run.yaml
+    post-run: playbooks/tempest-aio-ml2/post.yaml
+    vars:
+      job_flavor: ml2-underlay
+      branch_override: default
+    timeout: 10800
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-full
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-ml2/run.yaml
+    post-run: playbooks/tempest-aio-ml2/post.yaml
+    vars:
+      job_flavor: ml2-full
+      branch_override: default
+    timeout: 10800
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-upstream
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-ml2/run.yaml
+    post-run: playbooks/tempest-aio-ml2/post.yaml
+    vars:
+      job_flavor: ml2-neutron
+      branch_override: default
+    timeout: 9000
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-sriov
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-sriov/run.yaml
+    post-run: playbooks/tempest-aio-sriov/post.yaml
+    vars:
+      branch_override: default
+    timeout: 9000
+    required-projects:
+      - OpenStack/networking-testsriov
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-rally
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-rally/run.yaml
+    post-run: playbooks/tempest-aio-rally/post.yaml
+    vars:
+      job_flavor: rally-ml2
+      branch_override: default
+    timeout: 9000
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - openstack-infra/devstack-gate
+      - openstack/rally
+      - openstack/rally-openstack
+
+- job:
+    name: legacy-tempest-aio-fwaas
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-xaas/run.yaml
+    post-run: playbooks/tempest-aio-xaas/post.yaml
+    vars:
+      job_flavor: fwaas-ml2
+      branch_override: default
+    timeout: 9000
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-fwaas
+      - openstack/neutron-lbaas
+      - openstack/neutron-tempest-plugin
+      - openstack/octavia
+      - openstack/octavia-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-lbaas
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-xaas/run.yaml
+    post-run: playbooks/tempest-aio-xaas/post.yaml
+    vars:
+      job_flavor: lbaas-ml2
+      branch_override: default
+    timeout: 9000
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-fwaas
+      - openstack/neutron-lbaas
+      - openstack/neutron-tempest-plugin
+      - openstack/octavia
+      - openstack/octavia-tempest-plugin
+      - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-client
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-ml2/run.yaml
+    post-run: playbooks/tempest-aio-ml2/post.yaml
+    vars:
+      job_flavor: neutronclient
+      branch_override: default
+    timeout: 9000
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
