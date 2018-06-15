@@ -14,6 +14,7 @@
 #    under the License.
 
 import binascii
+import six
 
 from networking_sfc.db import sfc_db
 from nuage_neutron.flow_classifier import nuage_flowclassifier_db as fc_db
@@ -112,7 +113,7 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
             chain_parameters = {
                 key: sfc_db.ChainParameter(keyword=key,
                                            value=sfc_db.jsonutils.dumps(val))
-                for key, val in pc['chain_parameters'].items()}
+                for key, val in six.iteritems(pc['chain_parameters'])}
 
             pg_ids = pc['port_pair_groups']
             fc_ids = pc['flow_classifiers']
@@ -157,7 +158,7 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
         pc = port_chain['port_chain']
         with sfc_db.db_api.context_manager.writer.using(context):
             pc_db = self._get_port_chain(context, id)
-            for k, v in pc.items():
+            for k, v in six.iteritems(pc):
                 if k == 'flow_classifiers':
                     # override the below validation method.
                     self._validate_flow_classifiers(

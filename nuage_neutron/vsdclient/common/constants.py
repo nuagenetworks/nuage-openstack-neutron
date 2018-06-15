@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-REST_SUCCESS_CODES = range(200, 207)
+REST_SUCCESS_CODES = range(200, 300)
 DEF_OPENSTACK_USER = 'os_user'
 DEF_OPENSTACK_USER_EMAIL = 'osuser@nuage-openstack.com'
 REST_SERV_UNAVAILABLE_CODE = 503

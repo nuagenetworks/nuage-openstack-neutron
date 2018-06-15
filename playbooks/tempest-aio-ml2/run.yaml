@@ -34,6 +34,10 @@
           export PYTHONUNBUFFERED=true
           export DEVSTACK_GATE_NEUTRON=1
           export DEVSTACK_GATE_TEMPEST=1
+          if [ "{{ python3 }}" == "True" ] ; then
+              # Enable PYTHON 3
+              export DEVSTACK_GATE_USE_PYTHON3=True
+          fi
           export NUAGE_OS_RELEASE=${ZUUL_BRANCH#*/}
           export NODEPOOL_MIRROR_HOST={{ zuul_site_mirror_fqdn }}
           if [ -f /etc/ci/vsp_info.sh ]; then
@@ -76,6 +80,15 @@
           GW="172.${group}.${PRIMARY_IP##*.}.1"
           export DEVSTACK_GATE_FLOATING_RANGE="172.${group}.${PRIMARY_IP##*.}.0/24"
           export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
+
+          if [ "{{ python3 }}" == "True" ] ; then
+              # gridinv - looks like order of installing
+              # pip deps in py2/py3 might break things
+              function pre_test_hook {
+                  sudo pip install -c https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt oslo.config
+              }
+              export -f pre_test_hook
+          fi
 
           function gate_hook {
               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}

@@ -28,7 +28,8 @@ def get_nuage_vport(vsdclient, port, required=True):
 
 
 def validate_switchports(vsdclient, tenant_id, switchports):
-    vsdports = dict()
+    vsdports = set()
+    vsd_port = None
     if not len(switchports):
         return None
     for switchport in switchports:
@@ -60,13 +61,11 @@ def validate_switchports(vsdclient, tenant_id, switchports):
             'personality': gws[0]['gw_type'],
             'redundant': redundant
         }
-        if port_id not in vsdports:
-            vsdports[port_id] = []
-        vsdports[port_id].append(vsd_port)
+        vsdports.add(port_id)
     if len(vsdports) > 1:
         msg = (_("Not all switchports belong to the same redundancy Group"))
         raise exceptions.NuageBadRequest(msg=msg)
-    return vsdports[vsdports.keys()[0]][0]
+    return vsd_port
 
 
 def _convert_ifindex_to_ifname(ifindex):

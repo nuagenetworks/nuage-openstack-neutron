@@ -178,6 +178,6 @@ class Nuage_external_security_group(lib_extensions.ExtensionDescriptor):
     @classmethod
     def get_extended_resources(self, version):
         if version == "2.0":
-            return dict(RESOURCE_ATTRIBUTE_MAP.items())
+            return RESOURCE_ATTRIBUTE_MAP
         else:
             return {}

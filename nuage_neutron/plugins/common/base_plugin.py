@@ -14,6 +14,7 @@
 
 import netaddr
 import re
+import six
 import socket
 import struct
 
@@ -338,7 +339,7 @@ class RootNuagePlugin(SubnetUtilsBase):
     @staticmethod
     def _check_config(mentioned, min_required, resource, driver_name):
         missing = []
-        for key, value in min_required.iteritems():
+        for key, value in six.iteritems(min_required):
             for conf_val in mentioned:
                 if (conf_val == key or
                         conf_val == value and resource == 'service_plugin(s)'):
@@ -598,6 +599,6 @@ class BaseNuagePlugin(RootNuagePlugin):
 
     def _fields(self, resource, fields):
         if fields:
-            return dict(((key, item) for key, item in resource.items()
+            return dict(((key, item) for key, item in six.iteritems(resource)
                          if key in fields))
         return resource

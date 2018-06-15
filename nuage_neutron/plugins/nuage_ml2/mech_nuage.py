@@ -867,9 +867,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         for key in updated_subnet.keys():
             if updated_subnet.get(key) != original.get(key):
                 updates[key] = updated_subnet.get(key)
-        bridged_subnets = filter(
-            lambda x: x['network_id'] != updated_subnet['network_id'],
-            bridged_subnets)
+        bridged_subnets = [
+            x for x in bridged_subnets if
+            x['network_id'] != updated_subnet['network_id']
+        ]
         # update only allowed when no other subnets on l2bridge exist.
         if (len(bridged_subnets) > 0 and
                 [u for u in updates if u in
@@ -1301,7 +1302,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     addrpair['mac_address'])
         self.vsdclient.delete_vips(nuage_vport['ID'],
                                    nuage_vip_dict,
-                                   nuage_vip_dict.keys())
+                                   nuage_vip_dict)
 
     def _find_vport(self, db_context, port, subnet_mapping):
         try:
@@ -1955,7 +1956,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 return
             subnets[subnet['ip_version']] = subnet
             ips[subnet['ip_version']].append(fixed_ip['ip_address'])
-        for key in ips.keys():
+        for key in ips:
             ips[key] = self.sort_ips(ips[key])
 
         # Only when the tenant who creates the port is different from both

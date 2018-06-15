@@ -140,7 +140,7 @@ class NuageDhcpOptions(object):
             except Exception as e:
                 raise e
         if length:
-            length = helper.convert_to_hex(hex(length / 2))
+            length = helper.convert_to_hex(hex(length // 2))
             data = {"length": length}
             type = helper.convert_to_hex(hex(option_number))
             data['type'] = type
@@ -207,7 +207,8 @@ class NuageDhcpOptions(object):
         resp = self._set_nuage_dhcp_options(_resource_id, _data,
                                             dhcp_id, type)
 
-        if resp[0] not in (restproxy.REST_SUCCESS_CODES + [409]):
+        if (resp[0] not in restproxy.REST_SUCCESS_CODES and
+            resp[0] not in [409]):
             raise restproxy.RESTProxyError(str(resp[2]))
 
     def _set_nuage_dhcp_options(self, resource_id,

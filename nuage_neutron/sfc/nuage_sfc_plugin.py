@@ -392,7 +392,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                             "description": "pc_" + pc['id'],
                             "externalID": pc['id'],
                             "priority": random.randint(
-                                constants.MAX_VSD_PRIORITY / 10,
+                                constants.MAX_VSD_PRIORITY // 10,
                                 constants.MAX_VSD_PRIORITY)}
             pc_fwd_policy = self.vsdclient.create_in_adv_fwd_policy_template(
                 nuage_pgs[0]['parentType'], nuage_pgs[0]['parentID'],
