@@ -907,11 +907,8 @@ class VsdClientImpl(VsdClient):
     def delete_vips(self, vport_id, vip_dict, vips):
         self.vm.delete_vips(vport_id, vip_dict, vips)
 
-    def associate_fip_to_vips(self, neutron_subnet_id, vip, vsd_fip_id):
-        self.vm.associate_fip_to_vips(neutron_subnet_id, vip, vsd_fip_id)
-
-    def disassociate_fip_from_vips(self, neutron_subnet_id, vip):
-        self.vm.disassociate_fip_from_vips(neutron_subnet_id, vip)
+    def update_fip_to_vips(self, neutron_subnet_id, vip, vsd_fip_id):
+        self.vm.update_fip_to_vips(neutron_subnet_id, vip, vsd_fip_id)
 
     def create_vip_on_vport(self, params):
         self.vm.create_vip_on_vport(params)
