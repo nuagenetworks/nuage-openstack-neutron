@@ -1,0 +1,10 @@
+- name: Require job_flavor variable
+  fail:
+    msg: job_flavor is required for this role
+  when: job_flavor is not defined
+
+- name: Record job flavor
+  set_fact:
+    job_flavor: "{{ job_flavor }}"
+  when: job_flavor is defined
+
