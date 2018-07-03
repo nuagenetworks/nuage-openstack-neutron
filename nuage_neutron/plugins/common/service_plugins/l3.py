@@ -33,6 +33,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import l3 as l3_exc
+from neutron_lib.plugins import constants as lib_plugin_constants
 from neutron_lib.plugins import directory
 from neutron_lib.services import base as service_base
 from neutron_lib.utils import helpers
@@ -77,7 +78,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return self._l2_plugin
 
     def get_plugin_type(self):
-        return lib_constants.L3
+        return lib_plugin_constants.L3
 
     def get_plugin_description(self):
         return "Plugin providing support for routers and floatingips."

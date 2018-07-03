@@ -20,7 +20,7 @@ from neutron_lib.api.definitions import allowedaddresspairs as addr_pair
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.callbacks import resources
-from neutron_lib import constants as lib_constants
+from neutron_lib.plugins import constants as lib_constants
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin

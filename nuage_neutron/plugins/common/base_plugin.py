@@ -32,6 +32,7 @@ from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import PortNotFound
+from neutron_lib.plugins import constants as lib_plugins_constants
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import callback_manager
@@ -76,7 +77,7 @@ class RootNuagePlugin(SubnetUtilsBase):
     def l3_plugin(self):
         if self._l3_plugin is None:
             self._l3_plugin = directory.get_plugin(
-                lib_constants.L3)
+                lib_plugins_constants.L3)
         return self._l3_plugin
 
     @property
