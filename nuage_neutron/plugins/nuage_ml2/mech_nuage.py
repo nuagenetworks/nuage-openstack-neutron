@@ -192,38 +192,34 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return
         subnets = self.core_plugin.get_subnets_by_network(
             db_context, updated_network['id'])
-        if not subnets:
-            return
-        else:
-            # There can only be one subnet due to validation
-            subn = subnets[0]
 
-        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(db_context.session,
-                                                      subn['id'])
-        if subnet_l2dom and external_change:
-            LOG.debug("Found subnet %(subn_id)s to l2 domain mapping"
-                      " %(nuage_subn_id)s",
-                      {'subn_id': subn['id'],
-                       'nuage_subn_id':
-                           subnet_l2dom['nuage_subnet_id']})
-            self.vsdclient.delete_subnet(
-                l2dom_id=subnet_l2dom['nuage_subnet_id'])
-            nuagedb.delete_subnetl2dom_mapping(db_context.session,
-                                               subnet_l2dom)
-            # delete the neutron port that was reserved with IP of
-            # the dhcp server that is reserved.
-            # Now, this port is not reqd.
-            filters = {
-                'fixed_ips': {'subnet_id': [subn['id']]},
-                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-            }
-            dhcp_ports = self.core_plugin.get_ports(db_context,
-                                                    filters=filters)
-            self._delete_gateway_port(db_context, dhcp_ports)
+        if external_change:
+            for subn in subnets:
+                subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
+                    db_context.session, subn['id'])
+                LOG.debug("Found subnet %(subn_id)s to l2 domain mapping"
+                          " %(nuage_subn_id)s",
+                          {'subn_id': subn['id'],
+                           'nuage_subn_id':
+                               subnet_l2dom['nuage_subnet_id']})
+                self.vsdclient.delete_subnet(
+                    l2dom_id=subnet_l2dom['nuage_subnet_id'])
+                nuagedb.delete_subnetl2dom_mapping(db_context.session,
+                                                   subnet_l2dom)
+                # delete the neutron port that was reserved with IP of
+                # the dhcp server that is reserved.
+                # Now, this port is not reqd.
+                filters = {
+                    'fixed_ips': {'subnet_id': [subn['id']]},
+                    'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+                }
+                dhcp_ports = self.core_plugin.get_ports(db_context,
+                                                        filters=filters)
+                self._delete_gateway_port(db_context, dhcp_ports)
 
-            self._add_nuage_sharedresource(subn,
-                                           updated_network['id'],
-                                           constants.SR_TYPE_FLOATING)
+                self._add_nuage_sharedresource(subn,
+                                               constants.SR_TYPE_FLOATING,
+                                               subnets)
 
         if shared_change and not updated_network.get(external_net.EXTERNAL):
             for subnet in subnets:
@@ -334,7 +330,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             raise NuageBadRequest(resource='subnet', msg=msg)
 
         ipv4s = len([s for s in network_subnets if self._is_ipv4(s)])
-        if ipv4s > 1 and self.check_dhcp_agent_alive(db_context):
+        if (ipv4s > 1 and self.check_dhcp_agent_alive(db_context) and
+                not self.is_external(db_context, network['id'])):
             msg = _("A network with multiple ipv4 subnets is not "
                     "allowed when neutron-dhcp-agent is enabled")
             raise NuageBadRequest(msg=msg)
@@ -430,8 +427,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     def _create_openstack_managed_subnet(self, context, subnet, l2bridge):
         if self.is_external(context, subnet['network_id']):
-            return self._add_nuage_sharedresource(subnet, subnet['network_id'],
-                                                  constants.SR_TYPE_FLOATING)
+            network_subnets = self.core_plugin.get_subnets_by_network(
+                context, subnet['network_id'])
+            return self._add_nuage_sharedresource(subnet,
+                                                  constants.SR_TYPE_FLOATING,
+                                                  network_subnets)
 
         nuage_np_id = self._get_net_partition_for_entity(context, subnet)['id']
         attempt = 0
@@ -451,26 +451,60 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 raise Exception(msg)
 
     @log_helpers.log_method_call
-    def _add_nuage_sharedresource(self, subnet, net_id, fip_type):
-        net = netaddr.IPNetwork(subnet['cidr'])
+    def _add_nuage_sharedresource(self, subnet, fip_type,
+                                  network_subnets):
+        net_addr = netaddr.IPNetwork(subnet['cidr'])
         params = {
             'neutron_subnet': subnet,
-            'net': net,
+            'netaddr': net_addr,
             'type': fip_type,
-            'net_id': net_id,
-            'underlay_config': cfg.CONF.RESTPROXY.nuage_fip_underlay
+            'net_id': subnet['network_id']
         }
         if subnet.get('underlay') in [True, False]:
             params['underlay'] = subnet.get('underlay')
         else:
-            subnet['underlay'] = params['underlay_config']
+            subnet['underlay'] = cfg.CONF.RESTPROXY.nuage_fip_underlay
+            params['underlay'] = subnet['underlay']
+
+        self.set_nuage_uplink(params, subnet, network_subnets)
+
+        if not subnet.get('nuage_uplink'):
+            try:
+                nuage_uplink = self.vsdclient.create_nuage_sharedresource(
+                    params)
+                subnet['nuage_uplink'] = nuage_uplink
+
+            except restproxy.ResourceNotFoundException:
+                LOG.debug("Retrying creation of shared resource due to "
+                          "concurrent delete of subnet.")
+                # No uplink
+                params['nuage_uplink'] = None
+                nuage_uplink = self.vsdclient.create_nuage_sharedresource(
+                    params)
+                subnet['nuage_uplink'] = nuage_uplink
+        else:
+            nuage_uplink = self.vsdclient.create_nuage_sharedresource(
+                params)
+            subnet['nuage_uplink'] = nuage_uplink
+
+    @staticmethod
+    def set_nuage_uplink(params, subnet, network_subnets):
+        nuage_uplinks = {s['nuage_uplink'] for s in network_subnets
+                         if s['id'] != subnet['id'] and s.get('nuage_uplink')}
         if subnet.get('nuage_uplink'):
             params['nuage_uplink'] = subnet.get('nuage_uplink')
         elif cfg.CONF.RESTPROXY.nuage_uplink:
-            subnet['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
             params['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
-
-        self.vsdclient.create_nuage_sharedresource(params)
+        elif nuage_uplinks:
+            # Use the same parent of the existing subnets in the network
+            params['nuage_uplink'] = list(nuage_uplinks)[0]
+        if params.get('nuage_uplink'):
+            nuage_uplinks.add(params['nuage_uplink'])
+            if len(nuage_uplinks) > 1:
+                msg = _("It is not possible for subnets in an "
+                        "external network to have different nuage_uplink "
+                        "specified: {}.").format(nuage_uplinks)
+                raise NuageBadRequest(msg=msg)
 
     @log_helpers.log_method_call
     def check_if_subnet_is_attached_to_router(self, context, subnet):
@@ -1420,11 +1454,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             msg = _('External network with subnets can not be '
                     'changed to non-external network')
             raise NuageBadRequest(msg=msg)
-        if (len(subnets) > 1 and external_change and
-                updated.get(external_net.EXTERNAL)):
-            msg = _('Non-external network with more than one subnet '
-                    'can not be changed to external network')
-            raise NuageBadRequest(msg=msg)
+        if external_change:
+            self._validate_nuage_sharedresource(context, updated['id'],
+                                                subnets, None)
 
         ports = self.core_plugin.get_ports(context, filters={
             'network_id': [updated['id']]})
@@ -1470,13 +1502,25 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         "this network is attached to.")
                 raise NuageBadRequest(msg=msg)
 
-    def _validate_nuage_sharedresource(self, context, net_id):
-        filter = {'network_id': [net_id]}
-        existing_subn = self.core_plugin.get_subnets(context, filters=filter)
-        if len(existing_subn) > 1:
-            msg = (_('Only one subnet is allowed per external network %s')
-                   % net_id)
+    def _validate_nuage_sharedresource(self, context, net_id, network_subnets,
+                                       subnet=None):
+        if any(map(self._is_ipv6, network_subnets)):
+            msg = _("Subnet with ip_version 6 is currently not supported "
+                    "for router:external networks.")
             raise NuageBadRequest(msg=msg)
+
+        if subnet:
+            fip_underlays = [s['underlay'] for s in network_subnets
+                             if s['id'] != subnet['id']]
+            subn_underlay = (subnet['underlay'] if subnet.get('underlay')
+                             is not None else
+                             cfg.CONF.RESTPROXY.nuage_fip_underlay)
+            if len(set(fip_underlays + [subn_underlay])) > 1:
+                msg = (_('It is not allowed to mix external '
+                         'subnets with underlay '
+                         'enabled and disabled in the same external '
+                         'network {}.').format(net_id))
+                raise NuageBadRequest(msg=msg)
 
     def _validate_create_openstack_managed_subnet(self, context, subnet,
                                                   network_subnets):
@@ -1487,11 +1531,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             raise NuageBadRequest(resource='subnet', msg=msg)
 
         if self.is_external(context, subnet['network_id']):
-            self._validate_nuage_sharedresource(context, subnet['network_id'])
-            if self._is_ipv6(subnet):
-                msg = _("Subnet with ip_version 6 is currently not supported "
-                        "for router:external networks.")
-                raise NuageBadRequest(msg=msg)
+            self._validate_nuage_sharedresource(context, subnet['network_id'],
+                                                network_subnets, subnet)
         else:
             if lib_validators.is_attr_set(subnet.get('underlay')):
                 msg = _("underlay attribute can not be set for "
@@ -1745,11 +1786,14 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         fixed_ips = port.get('fixed_ips', [])
         device_owner = port.get('device_owner')
         is_dhcp_port = device_owner == os_constants.DEVICE_OWNER_DHCP
-
+        is_router_gw = device_owner == os_constants.DEVICE_OWNER_ROUTER_GW
         if len(fixed_ips) == 0:
             return False
         if is_dhcp_port and all(map(self._is_v6_ip, fixed_ips)):
             # Delayed creation of vport until dualstack
+            return False
+        if is_router_gw:
+            # Router can be attached to multiple subnets.
             return False
         subnet_list = {4: [], 6: []}
         for fixed_ip in fixed_ips:

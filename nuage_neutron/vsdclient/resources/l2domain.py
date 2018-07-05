@@ -474,9 +474,8 @@ class NuageL2Domain(object):
         req_params = {
             'name': subnet['id'],
             'gateway_ip': subnet['gateway_ip'],
-            'net': params['net'],
+            'netaddr': params['netaddr'],
             'type': params['type'],
-            'net_id': params['net_id'],
             'externalID': get_vsd_external_id(subnet['id'])
         }
         desc_str = params['net_id'] + '_' + subnet.get('name', subnet['id'])
@@ -484,8 +483,6 @@ class NuageL2Domain(object):
         extra_params = {
             'description': desc_str
         }
-        if params.get('underlay_config'):
-            extra_params['underlay'] = True
         if params.get('underlay') is not None:
             extra_params['underlay'] = params['underlay']
         if params.get('nuage_uplink'):
@@ -493,15 +490,10 @@ class NuageL2Domain(object):
 
         nuage_sharedresource = nuagelib.NuageSharedResources(
             create_params=req_params, extra_params=extra_params)
-        response = self.restproxy.rest_call(
-            'POST',
+        result = self.restproxy.post(
             nuage_sharedresource.post_resource(),
-            nuage_sharedresource.post_data())
-        if not nuage_sharedresource.validate(response):
-            code = nuage_sharedresource.get_error_code(response)
-            raise restproxy.RESTProxyError(nuage_sharedresource.error_msg,
-                                           code)
-        return nuage_sharedresource.get_sharedresource_id(response)
+            nuage_sharedresource.post_data())[0]
+        return result['sharedResourceParentID']
 
     def _get_sharedresource_by_external(self, neutron_id):
         create_params = {
