@@ -1278,8 +1278,8 @@ class NuageSharedResources(NuageServerBaseClass):
         data = {
             'name': self.create_params['name'],
             'gateway': self.create_params['gateway_ip'],
-            'address': str(self.create_params['net'].ip),
-            'netmask': str(self.create_params['net'].netmask),
+            'address': str(self.create_params['netaddr'].ip),
+            'netmask': str(self.create_params['netaddr'].netmask),
             'type': self.create_params['type'],
             'externalID': get_vsd_external_id(self.create_params['externalID'])
         }
