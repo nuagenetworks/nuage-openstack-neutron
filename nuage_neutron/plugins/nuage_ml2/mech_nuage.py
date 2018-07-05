@@ -350,33 +350,31 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         " more than one ipv4 or more than one ipv6 subnet.")
                 raise NuageBadRequest(msg=msg)
 
+            # For l2bridges, certain parameters need to be equal for all
+            # bridged subnets, as they are reflected on VSD.
             bridged_subnets = nuagedb.get_subnets_for_nuage_l2bridge(
                 db_context.session,
                 l2bridge['id'])
-
-            # For l2bridges cidr, gateway_ip, enable_dhcp, ipv6_ra_mode and
-            # ipv6_address_mode need to be the same accross the subnets
-            ipv_bridged = [s for s in bridged_subnets if
+            # Get subnets from core plugin to include extensions
+            ipv_bridged = [self.core_plugin.get_subnet(db_context, s['id'])
+                           for s in bridged_subnets if
                            s['id'] != subnet['id'] and
                            s['ip_version'] == subnet['ip_version']]
             if not ipv_bridged:
                 return
-            params = ['cidr', 'gateway_ip', 'enable_dhcp']
-            if self._is_ipv6(subnet):
-                params.extend(['ipv6_ra_mode', 'ipv6_address_mode'])
-            for param in params:
+            for param in constants.L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES:
                 self._validate_l2bridge_added_subnet_parameter(
-                    ipv_bridged, subnet, param, l2bridge)
+                    ipv_bridged[0], subnet, param, l2bridge)
 
     @staticmethod
     def _validate_l2bridge_added_subnet_parameter(
-            bridged_subnets, added_subnet, parameter, l2bridge):
-        # check for same cidr, gateway_ip and dhcp_enabled
-        to_check = bridged_subnets[0][parameter]
-        if to_check != added_subnet[parameter]:
+            bridged_subnet, added_subnet, parameter, l2bridge):
+        to_check = bridged_subnet.get(parameter)
+        new = added_subnet.get(parameter)
+        if to_check != new:
             msg = _("The {} associated with nuage_l2bridge {} "
                     "is {}. {} is not compatible. ").format(
-                parameter, l2bridge['id'], to_check, added_subnet[parameter])
+                parameter, l2bridge['id'], to_check, new)
             raise NuageBadRequest(msg=msg)
 
     def _create_vsd_managed_subnet(self, context, subnet):
@@ -770,10 +768,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         bridged_subnets = filter(
             lambda x: x['network_id'] != updated_subnet['network_id'],
             bridged_subnets)
-        if len(bridged_subnets) > 0 and (
-            'gateway_ip' in updates or 'dns_nameservers' in updates or
-            'host_routes' in updates or 'enable_dhcp' in updates
-        ):
+        # update only allowed when no other subnets on l2bridge exist.
+        if (len(bridged_subnets) > 0 and
+                [u for u in updates if u in
+                 constants.L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES]):
             msg = _("It is not allowed to update a subnet when it is attached "
                     "to a nuage_l2bridge connected to multiple subnets.")
             raise NuageBadRequest(resource='subnet', msg=msg)
