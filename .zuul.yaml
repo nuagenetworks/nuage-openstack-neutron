@@ -7,10 +7,6 @@
         - openstack-tox-py27:
             required-projects:
               - openstack/neutron
-        - openstack-tox-py35:
-            voting: false
-            required-projects:
-              - openstack/neutron
         - legacy-tempest-aio-ml2:
             irrelevant-files:
               - ^(test-|)requirements.txt$
@@ -54,10 +50,6 @@
             required-projects:
               - openstack/neutron
         - openstack-tox-py27:
-            required-projects:
-              - openstack/neutron
-        - openstack-tox-py35:
-            voting: false
             required-projects:
               - openstack/neutron
         - legacy-tempest-aio-ml2:
