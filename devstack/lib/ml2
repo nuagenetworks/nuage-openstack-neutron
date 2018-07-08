@@ -41,6 +41,9 @@ function configure_neutron_nuage {
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
 
+    if ! is_service_enabled q-dhcp ; then
+        iniset $NEUTRON_CONF DEFAULT dhcp_agent_notification False
+    fi
 
     Q_PLUGIN_EXTRA_CONF_FILES=(${Q_PLUGIN_EXTRA_CONF_FILES[@]} $NUAGE_PLUGIN_CONF_FILE)
     _neutron_deploy_rootwrap_filters $DIR_NUAGE
