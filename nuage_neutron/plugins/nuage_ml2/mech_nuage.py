@@ -17,6 +17,7 @@ import netaddr
 import time
 
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 from oslo_utils import excutils
@@ -244,6 +245,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return True
         return False
 
+    @utils.context_log
     @handle_nuage_api_errorcode
     def create_subnet_precommit(self, context):
         subnet = context.current
@@ -264,12 +266,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 return  # Not for us
 
         with db_context.session.begin(subtransactions=True):
-            self._create_subnet_precommit(db_context, net_part_set,
-                                          network, nuagenet_set,
-                                          prefixlen, subnet, vsd_managed)
+            self._create_nuage_subnet_precommit(db_context, net_part_set,
+                                                network, nuagenet_set,
+                                                prefixlen, subnet, vsd_managed)
 
-    def _create_subnet_precommit(self, db_context, net_part_set, network,
-                                 nuagenet_set, prefixlen, subnet, vsd_managed):
+    def _create_nuage_subnet_precommit(self, db_context, net_part_set, network,
+                                       nuagenet_set, prefixlen, subnet,
+                                       vsd_managed):
         l2bridge = None
         l2bridge_id = subnet.get('nuage_l2bridge')
         if l2bridge_id:
@@ -355,11 +358,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             bridged_subnets = nuagedb.get_subnets_for_nuage_l2bridge(
                 db_context.session,
                 l2bridge['id'])
-            # Get subnets from core plugin to include extensions
-            ipv_bridged = [self.core_plugin.get_subnet(db_context, s['id'])
-                           for s in bridged_subnets if
-                           s['id'] != subnet['id'] and
-                           s['ip_version'] == subnet['ip_version']]
+            # Make subnet dict to include extensions
+            ipv_bridged = [
+                self.core_plugin._make_subnet_dict(s)
+                for s in bridged_subnets if
+                s['id'] != subnet['id'] and
+                s['ip_version'] == subnet['ip_version']]
             if not ipv_bridged:
                 return
             for param in constants.L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES:
@@ -503,7 +507,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                              l2bridge):
         pnet_binding = None
 
-        gw_port = subnet_mapping = nuage_subnet = None
+        gw_port = nuage_subnet = None
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+            context.session, neutron_subnet['id'])
+        if subnet_mapping:
+            # no-op, already connected
+            return
+
         router_attached = False
         r_param = {}
         neutron_net = self.core_plugin.get_network(
@@ -540,19 +550,20 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 context.session, l2bridge['id'])
             # Exclude the current subnet
             if self._is_ipv4(neutron_subnet):
-                ipv4s = [s for s in bridged_subnets if self._is_ipv4(s) and
-                         s['id'] != neutron_subnet['id']]
-                if ipv4s:
+                ipv4s = [s['id'] for s in bridged_subnets if self._is_ipv4(s)
+                         and s['id'] != neutron_subnet['id']]
+                mappings = nuagedb.get_subnet_l2doms_by_subnet_ids_locking(
+                    context.session, ipv4s
+                )
+                if mappings:
                     # Connecting this ipv4 subnet to the already created vsd
                     # subnet
-                    mapping = nuagedb.get_subnet_l2dom_with_lock(
-                        context.session,
-                        ipv4s[0]['id'])
                     nuage_subnet = {
-                        'nuage_l2template_id': mapping['nuage_l2dom_tmplt_id'],
-                        'nuage_userid': mapping['nuage_user_id'],
-                        'nuage_groupid': mapping['nuage_group_id'],
-                        'nuage_l2domain_id': mapping['nuage_subnet_id']
+                        'nuage_l2template_id':
+                            mappings[0]['nuage_l2dom_tmplt_id'],
+                        'nuage_userid': mappings[0]['nuage_user_id'],
+                        'nuage_groupid': mappings[0]['nuage_group_id'],
+                        'nuage_l2domain_id': mappings[0]['nuage_subnet_id']
                     }
                     self._get_dhcp_port(context, neutron_subnet,
                                         router_attached)
@@ -560,26 +571,34 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                 netpart_id,
                                                 neutron_subnet,
                                                 nuage_subnet)
+                    if dual_stack_subnet:
+                        # Link ipv6 if existing
+                        self._create_nuage_subnet(
+                            context, dual_stack_subnet, netpart_id, l2bridge)
                     return
             else:
-                ipv6s = [s for s in bridged_subnets if self._is_ipv6(s) and
-                         s['id'] != neutron_subnet['id']]
-                if ipv6s:
+                ipv6s = [s['id'] for s in bridged_subnets if self._is_ipv6(s)
+                         and s['id'] != neutron_subnet['id']]
+                mappings = nuagedb.get_subnet_l2doms_by_subnet_ids_locking(
+                    context.session, ipv6s)
+                if mappings:
                     # Connecting this ipv6 subnet to the already created vsd
                     # subnet
-                    mapping = nuagedb.get_subnet_l2dom_with_lock(
-                        context.session,
-                        ipv6s[0]['id'])
                     nuage_subnet = {
-                        'nuage_l2template_id': mapping['nuage_l2dom_tmplt_id'],
-                        'nuage_userid': mapping['nuage_user_id'],
-                        'nuage_groupid': mapping['nuage_group_id'],
-                        'nuage_l2domain_id': mapping['nuage_subnet_id']
+                        'nuage_l2template_id':
+                            mappings[0]['nuage_l2dom_tmplt_id'],
+                        'nuage_userid': mappings[0]['nuage_user_id'],
+                        'nuage_groupid': mappings[0]['nuage_group_id'],
+                        'nuage_l2domain_id': mappings[0]['nuage_subnet_id']
                     }
                     self._create_subnet_mapping(context,
                                                 netpart_id,
                                                 neutron_subnet,
                                                 nuage_subnet)
+                    if dual_stack_subnet:
+                        # Link ipv6 if existing
+                        self._create_nuage_subnet(
+                            context, dual_stack_subnet, netpart_id, l2bridge)
                     return
 
         net = netaddr.IPNetwork(ipv4_subnet['cidr'])
@@ -852,19 +871,40 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 with db_context.session.begin(subtransactions=True):
                     l2bridge = nuagedb.get_nuage_l2bridge_blocking(
                         db_context.session, l2bridge_id)
-                    bridged_subnets = nuagedb.get_subnets_for_nuage_l2bridge(
-                        db_context.session, l2bridge['id'])
+                    attempt = 0
+                    while True:
+                        try:
+                            bridged_subnets = (
+                                nuagedb.get_subnets_for_nuage_l2bridge(
+                                    db_context.session, l2bridge['id']))
+                            break
+                        except db_exc.DBDeadlock:
+                            if attempt < 25:
+                                LOG.debug("Retrying to get bridged subnets"
+                                          " due to Deadlock.")
+                                attempt += 1
+                                time.sleep(0.2)
+                                continue
+                            msg = ("Chance of a hanging L2Domain on VSD for"
+                                   "resource nuage-l2bridge: %s", l2bridge_id)
+                            raise Exception(msg)
                     if self._is_ipv4(subnet):
-                        ipv4s = [s for s in bridged_subnets
-                                 if self._is_ipv4(s)]
-                        if len(ipv4s) > 0:
+                        ipv4s = [s['id'] for s in bridged_subnets if
+                                 self._is_ipv4(s)]
+                        mappings = (
+                            nuagedb.get_subnet_l2doms_by_subnet_ids_locking(
+                                db_context.session, ipv4s))
+                        if len(mappings) > 0:
                             return
                         else:
                             l2bridge['nuage_subnet_id'] = None
                     else:
-                        ipv6s = [s for s in bridged_subnets
-                                 if self._is_ipv6(s)]
-                        if len(ipv6s) > 0:
+                        ipv6s = [s['id'] for s in bridged_subnets if
+                                 self._is_ipv6(s)]
+                        mappings = (
+                            nuagedb.get_subnet_l2doms_by_subnet_ids_locking(
+                                db_context.session, ipv6s))
+                        if len(mappings) > 0:
                             return
 
             if self._is_ipv6(subnet):

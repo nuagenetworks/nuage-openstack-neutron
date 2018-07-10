@@ -214,6 +214,14 @@ def get_subnet_l2doms_by_subnet_ids(session, subnet_ids):
         )).all()
 
 
+def get_subnet_l2doms_by_subnet_ids_locking(session, subnet_ids):
+    return (
+        session.query(nuage_models.SubnetL2Domain)
+        .filter(
+            nuage_models.SubnetL2Domain.subnet_id.in_(subnet_ids)
+        )).with_for_update(read=True).all()
+
+
 def get_subnet_l2dom_by_port_id(session, port_id):
     query = (session.query(nuage_models.SubnetL2Domain)
              .join(models_v2.Subnet)
@@ -714,7 +722,7 @@ def get_networks_for_nuage_l2bridge(session, l2bridge_id):
         nuage_models.NuageL2bridgePhysnetMapping.segmentation_id,
         segments_db.NetworkSegment.network_type ==
         nuage_models.NuageL2bridgePhysnetMapping.segmentation_type
-    ).with_for_update().all()
+    ).with_for_update(read=True).all()
     return [s for s, _, _ in results]
 
 
@@ -732,7 +740,7 @@ def get_subnets_for_nuage_l2bridge(session, l2bridge_id):
         nuage_models.NuageL2bridgePhysnetMapping.segmentation_id,
         segments_db.NetworkSegment.network_type ==
         nuage_models.NuageL2bridgePhysnetMapping.segmentation_type
-    ).with_for_update().all()
+    ).with_for_update(read=True).all()
     return [s for s, _, _ in results]
 
 
