@@ -234,11 +234,13 @@ class NuageTrunkHandler(object):
         segments = trunk_db.get_segment_allocation_of_subports(
             context.session,
             subports)
-        if len(segments) > 0:
+        if segments:
             for subport in subports:
                 segment = next((segment for segment in segments if
                                 segment.segmentation_id ==
                                 subport.segmentation_id), None)
+                if not segment:
+                    continue
                 port = self.core_plugin.get_port(context, subport.port_id)
                 if segment.network_id != port.get('network_id'):
                     raise nuage_exc.VlanIdInUseByNetwork(
