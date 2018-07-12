@@ -22,7 +22,7 @@ try:
     from neutron._i18n import _
 except ImportError:
     from neutron.i18n import _
-from neutron.db import api as db_api
+from neutron_lib.db import api as lib_db_api
 
 from nuage_neutron.vsdclient.common.cms_id_helper import extra_headers_get
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
@@ -986,7 +986,7 @@ def get_subnet_name(subnet):
 
 def get_subnet_description(subnet):
     if subnet['nuage_l2bridge']:
-        session = db_api.get_reader_session()
+        session = lib_db_api.get_reader_session()
         return nuagedb.get_nuage_l2bridge(session,
                                           subnet['nuage_l2bridge'])['name']
     else:

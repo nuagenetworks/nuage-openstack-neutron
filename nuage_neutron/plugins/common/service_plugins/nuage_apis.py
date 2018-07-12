@@ -24,6 +24,7 @@ from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db as sg_db
 
+from neutron_lib.db import api as lib_db_api
 from neutron_lib import exceptions as n_exc
 from neutron_lib.services import base as service_base
 
@@ -204,7 +205,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             raise n_exc.BadRequest(resource='net_partition', msg=msg)
 
         # basic verifications passed. add default netpartition to the DB
-        session = db.get_writer_session()
+        session = lib_db_api.get_writer_session()
         netpartition = nuagedb.get_net_partition_by_name(session,
                                                          netpart_name)
 
@@ -238,7 +239,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                                        msg=msg)
         else:
             default_netpart = self._validate_create_net_partition(
-                netpart_name, db.get_writer_session())
+                netpart_name, lib_db_api.get_writer_session())
             self._default_np_id = default_netpart['id']
             return default_netpart
 
@@ -513,7 +514,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
 
     @staticmethod
     def get_sg_stateful_value(sg_id):
-        session = db.get_reader_session()
+        session = lib_db_api.get_reader_session()
         value = nuagedb.get_nuage_sg_parameter(session, sg_id, 'STATEFUL')
         session.close()
         return not (value and value.parameter_value == '0')

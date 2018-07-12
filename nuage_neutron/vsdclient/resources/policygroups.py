@@ -15,7 +15,7 @@
 import logging
 import random
 
-from neutron.db import api as db_api
+from neutron_lib.db import api as db_api
 from oslo_config import cfg
 from oslo_utils import excutils
 
