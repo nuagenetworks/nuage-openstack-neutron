@@ -43,6 +43,7 @@
           fi
           export VSP_RELEASE={{ nuage_vsp_release }}
           export DEVSTACK_GATE_TOPOLOGY=aio
+          export DEVSTACK_GATE_LIBVIRT_TYPE=kvm
 
           # we will attempt to use cloned upper-contraints.txt
           # prepared by zuul
