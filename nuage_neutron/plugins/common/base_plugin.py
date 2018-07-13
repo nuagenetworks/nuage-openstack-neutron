@@ -23,7 +23,6 @@ from oslo_log import log
 
 from neutron._i18n import _
 from neutron.db import db_base_plugin_v2
-from neutron.plugins.common import utils as plugin_utils
 from neutron.services.trunk import constants as t_consts
 
 from neutron_lib.api.definitions import port as port_def
@@ -34,6 +33,7 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import PortNotFound
 from neutron_lib.plugins import constants as lib_plugins_constants
 from neutron_lib.plugins import directory
+from neutron_lib.plugins import utils as plugin_utils
 
 from nuage_neutron.plugins.common import callback_manager
 from nuage_neutron.plugins.common.capabilities import Capabilities
