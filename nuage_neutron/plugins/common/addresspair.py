@@ -93,7 +93,7 @@ class NuageAddressPair(BaseNuagePlugin):
                     enable_spoofing |= self.vsdclient.create_vip(params)
                     port_vip_dict[params['vip']] = params['mac']
                 except Exception as e:
-                    if not self._check_port_exists_in_neutron(context, port):
+                    if not self._get_port_from_neutron(context, port):
                         return
                     with excutils.save_and_reraise_exception():
                         LOG.error(
@@ -134,7 +134,7 @@ class NuageAddressPair(BaseNuagePlugin):
                 enable_spoofing |= self.vsdclient.create_vip(params)
                 nuage_vip_dict[params['vip']] = params['mac']
             except Exception as e:
-                if not self._check_port_exists_in_neutron(context, port):
+                if not self._get_port_from_neutron(context, port):
                     return
                 with excutils.save_and_reraise_exception():
                     LOG.error("Error in creating vip for ip %(vip)s and mac "
@@ -151,7 +151,7 @@ class NuageAddressPair(BaseNuagePlugin):
                     constants.ENABLED if enable_spoofing else
                     constants.INHERITED)
             except Exception:
-                if not self._check_port_exists_in_neutron(context, port):
+                if not self._get_port_from_neutron(context, port):
                     return
                 raise
 
