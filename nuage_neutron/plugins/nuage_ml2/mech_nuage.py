@@ -881,6 +881,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                 subnet_info)
             return
 
+        if (self._is_l3(subnet_mapping) and 'gateway_ip' in updated_subnet
+                and not updated_subnet.get('gateway_ip')):
+            msg = ("Subnet attached to a router interface "
+                   "must have a gateway IP")
+            raise NuageBadRequest(resource='subnet', msg=msg)
+
         if not network_external and updated_subnet.get('underlay') is not None:
             msg = _("underlay attribute can not be set for internal subnets")
             raise NuageBadRequest(resource='subnet', msg=msg)
