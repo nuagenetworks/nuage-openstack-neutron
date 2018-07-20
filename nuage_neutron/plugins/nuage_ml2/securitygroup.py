@@ -342,17 +342,20 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
 
         # Before creating rules, we might have to make other policygroups first
         # if the rule uses remote_group_id to have rule related to other PG.
-        remote_sg_ids = []
-        for rule in security_group_rules:
-            remote_sg_id = rule.get('remote_group_id')
-            if remote_sg_id and remote_sg_id not in remote_sg_ids:
-                remote_sg_ids.append(remote_sg_id)
-                self._find_or_create_policygroup(context,
-                                                 remote_sg_id,
-                                                 vsd_subnet)
+        with nuage_utils.rollback() as on_exc:
+            on_exc(self.vsdclient.delete_nuage_policy_group,
+                   policy_group['ID'])
+            remote_sg_ids = []
+            for rule in security_group_rules:
+                remote_sg_id = rule.get('remote_group_id')
+                if remote_sg_id and remote_sg_id not in remote_sg_ids:
+                    remote_sg_ids.append(remote_sg_id)
+                    self._find_or_create_policygroup(context,
+                                                     remote_sg_id,
+                                                     vsd_subnet)
 
-        self.vsdclient.create_security_group_rules(policy_group,
-                                                   security_group_rules)
+            self.vsdclient.create_security_group_rules(policy_group,
+                                                       security_group_rules)
         return policy_group
 
     def _check_for_security_group_in_use(self, context, sg_id):
