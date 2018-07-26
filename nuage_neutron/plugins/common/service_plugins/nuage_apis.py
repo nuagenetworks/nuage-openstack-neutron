@@ -375,11 +375,18 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         vsd_domains = [self._update_dict(vsd_domain, 'net_partition_id',
                                          filters['vsd_organisation_id'][0])
                        for vsd_domain in vsd_domains]
+
         vsd_to_os = {
             'domain_id': 'id',
             'domain_name': 'name',
             'type': 'type',
-            'net_partition_id': 'net_partition_id'
+            'net_partition_id': 'net_partition_id',
+            'dhcp_managed': 'dhcp_managed',
+            'ip_type': 'ip_type',
+            'ipv4_cidr': 'cidr',
+            'ipv6_cidr': 'ipv6_cidr',
+            'ipv4_gateway': 'gateway',
+            'ipv6_gateway': 'ipv6_gateway'
         }
         return self._trans_vsd_to_os(vsd_domains, vsd_to_os, filters, fields)
 
@@ -468,7 +475,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             for vsd_key in mapping:
                 if callable(vsd_key):
                     os_obj[mapping[vsd_key]] = vsd_key(vsd_obj)
-                else:
+                elif vsd_key in vsd_obj:
                     os_obj[mapping[vsd_key]] = vsd_obj[vsd_key]
 
             if self._passes_filters(os_obj, filters):
