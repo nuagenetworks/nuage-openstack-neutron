@@ -48,6 +48,17 @@ class NuageL2Domain(object):
             np_dict['domain_name'] = l2dom['name']
             np_dict['domain_id'] = l2dom['ID']
             np_dict['subnet_os_id'] = strip_cms_id(l2dom['externalID'])
+            np_dict['dhcp_managed'] = l2dom['DHCPManaged']
+            np_dict['ip_type'] = l2dom['IPType']
+            np_dict['ipv4_cidr'] = \
+                str(netaddr.IPNetwork("{}/{}".format(l2dom['address'],
+                                                     l2dom['netmask'])))\
+                if l2dom.get('address') else ""
+            np_dict['ipv6_cidr'] = l2dom['IPv6Address']
+            np_dict['ipv4_gateway'] = \
+                self.get_gw_from_dhcp_options(l2dom['ID'])
+            np_dict['ipv6_gateway'] = l2dom['IPv6Gateway']
+
             res.append(np_dict)
         return res
 
