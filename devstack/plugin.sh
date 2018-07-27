@@ -38,6 +38,7 @@ if [[ "$1" == "stack" ]]; then
     elif [[ "$2" == "post-config" ]]; then
         mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $DIR_NUAGE/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
         configure_neutron_nuage
+        configure_networking_sfc_policy
         configure_nova_nuage
         if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
             # Tweak the chain for nuage metadata proxy.
