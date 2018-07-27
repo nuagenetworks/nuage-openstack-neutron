@@ -44,6 +44,15 @@
               - ^setup.cfg$
               - ^specs/.*$
               - ^tox.ini$
+        - legacy-tempest-aio-sfc:
+            irrelevant-files:
+              - ^(test-|)requirements.txt$
+              - ^.*\.rst$
+              - ^doc/.*$
+              - ^nuage_neutron/tests/unit/.*$
+              - ^setup.cfg$
+              - ^specs/.*$
+              - ^tox.ini$
     gate:
       jobs:
         - openstack-tox-pep8:
@@ -77,6 +86,7 @@
         - legacy-tempest-aio-rally
         - legacy-tempest-aio-lbaas
         - legacy-tempest-aio-upstream
+        - legacy-tempest-aio-sfc
     periodic:
       jobs:
         - legacy-tempest-aio-full:
@@ -203,6 +213,29 @@
       - openstack/tempest
 
 - job:
+    name: legacy-tempest-aio-sfc
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-xaas/run.yaml
+    post-run: playbooks/tempest-aio-xaas/post.yaml
+    vars:
+      branch_override: default
+      job_flavor: ml2-sfc
+    timeout: 9000
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack-infra/devstack-gate
+      - openstack/networking-sfc
+      - openstack/neutron-fwaas
+      - openstack/neutron-lbaas
+      - openstack/neutron-tempest-plugin
+      - openstack/octavia
+      - openstack/octavia-tempest-plugin
+      - openstack/tempest
+
+- job:
     name: legacy-tempest-aio-rally
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-rally/run.yaml
@@ -234,6 +267,7 @@
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
+      - openstack/networking-sfc
       - openstack/neutron-fwaas
       - openstack/neutron-lbaas
       - openstack/neutron-tempest-plugin
@@ -256,6 +290,7 @@
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
+      - openstack/networking-sfc
       - openstack/neutron-fwaas
       - openstack/neutron-lbaas
       - openstack/neutron-tempest-plugin
