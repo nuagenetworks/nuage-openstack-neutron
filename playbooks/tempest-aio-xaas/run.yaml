@@ -55,6 +55,7 @@
           PROJECTS="openstack/cinder $PROJECTS"
           PROJECTS="openstack/glance $PROJECTS"
           PROJECTS="openstack/keystone $PROJECTS"
+          PROJECTS="openstack/networking-sfc $PROJECTS"
           PROJECTS="openstack/neutron $PROJECTS"
           PROJECTS="openstack/neutron-fwaas $PROJECTS"
           PROJECTS="openstack/neutron-lbaas $PROJECTS"
