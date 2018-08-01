@@ -1937,6 +1937,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             msg = _("Port has fixed ips for multiple vsd subnets.")
             raise NuageBadRequest(msg=msg)
 
+        if (not self._is_vsd_mgd(subnet_mappings[0]) and
+                port.get(nuagepolicygroup.NUAGE_POLICY_GROUPS)):
+            msg = ("Cannot use VSP policy groups on OS managed subnets,"
+                   " use neutron security groups instead.")
+            raise NuageBadRequest(resource='port', msg=msg)
+
         # It's okay to just return the first mapping because it's only 1 vport
         # on 1 subnet on VSD that has to be made.
         self.nuage_callbacks.notify(resources.PORT, event,
