@@ -240,10 +240,14 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         sg_ids = port[ext_sg.SECURITYGROUPS]
         if not sg_ids:
             return
+
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
                                                         subnet_id)
         if self._is_vsd_mgd(subnet_mapping):
             return
+
+        self._check_security_groups_per_port_limit(sg_ids)
+
         normal_ports = nuagedb.get_port_bindings_for_sg(
             db_context.session,
             sg_ids,

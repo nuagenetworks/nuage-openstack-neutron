@@ -286,6 +286,15 @@ class RootNuagePlugin(SubnetUtilsBase):
             return None
 
     @staticmethod
+    def _check_security_groups_per_port_limit(sgs_per_port):
+        if len(sgs_per_port) > constants.MAX_SG_PER_PORT:
+            msg = (("Number of %s specified security groups exceeds the "
+                    "maximum of %s security groups on a port "
+                    "supported on nuage VSP") % (len(sgs_per_port),
+                                                 constants.MAX_SG_PER_PORT))
+            raise NuageBadRequest(msg=msg)
+
+    @staticmethod
     def is_vxlan_network(network):
         net_type = 'provider:network_type'
         if str(network.get(net_type)).lower() == 'vxlan':
