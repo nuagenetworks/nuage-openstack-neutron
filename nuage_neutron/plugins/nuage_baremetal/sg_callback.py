@@ -21,7 +21,6 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.manager import NeutronManager
 
 from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.common.utils import SubnetUtilsBase
@@ -193,11 +192,6 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
     @log_helpers.log_method_call
     def _process_port_security_group(self, context, port, vport, sg_ids,
                                      vsd_subnet):
-        if len(sg_ids) > 6:
-            msg = ("Exceeds maximum num of security groups on a port "
-                   "supported on nuage VSP")
-            raise nuage_exc.NuageBadRequest(msg=msg)
-
         if not port.get('fixed_ips'):
             return
         vnic_type = port.get(portbindings.VNIC_TYPE, "")
