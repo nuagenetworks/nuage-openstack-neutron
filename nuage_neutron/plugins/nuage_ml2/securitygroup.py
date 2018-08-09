@@ -28,7 +28,6 @@ from oslo_utils import uuidutils
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import cms_id_helper
@@ -270,13 +269,10 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def _process_port_security_group(self, context, port, vport, sg_ids,
                                      vsd_subnet, subnet_mapping):
-        if len(sg_ids) > 6:
-            msg = (_("Exceeds maximum num of security groups on a port "
-                     "supported on nuage VSP"))
-            raise nuage_exc.NuageBadRequest(msg=msg)
-
         if not port.get('fixed_ips'):
             return
+
+        self._check_security_groups_per_port_limit(sg_ids)
 
         successful = False
         attempt = 1
