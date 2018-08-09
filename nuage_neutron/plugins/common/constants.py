@@ -126,6 +126,8 @@ VM_VPORT = 'VM'
 MAX_VSD_INTEGER = 2147483647  # Maximum Java integer value. 2^31-1
 MAX_VSD_PRIORITY = 999999999
 
+MAX_SG_PER_PORT = 30
+
 NUAGE_PAT_NOT_AVAILABLE = 'not_available'
 NUAGE_PAT_DEF_ENABLED = 'default_enabled'
 NUAGE_PAT_DEF_DISABLED = 'default_disabled'
