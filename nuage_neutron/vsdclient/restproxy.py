@@ -52,6 +52,7 @@ REST_VLAN_IN_USE_ERR_CODE = '7053'
 REST_IFACE_EXISTS_ERR_CODE = '7006'
 REST_ENT_PERMS_EXISTS_ERR_CODE = '4504'
 REST_PG_EXISTS_ERR_CODE = '9501'
+REST_NW_MACRO_EXISTS_INTERNAL_ERR_CODE = '2504'
 REST_DUPLICATE_ACL_PRIORITY = '2640'
 
 # legacy - deprecated
@@ -466,6 +467,25 @@ class RESTProxyServer(object):
     def post(self, resource, data, extra_headers=None,
              on_res_exists=retrieve_by_external_id.__func__,
              ignore_err_codes=None):
+        """Post request to VSD
+
+        :param resource: eg. vports
+        :param data: json data to post
+        :param extra_headers: extra headers to add to request, eg.
+            {'X-Nuage-ProxyUser' : 'csp@enterprise'}
+        :param on_res_exists: Method to execute when VSD returns 409 (CONFLICT)
+            default: Retrieve based on external id
+            on None: Do nothing
+        :param ignore_err_codes: VSD error codes to ignore and eg. execute
+                on_res_exists on. eg. 2551
+            default: REST_EXISTS_INTERNAL_ERR_CODE
+        :return:
+            resource: when created or found on_res_exists
+            None: When resource not created and on_res_exists=None
+        :raises:
+            RestProxyError: when internal VSD error code not in
+                ignore_err_codes or resource not found after on_res_exists
+       """
         if ignore_err_codes is None:
             ignore_err_codes = [REST_EXISTS_INTERNAL_ERR_CODE]
         response = self.rest_call('POST', resource, data,
@@ -482,16 +502,21 @@ class RESTProxyServer(object):
             # Under heavy load, vsd responses may get lost. We must try find
             # the resource else it's stuck in VSD.
             errors = json.loads(response[3])
-            if (str(errors.get('internalErrorCode')) in ignore_err_codes):
-                get_response = None
+            if str(errors.get('internalErrorCode')) in ignore_err_codes:
                 if on_res_exists:
                     get_response = on_res_exists(self, resource, data)
-                if not get_response:
-                    errors = json.loads(response[3])
-                    msg = str(errors['errors'][0]['descriptions'][0]
-                              ['description'])
-                    self.raise_rest_error(msg, ResourceExistsException(msg))
-                return get_response
+                    if not get_response:
+                        msg = str(errors['errors'][0]['descriptions'][0]
+                                  ['description'])
+                        self.raise_rest_error(msg,
+                                              ResourceExistsException(msg))
+                    return get_response
+                else:
+                    # when on_res_exists is set to None, it means do not
+                    # expect object to exist; this anticipates for a real
+                    # conflict error returned by VSD
+                    return None
+
         self.raise_error_response(response)
 
     def put(self, resource, data, extra_headers=None):
