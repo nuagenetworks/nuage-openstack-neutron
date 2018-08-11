@@ -234,28 +234,22 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
         'IPType': sg_rule['IPType']
     }
     nuage_np_net = nuagelib.NuageNetPartitionNetwork(create_params=req_params)
-    response = restproxy_serv.rest_call(
-        'GET',
+    response = restproxy_serv.get(
         nuage_np_net.get_resource(), '',
         nuage_np_net.extra_headers_get_netadress(req_params))
-    if nuage_np_net.validate(response) and response[3]:
-        return nuage_np_net.get_np_network_id(response)
+    if response:
+        return response[0]['ID']
 
-    response = restproxy_serv.rest_call(
-        'POST',
+    response = restproxy_serv.post(
         nuage_np_net.post_resource(),
-        nuage_np_net.post_data())
-    if not nuage_np_net.validate(response):
-        if response[0] != constants.CONFLICT_ERR_CODE:
-            raise restproxy.RESTProxyError(nuage_np_net.error_msg)
-        else:
-            # To handle concurrency case where at first attempt it didn't find
-            # it but another thread has already created the same network macro
-            # in parallel and it errors out during POST command.
-            response = restproxy_serv.rest_call(
-                'GET',
-                nuage_np_net.get_resource(), '',
-                nuage_np_net.extra_headers_get_netadress(req_params))
-            if not nuage_np_net.validate(response):
-                raise restproxy.RESTProxyError(nuage_np_net.error_msg)
-    return nuage_np_net.get_np_network_id(response)
+        nuage_np_net.post_data(),
+        on_res_exists=None,
+        ignore_err_codes=[restproxy.REST_NW_MACRO_EXISTS_INTERNAL_ERR_CODE])
+    if response:
+        return response[0]['ID']
+    else:
+        response = restproxy_serv.get(
+            nuage_np_net.get_resource(), '',
+            nuage_np_net.extra_headers_get_netadress(req_params),
+            required=True)
+        return response[0]['ID']
