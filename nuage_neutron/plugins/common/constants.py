@@ -146,6 +146,14 @@ NUAGE_UNDERLAY_INI = 'nuage_underlay_default'
 RES_NOT_FOUND = 404
 RES_CONFLICT = 409
 
+NETWORK_MACRO_IP_PREFIX_ERROR_CODE = '2529'
+NETWORK_MACRO_IP_HOST_BITS_ERROR_CODE = '2526'
+
+# Following are the VSD internal error codes for
+# invalid CIDR in network macros.
+NOT_SUPPORTED_NW_MACRO = [NETWORK_MACRO_IP_PREFIX_ERROR_CODE,
+                          NETWORK_MACRO_IP_HOST_BITS_ERROR_CODE]
+
 L2DOMAIN = 'l2domain'
 L3SUBNET = 'subnet'
 ENABLED = 'ENABLED'
