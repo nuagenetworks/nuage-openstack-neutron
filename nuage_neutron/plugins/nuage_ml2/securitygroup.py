@@ -127,11 +127,17 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def update_security_group_precommit(self, resource, event, trigger,
                                         **kwargs):
-        session = kwargs['context'].session
-        sg_id = kwargs['security_group_id']
+        if 'payload' in kwargs:
+            session = kwargs['payload'].context.session
+            sg_id = kwargs['payload'].resource_id
+            sg = kwargs['payload'].desired_state
+        else:
+            session = kwargs['context'].session
+            sg_id = kwargs['security_group_id']
+            sg = kwargs['security_group']
         if self.stateful is not None:
             self._update_stateful_parameter(session, sg_id, self.stateful)
-            kwargs['security_group']['stateful'] = self.stateful
+            sg['stateful'] = self.stateful
             self.stateful = None
 
     @nuage_utils.handle_nuage_api_error
