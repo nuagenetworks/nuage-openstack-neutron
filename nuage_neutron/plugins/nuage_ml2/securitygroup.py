@@ -107,9 +107,10 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                         payload):
         session = payload.context.session
         sg_id = payload.resource_id
+        sg = payload.desired_state
         if self.stateful is not None:
             self._update_stateful_parameter(session, sg_id, self.stateful)
-            payload.desired_state['stateful'] = self.stateful
+            sg['stateful'] = self.stateful
             self.stateful = None
 
     @registry.receives(resources.SECURITY_GROUP, [events.AFTER_UPDATE])
