@@ -985,7 +985,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                           context.current,
                           context.network)
 
-    def _create_port(self, db_context, port, network, update_status=True):
+    def _create_port(self, db_context, port, network):
         is_network_external = network._network.get('router:external')
         subnet_mapping = self._validate_port(db_context, port,
                                              constants.BEFORE_CREATE,
@@ -1060,12 +1060,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                         self, context=db_context, port=port,
                                         vport=nuage_vport, rollbacks=rollbacks,
                                         subnet_mapping=subnet_mapping)
-            if (port.get('nuage_redirect-targets') !=
-                    os_constants.ATTR_NOT_SPECIFIED and update_status):
-                self.core_plugin.update_port_status(
-                    db_context,
-                    port['id'],
-                    os_constants.PORT_STATUS_ACTIVE)
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
@@ -1097,8 +1091,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self._ip4_addr_added_to_dualstack_dhcp_port(original, port)):
             # port didn't belong to any subnet yet, or dhcp port used to be
             # ipv6 only: create vport
-            self._create_port(db_context, port, context.network,
-                              update_status=False)
+            self._create_port(db_context, port, context.network)
             return
 
         subnet_mapping = self._validate_port(db_context,
