@@ -386,7 +386,24 @@ class RESTProxyServer(object):
         response = self.rest_call('GET', resource, data,
                                   extra_headers=extra_headers)
         if response[0] in REST_SUCCESS_CODES:
-            return response[3]
+            headers = response[4]
+            data = response[3]
+            page_size = len(data)
+            response_size = int(headers.get('X-Nuage-Count', 0))
+            if response_size > page_size:
+                # handle pagination
+                num_pages = response_size // page_size + 1
+                for page in range(1, num_pages):
+                    headers = extra_headers or dict()
+                    headers['X-Nuage-Page'] = str(page)
+                    headers['X-Nuage-PageSize'] = str(page_size)
+                    response = self.rest_call('GET', resource, data,
+                                              extra_headers=headers)
+                    if response[0] in REST_SUCCESS_CODES:
+                        data.extend(response[3])
+                    else:
+                        self.raise_error_response(response)
+            return data
         elif response[0] == REST_NOT_FOUND and not required:
             return ''
         else:
