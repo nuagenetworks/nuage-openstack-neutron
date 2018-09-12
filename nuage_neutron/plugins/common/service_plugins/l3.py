@@ -282,8 +282,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             'fixed_ips': {'subnet_id': [ipv4_subnet['id']]},
             'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
         }
-        gw_ports = self.core_plugin.get_ports(context, filters=filters)
-        for port in gw_ports:
+        dhcp_ports = self.core_plugin.get_ports(context, filters=filters)
+        for port in dhcp_ports:
             self.core_plugin.delete_port(context, port['id'])
 
         pnet_binding = nuagedb.get_network_binding(context.session,
@@ -463,11 +463,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                                                router_id,
                                                                interface_info)
         with nuage_utils.rollback() as on_exc:
-            last_address = ipv4_subnet['allocation_pools'][-1]['end']
-            port = self._reserve_ip(context, ipv4_subnet, last_address)
+            dhcp_port = self.create_dhcp_nuage_port(context, ipv4_subnet)
+            if dhcp_port:
+                on_exc(self.core_plugin.delete_port, context, dhcp_port['id'])
             pnet_binding = nuagedb.get_network_binding(
                 context.session, ipv4_subnet['network_id'])
-            on_exc(self.core_plugin.delete_port, context, port['id'])
 
             self.vsdclient.confirm_router_interface_not_in_use(router_id,
                                                                subnet)
