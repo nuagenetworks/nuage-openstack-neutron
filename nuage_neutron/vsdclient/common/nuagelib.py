@@ -2432,7 +2432,8 @@ class VsdResource(object):
             if filter:
                 filter += " and "
             filter += "%s IS %s" % (field, value)
-        return {'X-Nuage-Filter': filter} if filter else None
+        return {'X-Nuage-FilterType': 'predicate',
+                'X-Nuage-Filter': filter} if filter else None
 
 
 @six.add_metaclass(ABCMeta)
