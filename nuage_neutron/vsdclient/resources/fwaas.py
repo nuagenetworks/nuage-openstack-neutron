@@ -17,6 +17,7 @@ import netaddr
 
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common import constants
+from nuage_neutron.vsdclient.common.helper import get_by_field_values
 from nuage_neutron.vsdclient.common.nuagelib import FirewallAcl
 from nuage_neutron.vsdclient.common.nuagelib import FirewallRule
 from nuage_neutron.vsdclient import restproxy
@@ -60,19 +61,20 @@ class NuageFwaasBase(object):
     def _get_by_openstack_id(self, resource, id, parent=None, parent_id=None,
                              required=False):
         external_id = get_vsd_external_id(id)
+        filter_header = FirewallRule.extra_header_filter(
+            externalID=external_id)
         objects = self.get(resource, parent=parent, parent_id=parent_id,
-                           externalID=external_id)
+                           extra_headers=filter_header)
         if not objects and required:
             raise restproxy.ResourceNotFoundException(
                 "Can not find %s with externalID %s on vsd"
                 % (resource.resource, external_id))
         return objects[0] if objects else None
 
-    def get(self, resource, parent=None, parent_id=None, **filters):
-        headers = resource.extra_header_filter(**filters)
+    def get(self, resource, parent=None, parent_id=None, extra_headers=None):
         return self.restproxy.get(
             resource.get_url(parent=parent, parent_id=parent_id),
-            extra_headers=headers)
+            extra_headers=extra_headers)
 
     def post(self, resource, data, extra_headers=None, on_res_exists=None,
              parent=None, parent_id=None):
@@ -149,17 +151,21 @@ class NuageFwaasMapper(NuageFwaasBase):
     def map_policy_os_to_vsd(self, enterprise_id, os_policy, post=False):
         vsd_dict = self.do_mapping(self.os_fwpolicy_to_vsd_fwpolicy, os_policy)
         if os_policy.get('firewall_rules') is not None:
-            vsd_rules = self.get(FirewallRule, parent='enterprises',
-                                 parent_id=enterprise_id)
-            rule_map = {rule.get('externalID', '').split('@')[0]: rule['ID']
-                        for rule in vsd_rules}
-            vsd_dict['ruleIds'] = []
-            for os_rule_id in os_policy.get('firewall_rules'):
-                try:
-                    vsd_dict['ruleIds'].append(rule_map[os_rule_id])
-                except KeyError:
-                    # A rule can not exist on VSD when it's disabled.
-                    pass
+            external_ids = [get_vsd_external_id(os_rule_id)
+                            for os_rule_id in os_policy['firewall_rules']]
+
+            # build a list of VSD rules with the same order as the list of
+            # os rules
+            vsd_rules_ext_id_to_id = {
+                rule['externalID']: rule['ID']
+                for rule in get_by_field_values(self.restproxy, FirewallRule,
+                                                'externalID', external_ids,
+                                                parent='enterprises',
+                                                parent_id=enterprise_id)
+            }
+            vsd_dict['ruleIds'] = [vsd_rules_ext_id_to_id[external_id]
+                                   for external_id in external_ids
+                                   if external_id in vsd_rules_ext_id_to_id]
         if post:
             vsd_dict.update({
                 "defaultAllowIP": False,
