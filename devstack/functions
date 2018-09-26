@@ -141,13 +141,8 @@ function create_or_retrieve_cms {
         if [[ -n "$NUAGE_VSD_CMS_NAME" ]]; then
             name="$NUAGE_VSD_CMS_NAME"
         else
-            eth0_file="/sys/class/net/eth0/address"
-            if [[ -f "$eth0_file" ]]; then
-                mac=`cat ${eth0_file}`
-                name="OPENSTACK_$mac"
-            else
-                name="OPENSTACK"
-            fi
+            machine_id=$(cat /etc/machine-id)
+            name="OPENSTACK_$machine_id"
         fi
         url="$base_url/cms"
 
