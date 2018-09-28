@@ -217,8 +217,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 'fixed_ips': {'subnet_id': [subn['id']]},
                 'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
             }
-            gw_ports = self.core_plugin.get_ports(db_context, filters=filters)
-            self._delete_gateway_port(db_context, gw_ports)
+            dhcp_ports = self.core_plugin.get_ports(db_context,
+                                                    filters=filters)
+            self._delete_gateway_port(db_context, dhcp_ports)
 
             self._add_nuage_sharedresource(subn,
                                            updated_network['id'],
@@ -408,8 +409,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             context.tenant_name)
         try:
             with context.session.begin(subtransactions=True):
-                self._reserve_dhcp_ip(context, subnet, nuage_subnet,
-                                      shared_subnet)
+                self.create_dhcp_nuage_port(
+                    context, subnet,
+                    nuage_subnet=nuage_subnet or shared_subnet)
                 l2dom_id = None
                 if nuage_subnet["type"] == constants.L2DOMAIN:
                     l2dom_id = nuage_subnet_id
@@ -471,21 +473,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         self.vsdclient.create_nuage_sharedresource(params)
 
     @log_helpers.log_method_call
-    def _get_dhcp_port(self, context, neutron_subnet, router_attached=False):
-        if neutron_subnet.get('enable_dhcp'):
-            if router_attached:
-                return None
-            last_address = neutron_subnet['allocation_pools'][-1]['end']
-            return self._reserve_ip(context,
-                                    neutron_subnet,
-                                    last_address)
-        else:
-            LOG.warning(_("CIDR parameter ignored for unmanaged subnet "))
-            LOG.warning(_("Allocation Pool parameter ignored"
-                          " for unmanaged subnet "))
-            return None
-
-    @log_helpers.log_method_call
     def check_if_subnet_is_attached_to_router(self, context, subnet):
         filters = {
             'network_id': [subnet['network_id']],
@@ -506,14 +493,14 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                              l2bridge):
         pnet_binding = None
 
-        gw_port = nuage_subnet = None
+        dhcp_port = nuage_subnet = None
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
             context.session, neutron_subnet['id'])
         if subnet_mapping:
             # no-op, already connected
             return
 
-        router_attached = False
+        already_router_attached = False
         r_param = {}
         neutron_net = self.core_plugin.get_network(
             context, neutron_subnet['network_id'])
@@ -525,10 +512,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         elif dual_stack_subnet:
             # ipv6 is already present and now check
             # if router interface is attached or not
-            router_attached, router_id = \
+            already_router_attached, router_id = \
                 self.check_if_subnet_is_attached_to_router(
                     context, dual_stack_subnet)
-            if router_attached:
+            if already_router_attached:
                 pnet_binding = nuagedb.get_network_binding(
                     context.session,
                     dual_stack_subnet['network_id'])
@@ -564,8 +551,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         'nuage_groupid': mappings[0]['nuage_group_id'],
                         'nuage_l2domain_id': mappings[0]['nuage_subnet_id']
                     }
-                    self._get_dhcp_port(context, neutron_subnet,
-                                        router_attached)
+                    if not already_router_attached:
+                        self.create_dhcp_nuage_port(context, neutron_subnet)
                     self._create_subnet_mapping(context,
                                                 netpart_id,
                                                 neutron_subnet,
@@ -613,11 +600,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         }
 
         if is_ipv4:
-            gw_port = self._get_dhcp_port(context, neutron_subnet,
-                                          router_attached)
-            if gw_port:
-                params['dhcp_ip'] = gw_port['fixed_ips'][0]['ip_address']
-            elif router_attached:
+            if not already_router_attached:
+                dhcp_port = self.create_dhcp_nuage_port(context,
+                                                        neutron_subnet)
+                params['dhcp_ip'] = (dhcp_port['fixed_ips'][0]['ip_address']
+                                     if dhcp_port else None)
+
+            else:
                 params['dhcp_ip'] = None
         else:
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
@@ -635,8 +624,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 ipv6_subnet=ipv6_subnet)
         except Exception:
             with excutils.save_and_reraise_exception():
-                if gw_port:
-                    LOG.debug(_("Deleting gw_port %s"), gw_port['id'])
+                if dhcp_port:
+                    LOG.debug(_("Deleting nuage dhcp_port %s").format(
+                        dhcp_port['id']))
                     # Because we are inside a transaction in a precommit method
                     # you are not allowed to call any of the crud_<resource>
                     # methods of ml2plugin (like delete_port). Because of
@@ -645,7 +635,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     # delete the port. Similar to how we call the db method for
                     # creating the dhcp port.
                     super(ml2_plugin.Ml2Plugin,
-                          self.core_plugin).delete_port(context, gw_port['id'])
+                          self.core_plugin).delete_port(context,
+                                                        dhcp_port['id'])
 
         if not is_ipv4 and subnet_mapping:
             # nuage_subnet is None: Copy ipv4 mapping for creating ipv6 mapping
@@ -740,20 +731,19 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             curr_enable_dhcp = original_subnet.get('enable_dhcp')
             updated_enable_dhcp = updated_subnet.get('enable_dhcp')
             if not curr_enable_dhcp and updated_enable_dhcp:
-                last_address = updated_subnet['allocation_pools'][-1]['end']
-                gw_port = self._reserve_ip(db_context, updated_subnet,
-                                           last_address)
+                dhcp_port = self.create_dhcp_nuage_port(db_context,
+                                                        updated_subnet)
                 params['net'] = netaddr.IPNetwork(original_subnet['cidr'])
-                params['dhcp_ip'] = gw_port['fixed_ips'][0]['ip_address']
+                params['dhcp_ip'] = dhcp_port['fixed_ips'][0]['ip_address']
             elif curr_enable_dhcp and not updated_enable_dhcp:
                 params['dhcp_ip'] = None
                 filters = {
                     'fixed_ips': {'subnet_id': [updated_subnet['id']]},
                     'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
                 }
-                gw_ports = self.core_plugin.get_ports(db_context,
-                                                      filters=filters)
-                self._delete_gateway_port(db_context, gw_ports)
+                dhcp_ports = self.core_plugin.get_ports(db_context,
+                                                        filters=filters)
+                self._delete_gateway_port(db_context, dhcp_ports)
             dhcp_opts_changed = self._validate_dhcp_opts_changed(
                 original_subnet,
                 updated_subnet)
@@ -1651,13 +1641,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         matching_gws = self._is_equal_ip(os_gw_ip, vsd_gw_ip)
 
         return matching_gws, os_gw_ip, vsd_gw_ip
-
-    def _reserve_dhcp_ip(self, db_context, subnet, nuage_subnet,
-                         shared_subnet):
-        nuage_subnet = shared_subnet or nuage_subnet
-        if nuage_subnet.get('DHCPManaged', True) and self._is_ipv4(subnet):
-            dhcp_ip = nuage_subnet['gateway']
-            self._reserve_ip(db_context, subnet, dhcp_ip)
 
     def _cleanup_group(self, db_context, nuage_npid, nuage_subnet_id, subnet):
         try:
