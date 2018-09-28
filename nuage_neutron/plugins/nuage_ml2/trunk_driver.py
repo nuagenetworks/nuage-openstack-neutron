@@ -21,13 +21,13 @@ from oslo_log import log as logging
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
-from neutron.db import api as db_api
 from neutron.objects import trunk as trunk_objects
 from neutron.services.trunk import constants as t_consts
 from neutron.services.trunk.drivers import base as trunk_base
 from neutron.services.trunk import exceptions as t_exc
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import context as n_ctx
+from neutron_lib.db import api as db_api
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants as p_consts
@@ -79,7 +79,6 @@ class NuageTrunkHandler(object):
                       " %s due to unsupported VNIC type",
                       updated_port.get('id'))
             return
-
         context = kwargs['context']
         if trunk_details.get('trunk_id'):
             trunk = trunk_objects.Trunk.get_object(
@@ -102,6 +101,7 @@ class NuageTrunkHandler(object):
     def _update_subport_bindings(self, context, trunk_id, subports):
         el = context.elevated()
         ports_by_trunk_id = collections.defaultdict(list)
+        ports_by_trunk_id[trunk_id] = []
         updated_ports = collections.defaultdict(list)
         for s in subports:
             ports_by_trunk_id[s['trunk_id']].append(s)
@@ -284,9 +284,13 @@ class NuageTrunkHandler(object):
                        'sub': len(subports)})
             self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
 
-    def _unset_sub_ports(self, trunk_id, subports):
+    def _unset_sub_ports(self, trunk_id, trunk_port, subports):
         _vsdclient = self.plugin_driver.vsdclient
         ctx = n_ctx.get_admin_context()
+        trunk_host = trunk_port.get(portbindings.HOST_ID)
+        trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_host else
+                              t_consts.DOWN_STATUS)
+
         updated_ports = []
         for port in subports:
             LOG.debug('unset port id : %(id)s', {'id': port.port_id})
@@ -312,6 +316,8 @@ class NuageTrunkHandler(object):
                 LOG.error("Failed to clear binding for subport: %s", e)
         if len(subports) != len(updated_ports):
             self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
+        else:
+            self.set_trunk_status(ctx, trunk_id, trunk_target_state)
 
     def _set_trunk(self, trunk):
         _vsdclient = self.plugin_driver.vsdclient
@@ -347,7 +353,8 @@ class NuageTrunkHandler(object):
 
             LOG.debug('trunk_created callback: %(trunk)s', {'trunk': trunk})
             self._set_trunk(trunk)
-            self._set_sub_ports(trunk.id, trunk.sub_ports)
+            if trunk.sub_ports:
+                self._set_sub_ports(trunk.id, trunk.sub_ports)
 
     def trunk_deleted(self, trunk):
         ctx = n_ctx.get_admin_context()
@@ -357,7 +364,7 @@ class NuageTrunkHandler(object):
         if (trunk_port.get(portbindings.VNIC_TYPE) in
                 self.plugin_driver._supported_vnic_types()):
             LOG.debug('trunk_deleted callback: %(trunk)s', {'trunk': trunk})
-            self._unset_sub_ports(trunk.id, trunk.sub_ports)
+            self._unset_sub_ports(trunk.id, trunk_port, trunk.sub_ports)
             self._unset_trunk(trunk)
 
     def subports_pre_create(self, context, trunk, subports):
@@ -394,7 +401,7 @@ class NuageTrunkHandler(object):
                 self.plugin_driver._supported_vnic_types()):
             LOG.debug('subport_deleted callback: %(trunk)s subports : %(sp)s',
                       {'trunk': trunk, 'sp': subports})
-            self._unset_sub_ports(trunk.id, subports)
+            self._unset_sub_ports(trunk.id, trunk_port, subports)
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
         if event == events.AFTER_CREATE:
