@@ -13,7 +13,6 @@
 #    under the License.
 
 from networking_sfc._i18n import _
-from neutron.plugins.common import constants as neutron_constants
 from neutron_lib.api import extensions as api_extensions
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as neutron_exc
@@ -31,7 +30,7 @@ def normalize_vlan_value(vlan):
     except (ValueError, TypeError):
         raise FlowClassifierInvalidVlanValue(vlan=vlan)
 
-    if neutron_constants.MIN_VLAN_TAG <= val <= neutron_constants.MAX_VLAN_TAG:
+    if lib_constants.MIN_VLAN_TAG <= val <= lib_constants.MAX_VLAN_TAG:
         return val
     else:
         raise FlowClassifierInvalidVlanValue(vlan=vlan)

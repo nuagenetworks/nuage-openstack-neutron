@@ -205,6 +205,14 @@ function stop_octavia_nuage {
 
 }
 
+function configure_networking_sfc_policy {
+    echo "configuring policy for networking_sfc"
+    policy_conf_file="/etc/neutron/policy.d/nuage_policy.json"
+
+    sudo sed -i '/^{$/a \ \ \ \ "get_port_pair_group": "rule:regular_user",\n\ \ \ \ \"delete_port_pair_group": "rule:regular_user",\n\ \ \ \ \"update_port_pair_group": "rule:regular_user",\n\ \ \ \ \"delete_port_pair" : "rule:regular_user",\n\ \ \ \ \"get_port_pair": "rule:regular_user",\n\ \ \ \ \"delete_flow_classifier": "rule:regular_user",\n\ \ \ \ \"get_flow_classifier": "rule:regular_user",\n\ \ \ \ \"get_port_chain": "rule:regular_user",\n\ \ \ \ \"delete_port_chain": "rule:regular_user",\n\ \ \ \ \"update_port_chain": "rule:regular_user",' $policy_conf_file
+
+    echo "configured policy for networking_sfc."
+}
 
 # Restore xtrace
 $NU_XTRACE
