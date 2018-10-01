@@ -412,7 +412,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             with context.session.begin(subtransactions=True):
                 self.create_dhcp_nuage_port(
                     context, subnet,
-                    nuage_subnet=nuage_subnet or shared_subnet)
+                    nuage_subnet=shared_subnet or nuage_subnet)
                 l2dom_id = None
                 if nuage_subnet["type"] == constants.L2DOMAIN:
                     l2dom_id = nuage_subnet_id
