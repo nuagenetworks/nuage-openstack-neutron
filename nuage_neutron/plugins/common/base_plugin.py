@@ -258,18 +258,34 @@ class RootNuagePlugin(SubnetUtilsBase):
         return found_resource
 
     @log_helpers.log_method_call
-    def _reserve_ip(self, context, subnet, ip):
-        fixed_ip = [{'ip_address': ip, 'subnet_id': subnet['id']}]
-        p_data = {
-            'network_id': subnet['network_id'],
-            'tenant_id': subnet['tenant_id'],
-            'fixed_ips': fixed_ip,
-            'device_owner': constants.DEVICE_OWNER_DHCP_NUAGE
-        }
-        port = plugin_utils._fixup_res_dict(context,
-                                            port_def.COLLECTION_NAME,
-                                            p_data)
-        return self.core_plugin._create_port_db(context, {'port': port})[0]
+    def create_dhcp_nuage_port(self, context, neutron_subnet,
+                               nuage_subnet=None):
+        dhcp_ip = None
+        if (nuage_subnet and nuage_subnet.get('DHCPManaged', True) and
+                self._is_ipv4(neutron_subnet)):
+            dhcp_ip = nuage_subnet['gateway']
+        elif neutron_subnet.get('enable_dhcp'):
+            dhcp_ip = neutron_subnet['allocation_pools'][-1]['end']
+
+        if dhcp_ip:
+            fixed_ip = [{'ip_address': dhcp_ip,
+                         'subnet_id': neutron_subnet['id']}]
+            p_data = {
+                'network_id': neutron_subnet['network_id'],
+                'tenant_id': neutron_subnet['tenant_id'],
+                'fixed_ips': fixed_ip,
+                'device_owner': constants.DEVICE_OWNER_DHCP_NUAGE
+            }
+            port = plugin_utils._fixup_res_dict(context,
+                                                port_def.COLLECTION_NAME,
+                                                p_data)
+            port['status'] = lib_constants.PORT_STATUS_ACTIVE
+            return self.core_plugin._create_port_db(context, {'port': port})[0]
+        else:
+            LOG.warning(_('CIDR parameter ignored for unmanaged subnet.'))
+            LOG.warning(_('Allocation Pool parameter ignored '
+                          'for unmanaged subnet.'))
+            return None
 
     def is_vxlan_network(self, network):
         net_type = 'provider:network_type'
