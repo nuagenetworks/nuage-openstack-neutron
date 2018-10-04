@@ -215,7 +215,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
         with self.db_lock_by_policy(context, id):
             policy = super(NuageFWaaSPlugin, self).remove_rule(
                 context, id, rule_info)
-        self.vsdclient.remove_rule(self.enterprise_id, id, rule_info)
+            self.vsdclient.remove_rule(self.enterprise_id, id, rule_info)
         return policy
 
     @log_helpers.log_method_call
