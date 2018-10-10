@@ -66,6 +66,7 @@
           PROJECTS="OpenStack/nuage-openstack-neutron $PROJECTS"
           PROJECTS="OpenStack/nuage-openstack-neutronclient $PROJECTS"
           PROJECTS="OpenStack/nuage-tempest-plugin $PROJECTS"
+          PROJECTS="OpenStack/nuage-octavia-tempest-plugin $PROJECTS"
           export DEVSTACK_GATE_PROJECTS_OVERRIDE="$PROJECTS"
 
           PRIMARY_IP="{{ hostvars['primary']['ansible_default_ipv4']['address'] }}"
