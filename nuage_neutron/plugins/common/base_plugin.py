@@ -542,7 +542,8 @@ class RootNuagePlugin(SubnetUtilsBase):
                 lib_constants.DEVICE_OWNER_ROUTER_GW,
                 lib_constants.DEVICE_OWNER_FLOATINGIP,
                 constants.DEVICE_OWNER_VIP_NUAGE,
-                constants.DEVICE_OWNER_IRONIC
+                constants.DEVICE_OWNER_IRONIC,
+                constants.DEVICE_OWNER_OCTAVIA
                 ]
 
     @staticmethod
@@ -561,7 +562,8 @@ class RootNuagePlugin(SubnetUtilsBase):
 
     @staticmethod
     def get_device_owners_vip():
-        return ([constants.DEVICE_OWNER_VIP_NUAGE] +
+        return ([constants.DEVICE_OWNER_VIP_NUAGE,
+                 constants.DEVICE_OWNER_OCTAVIA] +
                 cfg.CONF.PLUGIN.device_owner_prefix)
 
     @staticmethod

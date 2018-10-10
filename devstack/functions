@@ -84,6 +84,7 @@ function configure_vrs_nuage {
        iniset_shell -sudo $meta_conf_file NOVA_OS_PASSWORD "$SERVICE_PASSWORD"
        iniset_shell -sudo $meta_conf_file NOVA_REGION_NAME "$REGION_NAME"
     fi
+    sudo /usr/bin/ovs-vsctl --timeout=5 --id=@manager -- create Manager "target=\"ptcp:6640:127.0.0.1\"" -- add Open_vSwitch . manager_options @manager || true
     restart_service $VRS_SERVICE_NAME
 }
 
