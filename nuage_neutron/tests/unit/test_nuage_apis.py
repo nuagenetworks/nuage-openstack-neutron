@@ -29,6 +29,6 @@ class TestNuageApis(testtools.TestCase):
         super(TestNuageApis, cls).setUpClass()
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    @mock.patch.object(NuageApi, '_prepare_default_netpartition')
+    @mock.patch.object(NuageApi, '_prepare_netpartitions')
     def test_nuage_apis_init(self, *mocks):
         NuageApi()

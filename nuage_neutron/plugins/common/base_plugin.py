@@ -117,12 +117,6 @@ class RootNuagePlugin(SubnetUtilsBase):
 
         return self.vsdclient.create_vport(params)
 
-    def get_vsd_shared_subnet_attributes(self, neutron_id):
-        try:
-            return self.vsdclient.get_sharedresource(neutron_id)
-        except restproxy.ResourceNotFoundException:
-            pass
-
     @log_helpers.log_method_call
     def _check_router_subnet_for_tenant(self, context, tenant_id):
         # Search router and subnet tables.
@@ -485,7 +479,8 @@ class RootNuagePlugin(SubnetUtilsBase):
         if np_id_or_name:
             np = self._get_netpartition_from_db(context.session, np_id_or_name)
             if not np:
-                msg = _('Net-partition {} does not exist.').format(np)
+                msg = _('Net-partition {} does not exist.').format(
+                    np_id_or_name)
                 raise NuageBadRequest(resource='subnet', msg=msg)
             return np
         else:
