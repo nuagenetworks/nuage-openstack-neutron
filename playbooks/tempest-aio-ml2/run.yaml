@@ -75,14 +75,16 @@
           export DEVSTACK_GATE_FLOATING_RANGE="172.${group}.${PRIMARY_IP##*.}.0/24"
           export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
 
+          function pre_test_hook {
+              sudo -H pip install -c $UPPER_CONSTRAINTS_FILE stestr
+          }
+          export -f pre_test_hook
+
           function gate_hook {
                bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
           }
           export -f gate_hook
-          function post_test_hook {
-              sudo -H pip install -c $UPPER_CONSTRAINTS_FILE stestr
-          }
-          export -f post_test_hook
+ 
           export DEVSTACK_GATE_SETTINGS=/opt/stack/new/new/nuage-gate-utils/devstackgaterc
 
           cp devstack-gate/devstack-vm-gate-wrap.sh ./safe-devstack-vm-gate-wrap.sh
