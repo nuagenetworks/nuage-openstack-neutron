@@ -314,7 +314,7 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
 
         # use neutron API to create a dummy router in VSD,
         # create a dummy subnet and attached to this dummy router.
-        dummy_rtr = l3_plugin.create_router(context, rtr_dict.rtr_dict)
+        dummy_rtr = l3_plugin.create_l3domain(context, rtr_dict.rtr_dict)
         dummy_subn = l3_plugin.create_subnet(context, subn_dict.subn_dict)
         interface_info = {'subnet_id': dummy_subn['id']}
         l3_plugin.add_router_interface(context, dummy_rtr['id'],
@@ -394,7 +394,7 @@ class NuageIPsecVPNDriver(base_ipsec.BaseIPsecVPNDriver):
             l3_plugin.remove_router_interface(context, res['r_dummy']['id'],
                                               res['interface_info'])
             l3_plugin.delete_subnet(context, res['s_dummy']['id'])
-            l3_plugin.delete_router(context, res['r_dummy']['id'])
+            l3_plugin.delete_l3domain(context, res['r_dummy']['id'])
             l3_plugin.delete_network(context, res['n_dummy']['id'])
         super(NuageIPsecVPNDriver, self).delete_vpnservice(
             context, vpnservice)
