@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import datetime
 import logging
 import netaddr
 
@@ -138,8 +139,36 @@ class NuageDomain(object):
             res.append(np_dict)
         return res
 
-    def create_router(self, neutron_router, router, net_partition,
-                      tenant_name):
+    def get_fip_underlay_enabled_domain_by_netpart(self, netpart_id):
+        nuagel3dom = nuagelib.NuageL3Domain({'net_partition_id': netpart_id})
+        fip_enabled_domain = self.restproxy.get(
+            nuagel3dom.get_all_resources_in_ent(),
+            extra_headers=nuagel3dom.extra_headers_get_fipunderlay(True))
+        if fip_enabled_domain:
+            return fip_enabled_domain[0]['ID']
+        else:
+            return None
+
+    def create_shared_l3domain(self, params):
+        req_params = {
+            'net_partition_id': params['netpart_id'],
+            'templateID': params['templateID'],
+            'externalID': None
+        }
+        if params['FIPUnderlay']:
+            req_params['name'] = (plugin_constants.
+                                  SHARED_FIP_UNDERLAY_ENABLED_DOMAIN_NAME)
+        else:
+            req_params['name'] = ('OpenStack' + '_' + datetime.datetime.now()
+                                  .strftime('%Y-%m-%d_%H-%M-%S-%f'))
+
+        extra_params = {'FIPUnderlay': params['FIPUnderlay']}
+
+        nuagel3domain, _ = self._create_domain(req_params, extra_params)
+        return nuagel3domain['ID']
+
+    def create_l3domain(self, neutron_router, router, net_partition,
+                        tenant_name):
         req_params = {
             'net_partition_id': net_partition['id'],
             'name': neutron_router['id'],
@@ -180,56 +209,29 @@ class NuageDomain(object):
         extra_params['underlayEnabled'] = underlay_enabled
 
         router_dict = {}
-        nuagel3domain = nuagelib.NuageL3Domain(create_params=req_params,
-                                               extra_params=extra_params)
-
-        response = self.restproxy.rest_call(
-            'POST', nuagel3domain.post_resource(), nuagel3domain.post_data())
-        if not nuagel3domain.validate(response):
-            if not nuagel3domain.resource_exists(response):
-                code = nuagel3domain.get_error_code(response)
-                raise restproxy.RESTProxyError(nuagel3domain.error_msg,
-                                               error_code=code)
-            response = self.restproxy.rest_call(
-                'GET', nuagel3domain.get_resource_with_ext_id(), '',
-                extra_headers=nuagel3domain.extra_headers_get())
-            if not nuagel3domain.get_validate(response):
-                raise restproxy.RESTProxyError(nuagel3domain.error_msg)
-
-        nuage_domain_id = nuagel3domain.get_domainid(response)
-        external_id = nuagel3domain.get_response_externalid(response)
-        parent_id = nuagel3domain.get_response_parentid(response)
+        nuagel3domain, zone_list = self._create_domain(req_params,
+                                                       extra_params)
+        nuage_domain_id = nuagel3domain['ID']
+        external_id = nuagel3domain['externalID']
+        parent_id = nuagel3domain['parentID']
         router_dict['nuage_external_id'] = strip_cms_id(external_id)
         router_dict['nuage_parent_id'] = parent_id
         router_dict['nuage_domain_id'] = nuage_domain_id
-        router_dict['rt'] = nuagel3domain.get_domain_rt(response)
-        router_dict['rd'] = nuagel3domain.get_domain_rd(response)
-        router_dict['ecmp_count'] = nuagel3domain.get_domain_ecmp_count(
-            response)
-        router_dict['tunnel_type'] = nuagel3domain.get_domain_tunnel_type(
-            response)
-        router_dict['nuage_backhaul_vnid'] = (
-            nuagel3domain.get_domain_backhaul_vnid(response))
+        router_dict['rt'] = nuagel3domain.get('routeTarget')
+        router_dict['rd'] = nuagel3domain.get('routeDistinguisher')
+        router_dict['ecmp_count'] = nuagel3domain.get('ECMPCount')
+        router_dict['tunnel_type'] = nuagel3domain.get('tunnelType')
+        router_dict['nuage_backhaul_vnid'] = nuagel3domain.get('backHaulVNID')
         router_dict['nuage_backhaul_rd'] = (
-            nuagel3domain.get_domain_backhaul_rd(response))
+            nuagel3domain.get('backHaulRouteDistinguisher'))
         router_dict['nuage_backhaul_rt'] = (
-            nuagel3domain.get_domain_backhaul_rt(response))
-
-        req_params = {
-            'domain_id': nuage_domain_id
-        }
-        nuage_zone = nuagelib.NuageZone(req_params)
-        response = self.restproxy.rest_call('GET', nuage_zone.list_resource(),
-                                            '')
-        if not nuage_zone.validate(response):
-            self.delete_router(nuage_domain_id)
-            raise restproxy.RESTProxyError(nuage_zone.error_msg)
+            nuagel3domain.get('backHaulRouteTarget'))
 
         isolated_id = None
         shared_id = None
 
         if router.get('nuage_router_template'):
-            for zone in nuage_zone.zone_list(response):
+            for zone in zone_list:
                 if (zone['name'] == TEMPLATE_ISOLATED_ZONE and
                         not zone['publicZone']):
                     isolated_id = zone['ID']
@@ -248,14 +250,14 @@ class NuageDomain(object):
             if not isolated_id or not shared_id:
                 msg = ("Mandatory zones %s or %s do not exist in VSD" % (
                     TEMPLATE_ISOLATED_ZONE, TEMPLATE_SHARED_ZONE))
-                self.delete_router(nuage_domain_id)
+                self.delete_l3domain(nuage_domain_id)
                 raise restproxy.RESTProxyError(msg)
             router_dict['nuage_def_zone_id'] = isolated_id
             router_dict['nuage_shared_zone_id'] = shared_id
             self._make_nuage_zone_shared(net_partition['id'], shared_id,
                                          neutron_router['tenant_id'])
         elif net_partition.get('isolated_zone', None):
-            for zone in nuage_zone.zone_list(response):
+            for zone in zone_list:
                 if zone['name'] == net_partition['isolated_zone']:
                     isolated_id = zone['ID']
                 if zone['name'] == net_partition['shared_zone']:
@@ -271,36 +273,12 @@ class NuageDomain(object):
                     id=neutron_router['id'])
             if not isolated_id or not shared_id:
                 msg = "Default zones do not exist in VSD"
-                self.delete_router(nuage_domain_id)
+                self.delete_l3domain(nuage_domain_id)
                 raise restproxy.RESTProxyError(msg)
 
             router_dict['nuage_def_zone_id'] = isolated_id
             router_dict['nuage_shared_zone_id'] = shared_id
             # TODO(Ronak) - Handle exception here
-            self._make_nuage_zone_shared(net_partition['id'], shared_id,
-                                         neutron_router['tenant_id'])
-        # TODO(Divya) - the following else block seems redudant, see if can
-        # be removed
-        else:
-            router_dict['nuage_def_zone_id'] = nuage_zone.get_isolated_zone_id(
-                response)
-            external_id_params = {
-                'zone_id': router_dict['nuage_def_zone_id']
-            }
-            external_id_zone = nuagelib.NuageZone(
-                create_params=external_id_params)
-            helper.set_external_id_only(
-                self.restproxy,
-                resource=external_id_zone.get_resource(),
-                id=neutron_router['id'])
-            shared_id = nuage_zone.get_shared_zone_id(response)
-            external_id_zone['zone_id'] = shared_id
-            external_id_zone = nuagelib.NuageZone(
-                create_params=external_id_params)
-            helper.set_external_id_only(
-                self.restproxy,
-                resource=external_id_zone.get_resource(),
-                id=neutron_router['id'])
             self._make_nuage_zone_shared(net_partition['id'], shared_id,
                                          neutron_router['tenant_id'])
 
@@ -322,6 +300,23 @@ class NuageDomain(object):
         self._create_nuage_def_l3domain_adv_fwd_template(nuage_domain_id,
                                                          neutron_router['id'])
         return router_dict
+
+    def _create_domain(self, req_params, extra_params):
+        nuagel3domain = nuagelib.NuageL3Domain(create_params=req_params,
+                                               extra_params=extra_params)
+        created_domain = self.restproxy.post(nuagel3domain.post_resource(),
+                                             nuagel3domain.post_data())[0]
+        req_params = {
+            'domain_id': created_domain['ID']
+        }
+        nuage_zone = nuagelib.NuageZone(req_params)
+        zone_list = self.restproxy.get(nuage_zone.list_resource())
+        if not zone_list:
+            self.delete_l3domain(created_domain['ID'])
+            msg = ("Cannot find zone under the created domain {} on VSD. "
+                   "Delete the created domain".format(created_domain['ID']))
+            raise restproxy.ResourceNotFoundException(message=msg)
+        return created_domain, zone_list
 
     def update_router(self, nuage_domain_id, router, updates):
         tunnel_types = constants.VSD_TUNNEL_TYPES
@@ -367,9 +362,9 @@ class NuageDomain(object):
                                          nuage_zoneid,
                                          neutron_tenant_id)
 
-    def delete_router(self, id):
+    def delete_l3domain(self, domain_id):
         nuagel3domain = nuagelib.NuageL3Domain()
-        self.restproxy.delete(nuagel3domain.delete_resource(id))
+        self.restproxy.delete(nuagel3domain.delete_resource(domain_id))
 
     def validate_zone_create(self, l3dom_id,
                              l3isolated, l3shared):
@@ -497,10 +492,11 @@ class NuageDomain(object):
         nuage_l3_domain = nuagelib.NuageL3Domain(create_params=req_params)
 
         if shared:
-            zone_name = constants.DEF_NUAGE_ZONE_PREFIX + '-pub-' + \
-                l3dom_tmplt_id
+            zone_name = (plugin_constants.DEF_NUAGE_ZONE_PREFIX + '-pub-' +
+                         l3dom_tmplt_id)
         else:
-            zone_name = constants.DEF_NUAGE_ZONE_PREFIX + '-' + l3dom_tmplt_id
+            zone_name = (plugin_constants.DEF_NUAGE_ZONE_PREFIX + '-' +
+                         l3dom_tmplt_id)
 
         nuage_extra_headers = nuage_l3_domain.extra_headers_get_name(zone_name)
         response = self.restproxy.rest_call(
@@ -714,6 +710,26 @@ class NuageDomainSubnet(object):
         vsd_subnet = nuagelib.NuageSubnet()
         self.restproxy.put(vsd_subnet.put_resource(domain_subnet_id), data)
 
+    def create_shared_subnet(self, vsd_zone_id, subnet, params):
+        req_params = {
+            'name': helper.get_subnet_name(subnet),
+            'net': params['netaddr'],
+            'zone': vsd_zone_id,
+            'gateway': subnet['gateway_ip'],
+            'externalID': get_vsd_external_id(subnet['id'])
+        }
+        extra_params = {
+            'resourceType': params['resourceType'],
+            'description': subnet['name']
+        }
+        if params.get('underlay'):
+            extra_params['underlay'] = params['underlay']
+
+        nuage_subnet = self._create_subnet(req_params, extra_params)
+        nuage_subnet['nuage_userid'] = None
+        nuage_subnet['nuage_groupid'] = None
+        return nuage_subnet
+
     def create_domain_subnet(self, vsd_zone, ipv4_subnet, pnet_binding,
                              ipv6_subnet=None):
         external_id = helper.get_subnet_external_id(ipv4_subnet)
@@ -729,11 +745,7 @@ class NuageDomainSubnet(object):
                         'entityState': 'UNDER_CONSTRUCTION',
                         'dynamicIpv6Address': False}
         extra_params.update(helper.get_ipv6_vsd_data(ipv6_subnet))
-        nuagel3domsub = nuagelib.NuageSubnet(create_params=req_params,
-                                             extra_params=extra_params)
-        vsd_subnet = self.restproxy.post(nuagel3domsub.post_resource(),
-                                         nuagel3domsub.post_data())[0]
-
+        vsd_subnet = self._create_subnet(req_params, extra_params)
         nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
         nuagedhcpoptions.create_nuage_dhcp(
             ipv4_subnet,
@@ -760,6 +772,12 @@ class NuageDomainSubnet(object):
                 self._process_provider_network(pnet_binding, vsd_subnet['ID'],
                                                np_id, ipv6_subnet['id'])
         return vsd_subnet
+
+    def _create_subnet(self, req_params, extra_params):
+        nuagel3domsub = nuagelib.NuageSubnet(create_params=req_params,
+                                             extra_params=extra_params)
+        return self.restproxy.post(nuagel3domsub.post_resource(),
+                                   nuagel3domsub.post_data())[0]
 
     def _process_provider_network(
             self, pnet_binding, vsd_subnet_id, np_id, subnet):
@@ -816,6 +834,19 @@ class NuageDomainSubnet(object):
         else:
             nuage_pat = nuage_underlay = 'INHERITED'
         return nuage_pat, nuage_underlay
+
+    def update_nuage_subnet(self, nuage_id, params):
+        req_params = {}
+        if params.get('subnet_name'):
+            req_params['description'] = params['subnet_name']
+        if params.get('gateway_ip'):
+            req_params['gateway'] = params.get('gateway_ip')
+        if not req_params:
+            return
+        nuagel3domsub = nuagelib.NuageSubnet()
+        self.restproxy.put(
+            nuagel3domsub.put_resource(nuage_id),
+            req_params)
 
     def delete_domain_subnet(self, nuage_subn_id, neutron_subn_id,
                              pnet_binding):

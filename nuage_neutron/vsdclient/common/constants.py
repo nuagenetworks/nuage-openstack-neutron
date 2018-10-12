@@ -58,9 +58,6 @@ PRCS_DHCP_OPT_AS_RAW_HEX = [46, 77, 94, 97, 121, 125, 255]
 
 NOVA_PORT_OWNER_PREF = 'compute:'
 
-DEF_NUAGE_ZONE_PREFIX = 'def_zone'
-DEF_L3DOM_TEMPLATE_PFIX = '_def_L3_Template'
-DEF_L2DOM_TEMPLATE_PFIX = '_def_L2_Template'
 TEMPLATE_ISOLATED_ZONE = 'openstack-isolated'
 TEMPLATE_SHARED_ZONE = 'openstack-shared'
 
