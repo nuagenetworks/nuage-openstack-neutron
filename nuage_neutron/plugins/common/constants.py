@@ -112,6 +112,11 @@ NOVA_PORT_OWNER_PREF = 'compute:'
 
 SR_TYPE_FLOATING = "FLOATING"
 
+SHARED_INFRASTRUCTURE = 'Shared Infrastructure'
+SHARED_DOMAIN_TEMPLATE = 'Shared Domain template'
+SHARED_ZONE_TEMPLATE = 'Shared Zone template'
+SHARED_FIP_UNDERLAY_ENABLED_DOMAIN_NAME = 'Shared FIP-Underlay Enabled Domain'
+
 DEF_L3DOM_TEMPLATE_PFIX = '_def_L3_Template'
 DEF_L2DOM_TEMPLATE_PFIX = '_def_L2_Template'
 DEF_NUAGE_ZONE_PREFIX = 'def_zone'
@@ -139,9 +144,10 @@ NUAGE_UNDERLAY_OFF = 'off'
 NUAGE_UNDERLAY_NOT_AVAILABLE = 'not_available'
 NUAGE_UNDERLAY_INHERITED = 'inherited'
 
+NUAGE_UNDERLAY_FIP = 'fip'
+
 NUAGE_UNDERLAY = 'nuage_underlay'
 NUAGE_UNDERLAY_INI = 'nuage_underlay_default'
-
 
 RES_NOT_FOUND = 404
 RES_CONFLICT = 409

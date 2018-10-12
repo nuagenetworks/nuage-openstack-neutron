@@ -14,9 +14,7 @@
 
 import logging
 import netaddr
-import time
 
-from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper
@@ -24,7 +22,6 @@ from nuage_neutron.vsdclient.common import nuagelib
 from nuage_neutron.vsdclient.common import pnet_helper
 from nuage_neutron.vsdclient.resources import dhcpoptions
 from nuage_neutron.vsdclient import restproxy
-from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
 CONFLICT_ERR_CODE = constants.VSD_RESP_OBJ
 VSD_RESP_OBJ = constants.VSD_RESP_OBJ
@@ -468,118 +465,6 @@ class NuageL2Domain(object):
             if permission['permittedEntityName'] in tenants:
                 self.restproxy.delete(
                     nuagepermission.delete_resource(permission['ID']))
-
-    def get_nuage_sharedresource(self, id):
-        nuage_sharedresource = nuagelib.NuageSharedResources()
-        response = self.restproxy.rest_call(
-            'GET', nuage_sharedresource.get_resource_by_id(id), '')
-        if not nuage_sharedresource.get_validate(response):
-            raise restproxy.RESTProxyError(
-                nuage_sharedresource.error_msg,
-                nuage_sharedresource.vsd_error_code)
-        return nuage_sharedresource.get_response_obj(response)
-
-    def get_sharedresource(self, neutron_id):
-        return self._get_sharedresource_by_external(neutron_id)
-
-    def create_nuage_sharedresource(self, params):
-        subnet = params['neutron_subnet']
-        req_params = {
-            'name': subnet['id'],
-            'gateway_ip': subnet['gateway_ip'],
-            'netaddr': params['netaddr'],
-            'type': params['type'],
-            'externalID': get_vsd_external_id(subnet['id'])
-        }
-        desc_str = params['net_id'] + '_' + subnet.get('name', subnet['id'])
-
-        extra_params = {
-            'description': desc_str
-        }
-        if params.get('underlay') is not None:
-            extra_params['underlay'] = params['underlay']
-        if params.get('nuage_uplink'):
-            extra_params['sharedResourceParentID'] = params['nuage_uplink']
-
-        nuage_sharedresource = nuagelib.NuageSharedResources(
-            create_params=req_params, extra_params=extra_params)
-        result = self.restproxy.post(
-            nuage_sharedresource.post_resource(),
-            nuage_sharedresource.post_data())[0]
-        return result['sharedResourceParentID']
-
-    def _get_sharedresource_by_external(self, neutron_id):
-        create_params = {
-            'externalID': get_vsd_external_id(neutron_id)
-        }
-        nuage_sharedresource = nuagelib.NuageSharedResources(create_params)
-        url = nuage_sharedresource.get_resource()
-        extra_headers = nuage_sharedresource.extra_headers_get_by_externalID()
-        shared_resouces = None
-
-        # deal with VSD-25652
-        # TODO(Kris) remove when VSD-25652 is fixed or use of shared resources
-        #            refactored out (whichever comes first)
-        nbr_attempts = 3
-        for attempt in range(nbr_attempts):
-            try:
-                shared_resouces = self.restproxy.get(
-                    url, extra_headers=extra_headers)
-                break
-            except RESTProxyError as e:
-                LOG.error('Got {} when retrieving sharedresource by '
-                          'external id'.format(str(e)))
-                if (e.code == constants.REST_SERV_INTERNAL_ERROR and
-                        attempt < nbr_attempts - 1):
-                    time.sleep(0.2)  # VSD-25652: retry in 0.2 secs from now
-                else:
-                    raise
-
-        if not shared_resouces:
-            raise restproxy.ResourceNotFoundException(
-                "Cannot find sharednetworkresource with externalID '%s'"
-                % create_params['externalID'])
-        return shared_resouces[0]
-
-    def update_nuage_sharedresource(self, neutron_id, params):
-        nuage_id = self._get_sharedresource_by_external(neutron_id)['ID']
-
-        req_params = {}
-        if params.get('net_id') and params.get('subnet_name'):
-            description = params['net_id'] + '_' + params['subnet_name']
-            req_params['description'] = description
-        if params.get('gateway_ip'):
-            req_params['gateway'] = params.get('gateway_ip')
-        if not req_params:
-            return
-
-        create_params = {
-            'id': nuage_id
-        }
-        nuage_sharedresource = nuagelib.NuageSharedResources(create_params, )
-        url = nuage_sharedresource.put_resource()
-        self.restproxy.rest_call('PUT', url, req_params)
-
-    def delete_nuage_sharedresource(self, id):
-        req_params = {
-            'name': id
-        }
-        nuage_sharedresource = nuagelib.NuageSharedResources(
-            create_params=req_params)
-        sharedresource = self.restproxy.get(
-            nuage_sharedresource.get_resource(),
-            extra_headers=nuage_sharedresource.extra_headers_get_by_name())
-        if sharedresource:
-            self._delete_nuage_sharedresource(sharedresource[0]['ID'])
-
-    def _delete_nuage_sharedresource(self, id):
-        nuage_sharedresource = nuagelib.NuageSharedResources()
-        resp = self.restproxy.rest_call(
-            'DELETE', nuage_sharedresource.delete_resource(id), '')
-        if not nuage_sharedresource.validate(resp):
-            code = nuage_sharedresource.get_error_code(resp)
-            raise restproxy.RESTProxyError(nuage_sharedresource.error_msg,
-                                           error_code=code)
 
     def get_gateway_ip_for_advsub(self, vsd_subnet):
         LOG.debug("vsdclient.get_gateway_ip_for_advsub() called")

@@ -51,7 +51,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
 
     def __init__(self):
         super(NuageApi, self).__init__()
-        self._prepare_default_netpartition()
+        # Prepare default and shared netpartitions
+        self._prepare_netpartitions()
         db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
             'security_groups', [self._extend_resource_dict])
 
@@ -100,11 +101,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         return self._make_net_partition_dict(net_partitioninst)
 
     @log_helpers.log_method_call
-    def _validate_create_net_partition(self,
-                                       net_part_name,
-                                       session):
-        nuage_netpart = self.vsdclient.get_netpartition_data(
-            net_part_name)
+    def _validate_create_net_partition(self, net_part_name, session):
+        nuage_netpart = self.vsdclient.get_netpartition_data(net_part_name)
         netpart_db = nuagedb.get_net_partition_by_name(session, net_part_name)
 
         if nuage_netpart:
@@ -113,17 +111,20 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                     # Net-partition exists in neutron and vsd
                     def_netpart = (
                         cfg.CONF.RESTPROXY.default_net_partition_name)
-                    if def_netpart == net_part_name:
+                    share_netpart = constants.SHARED_INFRASTRUCTURE
+                    if (def_netpart == net_part_name or
+                            share_netpart == net_part_name):
                         if nuage_netpart['np_id'] != netpart_db['id']:
-                            msg = ("Default net-partition %s exists in "
+                            msg = ("Net-partition %s exists in "
                                    "Neutron and VSD, but the id is different"
                                    % net_part_name)
                             raise n_exc.BadRequest(resource='net_partition',
                                                    msg=msg)
                         self._update_net_partition(session,
+                                                   net_part_name,
                                                    netpart_db,
                                                    nuage_netpart)
-                        LOG.info("Default net-partition %s already exists,"
+                        LOG.info("Net-partition %s already exists,"
                                  " so will just use it", net_part_name)
                         return self._make_net_partition_dict(netpart_db)
                     else:
@@ -145,7 +146,6 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                                                          net_part_name)
                 return self._make_net_partition_dict(netpart_db)
         else:
-
             if netpart_db:
                 # Net-partition exists in neutron and not VSD
                 LOG.info("Existing net-partition %s will be deleted and "
@@ -159,8 +159,12 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def _add_net_partition(session, netpart, netpart_name):
         l3dom_id = netpart['l3dom_tid']
-        l3isolated = constants.DEF_NUAGE_ZONE_PREFIX + '-' + l3dom_id
-        l3shared = constants.DEF_NUAGE_ZONE_PREFIX + '-pub-' + l3dom_id
+        if netpart_name == constants.SHARED_INFRASTRUCTURE:
+            l3isolated = None
+            l3shared = constants.SHARED_ZONE_TEMPLATE
+        else:
+            l3isolated = constants.DEF_NUAGE_ZONE_PREFIX + '-' + l3dom_id
+            l3shared = constants.DEF_NUAGE_ZONE_PREFIX + '-pub-' + l3dom_id
         return nuagedb.add_net_partition(session,
                                          netpart['np_id'],
                                          l3dom_id,
@@ -171,11 +175,16 @@ class NuageApi(base_plugin.BaseNuagePlugin,
 
     @log_helpers.log_method_call
     def _update_net_partition(self, session,
+                              netpart_name,
                               net_partition_db,
                               vsd_net_partition):
         l3dom_id = vsd_net_partition['l3dom_tid']
-        l3isolated = constants.DEF_NUAGE_ZONE_PREFIX + '-' + l3dom_id
-        l3shared = constants.DEF_NUAGE_ZONE_PREFIX + '-pub-' + l3dom_id
+        if netpart_name == constants.SHARED_INFRASTRUCTURE:
+            l3isolated = None
+            l3shared = constants.SHARED_ZONE_TEMPLATE
+        else:
+            l3isolated = constants.DEF_NUAGE_ZONE_PREFIX + '-' + l3dom_id
+            l3shared = constants.DEF_NUAGE_ZONE_PREFIX + '-pub-' + l3dom_id
         with session.begin(subtransactions=True):
             nuagedb.update_netpartition(net_partition_db, {
                 'l3dom_tmplt_id': l3dom_id,
@@ -211,19 +220,23 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         with session.begin():
             if netpartition:
                 nuagedb.delete_net_partition(session, netpartition)
-            net_partitioninst = nuagedb.add_net_partition(session,
-                                                          np_id,
-                                                          l3dom_tid,
-                                                          l2dom_tid,
-                                                          netpart_name,
-                                                          l3isolated,
-                                                          l3shared)
+            nuagedb.add_net_partition(session,
+                                      np_id,
+                                      l3dom_tid,
+                                      l2dom_tid,
+                                      netpart_name,
+                                      l3isolated,
+                                      l3shared)
         self._default_np_id = np_id
-        return net_partitioninst
 
     @log_helpers.log_method_call
-    def _prepare_default_netpartition(self):
-        netpart_name = cfg.CONF.RESTPROXY.default_net_partition_name
+    def _prepare_netpartitions(self):
+        # prepare shared netpartition
+        shared_netpart_name = constants.SHARED_INFRASTRUCTURE
+        self._validate_create_net_partition(shared_netpart_name,
+                                            lib_db_api.get_writer_session())
+        # prepare default netpartition
+        default_netpart_name = cfg.CONF.RESTPROXY.default_net_partition_name
         l3template = cfg.CONF.RESTPROXY.default_l3domain_template
         l2template = cfg.CONF.RESTPROXY.default_l2domain_template
         l3isolated = cfg.CONF.RESTPROXY.default_isolated_zone
@@ -236,20 +249,18 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                 msg = 'Configuration of default net-partition not complete'
                 raise n_exc.BadRequest(resource='net_partition',
                                        msg=msg)
+            '''NetPartition and templates already created. Just sync the
+            neutron DB. They must all be in VSD. If not, its an error
+            '''
+            self._link_default_netpartition(default_netpart_name,
+                                            l2template,
+                                            l3template,
+                                            l3isolated,
+                                            l3shared)
         else:
             default_netpart = self._validate_create_net_partition(
-                netpart_name, lib_db_api.get_writer_session())
+                default_netpart_name, lib_db_api.get_writer_session())
             self._default_np_id = default_netpart['id']
-            return default_netpart
-
-        '''NetPartition and templates already created. Just sync the
-        neutron DB. They must all be in VSD. If not, its an error
-        '''
-        return self._link_default_netpartition(netpart_name,
-                                               l2template,
-                                               l3template,
-                                               l3isolated,
-                                               l3shared)
 
     @nuage_utils.handle_nuage_api_error
     @lib_db_api.retry_if_session_inactive()
@@ -262,6 +273,9 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def _validate_delete_net_partition(self, context, id, net_partition_name):
+        if net_partition_name == constants.SHARED_INFRASTRUCTURE:
+            msg = _("Can't delete net_partition {}").format(net_partition_name)
+            raise n_exc.BadRequest(resource='net_partition', msg=msg)
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_entid(
             context.session, id)
         ent_l2dom_mapping = nuagedb.get_ent_l2dom_mapping_by_entid(
@@ -397,7 +411,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
 
         shared_id = subnet['associatedSharedNetworkResourceID']
         if shared_id:
-            subnet = self.vsdclient.get_nuage_sharedresource(shared_id)
+            subnet = self.vsdclient.get_nuage_subnet_by_id(shared_id)
         if subnet.get('address'):
             ip = netaddr.IPNetwork(subnet['address'] + '/' +
                                    subnet['netmask'])
@@ -410,7 +424,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
 
         shared_id = subnet['associatedSharedNetworkResourceID']
         if shared_id:
-            subnet = self.vsdclient.get_nuage_sharedresource(shared_id)
+            subnet = self.vsdclient.get_nuage_subnet_by_id(shared_id)
         return subnet.get('IPv6Address')
 
     @log_helpers.log_method_call
