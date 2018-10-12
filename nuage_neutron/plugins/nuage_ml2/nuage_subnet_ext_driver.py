@@ -89,11 +89,21 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
             session, result['network_id'])
 
         if self._is_network_external(session, db_data['network_id']):
-            nuage_subnet = self.get_vsd_shared_subnet_attributes(
-                result['id'])
-            if nuage_subnet:
-                result['underlay'] = nuage_subnet['underlay']
-                result['nuage_uplink'] = nuage_subnet['sharedResourceParentID']
+            # Add nuage underlay parameter and set the nuage_uplink for
+            # subnets in external network.
+            # Normally external subnet is always l3, but in process of updating
+            # internal to external network, update network postcommit process
+            # is looping over current subnets and at that time these are still
+            # l2 in VSD; hence checking for l3 (if not, skip this block).
+            if subnet_mapping and self._is_l3(subnet_mapping):
+                nuage_underlay_db = nuagedb.get_subnet_parameter(
+                    session, result['id'], nuage_constants.NUAGE_UNDERLAY)
+                nuage_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                    subnet_mapping['nuage_subnet_id'],
+                    subnet_type=nuage_constants.L3SUBNET)
+                result['underlay'] = bool(nuage_underlay_db)
+                if nuage_subnet:
+                    result['nuage_uplink'] = nuage_subnet['parentID']
         else:
             # Add nuage_underlay parameter
             update = self.val_by_id.pop(
@@ -112,8 +122,8 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
                     nuage_underlay_db['parameter_value']
                     if nuage_underlay_db else
                     nuage_constants.NUAGE_UNDERLAY_INHERITED)
-            elif (update is not constants.ATTR_NOT_SPECIFIED
-                  and update != nuage_underlay_db):
+            elif (update is not constants.ATTR_NOT_SPECIFIED and
+                  update != nuage_underlay_db):
                 # update + change
                 result['nuage_underlay'] = update
         return result

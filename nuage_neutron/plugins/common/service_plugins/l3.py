@@ -640,15 +640,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         req_router = copy.deepcopy(router['router'])
         net_partition = self._get_net_partition_for_entity(
             context, router['router'])
-        if 'ecmp_count' in router and not context.is_admin:
-            msg = _("ecmp_count can only be set by an admin user.")
-            raise nuage_exc.NuageNotAuthorized(resource='router', msg=msg)
-
+        self._validate_create_router(context, net_partition['name'], router)
         neutron_router = super(NuageL3Plugin, self).create_router(context,
                                                                   router)
         nuage_router = None
         try:
-            nuage_router = self.vsdclient.create_router(
+            nuage_router = self.vsdclient.create_l3domain(
                 neutron_router, req_router, net_partition, context.tenant_name)
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -682,6 +679,15 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         routing_mechanisms.add_nuage_router_attributes(context.session,
                                                        neutron_router)
         return neutron_router
+
+    def _validate_create_router(self, context, netpart_name, router):
+        if netpart_name == constants.SHARED_INFRASTRUCTURE:
+            msg = _("It is not allowed to create routers in "
+                    "the net_partition {}").format(netpart_name)
+            raise n_exc.BadRequest(resource='router', msg=msg)
+        if 'ecmp_count' in router and not context.is_admin:
+            msg = _("ecmp_count can only be set by an admin user.")
+            raise nuage_exc.NuageNotAuthorized(resource='router', msg=msg)
 
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
@@ -833,7 +839,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             if ports:
                 raise l3.RouterInUse(router_id=id)
             nuage_domain_id = ent_rtr_mapping['nuage_router_id']
-            self.vsdclient.delete_router(nuage_domain_id)
+            self.vsdclient.delete_l3domain(nuage_domain_id)
 
         super(NuageL3Plugin, self).delete_router(context, id)
 
