@@ -243,15 +243,10 @@ class NuageVM(object):
                 req_params['ipv6'] = None
 
     def is_shared_l2_domain_managed(self, shared_nuage_id):
-        nuage_sharedresource = nuagelib.NuageSharedResources()
-        response = self.restproxy.rest_call(
-            'GET',
-            nuage_sharedresource.get_resource_by_id(shared_nuage_id),
-            '')
-        if not nuage_sharedresource.get_validate(response):
-            raise restproxy.RESTProxyError(nuage_sharedresource.error_msg)
-        l2_shared = nuage_sharedresource.get_response_obj(response)
-        return l2_shared.get('DHCPManaged')
+        nuagel2dom = nuagelib.NuageL2Domain()
+        response = self.restproxy.get(nuagel2dom.get_resource(shared_nuage_id),
+                                      required=True)[0]
+        return response.get('DHCPManaged')
 
     def create_vms(self, params):
         if params['no_of_ports'] > 1:
