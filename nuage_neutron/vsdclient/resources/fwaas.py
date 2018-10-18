@@ -278,17 +278,18 @@ class NuageFwaas(NuageFwaasMapper):
                               handle_block_acl=handle_block_acl)
 
     def update_firewall(self, enterprise_id, os_firewall, l3domain_ids,
-                        admin_state_updated):
+                        admin_state_updated, routers_updated):
         if (os_firewall.get('admin_state_up') is False and
-                admin_state_updated is False):
+                admin_state_updated is False and routers_updated is False):
             return
         self._firewall_update(enterprise_id, os_firewall, l3domain_ids,
                               handle_block_acl=admin_state_updated)
 
     def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
-        handle_block_acl = os_firewall.get('admin_state_up', True) is False
-        self._firewall_update(enterprise_id, os_firewall, l3domain_ids,
-                              handle_block_acl=handle_block_acl)
+        if os_firewall.get('admin_state_up', True) is False:
+            self._delete_drop_all_fw_acl(enterprise_id, os_firewall['id'])
+        else:
+            self._firewall_update(enterprise_id, os_firewall, l3domain_ids)
 
     def _firewall_update(self, enterprise_id, os_firewall, l3domain_ids,
                          handle_block_acl=False):
