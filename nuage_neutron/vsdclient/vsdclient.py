@@ -645,7 +645,7 @@ class VsdClient(object):
         pass
 
     def update_firewall(self, enterprise_id, os_firewall, l3domain_ids,
-                        handle_block_acl):
+                        handle_block_acl, routers_updated):
         pass
 
     def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
