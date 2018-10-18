@@ -42,10 +42,6 @@
           export VSP_RELEASE={{ nuage_vsp_release }}
           export DEVSTACK_GATE_TOPOLOGY=aio
 
-          # we will attempt to use cloned upper-contraints.txt
-          # prepared by zuul
-          export UPPER_CONSTRAINTS_FILE=/opt/stack/new/requirements/upper-constraints.txt
-
           # by default devstack-gate will include bunch of projects
           # we dont actually need. We ovewrite project list here
           PROJECTS="openstack-infra/devstack-gate"
@@ -66,13 +62,22 @@
           PROJECTS="OpenStack/nuage-tempest-plugin $PROJECTS"
           export DEVSTACK_GATE_PROJECTS_OVERRIDE="$PROJECTS"
 
+          PRIMARY_IP="{{ hostvars['primary']['ansible_default_ipv4']['address'] }}"
+
+          # add own address and VSD ip to no proxy
+          export no_proxy=$no_proxy,${PRIMARY_IP},${VSD_SERVER%%:*}
+
           # get own ip and derrive cidr for public net from it,
           # to avoid overlap on VSD by multiple gate hosts
-          PRIMARY_IP="{{ hostvars['primary']['ansible_default_ipv4']['address'] }}"
           group=$(echo ${PRIMARY_IP} | awk -F.  '{print $3}')
           GW="172.${group}.${PRIMARY_IP##*.}.1"
           export DEVSTACK_GATE_FLOATING_RANGE="172.${group}.${PRIMARY_IP##*.}.0/24"
           export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
+
+          function pre_test_hook {
+              sudo -H pip install -c $BASE/new/requirements/upper-constraints.txt stestr
+          }
+          export -f pre_test_hook
 
           function gate_hook {
                bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh ml2-sriov
@@ -84,4 +89,4 @@
           ./safe-devstack-vm-gate-wrap.sh
         executable: /bin/bash
         chdir: '{{ ansible_user_dir }}/workspace'
-      environment: '{{ zuul | zuul_legacy_vars }}'
+      environment: '{{ zuul | zuul_legacy_vars | combine(proxy_env) }}'
