@@ -24,13 +24,13 @@ from oslo_utils import excutils
 from sqlalchemy.orm import exc
 
 from neutron._i18n import _
-from neutron.db import api as db
 from neutron.db.common_db_mixin import CommonDbMixin
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
+from neutron_lib.db import api as lib_db_api
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.plugins import constants as lib_plugin_constants
@@ -582,7 +582,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                      'nuage_l2dom_tmplt_id': None})
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):
         router = super(NuageL3Plugin, self).get_router(context, id, fields)
@@ -592,7 +592,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return self._fields(router, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_routers(self, context, filters=None, fields=None,
                     sorts=None, limit=None, marker=None,
@@ -635,7 +635,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         routing_mechanisms.add_nuage_router_attributes(session, router)
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def create_router(self, context, router):
         routing_mechanisms.update_routing_values(router['router'])
@@ -687,7 +687,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return neutron_router
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def update_router(self, context, id, router):
         updates = router['router']
@@ -814,7 +814,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         nuagedb.update_entrouter_mapping(ent_rtr_mapping, ns_dict)
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def delete_router(self, context, id):
         neutron_router = self.get_router(context, id)
@@ -1047,7 +1047,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                        direction, value, rate_unit))
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_floatingip(self, context, id, fields=None):
         fip = super(NuageL3Plugin, self).get_floatingip(context, id)
@@ -1072,7 +1072,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return self._fields(fip, fields)
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def create_floatingip(self, context, floatingip,
                           initial_status=lib_constants.
@@ -1158,7 +1158,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return fip_rate_values
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def update_floatingip(self, context, id, floatingip):
         # Upstream Neutron disassociates port from fip if updated with None
@@ -1317,7 +1317,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return router_ids
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def delete_floatingip(self, context, fip_id):
         fip = self._get_floatingip(context, fip_id)

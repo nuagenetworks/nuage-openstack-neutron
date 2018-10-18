@@ -20,7 +20,6 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from neutron._i18n import _
-from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db as sg_db
 
@@ -253,7 +252,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                                                l3shared)
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
@@ -277,7 +276,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             raise n_exc.BadRequest(resource='net_partition', msg=msg)
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def delete_net_partition(self, context, id):
         net_partition = nuagedb.get_net_partition_by_id(context.session, id)
@@ -290,7 +289,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             nuagedb.delete_net_partition(context.session,
                                          net_partition)
 
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_net_partition(self, context, id, fields=None):
         net_partition = nuagedb.get_net_partition_by_id(context.session,
@@ -300,7 +299,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                                           resource_id=id)
         return self._make_net_partition_dict(net_partition, context=context)
 
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_net_partitions(self, context, filters=None, fields=None):
         net_partitions = nuagedb.get_net_partitions(context.session,
@@ -310,7 +309,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                 for net_partition in net_partitions]
 
     @nuage_utils.handle_nuage_api_error
-    @db.retry_if_session_inactive()
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_vsd_subnet(self, context, id, fields=None):
         subnet = self.vsdclient.get_nuage_subnet_by_id(
