@@ -269,17 +269,20 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
 
                 if policy_updated or admin_state_updated or router_updated:
                     self._update_policy_l3domains(context, updated_fw,
-                                                  admin_state_updated)
+                                                  admin_state_updated,
+                                                  router_updated)
                 self._update_firewall_status(context, updated_fw)
 
             return updated_fw
 
-    def _update_policy_l3domains(self, context, firewall, admin_state_updated):
+    def _update_policy_l3domains(self, context, firewall, admin_state_updated,
+                                 routers_updated=False):
         l3domains_ids = self._get_l3domains_for_firewall(context, firewall)
         self.vsdclient.update_firewall(self.enterprise_id,
                                        firewall,
                                        l3domains_ids,
-                                       admin_state_updated)
+                                       admin_state_updated,
+                                       routers_updated)
 
     def _get_l3domains_for_firewall(self, context, firewall):
         if firewall['admin_state_up']:
