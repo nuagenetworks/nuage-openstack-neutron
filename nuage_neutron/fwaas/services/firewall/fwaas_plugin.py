@@ -270,7 +270,7 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
                 if policy_updated or admin_state_updated or router_updated:
                     self._update_policy_l3domains(context, updated_fw,
                                                   admin_state_updated)
-                    self._update_firewall_status(context, updated_fw)
+                self._update_firewall_status(context, updated_fw)
 
             return updated_fw
 
@@ -323,10 +323,13 @@ class NuageFWaaSPlugin(base_plugin.BaseNuagePlugin,
         return [m.nuage_router_id for m in mappings]
 
     def _update_firewall_status(self, context, fw):
-        if fw.get('firewall_policy_id') and fw.get('router_ids'):
-            fw['status'] = const.ACTIVE
+        if fw.get('router_ids'):
+            if fw.get('admin_state_up'):
+                fw['status'] = const.ACTIVE
+            else:
+                fw['status'] = const.DOWN
         else:
-            fw['status'] = const.CREATED
+            fw['status'] = const.INACTIVE
 
         with context.session.begin(subtransactions=True):
             fw_db = self._get_firewall(context, fw['id'])
