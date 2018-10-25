@@ -230,9 +230,19 @@ class RESTProxyServer(object):
             try:
                 response = self._create_request(action, url, body, headers)
                 resp_data = response.text
-
-                LOG.debug('VSD_API RSP %s %s %s', response.status_code,
-                          response.reason, response.text)
+                resp_nuage_count = (response.headers.get('X-Nuage-Count')
+                                    if response.headers else None)
+                if resp_nuage_count is not None:
+                    LOG.debug('VSD_API RSP [Count:%s] %s %s %s',
+                              resp_nuage_count,
+                              response.status_code,
+                              response.reason,
+                              response.text)
+                else:
+                    LOG.debug('VSD_API RSP %s %s %s',
+                              response.status_code,
+                              response.reason,
+                              response.text)
                 if response.status_code in REST_SUCCESS_CODES:
                     try:
                         resp_data = json.loads(response.text)
@@ -390,7 +400,7 @@ class RESTProxyServer(object):
             data = response[3]
             page_size = len(data)
             response_size = int(headers.get('X-Nuage-Count', 0))
-            if response_size > page_size:
+            if page_size and response_size > page_size:
                 # handle pagination
                 num_pages = response_size // page_size + 1
                 for page in range(1, num_pages):
