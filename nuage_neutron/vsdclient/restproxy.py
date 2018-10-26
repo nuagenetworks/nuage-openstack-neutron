@@ -441,6 +441,18 @@ class RESTProxyServer(object):
         }
         return restproxy.get(resource, extra_headers=headers)
 
+    @staticmethod
+    def acltmpl_retrieve_by_priority(restproxy, resource, data):
+        if not data.get('priority'):
+            return None
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "priority IS %d and externalID CONTAINS '%s'" % (
+                data.get('priority'),
+                data.get('externalID').split('@')[1]),
+        }
+        return restproxy.get(resource, extra_headers=headers)
+
     def post(self, resource, data, extra_headers=None,
              on_res_exists=retrieve_by_external_id.__func__,
              ignore_err_codes=None):
