@@ -1451,23 +1451,24 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         ports = self.core_plugin.get_ports(context, filters={
             'network_id': [updated['id']]})
-        for p in ports:
-            if external_change and updated.get(
-                    external_net.EXTERNAL) and p['device_owner'].startswith(
-                    constants.NOVA_PORT_OWNER_PREF):
-                # Check if there are vm ports attached to this network
-                # If there are, then updating the network router:external
-                # is not possible.
-                msg = (_("Network %s cannot be updated. "
-                         "There are one or more ports still in"
-                         " use on the network.") % updated['id'])
-                raise NuageBadRequest(msg=msg)
-            elif (p['device_owner'].endswith(
-                    resources.ROUTER_INTERFACE) and shared_change):
-                msg = (_("Cannot update the shared attribute value"
-                         " since subnet with id %s is attached to a"
-                         " router.") % p['fixed_ips']['subnet_id'])
-                raise NuageBadRequest(msg=msg)
+        if external_change and updated.get(external_net.EXTERNAL):
+            for p in ports:
+                if p['device_owner'] not in [constants.DEVICE_OWNER_DHCP_NUAGE,
+                                             os_constants.DEVICE_OWNER_DHCP]:
+                    # Check if there are ports except nuage and neutron dhcp
+                    # ports attached to this network. If there are, then
+                    # updating the network router:external is not possible.
+                    msg = (_("Network %s cannot be updated. "
+                             "There are one or more ports still in"
+                             " use on the network.") % updated['id'])
+                    raise NuageBadRequest(msg=msg)
+        if shared_change:
+            for p in ports:
+                if p['device_owner'].endswith(resources.ROUTER_INTERFACE):
+                    msg = (_("Cannot update the shared attribute value"
+                             " since subnet with id %s is attached to a"
+                             " router.") % p['fixed_ips']['subnet_id'])
+                    raise NuageBadRequest(msg=msg)
 
         # nuage_l2bridge checks
         if subnets and physnets_change:
