@@ -174,7 +174,7 @@
     vars:
       job_flavor: ml2-full
       branch_override: default
-    timeout: 10800
+    timeout: 14400
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
@@ -192,7 +192,7 @@
     vars:
       job_flavor: ml2-neutron
       branch_override: default
-    timeout: 9000
+    timeout: 10800
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
