@@ -135,6 +135,25 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                                     interface_info,
                                                     session,
                                                     vport))
+        subnet = self.core_plugin.get_subnet(context, subnet_id)
+        network = self.core_plugin.get_network(context,
+                                               subnet['network_id'])
+
+        if not self.is_vxlan_network(network):
+            return super(NuageL3Plugin, self).add_router_interface(
+                context, router_id, interface_info)
+
+        if nuagedb.get_nuage_l2bridge_id_for_network(session,
+                                                     network['id']):
+            msg = _("It is not allowed to add a router interface to a"
+                    "subnet that is attached to a nuage_l2bridge.")
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
+        if network['router:external']:
+            msg = _("Subnet in external network cannot be an interface of "
+                    "a router.")
+            raise nuage_exc.NuageBadRequest(msg=msg)
+
         if not subnet_l2dom:
             filters = {
                 'fixed_ips': {'subnet_id': [subnet_id]},
@@ -151,7 +170,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 router_id,
                 interface_info)
 
-        subnet = self.core_plugin.get_subnet(context, subnet_id)
         vsd_zone = self.vsdclient.get_zone_by_routerid(router_id,
                                                        subnet['shared'])
         dual_stack_subnet = self.get_dual_stack_subnet(context, subnet)
@@ -183,20 +201,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         if vport:
             self.vsdclient.delete_nuage_vport(vport['ID'])
         try:
-            network = self.core_plugin.get_network(context,
-                                                   rtr_if_info['network_id'])
-            if nuagedb.get_nuage_l2bridge_id_for_network(session,
-                                                         network['id']):
-                msg = _("It is not allowed to add a router interface to a"
-                        "subnet that is attached to a nuage_l2bridge.")
-                raise nuage_exc.NuageBadRequest(msg=msg)
-
-            if not self.is_vxlan_network(network):
-                return rtr_if_info
-            if network['router:external']:
-                msg = _("Subnet in external network cannot be an interface of "
-                        "a router.")
-                raise nuage_exc.NuageBadRequest(msg=msg)
             if subnet_l2dom and self._is_l3(subnet_l2dom):
                 # This subnet is already l3
                 self._notify_add_del_router_interface(
