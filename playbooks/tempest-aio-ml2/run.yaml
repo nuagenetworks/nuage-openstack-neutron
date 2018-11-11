@@ -57,6 +57,7 @@
           PROJECTS="openstack/neutron $PROJECTS"
           PROJECTS="openstack/neutron-tempest-plugin $PROJECTS"
           PROJECTS="openstack/nova $PROJECTS"
+          PROJECTS="openstack/python-neutronclient $PROJECTS"
           PROJECTS="openstack/requirements $PROJECTS"
           PROJECTS="openstack/tempest $PROJECTS"
 
