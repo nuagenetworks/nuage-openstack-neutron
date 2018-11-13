@@ -223,6 +223,7 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
+      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:
@@ -246,6 +247,7 @@
       - openstack/neutron-tempest-plugin
       - openstack/octavia
       - openstack/octavia-tempest-plugin
+      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:
@@ -262,6 +264,7 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - openstack-infra/devstack-gate
+      - openstack/python-neutronclient
       - openstack/rally
       - openstack/rally-openstack
 
@@ -286,6 +289,7 @@
       - openstack/neutron-tempest-plugin
       - openstack/octavia
       - openstack/octavia-tempest-plugin
+      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:
@@ -309,6 +313,7 @@
       - openstack/neutron-tempest-plugin
       - openstack/octavia
       - openstack/octavia-tempest-plugin
+      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:

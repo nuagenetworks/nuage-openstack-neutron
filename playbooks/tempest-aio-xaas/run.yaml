@@ -62,6 +62,7 @@
           PROJECTS="openstack/nova $PROJECTS"
           PROJECTS="openstack/octavia $PROJECTS"
           PROJECTS="openstack/octavia-tempest-plugin $PROJECTS"
+          PROJECTS="openstack/python-neutronclient $PROJECTS"
           PROJECTS="openstack/requirements $PROJECTS"
           PROJECTS="openstack/tempest $PROJECTS"
           PROJECTS="OpenStack/nuage-gate-utils $PROJECTS"
