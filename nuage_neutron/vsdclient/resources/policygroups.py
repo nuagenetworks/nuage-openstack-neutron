@@ -876,7 +876,7 @@ class NuagePolicyGroups(object):
             rest_data = nuageacl.post_data_default_l3()
         return self.restproxy.post(
             rest_path, rest_data,
-            on_res_exists=self.restproxy.retrieve_by_external_id,
+            on_res_exists=self.restproxy.acltmpl_retrieve_by_priority,
             ignore_err_codes=[restproxy.REST_DUPLICATE_ACL_PRIORITY])[0]
 
     def create_default_deny_rule(self, parent_id, parent_type,
