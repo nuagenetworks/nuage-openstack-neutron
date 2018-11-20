@@ -14,6 +14,7 @@
 
 import logging
 import netaddr
+import time
 
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
@@ -23,6 +24,7 @@ from nuage_neutron.vsdclient.common import nuagelib
 from nuage_neutron.vsdclient.common import pnet_helper
 from nuage_neutron.vsdclient.resources import dhcpoptions
 from nuage_neutron.vsdclient import restproxy
+from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
 CONFLICT_ERR_CODE = constants.VSD_RESP_OBJ
 VSD_RESP_OBJ = constants.VSD_RESP_OBJ
@@ -513,11 +515,28 @@ class NuageL2Domain(object):
         nuage_sharedresource = nuagelib.NuageSharedResources(create_params)
         url = nuage_sharedresource.get_resource()
         extra_headers = nuage_sharedresource.extra_headers_get_by_externalID()
-        shared_resouces = self.restproxy.get(url, extra_headers=extra_headers)
+        shared_resouces = None
+
+        # deal with VSD-25652
+        # TODO(Kris) remove when VSD-25652 is fixed or use of shared resources
+        #            refactored out (whichever comes first)
+        e = None
+        for attempt in range(3):
+            try:
+                shared_resouces = self.restproxy.get(
+                    url, extra_headers=extra_headers)
+            except RESTProxyError as e:
+                LOG.error('Got {} when retrieving sharedresource by '
+                          'external id'.format(str(e)))
+                time.sleep(0.2)
+
         if not shared_resouces:
-            raise restproxy.ResourceNotFoundException(
-                "Cannot find sharednetworkresource with externalID '%s'"
-                % create_params['externalID'])
+            if e:
+                raise e
+            else:
+                raise restproxy.ResourceNotFoundException(
+                    "Cannot find sharednetworkresource with externalID '%s'"
+                    % create_params['externalID'])
         return shared_resouces[0]
 
     def update_nuage_sharedresource(self, neutron_id, params):
