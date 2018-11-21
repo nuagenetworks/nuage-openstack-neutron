@@ -1,7 +1,7 @@
 - hosts: all
   roles:
     - set-job-flavor
-  name: CI smoke job for nuage-openstack-neutron
+  name: lbaas job for nuage-openstack-neutron
   tasks:
 
     - name: Ensure legacy workspace directory
@@ -9,7 +9,8 @@
         path: '{{ ansible_user_dir }}/workspace'
         state: directory
 
-    - shell:
+    - name: Clone devstack-gate
+      shell:
         cmd: |
           set -e
           set -x
@@ -25,7 +26,8 @@
         chdir: '{{ ansible_user_dir }}/workspace'
       environment: '{{ zuul | zuul_legacy_vars }}'
 
-    - shell:
+    - name: Run devstack-gate
+      shell:
         cmd: |
           set -e
           set -x
@@ -52,14 +54,11 @@
           PROJECTS="openstack/cinder $PROJECTS"
           PROJECTS="openstack/glance $PROJECTS"
           PROJECTS="openstack/keystone $PROJECTS"
-          PROJECTS="openstack/networking-sfc $PROJECTS"
           PROJECTS="openstack/neutron $PROJECTS"
-          PROJECTS="openstack/neutron-fwaas $PROJECTS"
           PROJECTS="openstack/neutron-lbaas $PROJECTS"
           PROJECTS="openstack/neutron-tempest-plugin $PROJECTS"
           PROJECTS="openstack/nova $PROJECTS"
-          PROJECTS="openstack/octavia $PROJECTS"
-          PROJECTS="openstack/octavia-tempest-plugin $PROJECTS"
+          PROJECTS="openstack/python-neutronclient $PROJECTS"
           PROJECTS="openstack/requirements $PROJECTS"
           PROJECTS="openstack/tempest $PROJECTS"
           PROJECTS="OpenStack/nuage-gate-utils $PROJECTS"
@@ -80,19 +79,11 @@
           export DEVSTACK_GATE_FLOATING_RANGE="172.${group}.${PRIMARY_IP##*.}.0/24"
           export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
 
-          # add octavia amphora images to avoid building it on the fly
-          export IMAGE_URLS+=http://{{ mirror_fqdn }}/octavia/amphora-x64-haproxy.qcow2
-
-          function pre_test_hook {
-              sudo -H pip install -c $BASE/new/requirements/upper-constraints.txt stestr
-          }
-          export -f pre_test_hook
-
           function gate_hook {
-               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
+              bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
           }
           export -f gate_hook
-          export DEVSTACK_GATE_SETTINGS=/opt/stack/new/new/nuage-gate-utils/devstackgaterc
+          export DEVSTACK_GATE_SETTINGS=/opt/stack/new/nuage-gate-utils/devstackgaterc
 
           cp devstack-gate/devstack-vm-gate-wrap.sh ./safe-devstack-vm-gate-wrap.sh
           ./safe-devstack-vm-gate-wrap.sh
