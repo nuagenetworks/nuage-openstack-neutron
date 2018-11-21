@@ -1,7 +1,7 @@
 - hosts: all
   roles:
     - set-job-flavor
-  name: CI smoke job for nuage-openstack-neutron
+  name: CI job for nuage-openstack-neutron
   tasks:
 
     - name: Ensure legacy workspace directory
@@ -60,7 +60,6 @@
           PROJECTS="openstack/python-neutronclient $PROJECTS"
           PROJECTS="openstack/requirements $PROJECTS"
           PROJECTS="openstack/tempest $PROJECTS"
-
           PROJECTS="OpenStack/nuage-gate-utils $PROJECTS"
           PROJECTS="OpenStack/nuage-openstack-neutron $PROJECTS"
           PROJECTS="OpenStack/nuage-openstack-neutronclient $PROJECTS"
@@ -80,7 +79,7 @@
           export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
 
           function gate_hook {
-               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
+              bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
           }
           export -f gate_hook
           export DEVSTACK_GATE_SETTINGS=/opt/stack/new/new/nuage-gate-utils/devstackgaterc

@@ -1,7 +1,7 @@
 - hosts: all
   roles:
     - set-job-flavor
-  name: CI smoke job for nuage-openstack-neutron
+  name: octavia job for nuage-openstack-neutron
   tasks:
 
     - name: Ensure legacy workspace directory
@@ -54,11 +54,7 @@
           PROJECTS="openstack/cinder $PROJECTS"
           PROJECTS="openstack/glance $PROJECTS"
           PROJECTS="openstack/keystone $PROJECTS"
-          PROJECTS="openstack/networking-sfc $PROJECTS"
           PROJECTS="openstack/neutron $PROJECTS"
-          PROJECTS="openstack/neutron-fwaas $PROJECTS"
-          PROJECTS="openstack/neutron-lbaas $PROJECTS"
-          PROJECTS="openstack/neutron-tempest-plugin $PROJECTS"
           PROJECTS="openstack/nova $PROJECTS"
           PROJECTS="openstack/octavia $PROJECTS"
           PROJECTS="openstack/octavia-tempest-plugin $PROJECTS"
@@ -87,7 +83,7 @@
           export IMAGE_URLS+=http://{{ mirror_fqdn }}/octavia/amphora-x64-haproxy.qcow2
 
           function gate_hook {
-               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
+              bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
           }
           export -f gate_hook
           export DEVSTACK_GATE_SETTINGS=/opt/stack/new/nuage-gate-utils/devstackgaterc
