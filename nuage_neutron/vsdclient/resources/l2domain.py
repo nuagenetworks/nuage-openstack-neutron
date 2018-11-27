@@ -520,23 +520,25 @@ class NuageL2Domain(object):
         # deal with VSD-25652
         # TODO(Kris) remove when VSD-25652 is fixed or use of shared resources
         #            refactored out (whichever comes first)
-        e = None
-        for attempt in range(3):
+        nbr_attempts = 3
+        for attempt in range(nbr_attempts):
             try:
                 shared_resouces = self.restproxy.get(
                     url, extra_headers=extra_headers)
+                break
             except RESTProxyError as e:
                 LOG.error('Got {} when retrieving sharedresource by '
                           'external id'.format(str(e)))
-                time.sleep(0.2)
+                if (e.code == constants.REST_SERV_INTERNAL_ERROR and
+                        attempt < nbr_attempts - 1):
+                    time.sleep(0.2)  # VSD-25652: retry in 0.2 secs from now
+                else:
+                    raise
 
         if not shared_resouces:
-            if e:
-                raise e
-            else:
-                raise restproxy.ResourceNotFoundException(
-                    "Cannot find sharednetworkresource with externalID '%s'"
-                    % create_params['externalID'])
+            raise restproxy.ResourceNotFoundException(
+                "Cannot find sharednetworkresource with externalID '%s'"
+                % create_params['externalID'])
         return shared_resouces[0]
 
     def update_nuage_sharedresource(self, neutron_id, params):
