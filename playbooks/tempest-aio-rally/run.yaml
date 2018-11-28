@@ -60,6 +60,7 @@
           PROJECTS="openstack/nova $PROJECTS"
           PROJECTS="openstack/rally $PROJECTS"
           PROJECTS="openstack/rally-openstack $PROJECTS"
+          PROJECTS="openstack/placement $PROJECTS"
           PROJECTS="openstack/python-neutronclient $PROJECTS"
           PROJECTS="openstack/requirements $PROJECTS"
           PROJECTS="OpenStack/nuage-gate-utils $PROJECTS"

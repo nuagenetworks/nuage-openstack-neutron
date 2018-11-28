@@ -107,6 +107,7 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -126,6 +127,7 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -145,6 +147,7 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -165,6 +168,7 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -184,6 +188,7 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -204,6 +209,7 @@
       - openstack-infra/devstack-gate
       - openstack/neutron-fwaas
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -224,6 +230,7 @@
       - openstack-infra/devstack-gate
       - openstack/octavia
       - openstack/octavia-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -244,6 +251,7 @@
       - openstack-infra/devstack-gate
       - openstack/neutron-lbaas
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -264,6 +272,7 @@
       - openstack-infra/devstack-gate
       - openstack/networking-sfc
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -281,6 +290,7 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - openstack-infra/devstack-gate
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/rally
       - openstack/rally-openstack
@@ -301,6 +311,7 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
 
@@ -320,5 +331,6 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
+      - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
