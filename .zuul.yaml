@@ -77,11 +77,7 @@
             #                            -- hoped for to remove soon (6.0)
             branches:
               - stable/newton
-              - stable/ocata
-              - stable/pike
-              - stable/queens
-              - stable/rocky
-              - master
+              - stable/queens  # limit to few branches
         - legacy-tempest-aio-upstream:
             branches:
               - stable/newton
