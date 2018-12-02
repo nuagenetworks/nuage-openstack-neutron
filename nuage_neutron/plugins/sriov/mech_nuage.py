@@ -128,13 +128,15 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         original = context.original
         if (port.get(portbindings.VNIC_TYPE, "")
                 in self._supported_vnic_types()):
-            host_added = host_removed = False
+            host_added = host_removed = host_changed = False
             if not original['binding:host_id'] and port['binding:host_id']:
                 host_added = True
             elif original['binding:host_id'] and not port['binding:host_id']:
                 host_removed = True
+            elif original['binding:host_id'] != port['binding:host_id']:
+                host_changed = True
 
-            if host_removed:
+            if host_removed or host_changed:
                 self._delete_port(port)
             if host_added:
                 port_dict = self._make_port_dict(context)
