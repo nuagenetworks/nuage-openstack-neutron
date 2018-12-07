@@ -21,7 +21,6 @@ from oslo_log.formatters import ContextFormatter
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
-from sqlalchemy.orm import exc
 
 from neutron._i18n import _
 from neutron.db import api as db
@@ -431,8 +430,16 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def remove_router_interface(self, context, router_id, interface_info):
-        if 'subnet_id' in interface_info:
+        port_id_specified = interface_info and 'port_id' in interface_info
+        subnet_id_specified = interface_info and 'subnet_id' in interface_info
+        if subnet_id_specified:
             subnet_id = interface_info['subnet_id']
+            subnet = self.core_plugin.get_subnet(context, subnet_id)
+            if not self.is_vxlan_network_by_id(context, subnet['network_id']):
+                return super(NuageL3Plugin,
+                             self).remove_router_interface(context,
+                                                           router_id,
+                                                           interface_info)
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, subnet_id)
             if not subnet_mapping:
@@ -441,49 +448,35 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                              self).remove_router_interface(context,
                                                            router_id,
                                                            interface_info)
-            subnet = self.core_plugin.get_subnet(context, subnet_id)
-            if not self.is_vxlan_network_by_id(context, subnet['network_id']):
-                return super(NuageL3Plugin,
-                             self).remove_router_interface(context,
-                                                           router_id,
-                                                           interface_info)
-            found = False
-            try:
-                filters = {'device_id': [router_id],
-                           'device_owner':
-                           [lib_constants.DEVICE_OWNER_ROUTER_INTF],
-                           'network_id': [subnet['network_id']],
-                           }
-                ports = self.core_plugin.get_ports(context, filters)
-
-                for p in ports:
-                    if p['fixed_ips'][0]['subnet_id'] == subnet_id:
-                        found = True
-                        break
-            except exc.NoResultFound:
-                msg = (_("No router interface found for Router %s. "
-                         "Router-IF delete failed") % router_id)
-                raise n_exc.BadRequest(resource='router', msg=msg)
-
+            filters = {'device_id': [router_id],
+                       'device_owner':
+                       [lib_constants.DEVICE_OWNER_ROUTER_INTF],
+                       'network_id': [subnet['network_id']],
+                       }
+            found = any(p['fixed_ips'][0]['subnet_id'] == subnet_id
+                        for p in self.core_plugin.get_ports(context, filters))
             if not found:
-                msg = (_("No router interface found for Router %s. "
-                         "Router-IF delete failed") % router_id)
-                raise n_exc.BadRequest(resource='router', msg=msg)
-        elif 'port_id' in interface_info:
-            port_db = self.core_plugin._get_port(context,
-                                                 interface_info['port_id'])
+                raise l3_exc.RouterInterfaceNotFoundForSubnet(
+                    router_id=router_id, subnet_id=subnet_id)
+        elif port_id_specified:
+            try:
+                port_db = self.core_plugin._get_port(context,
+                                                     interface_info['port_id'])
+            except n_exc.PortNotFound:
+                raise l3_exc.RouterInterfaceNotFound(
+                    router_id=router_id, port_id=interface_info['port_id'])
             if not self.is_vxlan_network_by_id(context, port_db['network_id']):
                 return super(NuageL3Plugin,
                              self).remove_router_interface(context,
                                                            router_id,
                                                            interface_info)
-            if not port_db:
-                msg = (_("No router interface found for Router %s. "
-                         "Router-IF delete failed") % router_id)
-                raise n_exc.BadRequest(resource='router', msg=msg)
+            if not port_db or port_db['device_id'] != router_id:
+                raise l3_exc.RouterInterfaceNotFound(
+                    router_id=router_id, port_id=interface_info['port_id'])
             subnet_id = port_db['fixed_ips'][0]['subnet_id']
             subnet = self.core_plugin.get_subnet(context, subnet_id)
         else:
+            # let upstream handle the error reporting
             return super(NuageL3Plugin,
                          self).remove_router_interface(context,
                                                        router_id,
