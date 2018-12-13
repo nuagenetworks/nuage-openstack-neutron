@@ -265,13 +265,14 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         except restproxy.ResourceNotFoundException:
             pass
 
-    def create_l2domain_for_router_detach(
-            self, ipv4_subnet, subnet_mapping, ipv6_subnet=None):
+    def create_l2domain_for_router_detach(self, ipv4_subnet, subnet_mapping,
+                                          ipv6_subnet=None, ipv4_dhcp_ip=None):
+        dhcp_ip = ipv4_dhcp_ip or ipv4_subnet['allocation_pools'][-1]['end']
         req_params = {
             'tenant_id': ipv4_subnet['tenant_id'],
             'netpart_id': subnet_mapping['net_partition_id'],
             'pnet_binding': None,
-            'dhcp_ip': ipv4_subnet['allocation_pools'][-1]['end'],
+            'dhcp_ip': dhcp_ip,
             'shared': ipv4_subnet['shared'],
         }
         try:

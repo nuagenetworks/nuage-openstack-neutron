@@ -28,6 +28,8 @@ Q_L3_ENABLED=True
 # integration bridge
 OVS_BRIDGE=${OVS_BRIDGE:-"alubr0"}
 
+# IPAM driver
+NUAGE_IPAM_DRIVER=${NUAGE_IPAM_DRIVER:-'nuage_internal'}
 
 # Nuage VSP related settings
 NUAGE_VSC_SERVER=${NUAGE_VSC_SERVER:-''}
