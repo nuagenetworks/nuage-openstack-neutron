@@ -688,8 +688,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             'net': net,
             'pnet_binding': pnet_binding,
             'shared': neutron_net['shared'],
-            'dhcp_ip': ipv4_subnet['allocation_pools'][-1]['end'] if
-            ipv4_subnet['enable_dhcp'] else None,
+            'dhcp_ip': None,
             'tenant_name': context.tenant_name,
         }
 
@@ -699,8 +698,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                         neutron_subnet)
                 params['dhcp_ip'] = (dhcp_port['fixed_ips'][0]['ip_address']
                                      if dhcp_port else None)
-            else:
-                params['dhcp_ip'] = None
         else:
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, ipv4_subnet['id'])

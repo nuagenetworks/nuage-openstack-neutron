@@ -127,7 +127,8 @@ class VsdClient(object):
     def confirm_router_interface_not_in_use(self, router_id, os_subnet):
         pass
 
-    def create_l2domain_for_router_detach(self, os_subnet, subnet_mapping):
+    def create_l2domain_for_router_detach(self, os_subnet, subnet_mapping,
+                                          ipv6_subnet=None, ipv4_dhcp_ip=None):
         pass
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
