@@ -525,8 +525,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                                                interface_info)
         with nuage_utils.rollback() as on_exc:
             dhcp_port = self.create_dhcp_nuage_port(context, ipv4_subnet)
+            dhcp_ip = None
             if dhcp_port:
                 on_exc(self.core_plugin.delete_port, context, dhcp_port['id'])
+                dhcp_ip = dhcp_port['fixed_ips'][0]['ip_address']
             pnet_binding = nuagedb.get_network_binding(
                 context.session, ipv4_subnet['network_id'])
 
@@ -535,7 +537,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             with session.begin(subtransactions=True):
                 vsd_l2domain = \
                     self.vsdclient.create_l2domain_for_router_detach(
-                        ipv4_subnet, ipv4_subnet_mapping, ipv6_subnet)
+                        ipv4_subnet, ipv4_subnet_mapping, ipv6_subnet, dhcp_ip)
                 on_exc(self.vsdclient.delete_subnet,
                        l2dom_id=vsd_l2domain['nuage_l2domain_id'])
             result = super(NuageL3Plugin,
