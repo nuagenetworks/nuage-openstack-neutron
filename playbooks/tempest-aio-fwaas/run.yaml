@@ -57,7 +57,6 @@
           PROJECTS="openstack/neutron $PROJECTS"
           PROJECTS="openstack/neutron-fwaas $PROJECTS"
           PROJECTS="openstack/nova $PROJECTS"
-          PROJECTS="openstack/python-neutronclient $PROJECTS"
           PROJECTS="openstack/requirements $PROJECTS"
           PROJECTS="openstack/tempest $PROJECTS"
           PROJECTS="OpenStack/nuage-gate-utils $PROJECTS"
@@ -77,6 +76,12 @@
           GW="172.${group}.${PRIMARY_IP##*.}.1"
           export DEVSTACK_GATE_FLOATING_RANGE="172.${group}.${PRIMARY_IP##*.}.0/24"
           export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
+
+          function pre_test_hook {
+              sudo -H sed -i 's/$/,<10/' $BASE/new/devstack/tools/cap-pip.txt
+              sudo -H pip install -c $BASE/new/requirements/upper-constraints.txt stestr
+          }
+          export -f pre_test_hook
 
           function gate_hook {
               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}

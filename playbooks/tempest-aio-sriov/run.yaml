@@ -54,7 +54,6 @@
           PROJECTS="openstack/nova $PROJECTS"
           PROJECTS="openstack/requirements $PROJECTS"
           PROJECTS="openstack/tempest $PROJECTS"
-
           PROJECTS="OpenStack/networking-testsriov $PROJECTS"
           PROJECTS="OpenStack/nuage-gate-utils $PROJECTS"
           PROJECTS="OpenStack/nuage-openstack-neutron $PROJECTS"
@@ -80,7 +79,7 @@
           export -f pre_test_hook
 
           function gate_hook {
-               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh ml2-sriov
+              bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh ml2-sriov
           }
           export -f gate_hook
           export DEVSTACK_GATE_SETTINGS=/opt/stack/new/nuage-gate-utils/devstackgaterc
