@@ -13,6 +13,7 @@
               - ^setup.cfg$
               - ^specs/.*$
               - ^tox.ini$
+              - ^COMMIT_MSG$
     gate:
       jobs:
         - openstack-tox-pep8:
@@ -27,6 +28,7 @@
               - ^setup.cfg$
               - ^specs/.*$
               - ^tox.ini$
+              - ^COMMIT_MSG$
     experimental:  # jobs not stable yet for gate
       jobs:
         - openstack-tox-py35:
@@ -45,6 +47,9 @@
     fwaas:
       jobs:
         - legacy-tempest-aio-fwaas
+    lbaas:
+      jobs:
+        - legacy-tempest-aio-lbaas
     sfc:
       jobs:
         - legacy-tempest-aio-sfc
@@ -205,7 +210,6 @@
       - openstack-infra/devstack-gate
       - openstack/neutron-lbaas
       - openstack/neutron-tempest-plugin
-      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:
@@ -225,7 +229,6 @@
       - openstack-infra/devstack-gate
       - openstack/networking-sfc
       - openstack/neutron-tempest-plugin
-      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:
@@ -242,7 +245,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - openstack-infra/devstack-gate
-      - openstack/python-neutronclient
       - openstack/rally
       - openstack/rally-openstack
 
@@ -262,7 +264,6 @@
       - OpenStack/nuage-tempest-plugin
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
-      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:
