@@ -58,7 +58,6 @@
           PROJECTS="openstack/neutron $PROJECTS"
           PROJECTS="openstack/neutron-tempest-plugin $PROJECTS"
           PROJECTS="openstack/nova $PROJECTS"
-          PROJECTS="openstack/python-neutronclient $PROJECTS"
           PROJECTS="openstack/requirements $PROJECTS"
           PROJECTS="openstack/tempest $PROJECTS"
           PROJECTS="OpenStack/nuage-gate-utils $PROJECTS"
@@ -83,6 +82,7 @@
               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
           }
           export -f gate_hook
+
           export DEVSTACK_GATE_SETTINGS=/opt/stack/new/nuage-gate-utils/devstackgaterc
 
           cp devstack-gate/devstack-vm-gate-wrap.sh ./safe-devstack-vm-gate-wrap.sh
