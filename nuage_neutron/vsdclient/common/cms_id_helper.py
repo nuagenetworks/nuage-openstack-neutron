@@ -15,6 +15,10 @@
 CMS_ID = None
 
 
+def get_cms_id():
+    return CMS_ID
+
+
 def get_vsd_external_id(neutron_id):
     if neutron_id and '@' not in neutron_id and CMS_ID:
         return neutron_id + '@' + CMS_ID
