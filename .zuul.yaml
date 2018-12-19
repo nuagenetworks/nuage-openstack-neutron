@@ -16,6 +16,7 @@
               - ^setup.cfg$
               - ^specs/.*$
               - ^tox.ini$
+              - ^COMMIT_MSG$
     gate:
       jobs:
         - openstack-tox-pep8:
@@ -33,6 +34,7 @@
               - ^setup.cfg$
               - ^specs/.*$
               - ^tox.ini$
+              - ^COMMIT_MSG$
     experimental:  # jobs not stable yet for gate
       jobs:
         - openstack-tox-py35:
