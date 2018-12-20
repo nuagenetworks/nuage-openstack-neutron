@@ -528,10 +528,6 @@ class NuageDhcpOptions(NuageServerBaseClass):
         # This method is used for GET and POST for l3 case
         return '/subnets/%s/dhcpoptions' % id
 
-    def resource_by_sharedresourceid(self, id):
-        # This method is used for GET and POST for shared networks
-        return '/sharednetworkresources/%s/dhcpoptions' % id
-
     def resource_by_vportid(self, id):
         # This method is used for GET and POST for VPort case
         return '/vports/%s/dhcpoptions' % id
@@ -639,6 +635,12 @@ class NuageL3Domain(NuageServerBaseClass):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
         headers['X-Nuage-Filter'] = "address IS '%s'" % net_ip
+        return headers
+
+    def extra_headers_get_fipunderlay(self, fipunderlay):
+        headers = {}
+        headers['X-NUAGE-FilterType'] = "predicate"
+        headers['X-Nuage-Filter'] = "FIPUnderlay IS {}".format(fipunderlay)
         return headers
 
 
@@ -1249,58 +1251,6 @@ class NuageOutboundACL(NuageServerBaseClass):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
         headers['X-Nuage-Filter'] = "name IS '%s'" % name
-        return headers
-
-    def extra_headers_get_by_externalID(self):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "externalID IS '%s'" % \
-                                    get_vsd_external_id(
-                                        self.create_params['externalID'])
-        return headers
-
-
-class NuageSharedResources(NuageServerBaseClass):
-    def get_resource_by_id(self, id):
-        return '/sharednetworkresources/%s' % id
-
-    def post_resource(self):
-        return '/sharednetworkresources'
-
-    def get_resource(self):
-        return '/sharednetworkresources'
-
-    def put_resource(self):
-        return ('/sharednetworkresources/%s?responseChoice=1'
-                % self.create_params['id'])
-
-    def post_data(self):
-        data = {
-            'name': self.create_params['name'],
-            'gateway': self.create_params['gateway_ip'],
-            'address': str(self.create_params['netaddr'].ip),
-            'netmask': str(self.create_params['netaddr'].netmask),
-            'type': self.create_params['type'],
-            'externalID': get_vsd_external_id(self.create_params['externalID'])
-        }
-        if self.extra_params:
-            data.update(self.extra_params)
-        return data
-
-    def get_sharedresource_id(self, response):
-        return self.get_response_objid(response)
-
-    def get_validate(self, response):
-        return self.validate(response) and response[3]
-
-    def delete_resource(self, id):
-        return '/sharednetworkresources/%s?responseChoice=1' % id
-
-    def extra_headers_get_by_name(self):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "name IS '%s'" %\
-                                    self.create_params['name']
         return headers
 
     def extra_headers_get_by_externalID(self):

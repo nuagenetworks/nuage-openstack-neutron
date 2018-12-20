@@ -654,6 +654,12 @@ def get_subnet_parameter(session, subnet_id, parameter):
         subnet_parameter=parameter).first()
 
 
+def get_subnets_by_parameter_value(session, parameter, value):
+    return session.query(nuage_models.NuageSubnet).filter_by(
+        subnet_parameter=parameter,
+        parameter_value=value).all()
+
+
 def get_router_parameter(session, router_id, parameter):
     return session.query(nuage_models.NuageRouter).filter_by(
         router_id=router_id,

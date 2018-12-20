@@ -140,10 +140,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         self.net_part.delete_net_partition(id)
 
     def link_default_netpartition(self, params):
-        return (self.net_part.link_default_netpartition(params))
-
-    def check_del_def_net_partition(self, ent_name):
-        self.net_part.check_del_def_net_partition(ent_name)
+        return self.net_part.link_default_netpartition(params)
 
     def get_net_partitions(self):
         return self.net_part.get_net_partitions()
@@ -233,20 +230,8 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             neutron_subnet, params
         )
 
-    def get_nuage_sharedresource(self, id):
-        return self.l2domain.get_nuage_sharedresource(id)
-
-    def get_sharedresource(self, neutron_id):
-        return self.l2domain.get_sharedresource(neutron_id)
-
-    def create_nuage_sharedresource(self, params):
-        return self.l2domain.create_nuage_sharedresource(params)
-
-    def update_nuage_sharedresource(self, neutron_id, params):
-        return self.l2domain.update_nuage_sharedresource(neutron_id, params)
-
-    def delete_nuage_sharedresource(self, id):
-        self.l2domain.delete_nuage_sharedresource(id)
+    def update_nuage_subnet(self, nuage_id, params):
+        self.domain.domainsubnet.update_nuage_subnet(nuage_id, params)
 
     def get_nuage_cidr(self, nuage_subnetid):
         return self.l2domain.get_nuage_cidr(nuage_subnetid)
@@ -270,14 +255,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def get_router_by_external(self, id):
         return self.domain.get_router_by_external(id)
-
-    def create_router(self, neutron_router, router, net_partition,
-                      tenant_name):
-        return self.domain.create_router(neutron_router, router,
-                                         net_partition, tenant_name)
-
-    def delete_router(self, id):
-        self.domain.delete_router(id)
 
     def move_l2domain_to_l3subnet(self, l2domain_id, l3subnetwork_id):
         self.l2domain.move_to_l3(l2domain_id, l3subnetwork_id)
@@ -392,6 +369,10 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def get_routers_by_netpart(self, netpart_id):
         return self.domain.get_routers_by_netpart(netpart_id)
 
+    def get_fip_underlay_enabled_domain_by_netpart(self, netpart_id):
+        return self.domain.get_fip_underlay_enabled_domain_by_netpart(
+            netpart_id)
+
     def get_domain_subnet_by_zone_id(self, zone_id):
         return self.domain.domainsubnet.get_domain_subnet_by_zone_id(
             zone_id)
@@ -417,6 +398,17 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         l2domain['type'] = constants.L2DOMAIN
         return l2domain
 
+    def create_l3domain(self, neutron_router, router, net_partition,
+                        tenant_name):
+        return self.domain.create_l3domain(neutron_router, router,
+                                           net_partition, tenant_name)
+
+    def create_shared_l3domain(self, params):
+        return self.domain.create_shared_l3domain(params)
+
+    def delete_l3domain(self, domain_id):
+        self.domain.delete_l3domain(domain_id)
+
     def get_l3domain_by_id(self, l3domain_id, required=False):
         l3domain = self.domain.get_router_by_id(l3domain_id, required)
         l3domain['type'] = 'domain'
@@ -435,6 +427,10 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
         if response[3]:
             return response[3][0]['parentID']
+
+    def create_shared_subnet(self, vsd_zone_id, subnet, params):
+        return self.domain.domainsubnet.create_shared_subnet(
+            vsd_zone_id, subnet, params)
 
     def get_nuage_subnet_by_mapping(self, subnet_mapping, required=False):
         nuage_id = subnet_mapping['nuage_subnet_id']
@@ -935,6 +931,10 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def get_nuage_domain_id_from_subnet(self, dom_subn_id):
         return helper._get_nuage_domain_id_from_subnet(
             self.restproxy, dom_subn_id)
+
+    def get_nuage_domain_by_zoneid(self, zone_id):
+        return helper.get_nuage_domain_by_zoneid(
+            self.restproxy, zone_id)
 
     def get_nuage_vport_for_port_sec(self, params, required=True):
         return helper.get_nuage_vport_by_neutron_id(self.restproxy, params,
