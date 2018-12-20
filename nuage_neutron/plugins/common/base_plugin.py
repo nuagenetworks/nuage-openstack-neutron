@@ -199,6 +199,9 @@ class RootNuagePlugin(SubnetUtilsBase):
 
         # add other ip pools
         for mapping in subnet_info['mappings']:
+            # skip comparing a subnet with itself (occurs on subnet-update)
+            if mapping['subnet_id'] == subnet['id']:
+                continue
             sub = self.core_plugin.get_subnet(context, mapping['subnet_id'])
             pools_to_ip_sets(sub['allocation_pools'], ip_sets, ip_ranges)
 
