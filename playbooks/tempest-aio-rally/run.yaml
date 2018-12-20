@@ -78,10 +78,12 @@
               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
           }
           export -f gate_hook
+
           function post_test_hook {
               bash $BASE/new/rally/tests/ci/rally-gate.sh
           }
           export -f post_test_hook
+
           export DEVSTACK_GATE_SETTINGS=/opt/stack/new/nuage-gate-utils/devstackgaterc
 
           cp devstack-gate/devstack-vm-gate-wrap.sh ./safe-devstack-vm-gate-wrap.sh
