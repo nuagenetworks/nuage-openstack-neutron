@@ -194,3 +194,7 @@ SFC_PARAMS = 'service_function_parameters'
 L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES = ['cidr', 'gateway_ip', 'enable_dhcp',
                                     'ipv6_ra_mode', 'ipv6_address_mode',
                                     'host_routes', 'dns_nameservers']
+
+VSD_MANAGED_SUBNET_UPDATABLE_ATTRIBUTES = {"name", "description",
+                                           "allocation_pools", "updated_at",
+                                           "revision_number"}
