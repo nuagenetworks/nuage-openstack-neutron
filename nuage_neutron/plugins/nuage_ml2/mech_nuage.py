@@ -797,6 +797,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         self._validate_update_subnet(db_context, network_external,
                                      subnet_mapping, updated_subnet,
                                      original_subnet, l2bridge_id)
+        if subnet_mapping and self._is_vsd_mgd(subnet_mapping):
+            # in case of VSD managed subnet, no action on VSD needed
+            return
+
         nuage_subnet_id = subnet_mapping['nuage_subnet_id']
         if network_external:
             return self._update_ext_network_subnet(nuage_subnet_id,
@@ -852,10 +856,26 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     def _validate_update_subnet(self, context, network_external,
                                 subnet_mapping, updated_subnet, original,
                                 l2bridge_id):
+        updated_attributes = set(key for key in updated_subnet if
+                                 updated_subnet.get(key) != original.get(key))
+
         if subnet_mapping and self._is_vsd_mgd(subnet_mapping):
-            msg = _("Subnet {} is a VSD-managed subnet. Update is not "
-                    "supported.").format(updated_subnet['id'])
-            raise NuageBadRequest(resource='subnet', msg=msg)
+            updatable_attrs = constants.VSD_MANAGED_SUBNET_UPDATABLE_ATTRIBUTES
+            if not updated_attributes.issubset(updatable_attrs):
+                msg = _("Subnet {} is a VSD-managed subnet. Update is not "
+                        "supported for attributes other than {}.")\
+                    .format(updated_subnet['id'], ', '.join(updatable_attrs))
+                raise NuageBadRequest(resource='subnet', msg=msg)
+            if "allocation_pools" in updated_attributes:
+                # do a cross-network check that the new pool does not create
+                # an overlap with other subnets pointing to the same VSD subnet
+                subnet_info = nuagedb.get_subnet_info_by_nuage_id(
+                    context.session,
+                    updated_subnet['nuagenet'],
+                    ip_type=updated_subnet['ip_version'])
+                self._validate_allocation_pools(context, updated_subnet,
+                                                subnet_info)
+            return
 
         if not network_external and updated_subnet.get('underlay') is not None:
             msg = _("underlay attribute can not be set for internal subnets")
@@ -863,18 +883,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         bridged_subnets = nuagedb.get_subnets_for_nuage_l2bridge(
             context.session, l2bridge_id)
-        updates = {}
-        for key in updated_subnet.keys():
-            if updated_subnet.get(key) != original.get(key):
-                updates[key] = updated_subnet.get(key)
         bridged_subnets = [
             x for x in bridged_subnets if
             x['network_id'] != updated_subnet['network_id']
         ]
         # update only allowed when no other subnets on l2bridge exist.
-        if (len(bridged_subnets) > 0 and
-                [u for u in updates if u in
-                 constants.L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES]):
+        if len(bridged_subnets) > 0 and not updated_attributes.isdisjoint(
+                set(constants.L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES)):
             msg = _("It is not allowed to update a subnet when it is attached "
                     "to a nuage_l2bridge connected to multiple subnets.")
             raise NuageBadRequest(resource='subnet', msg=msg)
