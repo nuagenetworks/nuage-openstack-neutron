@@ -255,6 +255,8 @@
       - openstack-infra/devstack-gate
       - openstack/octavia
       - openstack/octavia-tempest-plugin
+      - openstack/placement
+      - openstack/python-neutronclient
       - openstack/tempest
 
 - job:
