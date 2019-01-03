@@ -31,12 +31,6 @@ VSD_VM_EXIST = '2506'
 VSD_VPORT_ATTACHED_NET_ID_CHANGED = '2747'
 PG_VPORT_DOMAIN_CONFLICT = '7309'
 
-PROTO_NAME_TO_NUM = {
-    'tcp': 6,
-    'udp': 17,
-    'icmp': 1,
-    'icmpv6': 58
-}
 NUAGE_ACL_INGRESS = 'ingress'
 NUAGE_ACL_EGRESS = 'egress'
 NUAGE_ACL_INGRESS_TEMPLATE = 'ingressacltemplate'
