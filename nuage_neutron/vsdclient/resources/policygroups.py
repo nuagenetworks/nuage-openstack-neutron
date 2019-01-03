@@ -17,6 +17,7 @@ import random
 import six
 
 from neutron.db import api as db_api
+from neutron_lib import constants as lib_constants
 from oslo_config import cfg
 from oslo_utils import excutils
 
@@ -28,8 +29,8 @@ from nuage_neutron.vsdclient.common import nuagelib
 from nuage_neutron.vsdclient.common import pg_helper
 from nuage_neutron.vsdclient import restproxy
 
+PROTO_NAME_TO_NUM = lib_constants.IP_PROTOCOL_MAP
 VSD_RESP_OBJ = constants.VSD_RESP_OBJ
-PROTO_NAME_TO_NUM = constants.PROTO_NAME_TO_NUM
 NUAGE_SUPPORTED_ETHERTYPES = constants.NUAGE_SUPPORTED_ETHERTYPES
 NOT_SUPPORTED_ACL_ATTR_MSG = constants.NOT_SUPPORTED_ACL_ATTR_MSG
 NUAGE_ACL_PROTOCOL_ANY_MAPPING = constants.NUAGE_ACL_PROTOCOL_ANY_MAPPING
@@ -1690,7 +1691,7 @@ class NuageRedirectTargets(object):
             rule_params['networkID'] = netid
         nuage_fwdrule = nuagelib.NuageAdvFwdRule()
         if rule_params['protocol'] != "ANY":
-            rule_params['protocol'] = (constants.PROTO_NAME_TO_NUM
+            rule_params['protocol'] = (PROTO_NAME_TO_NUM
                                        [rule_params['protocol']])
         rule_params['externalID'] = get_vsd_external_id(
             rule_params['externalID'])
