@@ -15,6 +15,8 @@
 import logging
 import netaddr
 
+from neutron_lib import constants as lib_constants
+
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common.helper import get_by_field_values
@@ -24,6 +26,7 @@ from nuage_neutron.vsdclient import restproxy
 
 LOG = logging.getLogger(__name__)
 
+PROTO_NAME_TO_NUM = lib_constants.IP_PROTOCOL_MAP
 OS_ACTION_TO_VSD_ACTION = {
     'allow': 'FORWARD',
     'deny': 'DROP'
@@ -111,7 +114,7 @@ class NuageFwaasMapper(NuageFwaasBase):
             ('sourcePort', lambda x: x.replace(':', '-') if x else None)
         ],
         'protocol': [
-            ('protocol', lambda x: constants.PROTO_NAME_TO_NUM.get(x, 'ANY'))
+            ('protocol', lambda x: PROTO_NAME_TO_NUM.get(x, 'ANY'))
         ],
         'destination_port': [
             ('destinationPort', lambda x: x.replace(':', '-') if x else None)
