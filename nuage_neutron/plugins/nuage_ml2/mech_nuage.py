@@ -535,15 +535,16 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     constants.NUAGE_UNDERLAY,
                     constants.NUAGE_UNDERLAY_FIP)
 
-        nuage_subnet = self.vsdclient.create_shared_subnet(zone_id, subnet,
-                                                           subnet_params)
-        subnet['nuage_uplink'] = nuage_subnet['parentID']
-        nuage_subnet['nuage_l2template_id'] = None  # L3
-        nuage_subnet['nuage_l2domain_id'] = nuage_subnet['ID']
-
         with utils_rollback() as on_exc:
+            nuage_subnet = self.vsdclient.create_shared_subnet(zone_id, subnet,
+                                                               subnet_params)
             on_exc(self.vsdclient.delete_subnet,
                    l3_vsd_subnet_id=nuage_subnet['ID'])
+
+            subnet['nuage_uplink'] = nuage_subnet['parentID']
+            nuage_subnet['nuage_l2template_id'] = None  # L3
+            nuage_subnet['nuage_l2domain_id'] = nuage_subnet['ID']
+
             self._create_subnet_mapping(context, shared_netpart['id'],
                                         subnet, nuage_subnet)
 
