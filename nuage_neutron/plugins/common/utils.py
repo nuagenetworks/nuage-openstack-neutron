@@ -19,7 +19,8 @@ import netaddr
 import six
 import sys
 
-from neutron._i18n import _
+from oslo_log import log as logging
+
 from neutron_lib import constants as lib_constants
 
 from nuage_neutron.plugins.common import exceptions as nuage_exc
@@ -98,30 +99,7 @@ class SubnetUtilsBase(object):
 
 
 def get_logger(name=None, fn=None):
-    try:
-        from oslo_log import log as logging
-        return logging.getLogger(fn.__module__ if fn else name)
-
-    except ImportError:
-        # cygwin does not support oslo logging
-        class SimpleLogger(object):
-            def __init__(self, mod_name=None):
-                self.name = mod_name if mod_name else ''
-                self.debug('Caution: SimpleLogger activated.')
-
-            def debug(self, debug_str, *args):
-                print('[%s] [DEBUG] %s' % (self.name, debug_str), *args)
-
-            def info(self, info_str, *args):
-                print('[%s] [INFO] %s' % (self.name, info_str), *args)
-
-            def warn(self, warn_str, *args):
-                print('[%s] [WARN] %s' % (self.name, warn_str), *args)
-
-            def error(self, error_str, *args):
-                print('[%s] [ERROR] %s' % (self.name, error_str), *args)
-
-        return SimpleLogger(fn.__module__ if fn else name)
+    return logging.getLogger(fn.__module__ if fn else name)
 
 
 def handle_nuage_api_error(fn):
@@ -203,13 +181,21 @@ def handle_nuage_api_errorcode(fn):
     def wrapped(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
+
         except RESTProxyError as e:
             _, _, tb = sys.exc_info()
-            six.reraise(nuage_exc.NuageBadRequest,
-                        nuage_exc.NuageBadRequest(
-                            msg=ERROR_DICT.get(str(e.vsd_code), e.message)),
-                        tb)
-
+            if e.code:  # there is a clear error code -> Bad request (400)
+                # Reason we overwrite any VSD http error code to 400 is
+                # that we don't want to reflect VSD behavior directly in
+                # Neutron. E.g. 404 in Neutron refers to Neutron entity
+                # not found ; we don't want VSD entity not found to be
+                # reported same way. At least, that decision was made in
+                # early days of Nuage.
+                six.reraise(nuage_exc.NuageBadRequest,
+                            nuage_exc.NuageBadRequest(msg=e.message), tb)
+            else:  # there is not --> Nuage API error (leading to 500)
+                six.reraise(nuage_exc.NuageAPIException,
+                            nuage_exc.NuageAPIException(msg=e.message), tb)
     return wrapped
 
 
@@ -218,9 +204,10 @@ def ignore_no_update(fn):
         try:
             return fn(*args, **kwargs)
         except RESTProxyError as e:
-            # See ERROR_DICT below. This should never go to the user. Neutron
-            # does not complain when updating to the same values.
-            if str(e.vsd_code) == '2039':
+            # This should never go to the user. Neutron does not complain
+            # when updating to the same values.
+            if str(e.vsd_code) == '2039':  # "There are no attribute changes
+                #                             to modify the entity."
                 return Ignored(e)
             raise
     return wrapped
@@ -236,18 +223,6 @@ def ignore_not_found(fn):
                 return Ignored(e)
             raise
     return wrapped
-
-
-ERROR_DICT = {
-    '2039': _("There are no attribute changes to modify the entity."),
-    '2050': _("Netpartition does not match the network."),
-    '7022': _("Redirection target belongs to a different subnet."),
-    '7027': _("Redirection target already has a port assigned. Can't assign"
-              " more with redundancy disabled."),
-    '7036': _("The port is in an L2Domain, it can't have floating ips"),
-    '7038': _("Nuage floatingip is not available for this port"),
-    '7309': _("Nuage policy group is not available for this port"),
-}
 
 
 def filters_to_vsd_filters(filterables, filters, os_to_vsd):

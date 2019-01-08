@@ -16,6 +16,7 @@
 # python -m testtools.run nuage_neutron/tests/unit/test_mech_nuage.py
 
 import mock
+import oslo_config
 import testtools
 
 from oslo_config import cfg
@@ -31,6 +32,7 @@ from nuage_neutron.plugins.common import nuagedb
 
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from nuage_neutron.vsdclient.impl.vsdclientimpl import VsdClientImpl
+from nuage_neutron.vsdclient.restproxy import RESTProxyError
 from nuage_neutron.vsdclient.restproxy import RESTProxyServer
 
 
@@ -101,7 +103,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
         nmd.initialize()
         return nmd
 
-    # get me a Restproxy client
     @staticmethod
     def get_me_a_rest_proxy():
         vsd_client = RESTProxyServer(server='localhost:9876',
@@ -118,63 +119,51 @@ class TestNuageMechanismDriver(testtools.TestCase):
     def test_init_with_nuage_pat_and_nuage_underlay(self):
         self.set_config_fixture(
             ConfigTypes.NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG)
-        try:
-            NuageMechanismDriver().initialize()
-            self.fail('nmd should not have successfully initialized.')
-
-        except Exception as e:
-            self.assertEqual('It is not possible to configure both'
-                             ' nuage_pat and nuage_underlay_default.'
-                             ' Set nuage_pat to legacy_disabled.', str(e))
+        self.assertRaisesRegex(
+            oslo_config.cfg.ConfigFileValueError,
+            'It is not possible to configure both'
+            ' nuage_pat and nuage_underlay_default.'
+            ' Set nuage_pat to legacy_disabled.',
+            NuageMechanismDriver().initialize)
 
     def test_init_native_nmd_missing_service_plugin(self):
         self.set_config_fixture(ConfigTypes.MISSING_SERVICE_PLUGIN)
-        try:
-            NuageMechanismDriver().initialize()
-            self.fail('nmd should not have successfully initialized.')
-
-        except Exception as e:
-            self.assertEqual('Missing required service_plugin(s) '
-                             '[\'NuageAPI\'] '
-                             'for mechanism driver nuage', str(e))
+        self.assertRaisesRegex(
+            oslo_config.cfg.ConfigFileValueError,
+            'Missing required service_plugin\(s\) '
+            '\[\'NuageAPI\'\] for mechanism driver nuage',
+            NuageMechanismDriver().initialize)
 
     def test_init_native_nmd_missing_ml2_extension(self):
         self.set_config_fixture(ConfigTypes.MISSING_ML2_EXTENSION)
-        try:
-            NuageMechanismDriver().initialize()
-            self.fail('nmd should not have successfully initialized.')
-
-        except Exception as e:
-            self.assertEqual('Missing required extension(s) '
-                             '[\'port_security\'] '
-                             'for mechanism driver nuage', str(e))
+        self.assertRaisesRegex(
+            oslo_config.cfg.ConfigFileValueError,
+            'Missing required extension\(s\) '
+            '\[\'port_security\'\] for mechanism driver nuage',
+            NuageMechanismDriver().initialize)
 
     def test_init_missing_nuage_network_ml2_extension_for_l2bridge(self):
         self.set_config_fixture(
             ConfigTypes.NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK)
-        try:
-            NuageMechanismDriver().initialize()
-            self.fail('Plugin should not have successfully initialized.')
-
-        except Exception as e:
-            self.assertEqual("Missing required extension "
-                             "'nuage_network' for service plugin "
-                             "NuageL2Bridge", str(e))
+        self.assertRaisesRegex(
+            oslo_config.cfg.ConfigFileValueError,
+            'Missing required extension '
+            '\'nuage_network\' for service plugin NuageL2Bridge',
+            NuageMechanismDriver().initialize)
 
     def test_init_native_nmd_invalid_server(self):
         self.set_config_fixture()
-        try:
-            NuageMechanismDriver().initialize()
-            self.fail('nmd should not have successfully initialized.')
-
-        except Exception as e:
-            self.assertEqual('Could not establish a connection with the VSD. '
-                             'Please check VSD URI path in plugin config '
-                             'and verify IP connectivity.', str(e))
+        self.assertRaisesRegex(
+            RESTProxyError,
+            'Error in REST call to VSD: '
+            'Could not establish a connection with the VSD. '
+            'Please check VSD URI path in plugin config '
+            'and verify IP connectivity.',
+            NuageMechanismDriver().initialize)
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'verify_cms')
-    def test_multi_init_nmd_invalid_server(self, raise_rest, verify_cms):
+    def test_multi_init_nmd_invalid_server(self, *_):
         # init nmd 3 times
         nmd1 = self.get_me_a_nmd()
         nmd2 = self.get_me_a_nmd()
@@ -198,7 +187,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    def test_create_subnet_precommit_in_flat_network(self, *mocks):
+    def test_create_subnet_precommit_in_flat_network(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -218,7 +207,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    def test_create_subnet_precommit_in_flat_net_with_nuagenet(self, *mocks):
+    def test_create_subnet_precommit_in_flat_net_with_nuagenet(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -244,7 +233,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    def test_create_vsd_mgd_subnet_precommit_in_flat_net(self, *mocks):
+    def test_create_vsd_mgd_subnet_precommit_in_flat_net(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -273,7 +262,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    def test_create_subnet_precommit_with_nuagenet(self, *mocks):
+    def test_create_subnet_precommit_with_nuagenet(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -299,7 +288,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
                        return_value=[])
-    def test_create_vsd_mgd_subnet_precommit(self, *mocks):
+    def test_create_vsd_mgd_subnet_precommit(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -323,7 +312,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
     @mock.patch.object(nuagedb, 'get_net_partition_by_id',
                        return_value={'id': 1})
-    def test_create_vsd_mgd_v6_subnet_precommit(self, *mocks):
+    def test_create_vsd_mgd_v6_subnet_precommit(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -352,7 +341,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_net_partition_by_id',
                        return_value={'id': 1})
     @mock.patch.object(NuageMechanismDriver, '_create_nuage_subnet')
-    def test_create_subnet_precommit_default(self, *mocks):
+    def test_create_subnet_precommit_default(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -375,7 +364,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(NuageMechanismDriver,
                        '_create_openstack_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    def test_create_v6_subnet_precommit(self, *mocks):
+    def test_create_v6_subnet_precommit(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -396,7 +385,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    def test_create_two_v6_subnets_precommit(self, *mocks):
+    def test_create_two_v6_subnets_precommit(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -424,7 +413,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(NuageMechanismDriver,
                        '_create_openstack_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    def test_create_v4_v6_subnet_precommit(self, *mocks):
+    def test_create_v4_v6_subnet_precommit(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -446,7 +435,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    def test_create_two_v4_v6_subnets_precommit(self, *mocks):
+    def test_create_two_v4_v6_subnets_precommit(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -469,7 +458,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(RESTProxyServer, '_rest_call',
                        return_value=(401, 'Unauthorized', None, None, None,
                                      None))
-    def test_rest_call_infinite_recursion(self, *mock):
+    def test_rest_call_infinite_recursion(self, *_):
         rest_proxy = self.get_me_a_rest_proxy()
         try:
             rest_proxy.rest_call('get', '', '')
@@ -486,7 +475,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
-    def test_create_v4_v6_v4_subnets_precommit(self, *mocks):
+    def test_create_v4_v6_v4_subnets_precommit(self, *_):
         nmd = self.get_me_a_nmd()
 
         network = {'id': '1',
@@ -602,7 +591,7 @@ class Context(object):
             def is_active():
                 return True
 
-            def begin(self, **kwargs):
+            def begin(self, **_):
                 return Transaction()
 
         self.session = Session()
