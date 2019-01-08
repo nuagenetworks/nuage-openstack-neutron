@@ -29,5 +29,5 @@ class TestNuageL3Plugin(testtools.TestCase):
         super(TestNuageL3Plugin, cls).setUpClass()
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_l3_init(self, *mocks):
+    def test_l3_init(self, *_):
         NuageL3Plugin()

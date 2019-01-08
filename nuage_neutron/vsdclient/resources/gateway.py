@@ -160,7 +160,7 @@ class NuageGateway(object):
             extra_headers=extra_headers)
 
         if not nuage_gw_port.validate(response):
-            raise restproxy.RESTProxyError(nuage_gw_port.error_msg)
+            raise nuage_gw_port.get_rest_proxy_error()
         return nuage_gw_port.get_response_objlist(response)
 
     def _get_gateway_port_vlans(self, tenant_id, req_params,
@@ -190,7 +190,7 @@ class NuageGateway(object):
         response = self.restproxy.rest_call('GET', resource_url, '',
                                             extra_headers=extra_headers)
         if not nuage_gw_vlan.validate(response):
-            raise restproxy.RESTProxyError(nuage_gw_vlan.error_msg)
+            raise nuage_gw_vlan.get_rest_proxy_error()
 
         return nuage_gw_vlan.get_response_objlist(response)
 
@@ -307,7 +307,7 @@ class NuageGateway(object):
             'GET',
             nuage_ent_perm.get_resource_by_vlan(), '')
         if not nuage_ent_perm.validate(response):
-            raise restproxy.RESTProxyError(nuage_ent_perm.error_msg)
+            raise nuage_ent_perm.get_rest_proxy_error()
 
         return nuage_ent_perm.get_response_obj(response)
 
@@ -321,7 +321,7 @@ class NuageGateway(object):
                      "gateway %(gw)s, so cannot create/delete vlan") %
                    {'ent': gw_perm['permittedEntityID'],
                     'gw': gw_id})
-            raise restproxy.RESTProxyError(msg)
+            raise restproxy.ResourceConflictException(msg)
         else:
             gw_port_perm = gw_helper.get_ent_permission_on_port(
                 self.restproxy,
@@ -335,7 +335,7 @@ class NuageGateway(object):
                          "vlan") %
                        {'ent': gw_port_perm['permittedEntityID'],
                         'port': gw_port_id})
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
 
     def create_gateway_port_vlan(self, vlan_dict):
         gw_id = vlan_dict.get('gateway')
@@ -348,7 +348,7 @@ class NuageGateway(object):
             msg = (_("Port %(port)s not found on gateway %(gw)s")
                    % {'port': gw_port_id,
                       'gw': gw_id})
-            raise restproxy.RESTProxyError(msg)
+            raise restproxy.ResourceNotFoundException(msg)
 
         if not gw_id:
             gw_id = gw_port['parentID']
@@ -368,7 +368,7 @@ class NuageGateway(object):
             nuage_gw_vlan.post_vlan(),
             nuage_gw_vlan.post_vlan_data(vlan_value))
         if not nuage_gw_vlan.validate(response):
-            raise restproxy.RESTProxyError(nuage_gw_vlan.error_msg)
+            raise nuage_gw_vlan.get_rest_proxy_error()
 
         return nuage_gw_vlan.get_response_objlist(response)
 
@@ -397,7 +397,7 @@ class NuageGateway(object):
             'DELETE',
             nuage_gw_vlan.get_resource() + '?responseChoice=1', '')
         if not nuage_gw_vlan.validate(response):
-            raise restproxy.RESTProxyError(nuage_gw_vlan.error_msg)
+            raise nuage_gw_vlan.get_rest_proxy_error()
 
     def add_ent_perm(self, tenant_id, vlan_id, netpart_id):
         req_params = {
@@ -428,7 +428,7 @@ class NuageGateway(object):
         response = self.restproxy.rest_call('GET', nuage_vlan.get_resource(),
                                             '')
         if not nuage_vlan.get_validate(response):
-            raise restproxy.RESTProxyError(nuage_vlan.error_msg)
+            raise nuage_vlan.get_rest_proxy_error()
 
         # Get ent permissions on port
         gw_port_id = nuage_vlan.get_response_parentid(response)
@@ -442,7 +442,7 @@ class NuageGateway(object):
             nuage_ent_perm.get_resource_by_port(gw['redundant']),
             '')
         if not nuage_ent_perm.validate(response):
-            raise restproxy.RESTProxyError(nuage_ent_perm.error_msg)
+            raise nuage_ent_perm.get_rest_proxy_error()
 
         ent_perm = nuage_ent_perm.get_response_obj(response)
         if ent_perm:
@@ -464,7 +464,7 @@ class NuageGateway(object):
         gw_port = gw_helper.get_gateway_port(self.restproxy, gw_port_id)
         if not gw_port:
             msg = (_("Port %s not found on gateway ", gw_port_id))  # noqa H702
-            raise restproxy.RESTProxyError(msg)
+            raise restproxy.ResourceNotFoundException(msg)
 
         gw_id = gw_port['parentID']
         req_params['gw_id'] = gw_id
@@ -474,7 +474,7 @@ class NuageGateway(object):
             nuage_ent_perm.get_resource_by_gw(),
             '')
         if not nuage_ent_perm.validate(response):
-            raise restproxy.RESTProxyError(nuage_ent_perm.error_msg)
+            raise nuage_ent_perm.get_rest_proxy_error()
 
         ent_perm = nuage_ent_perm.get_response_obj(response)
         if ent_perm:
@@ -503,7 +503,7 @@ class NuageGateway(object):
             'GET',
             nuage_ent_perm.get_resource_by_vlan(), '')
         if not nuage_ent_perm.validate(response):
-            raise restproxy.RESTProxyError(nuage_ent_perm.error_msg)
+            raise nuage_ent_perm.get_rest_proxy_error()
 
         ent_perm = nuage_ent_perm.get_response_obj(response)
         if ent_perm:
@@ -513,7 +513,7 @@ class NuageGateway(object):
                 'DELETE',
                 nuage_ent_perm.get_resource_by_id() + '?responseChoice=1', '')
             if not nuage_ent_perm.validate(response):
-                raise restproxy.RESTProxyError(nuage_ent_perm.error_msg)
+                raise nuage_ent_perm.get_rest_proxy_error()
 
     def add_tenant_perm(self, vlan_id, user_tenant, netpart_id):
         req_params = {
@@ -526,10 +526,10 @@ class NuageGateway(object):
         # Check if permission already exists
         perm = gw_helper.get_tenant_perm(self.restproxy, vlan_id)
         if perm:
-            msg = _("Vlan %(vlan)s  already assigned to %(ten)s") % \
+            msg = _("Vlan %(vlan)s already assigned to %(ten)s") % \
                 {'vlan': vlan_id, 'ten': perm['permittedEntityName']}
             if perm['permittedEntityID'] != nuage_group:
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
             else:
                 LOG.debug(msg)
                 return
@@ -541,7 +541,7 @@ class NuageGateway(object):
             'POST',
             nuage_perm.get_resource_by_vlan(), data)
         if not nuage_perm.validate(response):
-            raise restproxy.RESTProxyError(nuage_perm.error_msg)
+            raise nuage_perm.get_rest_proxy_error()
 
     def _check_tenant_perm(self, vlan_id, user_tenant, netpart_id):
         req_params = {
@@ -587,7 +587,7 @@ class NuageGateway(object):
             'GET',
             nuage_perm.get_resource_by_vlan(), '')
         if not nuage_perm.validate(response):
-            raise restproxy.RESTProxyError(nuage_perm.error_msg)
+            raise nuage_perm.get_rest_proxy_error()
 
         perm_list = nuage_perm.get_response_objlist(response)
 
@@ -602,7 +602,7 @@ class NuageGateway(object):
                     'DELETE',
                     nuage_perm.get_resource_by_id() + '?responseChoice=1', '')
                 if not nuage_perm.validate(response):
-                    raise restproxy.RESTProxyError(nuage_perm.error_msg)
+                    raise nuage_perm.get_rest_proxy_error()
 
                 # return the num of remaining groups
                 return len(perm_list) - 1
@@ -658,7 +658,7 @@ class NuageGateway(object):
         if not nuage_subnet:
             msg = (_("Nuage subnet for neutron subnet %(subn)s not found")
                    % {'subn': subn_id})
-            raise restproxy.RESTProxyError(msg)
+            raise restproxy.ResourceNotFoundException(msg)
         # Create a vport with bridge/host interface
         req_params = {
             'nuage_vlan_id': params['gatewayinterface'],
@@ -729,7 +729,7 @@ class NuageGateway(object):
         if not nuage_subnet:
             msg = (_("Nuage subnet for neutron subnet %(subn)s not found")
                    % {'subn': subn_id})
-            raise restproxy.RESTProxyError(msg)
+            raise restproxy.ResourceNotFoundException(msg)
         # Create a vport with bridge/host interface
         req_params = {
             'nuage_vlan_id': params['gatewayinterface'],
@@ -997,7 +997,7 @@ class NuageGateway(object):
                         "vlan)s" % {'ten': tenant_id,   # noqa H702
                                     'vlan': nuage_vlan_id})
                 LOG.warn(msg)
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
 
         ret['gateway'] = nuage_vlan['gatewayID']
         ret['gatewayport'] = nuage_vlan['parentID']
@@ -1008,7 +1008,7 @@ class NuageGateway(object):
         if not nuage_vport_id:
             msg = _("Nuage gateway interface %s is not associated with any "
                     "vport" % nuage_vlan_id)   # noqa H702
-            raise restproxy.RESTProxyError(msg)
+            raise restproxy.ResourceConflictException(msg)
 
         # Get the vport
         nuage_vport = gw_helper.get_nuage_vport(self.restproxy, nuage_vport_id)
@@ -1038,7 +1038,7 @@ class NuageGateway(object):
                 msg = _("Nuage vport associated with gateway interface %s is"
                         " not connected to a bridge/host interface"
                         % nuage_vlan_id)   # noqa H702
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
 
             ret['vport_id'] = nuage_vport_id
             ret['vport_type'] = nuage_vport_type
