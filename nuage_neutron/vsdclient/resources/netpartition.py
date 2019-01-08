@@ -20,7 +20,6 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common import helper
 from nuage_neutron.vsdclient.common import nuagelib
-from nuage_neutron.vsdclient import restproxy
 
 DEF_L3DOM_TEMPLATE_PFIX = constants.DEF_L3DOM_TEMPLATE_PFIX
 DEF_L2DOM_TEMPLATE_PFIX = constants.DEF_L2DOM_TEMPLATE_PFIX
@@ -39,7 +38,7 @@ class NuageNetPartition(object):
             'GET', nuagenet_partition.get_resource(),
             '', extra_headers=nuage_ent_extra_headers)
         if not nuagenet_partition.validate(response):
-            raise restproxy.RESTProxyError(nuagenet_partition.error_msg)
+            raise nuagenet_partition.get_rest_proxy_error()
         np_id = nuagenet_partition.get_net_partition_id(response)
 
         l3dom_id = \
@@ -58,8 +57,7 @@ class NuageNetPartition(object):
             self.restproxy, nuagenet_partition.get_resource_by_id(),
             net_partition_dict['np_id'])
         if not nuagenet_partition.validate(response):
-            code = nuagenet_partition.get_error_code(response)
-            raise restproxy.RESTProxyError(nuagenet_partition.error_msg, code)
+            raise nuagenet_partition.get_rest_proxy_error()
 
     def create_net_partition(self, params):
         nuagenet_partition = nuagelib.NuageNetPartition(create_params=params)
@@ -67,11 +65,9 @@ class NuageNetPartition(object):
                                             nuagenet_partition.post_resource(),
                                             nuagenet_partition.post_data())
         if not nuagenet_partition.validate(response):
-            code = nuagenet_partition.get_error_code(response)
-            raise restproxy.RESTProxyError(nuagenet_partition.error_msg, code)
-        net_partition_dict = {}
-        net_partition_dict['np_id'] = \
-            nuagenet_partition.get_net_partition_id(response)
+            raise nuagenet_partition.get_rest_proxy_error()
+        net_partition_dict = {
+            'np_id': nuagenet_partition.get_net_partition_id(response)}
 
         l3_tmplt_name = params['name'] + DEF_L3DOM_TEMPLATE_PFIX
         l3dom_tid = self._create_default_l3template_for_netpart(
@@ -92,7 +88,7 @@ class NuageNetPartition(object):
             'GET', nuagenet_partition.get_resource_by_id(), '')
         if not nuagenet_partition.validate(resp):
             if resp[0] != constants.RES_NOT_FOUND:
-                raise restproxy.RESTProxyError(nuagenet_partition.error_msg)
+                raise nuagenet_partition.get_rest_proxy_error()
             else:
                 return
         details_on_nuage = nuagenet_partition.get_response_obj(resp)
@@ -101,7 +97,7 @@ class NuageNetPartition(object):
             response = self.restproxy.rest_call(
                 'DELETE', nuagenet_partition.delete_resource(id), '')
             if not nuagenet_partition.validate(response):
-                raise restproxy.RESTProxyError(nuagenet_partition.error_msg)
+                raise nuagenet_partition.get_rest_proxy_error()
 
     def _create_default_l3template_for_netpart(self, np_id, name):
         req_params = {
@@ -118,7 +114,7 @@ class NuageNetPartition(object):
                                             nuagel3domtemplate.post_resource(),
                                             nuagel3domtemplate.post_data())
         if not nuagel3domtemplate.validate(response):
-            raise restproxy.RESTProxyError(nuagel3domtemplate.error_msg)
+            raise nuagel3domtemplate.get_rest_proxy_error()
         l3dom_tid = nuagel3domtemplate.get_templateid(response)
         isolated_zone_name = constants.DEF_NUAGE_ZONE_PREFIX + '-' + l3dom_tid
         params = {
@@ -132,7 +128,7 @@ class NuageNetPartition(object):
                                  nuagezonetemplate.post_resource(),
                                  nuagezonetemplate.post_data())
         if not nuagezonetemplate.validate(response):
-            raise restproxy.RESTProxyError(nuagezonetemplate.error_msg)
+            raise nuagezonetemplate.get_rest_proxy_error()
 
         shared_zone_name = (constants.DEF_NUAGE_ZONE_PREFIX + '-pub-' +
                             l3dom_tid)
@@ -141,7 +137,7 @@ class NuageNetPartition(object):
                                  nuagezonetemplate.post_resource(),
                                  nuagezonetemplate.post_data())
         if not nuagezonetemplate.validate(response):
-            raise restproxy.RESTProxyError(nuagezonetemplate.error_msg)
+            raise nuagezonetemplate.get_rest_proxy_error()
         return l3dom_tid
 
     def _create_default_l2template_for_netpart(self, np_id, name):
@@ -159,7 +155,7 @@ class NuageNetPartition(object):
                                             nuagel2domtemplate.post_resource(),
                                             nuagel2domtemplate.post_data())
         if not nuagel2domtemplate.validate(response):
-            raise restproxy.RESTProxyError(nuagel2domtemplate.error_msg)
+            raise nuagel2domtemplate.get_rest_proxy_error()
         return nuagel2domtemplate.get_templateid(response)
 
     def get_net_partitions(self):
@@ -167,7 +163,7 @@ class NuageNetPartition(object):
         response = self.restproxy.rest_call(
             'GET', netpartition.get_resource(), '')
         if not netpartition.validate(response):
-            raise restproxy.RESTProxyError(netpartition.error_msg)
+            raise netpartition.get_rest_proxy_error()
         res = []
         for netpart in netpartition.get_response_objlist(response):
             np_dict = dict()
@@ -269,7 +265,7 @@ class NuageNetPartition(object):
             extra_headers=nuage_extra_headers)
 
         if not nuage_fip.validate(response):
-            raise restproxy.RESTProxyError(nuage_fip.error_msg)
+            raise nuage_fip.get_rest_proxy_error()
 
         ret = None
         if len(response[3]) > 0:

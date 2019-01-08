@@ -41,7 +41,7 @@ def get_l3dom_policygroup_by_sgid(restproxy_serv, l3dom_id,
         extra_headers=nuage_policygroup.extra_headers_get_type_and_id(sg_type))
 
     if not nuage_policygroup.validate(response):
-        raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
+        raise nuage_policygroup.get_rest_proxy_error()
 
     if not response[3]:
         return response[3]
@@ -63,7 +63,7 @@ def get_l2dom_policygroup_by_sgid(restproxy_serv, l2dom_id,
         extra_headers=nuage_policygroup.extra_headers_get_type_and_id(sg_type))
 
     if not nuage_policygroup.validate(response):
-        raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
+        raise nuage_policygroup.get_rest_proxy_error()
 
     if not response[3]:
         nuage_policygroup_id = response[3]
@@ -104,7 +104,7 @@ def get_l3dom_inbound_acl_id(restproxy_serv, dom_id):
                                         nuageibacl.get_resource_l3(), '',
                                         extra_headers=extra_headers)
     if not nuageibacl.get_validate(response):
-        raise restproxy.RESTProxyError(nuageibacl.error_msg)
+        raise nuageibacl.get_rest_proxy_error()
     nuageibacl_id = nuageibacl.get_iacl_id(response)
 
     return nuageibacl_id
@@ -121,7 +121,7 @@ def get_l3dom_outbound_acl_id(restproxy_serv, dom_id):
                                         nuageobacl.get_resource_l3(), '',
                                         extra_headers=extra_headers)
     if not nuageobacl.get_validate(response):
-        raise restproxy.RESTProxyError(nuageobacl.error_msg)
+        raise nuageobacl.get_rest_proxy_error()
     nuageobacl_id = nuageobacl.get_oacl_id(response)
 
     return nuageobacl_id
@@ -138,7 +138,7 @@ def get_l2dom_inbound_acl_id(restproxy_serv, dom_id):
                                         nuageibacl.get_resource_l2(), '',
                                         extra_headers=extra_headers)
     if not nuageibacl.get_validate(response):
-        raise restproxy.RESTProxyError(nuageibacl.error_msg)
+        raise nuageibacl.get_rest_proxy_error()
     nuageibacl_id = nuageibacl.get_iacl_id(response)
 
     return nuageibacl_id
@@ -155,7 +155,7 @@ def get_l2dom_outbound_acl_id(restproxy_serv, dom_id):
                                         nuageobacl.get_resource_l2(), '',
                                         extra_headers=extra_headers)
     if not nuageobacl.get_validate(response):
-        raise restproxy.RESTProxyError(nuageobacl.error_msg)
+        raise nuageobacl.get_rest_proxy_error()
     nuageobacl_id = nuageobacl.get_oacl_id(response)
 
     return nuageobacl_id
@@ -177,7 +177,7 @@ def get_inbound_acl_details(restproxy_serv, dom_id, type=constants.SUBNET):
                                         url, '',
                                         extra_headers=extra_headers)
     if not nuageibacl.get_validate(response):
-        raise restproxy.RESTProxyError(nuageibacl.error_msg)
+        raise nuageibacl.get_rest_proxy_error()
     return response[3][0]
 
 

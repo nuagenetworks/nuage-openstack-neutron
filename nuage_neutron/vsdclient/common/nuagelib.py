@@ -23,6 +23,8 @@ from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
 
+from nuage_neutron.vsdclient.restproxy import RESTProxyError
+
 import uuid
 
 REST_SUCCESS_CODES = constants.REST_SUCCESS_CODES
@@ -32,11 +34,12 @@ DEF_OPENSTACK_USER_EMAIL = constants.DEF_OPENSTACK_USER_EMAIL
 REST_SERV_UNAVAILABLE_CODE = constants.REST_SERV_UNAVAILABLE_CODE
 
 
-class NuageServerBaseClass(object):
+class NuageResource(object):
     def __init__(self, create_params=None, extra_params=None):
         self.create_params = create_params
         self.extra_params = extra_params
         self.error_msg = None
+        self.error_code = None
         self.vsd_error_code = None
 
     def validate(self, response):
@@ -44,14 +47,13 @@ class NuageServerBaseClass(object):
             return False
         if response[0] not in REST_SUCCESS_CODES:
             errors = json.loads(response[3])
+            self.error_code = response[0]
             if response[0] == REST_SERV_UNAVAILABLE_CODE:
                 self.error_msg = self.get_503_error_msg(errors)
             else:
                 self.error_msg = self.get_error_msg(errors)
-                if response[0] == REST_NOT_FOUND:
-                    # 404s don't have an internalErrorCode
-                    self.vsd_error_code = REST_NOT_FOUND
-                else:
+                if response[0] != REST_NOT_FOUND:  # 404s don't have an
+                    #                                internalErrorCode
                     self.vsd_error_code = self.get_internal_error_code(errors)
             return False
         return True
@@ -140,8 +142,13 @@ class NuageServerBaseClass(object):
             filter += "%s IS %s" % (field, value)
         return {'X-Nuage-Filter': filter} if filter else None
 
+    def get_rest_proxy_error(self):
+        return RESTProxyError(self.error_msg,
+                              self.error_code,
+                              self.vsd_error_code)
 
-class NuageL3DomTemplate(NuageServerBaseClass):
+
+class NuageL3DomTemplate(NuageResource):
     def post_resource(self):
         ent_id = self.create_params['net_partition_id']
         return '/enterprises/%s/domaintemplates?responseChoice=1' % ent_id
@@ -177,7 +184,7 @@ class NuageL3DomTemplate(NuageServerBaseClass):
         return headers
 
 
-class NuageL2DomTemplate(NuageServerBaseClass):
+class NuageL2DomTemplate(NuageResource):
     def post_resource(self):
         ent_id = self.create_params['net_partition_id']
         return '/enterprises/%s/l2domaintemplates?responseChoice=1' % ent_id
@@ -225,7 +232,7 @@ class NuageL2DomTemplate(NuageServerBaseClass):
         return headers
 
 
-class NuageZoneTemplate(NuageServerBaseClass):
+class NuageZoneTemplate(NuageResource):
     def post_resource(self):
         l3dom_id = self.create_params['l3domain_id']
         return '/domaintemplates/%s/zonetemplates?responseChoice=1' % l3dom_id
@@ -258,7 +265,7 @@ class NuageZoneTemplate(NuageServerBaseClass):
         return response[3]
 
 
-class NuageL2Domain(NuageServerBaseClass):
+class NuageL2Domain(NuageResource):
     resource = 'l2domains'
 
     def post_resource(self):
@@ -387,7 +394,7 @@ class NuageL2Domain(NuageServerBaseClass):
         return headers
 
 
-class NuageSubnet(NuageServerBaseClass):
+class NuageSubnet(NuageResource):
     resource = 'subnets'
 
     def post_resource(self):
@@ -520,7 +527,7 @@ class NuageSubnet(NuageServerBaseClass):
         return headers
 
 
-class NuageDhcpOptions(NuageServerBaseClass):
+class NuageDhcpOptions(NuageResource):
     def resource_by_l2domainid(self, id):
         # This method is used for GET and POST for l2 case
         return '/l2domains/%s/dhcpoptions' % id
@@ -544,7 +551,7 @@ class NuageDhcpOptions(NuageServerBaseClass):
         return ".".join(str(x) for x in bytes)
 
 
-class NuageL3Domain(NuageServerBaseClass):
+class NuageL3Domain(NuageResource):
     resource = 'domains'
 
     def post_resource(self):
@@ -645,7 +652,7 @@ class NuageL3Domain(NuageServerBaseClass):
         return headers
 
 
-class NuageZone(NuageServerBaseClass):
+class NuageZone(NuageResource):
     def get_zoneid(self, response):
         return self.get_response_objid(response)
 
@@ -692,7 +699,7 @@ class NuageZone(NuageServerBaseClass):
         return headers
 
 
-class NuageStaticRoute(NuageServerBaseClass):
+class NuageStaticRoute(NuageResource):
     def get_staticrouteid(self, response):
         return self.get_response_objid(response)
 
@@ -735,7 +742,7 @@ class NuageStaticRoute(NuageServerBaseClass):
         return headers
 
 
-class NuageGroup(NuageServerBaseClass):
+class NuageGroup(NuageResource):
     def post_resource(self):
         ent_id = self.create_params['net_partition_id']
         return '/enterprises/%s/groups' % ent_id
@@ -808,7 +815,7 @@ class NuageGroup(NuageServerBaseClass):
         return headers
 
 
-class NuageUser(NuageServerBaseClass):
+class NuageUser(NuageResource):
     def ent_post_resource(self):
         ent_id = self.create_params['net_partition_id']
         return '/enterprises/%s/users' % ent_id
@@ -862,7 +869,7 @@ class NuageUser(NuageServerBaseClass):
         return headers
 
 
-class NuageNetPartition(NuageServerBaseClass):
+class NuageNetPartition(NuageResource):
     def post_resource(self):
         return '/enterprises'
 
@@ -902,7 +909,7 @@ class NuageNetPartition(NuageServerBaseClass):
         return headers
 
 
-class NuageEntProfile(NuageServerBaseClass):
+class NuageEntProfile(NuageResource):
     def get_resource(self):
         return '/enterpriseprofiles'
 
@@ -919,7 +926,7 @@ class NuageEntProfile(NuageServerBaseClass):
         return self.validate(response) and response[3]
 
 
-class NuageVM(NuageServerBaseClass):
+class NuageVM(NuageResource):
     resource = 'vms'
 
     def post_resource(self):
@@ -1012,7 +1019,7 @@ class NuageVM(NuageServerBaseClass):
         return '/l2domains/%s/vms' % self.create_params['l2domain_id']
 
 
-class NuageVMInterface(NuageServerBaseClass):
+class NuageVMInterface(NuageResource):
     def get_all_resource(self):
         return '/vminterfaces'
 
@@ -1077,7 +1084,7 @@ class NuageVMInterface(NuageServerBaseClass):
         return response[0]['IPAddress']
 
 
-class NuageInboundACL(NuageServerBaseClass):
+class NuageInboundACL(NuageResource):
 
     def_allow_non_ip = config.default_allow_non_ip()
 
@@ -1169,7 +1176,7 @@ class NuageInboundACL(NuageServerBaseClass):
         return headers
 
 
-class NuageOutboundACL(NuageServerBaseClass):
+class NuageOutboundACL(NuageResource):
 
     def_allow_non_ip = config.default_allow_non_ip()
 
@@ -1263,7 +1270,7 @@ class NuageOutboundACL(NuageServerBaseClass):
         return headers
 
 
-class NuageFloatingIP(NuageServerBaseClass):
+class NuageFloatingIP(NuageResource):
     resource = 'floatingips'
 
     def get_fip_id(self, response):
@@ -1317,7 +1324,7 @@ class NuageFloatingIP(NuageServerBaseClass):
         return headers
 
 
-class NuageVPort(NuageServerBaseClass):
+class NuageVPort(NuageResource):
     resource = 'vports'
 
     def get_vport_id(self, response):
@@ -1450,7 +1457,7 @@ class NuageVPort(NuageServerBaseClass):
         return {'X-Nuage-Filter': query}
 
 
-class NuagePolicygroup(NuageServerBaseClass):
+class NuagePolicygroup(NuageResource):
     resource = 'policygroups'
 
     def get_all_resources(self):
@@ -1566,7 +1573,7 @@ class NuagePolicygroup(NuageServerBaseClass):
         return headers
 
 
-class NuageACLRule(NuageServerBaseClass):
+class NuageACLRule(NuageResource):
     def get_aclrule_id(self, response):
         return self.get_response_objid(response)
 
@@ -1633,7 +1640,7 @@ class NuageACLRule(NuageServerBaseClass):
         return headers
 
 
-class NuageNetPartitionNetwork(NuageServerBaseClass):
+class NuageNetPartitionNetwork(NuageResource):
     def get_resource_by_id(self, net_id):
         return '/enterprisenetworks/%s' % net_id
 
@@ -1698,7 +1705,7 @@ class NuageNetPartitionNetwork(NuageServerBaseClass):
         return headers
 
 
-class NuageGatewayBase(NuageServerBaseClass):
+class NuageGatewayBase(NuageResource):
     # creation method
     def factory(create_params, extra_params, redundant=False):
         if redundant:
@@ -1765,7 +1772,7 @@ class NuageRedundancyGroup(NuageGatewayBase):
                 self.create_params['gw_id'])
 
 
-class NuageGatewayPortBase(NuageServerBaseClass):
+class NuageGatewayPortBase(NuageResource):
     # creation method
     def factory(create_params, extra_params, redundant=False):
         if redundant:
@@ -1863,7 +1870,7 @@ class NuageGatewayRedundantPort(NuageGatewayPortBase):
                 self.create_params['port_id']
 
 
-class NuageVlanBase(NuageServerBaseClass):
+class NuageVlanBase(NuageResource):
     # create method
     def factory(create_params, extra_params, redundant=False):
         if redundant:
@@ -1932,7 +1939,7 @@ class NuageRedundantVlan(NuageVlanBase):
 
 
 @six.add_metaclass(ABCMeta)
-class NuageQOS(NuageServerBaseClass):
+class NuageQOS(NuageResource):
     def get_resource(self):
         return '/qos/%s' % self.create_params['qos_id']
 
@@ -1995,7 +2002,7 @@ class NuageBasePermission(object):
         return data
 
 
-class NuagePermission(NuageServerBaseClass, NuageBasePermission):
+class NuagePermission(NuageResource, NuageBasePermission):
     # def __init__(self, create_params=None, extra_params=None):
     #   super(NuagePermission, self).__init__(create_params, extra_params)
 
@@ -2033,7 +2040,7 @@ class NuagePermission(NuageServerBaseClass, NuageBasePermission):
         return data
 
 
-class NuageEntPermission(NuageServerBaseClass, NuageBasePermission):
+class NuageEntPermission(NuageResource, NuageBasePermission):
     # def __init__(self, create_params=None, extra_params=None):
     #   super(NuageEntPermission, self).__init__(create_params, extra_params)
 
@@ -2065,7 +2072,7 @@ class NuageEntPermission(NuageServerBaseClass, NuageBasePermission):
                 self.create_params['gw_id']
 
 
-class NuageHostInterface(NuageServerBaseClass):
+class NuageHostInterface(NuageResource):
     def get_all_resource(self):
         return '/vports/%s/hostinterfaces' % self.create_params['vport_id']
 
@@ -2101,7 +2108,7 @@ class NuageHostInterface(NuageServerBaseClass):
         return headers
 
 
-class NuageBridgeInterface(NuageServerBaseClass):
+class NuageBridgeInterface(NuageResource):
     def get_resource(self):
         return '/bridgeinterfaces/%s' % self.create_params['interface_id']
 
@@ -2124,7 +2131,7 @@ class NuageBridgeInterface(NuageServerBaseClass):
         return data
 
 
-class NuageRedirectTarget(NuageServerBaseClass):
+class NuageRedirectTarget(NuageResource):
     resource = 'redirectiontargets'
 
     def post_resource_l2dom(self, l2dom_id):
@@ -2211,7 +2218,7 @@ class NuageRedirectTarget(NuageServerBaseClass):
         return headers
 
 
-class NuageInAdvFwdTemplate(NuageServerBaseClass):
+class NuageInAdvFwdTemplate(NuageResource):
 
     def list_resource(self):
         return '/ingressadvfwdtemplates/'
@@ -2248,7 +2255,7 @@ class NuageInAdvFwdTemplate(NuageServerBaseClass):
         return data
 
 
-class NuageAdvFwdRule(NuageServerBaseClass):
+class NuageAdvFwdRule(NuageResource):
     def in_post_resource(self, policy_id):
         return ("/ingressadvfwdtemplates/%s/ingressadvfwdentrytemplates"
                 "?responseChoice=1" % policy_id)
@@ -2277,7 +2284,7 @@ class NuageAdvFwdRule(NuageServerBaseClass):
         return headers
 
 
-class NuageCms(NuageServerBaseClass):
+class NuageCms(NuageResource):
     def post_resource(self):
         return '/cms'
 
@@ -2288,7 +2295,7 @@ class NuageCms(NuageServerBaseClass):
         return '/cms/%s' % self.create_params['cms_id']
 
 
-class NuageVIP(NuageServerBaseClass):
+class NuageVIP(NuageResource):
     resource = 'virtualips'
 
     def get_resource(self):

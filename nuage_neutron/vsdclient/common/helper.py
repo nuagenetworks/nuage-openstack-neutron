@@ -84,7 +84,7 @@ def get_l3domid_for_netpartition(restproxy_serv, np_id, name):
         nuagel3domtemplate.extra_headers_get())
 
     if not nuagel3domtemplate.validate(response):
-        raise restproxy.RESTProxyError(nuagel3domtemplate.error_msg)
+        raise nuagel3domtemplate.get_rest_proxy_error()
     return nuagel3domtemplate.get_templateid(response)
 
 
@@ -102,7 +102,7 @@ def get_l2domid_for_netpartition(restproxy_serv, np_id, name):
         nuagel2domtemplate.extra_headers_get())
 
     if not nuagel2domtemplate.validate(response):
-        raise restproxy.RESTProxyError(nuagel2domtemplate.error_msg)
+        raise nuagel2domtemplate.get_rest_proxy_error()
     return nuagel2domtemplate.get_templateid(response)
 
 
@@ -174,9 +174,8 @@ def create_usergroup(restproxy_serv, tenant, net_partition_id,
                                              nuageuser.post_data())
 
         if not nuageuser.validate(user_resp):
-            error_code = nuageuser.get_error_code(user_resp)
-            if error_code != constants.CONFLICT_ERR_CODE:
-                raise restproxy.RESTProxyError(nuagegroup.error_msg)
+            if nuageuser.error_code != constants.CONFLICT_ERR_CODE:
+                raise nuageuser.get_rest_proxy_error()
 
             user_id = get_user_id(restproxy_serv, tenant, '',
                                   net_partition_id, False)
@@ -192,9 +191,8 @@ def create_usergroup(restproxy_serv, tenant, net_partition_id,
                                               nuagegroup.post_resource(),
                                               nuagegroup.post_data())
         if not nuagegroup.validate(group_resp):
-            error_code = nuageuser.get_error_code(group_resp)
-            if error_code != constants.CONFLICT_ERR_CODE:
-                raise restproxy.RESTProxyError(nuagegroup.error_msg)
+            if nuagegroup.error_code != constants.CONFLICT_ERR_CODE:
+                raise nuagegroup.get_rest_proxy_error()
             group_id = get_group_id(restproxy_serv, tenant, net_partition_id)
             LOG.debug('Group %s already exists in VSD', group_id)
 
@@ -368,7 +366,7 @@ def get_l3domain_np_id(restproxy_serv, l3dom_id):
                                         nuage_l3_domain.get_resource(), '')
 
     if not nuage_l3_domain.validate(response):
-        raise restproxy.RESTProxyError(nuage_l3_domain.error_msg)
+        raise nuage_l3_domain.get_rest_proxy_error()
 
     if response[3]:
         return response[3][0]['parentID']
@@ -384,7 +382,7 @@ def get_l2domain_np_id(restproxy_serv, l2dom_id):
                                         '')
 
     if not nuage_l2_domain.validate(response):
-        raise restproxy.RESTProxyError(nuage_l2_domain.error_msg)
+        raise nuage_l2_domain.get_rest_proxy_error()
 
     if response[3]:
         return response[3][0]['parentID']
@@ -403,7 +401,7 @@ def get_l3dom_by_router_id(restproxy_serv, rtr_id):
         extra_headers=nuage_l3_domain.extra_headers_get())
 
     if not nuage_l3_domain.validate(response):
-        raise restproxy.RESTProxyError(nuage_l3_domain.error_msg)
+        raise nuage_l3_domain.get_rest_proxy_error()
 
     return (nuage_l3_domain, response)
 
@@ -430,7 +428,7 @@ def get_l3dom_template_id_by_dom_id(restproxy_serv, dom_id):
         'GET', nuage_l3_domain.get_resource(), '', '')
 
     if not nuage_l3_domain.validate(response):
-        raise restproxy.RESTProxyError(nuage_l3_domain.error_msg)
+        raise nuage_l3_domain.get_rest_proxy_error()
 
     if response[VSD_RESP_OBJ]:
         return response[VSD_RESP_OBJ][0]['templateID']
@@ -444,7 +442,7 @@ def get_first_zone_by_nuage_router_id(restproxy_serv, nuage_router_id):
 
     response = restproxy_serv.rest_call('GET', nuage_zone.list_resource(), '')
     if not nuage_zone.validate(response):
-        raise restproxy.RESTProxyError(nuage_zone.error_msg)
+        raise nuage_zone.get_rest_proxy_error()
 
     for (counter, zone) in enumerate(nuage_zone.zone_list(response)):
         if counter == 0:
@@ -472,8 +470,7 @@ def get_nuage_port_by_id(restproxy_serv, params):
                                         '', extra_headers=nuage_extra_headers)
 
     if not nuage_intf.validate(response):
-        raise restproxy.RESTProxyError(nuage_intf.error_msg,
-                                       nuage_intf.vsd_error_code)
+        raise nuage_intf.get_rest_proxy_error()
 
     if len(response[3]) > 0:
         port = response[3][0]
@@ -482,8 +479,7 @@ def get_nuage_port_by_id(restproxy_serv, params):
         vport_resp = restproxy_serv.rest_call(
             'GET', nuage_vport.get_resource(), '')
         if not nuage_vport.validate(vport_resp):
-            raise restproxy.RESTProxyError(nuage_vport.error_msg,
-                                           nuage_vport.vsd_error_code)
+            raise nuage_vport.get_rest_proxy_error()
         vport = vport_resp[3][0]
         vport['nuage_vif_id'] = port['ID']
         return vport
@@ -546,9 +542,7 @@ def delete_nuage_vport(restproxy_serv, vport_id):
     del_resp = restproxy_serv.rest_call('DELETE',
                                         nuage_vport.del_vport(vport_id), '')
     if not nuage_vport.delete_validate(del_resp):
-        raise restproxy.RESTProxyError(nuage_vport.error_msg,
-                                       error_code=del_resp[0],
-                                       vsd_code=nuage_vport.vsd_error_code)
+        raise nuage_vport.get_rest_proxy_error()
 
 
 def get_l2dom(restproxy_serv, nuage_id, required=False):
@@ -595,7 +589,7 @@ def _get_nuage_domain_id_from_subnet(restproxy_serv, nuage_subnet_id):
     nuage_subnet = restproxy_serv.rest_call(
         'GET', nuagesubn.get_resource(nuage_subnet_id), '')
     if not nuagesubn.validate(nuage_subnet):
-        raise restproxy.RESTProxyError(nuagesubn.error_msg)
+        raise nuagesubn.get_rest_proxy_error()
     nuage_zone_id = nuagesubn.get_parentzone(nuage_subnet)
 
     req_params = {
@@ -605,7 +599,7 @@ def _get_nuage_domain_id_from_subnet(restproxy_serv, nuage_subnet_id):
     nuage_zone = restproxy_serv.rest_call(
         'GET', nuagezone.get_resource(), '')
     if not nuagezone.validate(nuage_zone):
-        raise restproxy.RESTProxyError(nuagezone.error_msg)
+        raise nuage_zone.get_rest_proxy_error()
     nuage_domain_id = nuagezone.get_response_parentid(nuage_zone)
 
     return nuage_domain_id
@@ -618,7 +612,7 @@ def get_nuage_zone_by_id(restproxy_serv, id):
     nuage_zone = nuagelib.NuageZone(create_params=req_params)
     response = restproxy_serv.rest_call('GET', nuage_zone.get_resource(), '')
     if not nuage_zone.validate(response):
-        raise restproxy.RESTProxyError(nuage_zone.error_msg)
+        raise nuage_zone.get_rest_proxy_error()
 
     if len(response[3]) > 0:
         ret = {
@@ -640,7 +634,7 @@ def get_nuage_domain_by_zoneid(restproxy_serv, zone_id):
         'GET', nuage_l3domain.get_resource(), '')
 
     if not nuage_l3domain.validate(dom_resp):
-        raise restproxy.RESTProxyError(nuage_l3domain.error_msg)
+        raise nuage_l3domain.get_rest_proxy_error()
 
     if len(dom_resp[3]) > 0:
         ret = {
@@ -746,12 +740,12 @@ def get_in_adv_fwd_policy(restproxy_serv, parent_type, parent_id):
                                                 parent_id),
                                             '')
     if not nuageadvfwdtmplt.validate(response):
-        raise restproxy.RESTProxyError(nuageadvfwdtmplt.error_msg)
+        raise nuageadvfwdtmplt.get_rest_proxy_error()
 
     if not response[3]:
         msg = ("%s %s does not have default advanced forwarding template"
                % (parent_type, parent_id))
-        raise restproxy.RESTProxyError(msg)
+        raise restproxy.ResourceConflictException(msg)
 
     return nuageadvfwdtmplt.get_response_objid(response)
 
@@ -791,8 +785,7 @@ def get_nuage_prefix_macro(restproxy_serv, net_macro_id):
     response = restproxy_serv.rest_call(
         'GET', nuage_np_net.get_resource_by_id(net_macro_id), '')
     if not nuage_np_net.validate(response):
-        raise restproxy.RESTProxyError(nuage_np_net.error_msg)
-
+        raise nuage_np_net.get_rest_proxy_error()
     return response[3][0]
 
 
@@ -831,7 +824,7 @@ def get_nuage_fip(restproxy_serv, nuage_fip_id):
     resp = restproxy_serv.rest_call(
         'GET', nuage_fip.get_fip_resource(), '')
     if not nuage_fip.validate(resp):
-        raise restproxy.RESTProxyError(nuage_fip.error_msg)
+        raise nuage_fip.get_rest_proxy_error()
     return nuage_fip.get_response_obj(resp)
 
 
@@ -841,7 +834,7 @@ def get_vport_assoc_with_fip(restproxy_serv, nuage_fip_id):
     resp = restproxy_serv.rest_call(
         'GET', nuage_vport.get_vport_for_fip(), '')
     if not nuage_vport.validate(resp):
-        raise restproxy.RESTProxyError(nuage_vport.error_msg)
+        raise nuage_vport.get_rest_proxy_error()
     if nuage_vport.check_response_exist(resp):
         return nuage_vport.get_response_obj(resp)
 
@@ -857,7 +850,7 @@ def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
             'GET', nuagegroup.list_resource(), '',
             nuagegroup.extra_headers_get_for_everybody())
         if not nuagegroup.validate(response):
-            raise restproxy.RESTProxyError(nuagegroup.error_msg)
+            raise nuagegroup.get_rest_proxy_error()
         nuage_groupid = nuagegroup.get_groupid(response)
     else:
         nuage_userid, nuage_groupid = \
@@ -872,8 +865,8 @@ def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
             if not nuagepermission.validate(response):
                 if response[0] == constants.RES_NOT_FOUND:
                     return
-                raise restproxy.RESTProxyError(nuagepermission.error_msg,
-                                               nuagepermission.vsd_error_code)
+                raise nuagepermission.get_rest_proxy_error()
+
             permissions = response[3]
             for permission in permissions:
                 if permission['permittedEntityName'] == "Everybody":
@@ -893,8 +886,7 @@ def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
     if not nuage_permission.validate(resp):
         if (nuage_permission.get_error_code(resp) !=
                 constants.CONFLICT_ERR_CODE):
-            raise restproxy.RESTProxyError(
-                nuage_permission.error_msg)
+            raise nuage_permission.get_rest_proxy_error()
 
 
 # function to be able to convert the value in to a VSD supported hex format
@@ -975,8 +967,8 @@ def get_pnet_params(pnet_binding, vsd_subnet_id, np_id, subnet):
 
 def get_subnet_external_id(subnet):
     if not subnet:
-        raise restproxy.RESTProxyError("Unable to calculate external ID for "
-                                       "subnet.")
+        raise restproxy.ResourceConflictException(
+            "Unable to calculate external ID for subnet.")
     neutron_id = subnet['nuage_l2bridge'] or subnet['id']
     return get_vsd_external_id(neutron_id)
 

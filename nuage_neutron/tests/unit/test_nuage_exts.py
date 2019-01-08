@@ -56,12 +56,12 @@ class TestNuageExtensions(testtools.TestCase):
 class TestNuagePortExtensionDriver(TestNuageExtensions):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_init_nuage_port_extension_driver(self, *mocks):
+    def test_init_nuage_port_extension_driver(self, *_):
         NuagePortExtensionDriver().initialize()
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'verify_cms')
-    def test_init_nuage_port_extension_driver2(self, *mocks):
+    def test_init_nuage_port_extension_driver2(self, *_):
         self.set_config_fixture()
         NuagePortExtensionDriver().initialize()
 
@@ -69,12 +69,12 @@ class TestNuagePortExtensionDriver(TestNuageExtensions):
 class TestNuageSubnetExtensionDriver(TestNuageExtensions):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_init_nuage_subnet_extension_driver(self, *mocks):
+    def test_init_nuage_subnet_extension_driver(self, *_):
         NuageSubnetExtensionDriver().initialize()
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'verify_cms')
-    def test_init_nuage_subnet_extension_driver2(self, *mocks):
+    def test_init_nuage_subnet_extension_driver2(self, *_):
         self.set_config_fixture()
         NuageSubnetExtensionDriver().initialize()
 
@@ -82,12 +82,12 @@ class TestNuageSubnetExtensionDriver(TestNuageExtensions):
 class TestNuageNetworkExtensionDriver(TestNuageExtensions):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_init_nuage_network_extension_driver(self, *mocks):
+    def test_init_nuage_network_extension_driver(self, *_):
         NuageNetworkExtensionDriver().initialize()
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'verify_cms')
-    def test_init_nuage_network_extension_driver2(self, *mocks):
+    def test_init_nuage_network_extension_driver2(self, *_):
         self.set_config_fixture()
         NuageNetworkExtensionDriver().initialize()
 
@@ -95,12 +95,12 @@ class TestNuageNetworkExtensionDriver(TestNuageExtensions):
 class TestNuageSecurityGroupExtensionDriver(TestNuageExtensions):
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
-    def test_init_nuage_sg_extension_driver(self, *mocks):
+    def test_init_nuage_sg_extension_driver(self, *_):
         NuageSecurityGroup()
 
     @mock.patch.object(RESTProxyServer, 'raise_rest_error')
     @mock.patch.object(VsdClientImpl, 'verify_cms')
-    def test_init_nuage_sg_extension_driver2(self, *mocks):
+    def test_init_nuage_sg_extension_driver2(self, *_):
         self.set_config_fixture()
         NuageSecurityGroup()
 

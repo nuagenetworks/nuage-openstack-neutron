@@ -154,7 +154,7 @@ class NuageDhcpOptions(object):
         if not nuage_dhcpoptions.validate(resp):
             if (nuage_dhcpoptions.vsd_error_code !=
                     constants.VSD_NO_ATTR_CHANGES_TO_MODIFY_ERR_CODE):
-                raise restproxy.RESTProxyError(nuage_dhcpoptions.error_msg)
+                raise nuage_dhcpoptions.get_rest_proxy_error()
             return data
         return resp
 
@@ -164,12 +164,11 @@ class NuageDhcpOptions(object):
                                         nuage_dhcpoptions.
                                         dhcp_resource(dhcp_id), '')
         if not nuage_dhcpoptions.validate(resp):
+            exc = nuage_dhcpoptions.get_rest_proxy_error()
             if on_rollback:
-                raise restproxy.RESTProxyError("Rollback also failed due to "
-                                               "the exception: " +
-                                               nuage_dhcpoptions.error_msg)
-            else:
-                raise restproxy.RESTProxyError(nuage_dhcpoptions.error_msg)
+                exc.message = ("Rollback also failed due to the exception: " +
+                               exc.message)
+            raise exc
 
     def _create_nuage_dhcp_options(self, subnet, _resource_id,
                                    type, _dhcp_option):
@@ -209,7 +208,7 @@ class NuageDhcpOptions(object):
 
         if (resp[0] not in restproxy.REST_SUCCESS_CODES and
                 resp[0] not in [409]):
-            raise restproxy.RESTProxyError(str(resp[2]))
+            raise restproxy.RESTProxyError(str(resp[2]), resp[0])
 
     def _set_nuage_dhcp_options(self, resource_id,
                                 data, dhcp_id=False, resource_type=None):
@@ -275,7 +274,7 @@ class NuageDhcpOptions(object):
             resp = self.restproxy.rest_call(
                 'DELETE', nuage_dhcpoptions.dhcp_resource(dhcp_id), '')
             if not nuage_dhcpoptions.validate(resp):
-                raise restproxy.RESTProxyError(nuage_dhcpoptions.error_msg)
+                raise nuage_dhcpoptions.get_rest_proxy_error()
 
     def _check_dhcpoption_exists(self, resource_id, resource_type, dhcp_type):
         """Function:  _check_dhcpoption_exists

@@ -127,6 +127,13 @@ class ResourceNotFoundException(RESTProxyError):
             REST_NOT_FOUND)
 
 
+class ResourceConflictException(RESTProxyError):
+    def __init__(self, message):
+        super(ResourceConflictException, self).__init__(
+            message,
+            REST_CONFLICT)
+
+
 class RESTProxyServer(object):
 
     def __init__(self, server, base_uri, serverssl, verify_cert, serverauth,
@@ -158,7 +165,7 @@ class RESTProxyServer(object):
         if exc:
             raise exc
         else:
-            raise Exception(msg)
+            raise RESTProxyError(msg)
 
     @staticmethod
     def raise_error_response(response):
@@ -549,7 +556,8 @@ class RESTProxyServer(object):
     def _subnet_not_found(self, id):
         return self._resource_not_found('subnet', id)
 
-    def _resource_not_found(self, resource, id):
+    @staticmethod
+    def _resource_not_found(resource, id):
         """Replicate VSD 404 response"""
         vsd_response = (
             '{"title": "%(resource)s not found",'

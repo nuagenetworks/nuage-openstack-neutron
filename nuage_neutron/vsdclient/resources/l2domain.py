@@ -40,7 +40,7 @@ class NuageL2Domain(object):
         response = self.restproxy.rest_call(
             'GET', nuagel2dom.get_all_resources_in_ent(), '')
         if not nuagel2dom.validate(response):
-            raise restproxy.RESTProxyError(nuagel2dom.error_msg)
+            raise nuagel2dom.get_rest_proxy_error()
         res = []
         for l2dom in nuagel2dom.get_response_objlist(response):
             np_dict = dict()
@@ -295,7 +295,7 @@ class NuageL2Domain(object):
                 'GET', nuagegroup.list_resource(), '',
                 nuagegroup.extra_headers_get_for_everybody())
             if not nuagegroup.validate(response):
-                raise restproxy.RESTProxyError(nuagegroup.error_msg)
+                raise nuagegroup.get_rest_proxy_error()
             nuage_groupid = nuagegroup.get_groupid(response)
 
         nuage_permission = nuagelib.NuagePermission()
@@ -308,9 +308,9 @@ class NuageL2Domain(object):
             nuage_permission.post_resource_by_parent_id(
                 'l2domains', nuage_subnetid), post_data)
         if not nuage_permission.validate(resp):
-            if (nuage_permission.get_error_code(resp) !=
+            if (nuage_permission.error_code !=
                     constants.CONFLICT_ERR_CODE):
-                raise restproxy.RESTProxyError(nuage_permission.error_msg)
+                raise nuage_permission.get_rest_proxy_error()
 
     def _create_nuage_def_l2domain_acl(self, id, neutron_subnet):
         helper.create_nuage_l2dom_ingress_tmplt(self.restproxy,
@@ -343,7 +343,7 @@ class NuageL2Domain(object):
                 nuagel2dom.get_resource(nuage_subnetid),
                 '')
             if not nuagel2dom.validate(response):
-                raise restproxy.RESTProxyError(nuagel2dom.error_msg)
+                raise nuagel2dom.get_rest_proxy_error()
             return nuagel2dom.get_cidr_info(response)
         else:
             return nuagesubn.get_cidr_info(response)
@@ -365,7 +365,7 @@ class NuageL2Domain(object):
                 'GET', nuagegroup.list_resource(), '',
                 nuagegroup.extra_headers_get_for_everybody())
             if not nuagegroup.validate(response):
-                raise restproxy.RESTProxyError(nuagegroup.error_msg)
+                raise nuagegroup.get_rest_proxy_error()
             nuage_all_groupid = nuagegroup.get_groupid(response)
 
         response = self.restproxy. \
@@ -377,7 +377,7 @@ class NuageL2Domain(object):
                 rest_call('GET', nuagel2dom.get_resource(nuage_subnetid),
                           '')
             if not nuagel2dom.validate(response):
-                raise restproxy.RESTProxyError(nuagel2dom.error_msg)
+                raise nuagel2dom.get_rest_proxy_error()
             if shared:
                 self.create_permission(nuage_subnetid,
                                        nuage_all_groupid, tenant,
@@ -410,8 +410,7 @@ class NuageL2Domain(object):
         if not nuage_permission.validate(resp):
             if (nuage_permission.get_error_code(resp) !=
                     constants.CONFLICT_ERR_CODE):
-                raise restproxy.RESTProxyError(
-                    nuage_permission.error_msg)
+                raise nuage_permission.get_rest_proxy_error()
 
     def detach_nuage_group_to_nuagenet(
             self, tenants, nuage_subnetid, shared):
@@ -455,8 +454,7 @@ class NuageL2Domain(object):
         if not nuagepermission.validate(response):
             if response[0] == constants.RES_NOT_FOUND:
                 return
-            raise restproxy.RESTProxyError(nuagepermission.error_msg,
-                                           nuagepermission.vsd_error_code)
+            raise nuagepermission.get_rest_proxy_error()
 
         permissions = response[3]
         if shared:
@@ -494,7 +492,7 @@ class NuageL2Domain(object):
                 'GET', nuagel2dom.get_resource(nuage_l2dom_id), '')
 
             if not nuagel2dom.validate(response):
-                raise restproxy.RESTProxyError(nuagel2dom.error_msg)
+                raise nuagel2dom.get_rest_proxy_error()
             else:
                 if response[3][0]['parentID'] == nuage_netpart['id']:
                     return True
@@ -508,7 +506,7 @@ class NuageL2Domain(object):
                 'GET', nuagezone.get_resource(), '')
 
             if not nuagezone.validate(resp_zone):
-                raise restproxy.RESTProxyError(nuagezone.error_msg)
+                raise nuagezone.get_rest_proxy_error()
 
             req_params = {
                 'domain_id': resp_zone[3][0]['parentID']
@@ -518,7 +516,8 @@ class NuageL2Domain(object):
                 'GET', nuage_l3domain.get_resource(), '')
 
             if not nuage_l3domain.validate(dom_resp):
-                raise restproxy.RESTProxyError(nuage_l3domain.error_msg)
+                raise nuage_l3domain.get_rest_proxy_error()
+
             if dom_resp[3][0]['parentID'] == nuage_netpart['id']:
                 return True
             return False

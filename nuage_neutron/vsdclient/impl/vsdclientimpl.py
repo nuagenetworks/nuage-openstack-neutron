@@ -90,7 +90,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         response = self.restproxy.rest_call('GET', cms.get_resource(), '')
         if not cms.get_validate(response):
             LOG.error('CMS with id %s not found on vsd', cms_id)
-            raise restproxy.RESTProxyError(cms.error_msg)
+            raise restproxy.ResourceNotFoundException(cms.error_msg)
 
     def get_usergroup(self, tenant, net_partition_id):
         return helper.get_usergroup(self.restproxy, tenant, net_partition_id)
@@ -107,7 +107,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                                             nuageuser.delete_resource(id), '')
         if not nuageuser.delete_validate(response):
             LOG.error('Error in deleting user %s', id)
-            raise restproxy.RESTProxyError(nuageuser.error_msg)
+            raise nuageuser.get_rest_proxy_error()
         LOG.debug('User %s deleted from VSD', id)
 
     def delete_group(self, id):
@@ -118,7 +118,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                                             nuagegroup.delete_resource(id), '')
         if not nuagegroup.delete_validate(response):
             LOG.error('Error in deleting group %s', id)
-            raise restproxy.RESTProxyError(nuagegroup.error_msg)
+            raise nuagegroup.get_rest_proxy_error()
         LOG.debug('Group %s deleted from VSD', id)
 
     def create_net_partition(self, params):
@@ -422,7 +422,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             'GET', nuage_l3_domain.get_resource(), '')
 
         if not nuage_l3_domain.validate(response):
-            raise restproxy.RESTProxyError(nuage_l3_domain.error_msg)
+            raise nuage_l3_domain.get_rest_proxy_error()
 
         if response[3]:
             return response[3][0]['parentID']
@@ -759,11 +759,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def delete_vport_dhcp_option(self, dhcp_id, on_rollback):
         return self.dhcp_options.delete_nuage_extra_dhcp_option(dhcp_id,
                                                                 on_rollback)
-
-    def validate_provider_network(self, network_type, physical_network,
-                                  vlan_id):
-        pnet_helper.validate_provider_network(self.restproxy, network_type,
-                                              physical_network, vlan_id)
 
     def update_router(self, nuage_domain_id, router, updates):
         self.domain.update_router(nuage_domain_id, router, updates)

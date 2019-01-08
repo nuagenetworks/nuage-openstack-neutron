@@ -113,20 +113,20 @@ class NuagePolicyGroups(object):
     def _validate_nuage_port_range(rule):
         if not rule['protocol']:
             msg = "protocol type required when port range is specified"
-            raise restproxy.RESTProxyError(msg)
+            raise restproxy.ResourceConflictException(msg)
         ip_proto = rule['protocol']
         if ip_proto in ['tcp', 'udp']:
             if (rule.get('port_range_min') is not None and
                     rule['port_range_min'] == 0):
                 msg = ("Invalid port range, Port Number(0) must be between 1 "
                        "and 65535")
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
 
     def validate_nuage_sg_rule_definition(self, sg_rule):
         if 'ethertype' in sg_rule:
             if str(sg_rule['ethertype']) not in NUAGE_SUPPORTED_ETHERTYPES:
-                raise restproxy.RESTProxyError(NOT_SUPPORTED_ACL_ATTR_MSG
-                                               % sg_rule['ethertype'])
+                raise restproxy.ResourceConflictException(
+                    NOT_SUPPORTED_ACL_ATTR_MSG % sg_rule['ethertype'])
         if (sg_rule.get('port_range_min') is None and
                 sg_rule.get('port_range_max') is None):
             return
@@ -139,8 +139,8 @@ class NuagePolicyGroups(object):
         elif ethertype == constants.OS_IPV6:
             return constants.IPV6_ETHERTYPE
         else:
-            raise restproxy.RESTProxyError(NOT_SUPPORTED_ACL_ATTR_MSG %
-                                           ethertype)
+            raise restproxy.ResourceConflictException(
+                NOT_SUPPORTED_ACL_ATTR_MSG % ethertype)
 
     def _map_nuage_sgrule(self, params):
         sg_rule = params['neutron_sg_rule']
@@ -264,7 +264,7 @@ class NuagePolicyGroups(object):
             if not nuage_ibacl_id and not nuage_obacl_id:
                 msg = ("Router %s does not have ACL mapping"
                        % rtr_id)
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
         elif l2dom_id:
             nuage_ibacl_id = pg_helper.get_l2dom_inbound_acl_id(
                 self.restproxy,
@@ -275,7 +275,7 @@ class NuagePolicyGroups(object):
             if not nuage_ibacl_id and not nuage_obacl_id:
                 msg = ("L2Domain %s of Security Group does not have ACL "
                        "mapping") % l2dom_id
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
         return nuage_ibacl_id, nuage_obacl_id
 
     def _create_nuage_sgrules_bulk(self, params):
@@ -330,7 +330,7 @@ class NuagePolicyGroups(object):
             if not np_id:
                 msg = "Net Partition not found for l3domain %s " \
                       % l3dom_policygroup['l3dom_id']
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceNotFoundException(msg)
 
             acl_mapping = {
                 'nuage_iacl_id': nuage_ibacl_id,
@@ -369,7 +369,7 @@ class NuagePolicyGroups(object):
             if not np_id:
                 msg = "Net Partition not found for l2domain %s " \
                       % l2dom_policygroup['l2dom_id']
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceNotFoundException(msg)
             acl_mapping = {
                 'nuage_iacl_id': nuage_ibacl_id,
                 'nuage_oacl_id': nuage_obacl_id
@@ -475,9 +475,9 @@ class NuagePolicyGroups(object):
                                                                   MAX_SG_PRI)
                 else:
                     raise
-        raise restproxy.RESTProxyError("Failed to create aclentrytemplate "
-                                       "after %s attempts due to priority "
-                                       "conflict" % attempts)
+        raise restproxy.ResourceConflictException(
+            "Failed to create aclentrytemplate after %s attempts "
+            "due to priority conflict" % attempts)
 
     def update_vports_in_policy_group(self, pg_id, vport_list):
         policygroups = nuagelib.NuagePolicygroup()
@@ -555,7 +555,7 @@ class NuagePolicyGroups(object):
             qos.get_all_resource(), '',
             extra_headers=qos.extra_headers_get())
         if not qos.get_validate(response):
-            raise restproxy.RESTProxyError(qos.error_msg)
+            raise qos.get_rest_proxy_error()
         fip_rate_values = {}
         egress_value = qos.get_response_obj(
             response).get('FIPPeakInformationRate')
@@ -590,7 +590,7 @@ class NuagePolicyGroups(object):
             qos.get_all_resource(), '',
             extra_headers=qos.extra_headers_get())
         if not qos.validate(response):
-            raise restproxy.RESTProxyError(qos.error_msg)
+            raise qos.get_rest_proxy_error()
         if not response[3]:
             self.add_rate_limiting(data, vport_id, neutron_fip_id)
             return
@@ -602,7 +602,7 @@ class NuagePolicyGroups(object):
 
         if (not qos.validate(response) and
                 qos.vsd_error_code != NOTHING_TO_UPDATE_ERR_CODE):
-            raise restproxy.RESTProxyError(qos.error_msg)
+            raise qos.get_rest_proxy_error()
 
     def add_rate_limiting(self, rate_limit_values, vport_id, neutron_fip_id):
         data = {"FIPPeakBurstSize": 100,
@@ -617,7 +617,7 @@ class NuagePolicyGroups(object):
                                             qos.post_resource(),
                                             qos.post_data())
         if not qos.validate(response):
-            raise restproxy.RESTProxyError(qos.error_msg)
+            raise qos.get_rest_proxy_error()
 
     def delete_rate_limiting(self, vport_id, neutron_fip_id):
         create_params = {'vport_id': vport_id,
@@ -627,7 +627,7 @@ class NuagePolicyGroups(object):
             'GET', qos.get_all_resource(), '',
             extra_headers=qos.extra_headers_get())
         if not qos.validate(response):
-            raise restproxy.RESTProxyError(qos.error_msg)
+            raise qos.get_rest_proxy_error()
         if not response[3]:
             return
 
@@ -638,7 +638,7 @@ class NuagePolicyGroups(object):
         response = self.restproxy.rest_call('DELETE', qos.delete_resource(),
                                             '')
         if not qos.validate(response):
-            raise restproxy.RESTProxyError(qos.error_msg)
+            raise qos.get_rest_proxy_error()
 
     def get_sg_policygroup_by_external_id(self, sg_id,
                                           sg_type=constants.SOFTWARE,
@@ -707,7 +707,7 @@ class NuagePolicyGroups(object):
             'GET', nuage_acl.in_post_resource(), '',
             nuage_acl.extra_headers_get_locationID(policygroup_id))
         if not nuage_acl.validate(in_acls):
-            raise restproxy.RESTProxyError(nuage_acl.error_msg)
+            raise nuage_acl.get_rest_proxy_error()
 
         return in_acls
 
@@ -720,7 +720,7 @@ class NuagePolicyGroups(object):
             'GET', nuage_acl.eg_post_resource(), '',
             nuage_acl.extra_headers_get_locationID(policygroup_id))
         if not nuage_acl.validate(eg_acls):
-            raise restproxy.RESTProxyError(nuage_acl.error_msg)
+            raise nuage_acl.get_rest_proxy_error()
 
         return eg_acls
 
@@ -734,7 +734,7 @@ class NuagePolicyGroups(object):
             'GET', nuage_acl.in_post_resource(), '',
             nuage_acl.extra_headers_get_network_id(policygroup_id))
         if not nuage_acl.validate(in_acls):
-            raise restproxy.RESTProxyError(nuage_acl.error_msg)
+            raise nuage_acl.get_rest_proxy_error()
 
         return in_acls
 
@@ -747,7 +747,7 @@ class NuagePolicyGroups(object):
             'GET', nuage_acl.eg_post_resource(), '',
             nuage_acl.extra_headers_get_network_id(policygroup_id))
         if not nuage_acl.validate(eg_acls):
-            raise restproxy.RESTProxyError(nuage_acl.error_msg)
+            raise nuage_acl.get_rest_proxy_error()
 
         return eg_acls
 
@@ -917,9 +917,9 @@ class NuagePolicyGroups(object):
                                                                   MAX_SG_PRI)
                 else:
                     raise
-        raise restproxy.RESTProxyError("Failed to create aclentrytemplate "
-                                       "after %s attempts due to priority "
-                                       "conflict" % attempts)
+        raise restproxy.ResourceConflictException(
+            "Failed to create aclentrytemplate after %s attempts "
+            "due to priority conflict" % attempts)
 
     def get_policygroup_vport_mapping_by_port_id(self, vport_id):
         nuage_vport = nuagelib.NuageVPort()
@@ -930,7 +930,7 @@ class NuagePolicyGroups(object):
             '')
 
         if not nuage_vport.validate(response):
-            raise restproxy.RESTProxyError(nuage_vport.error_msg)
+            raise nuage_vport.get_rest_proxy_error()
 
         policygroups = []
         if response[3]:
@@ -1089,7 +1089,7 @@ class NuagePolicyGroups(object):
             'GET', ext_policygroup.get_resource(ext_sg_id), '',
             extra_headers=extra_headers)
         if not ext_policygroup.get_validate(ext_policygroup_resp):
-            raise restproxy.RESTProxyError(ext_policygroup.error_msg)
+            raise ext_policygroup.get_rest_proxy_error()
 
         return ext_policygroup_resp[3][0]
 
@@ -1102,7 +1102,7 @@ class NuagePolicyGroups(object):
                 'GET', ext_policygroup.get_all_resources(), '',
                 extra_headers=extra_headers)
             if not ext_policygroup.validate(ext_policygroup_resp):
-                raise restproxy.RESTProxyError(ext_policygroup.error_msg)
+                raise ext_policygroup.get_rest_proxy_error()
             return ext_policygroup_resp[3]
         if params.get('name'):
             extra_headers = (
@@ -1112,14 +1112,14 @@ class NuagePolicyGroups(object):
                 'GET', ext_policygroup.get_all_resources(), '',
                 extra_headers=extra_headers)
             if not ext_policygroup.get_validate(ext_policygroup_resp):
-                raise restproxy.RESTProxyError(ext_policygroup.error_msg)
+                raise ext_policygroup.get_rest_proxy_error()
         elif params.get('id'):
             ext_policygroup_id = params.get('id')
             ext_policygroup_resp = self.restproxy.rest_call(
                 'GET', ext_policygroup.get_resource(ext_policygroup_id), '',
                 extra_headers=extra_headers)
             if not ext_policygroup.get_validate(ext_policygroup_resp):
-                raise restproxy.RESTProxyError(ext_policygroup.error_msg)
+                raise ext_policygroup.get_rest_proxy_error()
         elif params.get('subnet'):
             subnet_mapping = params.get('subnet_mapping')
             l2dom_id = helper.get_nuage_subnet(
@@ -1143,7 +1143,7 @@ class NuagePolicyGroups(object):
                 extra_headers=extra_headers)
 
         if not ext_policygroup.validate(ext_policygroup_resp):
-            raise restproxy.RESTProxyError(ext_policygroup.error_msg)
+            raise ext_policygroup.get_rest_proxy_error()
 
         return ext_policygroup_resp[3]
 
@@ -1158,7 +1158,7 @@ class NuagePolicyGroups(object):
                 nuage_policygroup.get_resource(ext_sg_rule['locationID']),
                 '')
             if not nuage_policygroup.validate(policygroup_resp):
-                raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
+                raise nuage_policygroup.get_rest_proxy_error()
             ext_sg_rule['origin_group_id'] = policygroup_resp[3][0]['name']
         if ext_sg_rule['networkType'] == 'POLICYGROUP' and (
                 ext_sg_rule['networkID']):
@@ -1167,7 +1167,7 @@ class NuagePolicyGroups(object):
                 nuage_policygroup.get_resource(ext_sg_rule['networkID']),
                 '')
             if not nuage_policygroup.validate(policygroup_resp):
-                raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
+                raise nuage_policygroup.get_rest_proxy_error()
             ext_sg_rule['remote_group_id'] = policygroup_resp[3][0]['name']
 
         return ext_sg_rule
@@ -1245,7 +1245,7 @@ class NuagePolicyGroups(object):
                 nuage_aclrule.eg_post_resource(),
                 nuage_match_info)
         if not nuage_aclrule.validate(response):
-            raise restproxy.RESTProxyError(nuage_aclrule.error_msg)
+            raise nuage_aclrule.get_rest_proxy_error()
 
         if response[3]:
             rule = self._process_external_sg_rule(response[3][0])
@@ -1295,7 +1295,7 @@ class NuagePolicyGroups(object):
             eg_acl = self.restproxy.rest_call(
                 'GET', nuage_aclrule.eg_delete_resource(ext_rule_id), '')
             if not nuage_aclrule.get_validate(eg_acl):
-                raise restproxy.RESTProxyError(nuage_aclrule.error_msg)
+                raise nuage_aclrule.get_rest_proxy_error()
             ext_rule = eg_acl
             ext_rule[3][0]['direction'] = 'egress'
         else:
@@ -1313,7 +1313,7 @@ class NuagePolicyGroups(object):
             del_resp = self.restproxy.rest_call(
                 'DELETE', nuage_aclrule.eg_delete_resource(ext_rule_id), '')
             if not nuage_aclrule.delete_validate(del_resp):
-                raise restproxy.RESTProxyError(nuage_aclrule.error_msg)
+                raise nuage_aclrule.get_rest_proxy_error()
 
     def create_nuage_sec_grp_for_port_sec(self, params):
         l2dom_id = params['l2dom_id']
@@ -1525,7 +1525,7 @@ class NuageRedirectTargets(object):
             rtarget.post_virtual_ip(rtarget_id),
             rtarget.post_virtualip_data(vip, vip_port_id))
         if not rtarget.validate(vip_resp):
-            raise restproxy.RESTProxyError(rtarget.error_msg)
+            raise rtarget.get_rest_proxy_error()
 
         return vip_resp
 
@@ -1563,7 +1563,7 @@ class NuageRedirectTargets(object):
         del_resp = self.restproxy.rest_call(
             'DELETE', rtarget.delete_redirect_target(rtarget_id), '')
         if not rtarget.validate(del_resp):
-            raise restproxy.RESTProxyError(rtarget.error_msg)
+            raise rtarget.get_rest_proxy_error()
 
     def delete_nuage_redirect_target_vip(self, rtarget_vip_id):
         rtarget = nuagelib.NuageRedirectTarget()
@@ -1571,7 +1571,7 @@ class NuageRedirectTargets(object):
             'DELETE',
             rtarget.post_virtual_ip(rtarget_vip_id), '')
         if not rtarget.validate(vip_resp):
-            raise restproxy.RESTProxyError(rtarget.error_msg)
+            raise rtarget.get_rest_proxy_error()
 
     def update_nuage_vport_redirect_target(self, rtarget_id, vport_id):
         rtarget = nuagelib.NuageRedirectTarget()
@@ -1580,8 +1580,7 @@ class NuageRedirectTargets(object):
             rtarget.get_vport_redirect_target(vport_id),
             rtarget.put_vport_data(rtarget_id))
         if not rtarget.validate(response):
-            raise restproxy.RESTProxyError(rtarget.error_msg,
-                                           rtarget.vsd_error_code)
+            raise rtarget.get_rest_proxy_error()
 
     def update_redirect_target_vports(self, redirect_target_id,
                                       nuage_port_id_list):
@@ -1610,7 +1609,7 @@ class NuageRedirectTargets(object):
             nuage_vport.get_vport_redirect_target_resource(vport_id), '')
 
         if not nuage_vport.validate(response):
-            raise restproxy.RESTProxyError(nuage_vport.error_msg)
+            raise nuage_vport.get_rest_proxy_error()
 
         if response[3]:
             return response[3][0]['ID']
@@ -1631,18 +1630,18 @@ class NuageRedirectTargets(object):
             if not fwd_policy_id:
                 msg = ("Router %s does not have policy mapping") \
                     % parent
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
 
             np_id = helper.get_l3domain_np_id(self.restproxy,
                                               parent)
             if not np_id:
                 msg = "Net Partition not found for l3domain %s " % parent
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceNotFoundException(msg)
         elif parent_type == constants.L2DOMAIN:
             if not fwd_policy_id:
                 msg = ("L2Domain of redirect target %s does not have policy "
                        "mapping") % parent
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
 
             fields = ['parentID', 'DHCPManaged']
             l2dom_fields = helper.get_l2domain_fields_for_pg(self.restproxy,
@@ -1652,7 +1651,7 @@ class NuageRedirectTargets(object):
             if not np_id:
                 msg = "Net Partition not found for l2domain %s " \
                       % parent
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceNotFoundException(msg)
 
         if (not params.get('remote_group_id') and
                 not params.get('remote_ip_prefix')):
@@ -1676,7 +1675,7 @@ class NuageRedirectTargets(object):
             'POST', nuage_fwdrule.in_post_resource(fwd_policy_id),
             nuage_match_info)
         if not nuage_fwdrule.validate(response):
-            raise restproxy.RESTProxyError(nuage_fwdrule.error_msg)
+            raise nuage_fwdrule.get_rest_proxy_error()
 
         rule = self._process_redirect_target_rule(response[3][0]) \
             if response[3] else None
@@ -1765,7 +1764,7 @@ class NuageRedirectTargets(object):
                 nuage_policygroup.get_resource(rtarget_rule['locationID']),
                 '')
             if not nuage_policygroup.validate(policygroup_resp):
-                raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
+                raise nuage_policygroup.get_rest_proxy_error()
             rtarget_rule['origin_group_id'] = policygroup_resp[3][0]['name']
         if rtarget_rule['networkType'] == 'POLICYGROUP' and (
                 rtarget_rule['networkID']):
@@ -1774,7 +1773,7 @@ class NuageRedirectTargets(object):
                 nuage_policygroup.get_resource(rtarget_rule['networkID']),
                 '')
             if not nuage_policygroup.validate(policygroup_resp):
-                raise restproxy.RESTProxyError(nuage_policygroup.error_msg)
+                raise nuage_policygroup.get_rest_proxy_error()
             rtarget_rule['remote_group_id'] = policygroup_resp[3][0]['name']
 
         return rtarget_rule
@@ -1799,7 +1798,7 @@ class NuageRedirectTargets(object):
             'GET', rtarget_rule.in_post_resource(fwd_policy_id), '')
 
         if not rtarget_rule.get_validate(rtarget_rules_resp):
-            raise restproxy.RESTProxyError(rtarget_rule.error_msg)
+            raise rtarget_rule.get_rest_proxy_error()
 
         rules = []
         for rtarget_rule in rtarget_rules_resp[3]:
@@ -1821,7 +1820,7 @@ class NuageRedirectTargets(object):
         rtarget_rule_resp = self.restproxy.rest_call(
             'GET', rtarget_rule.in_get_resource(rtarget_rule_id), '')
         if not rtarget_rule.get_validate(rtarget_rule_resp):
-            raise restproxy.RESTProxyError(rtarget_rule.error_msg)
+            raise rtarget_rule.get_rest_proxy_error()
 
         rule = self._process_redirect_target_rule(rtarget_rule_resp[3][0])
         return rule
