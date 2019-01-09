@@ -39,6 +39,9 @@ if [[ "$1" == "stack" ]]; then
         configure_neutron_nuage
         configure_networking_sfc_policy
         configure_nova_nuage
+        if [[ "${NUAGE_USE_SWITCHDEV}" == "True" ]]; then
+            cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_switchdev_policy.json $NEUTRON_CONF_DIR/policy.d
+        fi
         if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
             # Tweak the chain for nuage metadata proxy.
             sudo iptables -I openstack-INPUT 1 -i ${OVS_BRIDGE} -j ACCEPT || :

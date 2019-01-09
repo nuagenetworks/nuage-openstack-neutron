@@ -1,0 +1,4 @@
+{
+  "create_port:binding:profile": "rule:regular_user",
+  "get_port:binding:profile": "rule:regular_user"
+}

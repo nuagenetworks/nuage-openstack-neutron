@@ -1483,9 +1483,14 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         vnic_type = context.current.get(portbindings.VNIC_TYPE,
                                         portbindings.VNIC_NORMAL)
         if vnic_type not in self._supported_vnic_types():
-            LOG.debug("Cannot bind due to unsupported vnic_type: %s",
+            LOG.debug("Refusing to bind due to unsupported vnic_type: %s",
                       vnic_type)
             return
+        if not self.is_port_supported(context.current):
+            LOG.debug("Refusing to bind due to unsupported vnic_type: %s with "
+                      "no switchdev capability", portbindings.VNIC_DIRECT)
+            return
+
         for segment in context.network.network_segments:
             if self._check_segment(segment):
                 context.set_binding(segment[api.ID],
@@ -1902,8 +1907,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             msg = "Cannot create port in a FIP pool Subnet"
             raise NuageBadRequest(resource='port', msg=msg)
 
-        if (port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)
-                not in self._supported_vnic_types()):
+        if not self.is_port_supported(port):
             return False
         self._validate_nuage_l2bridges(db_context, port)
         # No update required on port with "network:dhcp:nuage"
@@ -2029,7 +2033,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         filters = {'device_id': [port.get('device_id')]}
         ports = self.core_plugin.get_ports(db_context, filters)
         ports = [p for p in ports
-                 if self._is_port_vxlan_normal(p, db_context) and
+                 if self._is_port_vxlan_supported(p, db_context) and
                  p['binding:host_id']]
         return len(ports), port.get('device_id')
 
@@ -2112,10 +2116,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                             LOG.debug("Retry failed %s times.", max_attempts)
                             raise
 
-    def _is_port_vxlan_normal(self, port, db_context):
-        if port.get('binding:vnic_type') != portbindings.VNIC_NORMAL:
+    def _is_port_vxlan_supported(self, port, db_context):
+        if not self.is_port_supported(port):
             return False
-
         return self.is_vxlan_network_by_id(db_context, port.get('network_id'))
 
     def delete_gw_host_vport(self, context, port, subnet_mapping):
@@ -2217,7 +2220,24 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     @staticmethod
     def _supported_vnic_types():
-        return [portbindings.VNIC_NORMAL]
+        return [portbindings.VNIC_NORMAL,
+                portbindings.VNIC_DIRECT]
+
+    @staticmethod
+    def _direct_vnic_supported(port):
+        profile = port.get(portbindings.PROFILE)
+        capabilities = []
+        if profile:
+            capabilities = profile.get('capabilities', [])
+        return (port.get(portbindings.VNIC_TYPE) ==
+                portbindings.VNIC_DIRECT and
+                'switchdev' in capabilities)
+
+    @staticmethod
+    def is_port_supported(port):
+        return (NuageMechanismDriver._direct_vnic_supported(port) or
+                port.get(portbindings.VNIC_TYPE, '') ==
+                portbindings.VNIC_NORMAL)
 
     def check_vlan_transparency(self, context):
         """Nuage driver vlan transparency support."""
