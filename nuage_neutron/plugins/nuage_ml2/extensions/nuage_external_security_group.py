@@ -17,20 +17,14 @@ from neutron.api import extensions
 from neutron.api.v2 import base
 from neutron.quota import resource_registry
 from neutron_lib.api import extensions as lib_extensions
-from neutron_lib import constants as const
+from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as nexception
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants
 
-
-supported_protocols = [const.PROTO_NAME_TCP,
-                       const.PROTO_NAME_UDP, const.PROTO_NAME_ICMP]
-PROTO_NAME_TO_NUM = {
-    'tcp': 6,
-    'udp': 17,
-    'icmp': 1
-}
+PROTO_NAME_TO_NUM = lib_constants.IP_PROTOCOL_MAP
+supported_protocols = PROTO_NAME_TO_NUM.keys()
 
 
 class ExternalSgRuleInvalidPortValue(nexception.InvalidInput):
