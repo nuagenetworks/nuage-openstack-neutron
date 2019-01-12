@@ -21,13 +21,13 @@ from oslo_log import log as logging
 from neutron.callbacks import events
 from neutron.callbacks import registry
 from neutron.callbacks import resources
+from neutron.db import api as db_api
 from neutron.objects import trunk as trunk_objects
 from neutron.services.trunk import constants as t_consts
 from neutron.services.trunk.drivers import base as trunk_base
 from neutron.services.trunk import exceptions as t_exc
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import context as n_ctx
-from neutron_lib.db import api as db_api
 from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants as p_consts
@@ -287,6 +287,7 @@ class NuageTrunkHandler(object):
     def _unset_sub_ports(self, trunk_id, trunk_port, subports):
         _vsdclient = self.plugin_driver.vsdclient
         ctx = n_ctx.get_admin_context()
+
         trunk_host = trunk_port.get(portbindings.HOST_ID)
         trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_host else
                               t_consts.DOWN_STATUS)
