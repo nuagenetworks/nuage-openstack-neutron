@@ -67,7 +67,7 @@ restproxy_opts = [
     cfg.StrOpt('default_shared_zone', default=''),
     cfg.StrOpt('nuage_pat',
                choices=nuage_pat_choices,
-               default=constants.NUAGE_PAT_DEF_DISABLED,
+               default=constants.NUAGE_PAT_LEGACY_DISABLED,
                deprecated_for_removal=True,
                deprecated_reason=_("This option is replaced by {}."
                                    "Please consult documentation on this "
