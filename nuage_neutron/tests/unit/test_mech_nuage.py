@@ -38,9 +38,8 @@ class ConfigTypes(object):
     MINIMAL_CONFIG = 1
     MISSING_SERVICE_PLUGIN = 2
     MISSING_ML2_EXTENSION = 3
-    NUAGE_UNDERLAY_CONFIG_ONLY = 4
-    NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG = 5
-    NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK = 6
+    NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG = 4
+    NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK = 5
 
 
 class TestNuageMechanismDriver(testtools.TestCase):
@@ -83,8 +82,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
                         extension_drivers=['nuage_subnet',
                                            'nuage_port',
                                            'port_security'])
-        if config_type == ConfigTypes.NUAGE_UNDERLAY_CONFIG_ONLY:
-            conf.config(group='RESTPROXY', nuage_underlay_default='snat')
 
         if config_type == ConfigTypes.NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG:
             conf.config(group='RESTPROXY', nuage_pat='not_available')
@@ -105,7 +102,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
         return nmd
 
     # get me a Restproxy client
-    def get_me_rest_proxy(self):
+    @staticmethod
+    def get_me_a_rest_proxy():
         vsd_client = RESTProxyServer(server='localhost:9876',
                                      base_uri='/nuage/api/v5_0',
                                      serverssl=True,
@@ -116,18 +114,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
         return vsd_client
 
     # NETWORK DRIVER INITIALIZATION CHECKS
-
-    def test_init_with_nuage_underlay_only(self):
-        self.set_config_fixture(
-            ConfigTypes.NUAGE_UNDERLAY_CONFIG_ONLY)
-        try:
-            NuageMechanismDriver().initialize()
-            self.fail('nmd should not have successfully initialized.')
-
-        except Exception as e:
-            self.assertEqual('It is not possible to configure both'
-                             ' nuage_pat and nuage_underlay_default.'
-                             ' Set nuage_pat to legacy_disabled.', str(e))
 
     def test_init_with_nuage_pat_and_nuage_underlay(self):
         self.set_config_fixture(
@@ -484,7 +470,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=(401, 'Unauthorized', None, None, None,
                                      None))
     def test_rest_call_infinite_recursion(self, *mock):
-        rest_proxy = self.get_me_rest_proxy()
+        rest_proxy = self.get_me_a_rest_proxy()
         try:
             rest_proxy.rest_call('get', '', '')
         except Exception as e:
