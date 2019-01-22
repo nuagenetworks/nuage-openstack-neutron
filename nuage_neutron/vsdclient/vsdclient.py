@@ -602,9 +602,6 @@ class VsdClient(object):
                                          **filters):
         pass
 
-    def create_nuage_fip_for_vpnaas(self, params):
-        pass
-
     def get_policy_groups(self, securitygroup_id, vsd_subnet,
                           sg_type=None, required=False):
         pass
