@@ -102,11 +102,11 @@ class NuageApi(base_plugin.BaseNuagePlugin,
 
     @log_helpers.log_method_call
     def _validate_create_net_partition(self, net_part_name, session):
-        nuage_netpart = self.vsdclient.get_netpartition_data(net_part_name)
-        netpart_db = nuagedb.get_net_partition_by_name(session, net_part_name)
-
-        if nuage_netpart:
-            with session.begin(subtransactions=True):
+        with session.begin(subtransactions=True):
+            netpart_db = nuagedb.get_net_partition_by_name(session,
+                                                           net_part_name)
+            nuage_netpart = self.vsdclient.get_netpartition_data(net_part_name)
+            if nuage_netpart:
                 if netpart_db:
                     # Net-partition exists in neutron and vsd
                     def_netpart = (
@@ -145,15 +145,15 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                                                          nuage_netpart,
                                                          net_part_name)
                 return self._make_net_partition_dict(netpart_db)
-        else:
-            if netpart_db:
-                # Net-partition exists in neutron and not VSD
-                LOG.info("Existing net-partition %s will be deleted and "
-                         "re-created in db", net_part_name)
-                nuagedb.delete_net_partition(session, netpart_db)
+            else:
+                if netpart_db:
+                    # Net-partition exists in neutron and not VSD
+                    LOG.info("Existing net-partition %s will be deleted and "
+                             "re-created in db", net_part_name)
+                    nuagedb.delete_net_partition(session, netpart_db)
 
-            # Net-partition does not exist in neutron and VSD
-            return self._create_net_partition(session, net_part_name)
+                # Net-partition does not exist in neutron and VSD
+                return self._create_net_partition(session, net_part_name)
 
     @staticmethod
     @log_helpers.log_method_call
