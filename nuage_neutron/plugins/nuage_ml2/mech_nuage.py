@@ -27,7 +27,6 @@ from neutron.api import extensions as neutron_extensions
 from neutron.db import agents_db
 from neutron.db import db_base_plugin_v2
 from neutron.extensions import securitygroup as ext_sg
-from neutron.plugins.ml2 import plugin as ml2_plugin
 from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
@@ -587,7 +586,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                              l2bridge):
         pnet_binding = None
 
-        dhcp_port = nuage_subnet = None
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
             context.session, neutron_subnet['id'])
         if subnet_mapping:
@@ -701,7 +699,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                         neutron_subnet)
                 params['dhcp_ip'] = (dhcp_port['fixed_ips'][0]['ip_address']
                                      if dhcp_port else None)
-
             else:
                 params['dhcp_ip'] = None
         else:
@@ -709,48 +706,69 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 context.session, ipv4_subnet['id'])
 
             if subnet_mapping is None:
-                raise NuageDualstackSubnetNotFound(
-                    resource="Subnet")
+                raise NuageDualstackSubnetNotFound(resource="Subnet")
             params['mapping'] = subnet_mapping
         params.update(r_param)
-        try:
+
+        is_ipv6 = not is_ipv4
+
+        with utils_rollback() as on_exc:
             nuage_subnet = self.vsdclient.create_subnet(
                 ipv4_subnet,
                 params=params,
                 ipv6_subnet=ipv6_subnet)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                if dhcp_port:
-                    LOG.debug(_("Deleting nuage dhcp_port %s").format(
-                        dhcp_port['id']))
-                    # Because we are inside a transaction in a precommit method
-                    # you are not allowed to call any of the crud_<resource>
-                    # methods of ml2plugin (like delete_port). Because of
-                    # neutron's transaction_guard decorator. By calling the
-                    # super we avoid this check and go straight to the DB to
-                    # delete the port. Similar to how we call the db method for
-                    # creating the dhcp port.
-                    super(ml2_plugin.Ml2Plugin,
-                          self.core_plugin).delete_port(context,
-                                                        dhcp_port['id'])
 
-        if not is_ipv4 and subnet_mapping:
-            # nuage_subnet is None: Copy ipv4 mapping for creating ipv6 mapping
-            nuage_subnet = {
-                'nuage_l2template_id': subnet_mapping['nuage_l2dom_tmplt_id'],
-                'nuage_userid': subnet_mapping['nuage_user_id'],
-                'nuage_groupid': subnet_mapping['nuage_group_id'],
-                'nuage_l2domain_id': subnet_mapping['nuage_subnet_id']
-            }
+            if is_ipv6 and subnet_mapping:
+                # ipv6 subnet with ipv4 subnet present
+                # -> on rollback, dualstack (L3 and L2) to be rollbacked to
+                # ipv4
 
-        if nuage_subnet:
-            self._create_subnet_mapping(context, netpart_id, neutron_subnet,
-                                        nuage_subnet)
-            if dual_stack_subnet and is_ipv4:
+                # nuage_subnet is None: copy ipv4 mapping for creating ipv6
+                # mapping
+                nuage_subnet = {
+                    'nuage_l2template_id':
+                        subnet_mapping['nuage_l2dom_tmplt_id'],
+                    'nuage_userid': subnet_mapping['nuage_user_id'],
+                    'nuage_groupid': subnet_mapping['nuage_group_id'],
+                    'nuage_l2domain_id': subnet_mapping['nuage_subnet_id']
+                }
+
+                # mapping_for_rollback is used to delete ipv6 subnet and
+                # l2dom_id and l3_vsd_subnet_id should be None. If ipv6 subnet
+                # is in l3, nuage_subnet_id is needed in mapping_for_rollback.
+                mapping_for_rollback, l2dom_id, l3_subnet_id = (
+                    {'nuage_l2dom_tmplt_id':
+                        nuage_subnet['nuage_l2template_id'],
+                     'nuage_subnet_id':
+                         nuage_subnet['nuage_l2domain_id']}, None, None)
+
+            elif already_router_attached:
+                # ipv4 subnet added to router-attached ipv6 subnet
+                # -> on rollback, ipv4 subnet (L3) to be deleted
+                mapping_for_rollback, l2dom_id, l3_subnet_id = (
+                    None, None, nuage_subnet['nuage_l2domain_id'])
+
+            else:
+                # 1. ipv4 subnet in l2, or
+                # 2. ipv4 subnet in l2 with ipv6 subnet present
+                # -> on rollback, delete ipv4 l2domain
+                mapping_for_rollback, l2dom_id, l3_subnet_id = (
+                    None, nuage_subnet['nuage_l2domain_id'], None)
+
+            on_exc(self.vsdclient.delete_subnet, mapping=mapping_for_rollback,
+                   l2dom_id=l2dom_id, l3_vsd_subnet_id=l3_subnet_id)
+
+            if nuage_subnet:
                 self._create_subnet_mapping(context, netpart_id,
-                                            dual_stack_subnet, nuage_subnet)
-            if l2bridge and not l2bridge['nuage_subnet_id']:
-                l2bridge['nuage_subnet_id'] = nuage_subnet['nuage_l2domain_id']
+                                            neutron_subnet,
+                                            nuage_subnet)
+                if dual_stack_subnet and is_ipv4:
+                    self._create_subnet_mapping(context, netpart_id,
+                                                dual_stack_subnet,
+                                                nuage_subnet)
+                if l2bridge and not l2bridge['nuage_subnet_id']:
+                    l2bridge['nuage_subnet_id'] = nuage_subnet[
+                        'nuage_l2domain_id']
 
     @staticmethod
     def _create_subnet_mapping(context, netpart_id, neutron_subnet,
