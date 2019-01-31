@@ -983,61 +983,6 @@ class NuagePolicyGroups(object):
         session.close()
         return not (value and value.parameter_value == '0')
 
-    def create_policygroup_default_allow_any_rule(self, l2dom_id, rtr_id,
-                                                  neutron_subnet, gw_type,
-                                                  pg_name=None):
-        sg_type = (constants.SOFTWARE if gw_type in constants.SW_GW_TYPES
-                   else constants.HARDWARE)
-        params = {
-            'nuage_router_id': rtr_id,
-            'nuage_l2dom_id': l2dom_id,
-            'name': 'defaultPG-' +
-                    (neutron_subnet['nuage_l2bridge'] or neutron_subnet['id']),
-            'sg_id': None,
-            'sg_type': sg_type,
-            'externalID': helper.get_subnet_external_id(neutron_subnet)
-        }
-
-        if pg_name:
-            params['name'] = pg_name
-
-        nuage_policygroup_id = self._create_nuage_secgroup(params)
-        l3dom_policygroup = l2dom_policygroup = []
-
-        if rtr_id:
-            l3dom_policygroup = [{
-                'l3dom_id': rtr_id,
-                'policygroup_id': nuage_policygroup_id
-            }]
-        elif l2dom_id:
-            l2dom_policygroup = [{
-                'l2dom_id': l2dom_id,
-                'policygroup_id': nuage_policygroup_id
-            }]
-
-        # create default ingress and egress acl rule
-        policygroup = {
-            'l3dom_policygroups': l3dom_policygroup,
-            'l2dom_policygroups': l2dom_policygroup
-        }
-        for ethertype in NUAGE_SUPPORTED_ETHERTYPES:
-            for direction in (constants.NUAGE_ACL_INGRESS,
-                              constants.NUAGE_ACL_EGRESS):
-                neutron_sg_rule = {
-                    'direction': direction,
-                    'ethertype': ethertype
-                }
-                params = {
-                    'policygroup': policygroup,
-                    'neutron_sg_rule': neutron_sg_rule,
-                    'sg_type': constants.HARDWARE,
-                    'externalID': helper.get_subnet_external_id(
-                        neutron_subnet),
-                    'legacy': True
-                }
-                self.create_nuage_sgrule(params)
-        return nuage_policygroup_id
-
     def create_nuage_external_security_group(self, params):
         l2dom_id = params.get('l2dom_id')
         l3dom_id = params.get('l3dom_id')
@@ -1271,22 +1216,15 @@ class NuagePolicyGroups(object):
             self.restproxy.delete(
                 nuage_aclrule.eg_delete_resource(ext_rule_id))
 
-    def create_nuage_sec_grp_for_port_sec(self, params):
+    def create_nuage_sec_grp_for_no_port_sec(self, params):
         l2dom_id = params['l2dom_id']
         rtr_id = params['rtr_id']
-        append_str = ((l2dom_id or rtr_id) +
-                      '_' + params.get('type'))
         params_sg = {
             'nuage_l2dom_id': l2dom_id,
             'nuage_router_id': rtr_id,
-            'description': constants.NUAGE_PLCY_GRP_FOR_SPOOFING,
-            'name': (constants.NUAGE_PLCY_GRP_FOR_SPOOFING +
-                     '_' + append_str),
-            # TODO(Lina) OPENSTACK-2370
-            # sg_id is for externalID, here keep it is dependent on l2dom_id
-            # because it will be domain-independent in 6.0
-            'sg_id': (constants.NUAGE_PLCY_GRP_FOR_SPOOFING +
-                      '_' + append_str),
+            'description': constants.NUAGE_PLCY_GRP_ALLOW_ALL,
+            'name': constants.NUAGE_PLCY_GRP_ALLOW_ALL,
+            'sg_id': constants.NUAGE_PLCY_GRP_ALLOW_ALL,
             'sg_type': params['sg_type']
         }
         return self._create_nuage_secgroup(params_sg)
@@ -1304,22 +1242,21 @@ class NuagePolicyGroups(object):
         }
         return self._create_nuage_secgroup(params_sg)
 
-    def create_nuage_sec_grp_rule_for_port_sec(self, params):
+    def create_nuage_sec_grp_rule_for_no_port_sec(self, params):
         nuage_ibacl_details = {}
         nuage_obacl_id = None
         pg_id = params['sg_id']
         l2dom_id = params['l2dom_id']
         rtr_id = params['rtr_id']
-        sg_type = params.get('sg_type', constants.SOFTWARE)
         in_parameters = {
-            'rule_id': None,
+            'rule_id': constants.NUAGE_PLCY_GRP_ALLOW_ALL,
             'direction': 'ingress',
-            'sg_type': sg_type
+            'sg_type': ''  # Same ingress rules for software and hardware
         }
         out_parameters = {
-            'rule_id': None,
+            'rule_id': constants.NUAGE_PLCY_GRP_ALLOW_ALL,
             'direction': 'egress',
-            'sg_type': sg_type
+            'sg_type': ''  # Same egress rules for software and hardware
         }
         if l2dom_id:
             nuage_ibacl_details = pg_helper.get_inbound_acl_details(
@@ -1332,17 +1269,14 @@ class NuagePolicyGroups(object):
             nuage_obacl_id = pg_helper.get_l3dom_outbound_acl_id(
                 self.restproxy, rtr_id)
         nuage_ibacl_id = nuage_ibacl_details.get('ID')
-        external_id = nuage_ibacl_details.get('externalID')
-        if external_id:
-            in_parameters['rule_id'] = external_id.split('@')[0]
-            out_parameters['rule_id'] = external_id.split('@')[0]
         in_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(in_parameters,
                                                              locationID=pg_id)
         out_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(out_parameters,
                                                               locationID=pg_id)
         req_params = {'acl_id': nuage_ibacl_id}
         extra_params = {'locationID': pg_id,
-                        'externalID': external_id,
+                        'externalID': get_vsd_external_id(
+                            constants.NUAGE_PLCY_GRP_ALLOW_ALL),
                         'flowLoggingEnabled': self.flow_logging_enabled,
                         'statsLoggingEnabled': self.stats_collection_enabled}
         if len(in_sec_rule) == 0:
