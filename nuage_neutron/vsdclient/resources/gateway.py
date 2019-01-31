@@ -752,47 +752,12 @@ class NuageGateway(object):
 
         # Delete the interface and vport
         if resp['vport_type'] == constants.BRIDGE_VPORT_TYPE:
-            # Bridge/Host vport will always have a vlan associated with it
-            nuage_vlan = gw_helper.get_gateway_port_vlan(self.restproxy,
-                                                         resp['vlanid'])
-            # Get the gateway associated with vlan
-            nuage_gw = gw_helper.get_gateway(self.restproxy,
-                                             nuage_vlan['gatewayID'])
             if resp['interface']:
                 # Delete interface
                 gw_helper.delete_nuage_interface(self.restproxy,
                                                  resp['interface'],
                                                  constants.BRIDGE_VPORT_TYPE)
                 LOG.debug("Deleted bridge interface %s", resp['interface'])
-
-            # do not attempt to delete policygroup on vsd managed subnets
-            # as we do not create it in that case
-            if not subnet_info['vsd_managed']:
-                # need to get the neutron subnet id as we put it in PG name ...
-                subnet_id = subnet_info.get('subnet_id')
-                nuage_l2bridge = nuagedb.get_nuage_l2bridge_id_for_subnet(
-                    context.session, subnet_id)
-                if not subnet_id:
-                    # one would not be able to get here as for OpenStack mgd
-                    # subnet there would always be a unique mapping
-                    raise nuage_exc.NuageAPIException(
-                        msg='Subnet_id could not be retrieved')
-                subnet = {
-                    'nuage_l2bridge': nuage_l2bridge,
-                    'id': subnet_id
-                }
-                nuage_policygroup = gw_helper.get_policygroup_for_interface(
-                    self.restproxy,
-                    subnet,
-                    nuage_gw['personality'],
-                    resp['vport_type'],
-                    subnet_info['subnet_type'])
-
-                if nuage_policygroup:
-                    # Check if policygroup has more than 1 vport associated
-                    self._delete_policygroup(resp['interface'],
-                                             nuage_policygroup[0])
-
         elif resp['vport_type'] == constants.HOST_VPORT_TYPE:
             if resp['interface']:
                 # Delete the policygroup and interface
@@ -801,24 +766,11 @@ class NuageGateway(object):
                                                  constants.HOST_VPORT_TYPE)
                 LOG.debug("Deleted host interface %s", resp['interface'])
 
-            # do not attempt to delete policygroup on vsd managed subnets
-            # as we do not create it in that case
-            if not subnet_info['vsd_managed']:
-                # Delete the policygroup
-                policy_group = gw_helper.get_policygroup_for_host_vport(
-                    self.restproxy,
-                    resp['vport_id'])
-                if policy_group:
-                    # Check if policygroup has more than 1 vport associated
-                    self._delete_policygroup(resp['interface'],
-                                             policy_group['ID'])
-
         # Delete the vport
         # if 'vport_type' is not None, then 'vport_id' is not None
         gw_helper.delete_nuage_vport(self.restproxy, resp['vport_id'])
         LOG.debug("Deleted vport %s", resp['vport_id'])
         # Remove Ent/Tenant permissions
-        netpart_id = None
         perms = self._get_ent_permissions(resp['vlanid'])
         if perms and perms['permittedEntityType'] == 'enterprise':
             netpart_id = perms['permittedEntityID']
