@@ -614,8 +614,8 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def create_nuage_external_security_group(self, params):
         return self.policygroups.create_nuage_external_security_group(params)
 
-    def create_nuage_sec_grp_for_port_sec(self, params):
-        return self.policygroups.create_nuage_sec_grp_for_port_sec(params)
+    def create_nuage_sec_grp_for_no_port_sec(self, params):
+        return self.policygroups.create_nuage_sec_grp_for_no_port_sec(params)
 
     def create_nuage_sec_grp_for_sfc(self, params):
         return self.policygroups.create_nuage_sec_grp_for_sfc(params)
@@ -624,8 +624,9 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         return self.policygroups.get_policygroup_vport_mapping_by_port_id(
             vport_id)
 
-    def create_nuage_sec_grp_rule_for_port_sec(self, params):
-        return self.policygroups.create_nuage_sec_grp_rule_for_port_sec(params)
+    def create_nuage_sec_grp_rule_for_no_port_sec(self, params):
+        return self.policygroups.create_nuage_sec_grp_rule_for_no_port_sec(
+            params)
 
     def get_nuage_external_security_group(self, ext_sg_id):
         return self.policygroups.get_nuage_external_security_group(ext_sg_id)

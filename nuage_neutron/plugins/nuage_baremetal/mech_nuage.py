@@ -142,7 +142,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             if port['binding:host_id']:
                 port_dict = self._make_port_dict(context)
                 self.np_driver.create_port(port_dict)
-                if (not port[portsecurity.PORTSECURITY]):
+                if not port[portsecurity.PORTSECURITY]:
                     self.psec_handler.process_port_security(
                         context._plugin_context, port)
 
