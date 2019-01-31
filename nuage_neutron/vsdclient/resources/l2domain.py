@@ -267,14 +267,14 @@ class NuageL2Domain(object):
         if params.get('dhcp_opts_changed'):
             nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
             nuagedhcpoptions.update_nuage_dhcp(
-                neutron_subnet, parent_id=params['parent_id'],
+                neutron_subnet, parent_id=params['nuage_subnet_id'],
                 network_type=constants.NETWORK_TYPE_L2)
 
+        data = {}
         if params.get('dhcp_enable_changed'):
             if params.get('ip_type') == constants.IPV4:
-                data = {
-                    "enableDHCPv4": neutron_subnet.get('enable_dhcp')
-                }
+                data["enableDHCPv4"] = neutron_subnet.get('enable_dhcp')
+
                 if neutron_subnet.get('enable_dhcp'):
                     data["gateway"] = params['dhcp_ip']
                 else:
@@ -287,31 +287,22 @@ class NuageL2Domain(object):
                     data["IPv6Gateway"] = params['dhcp_ip']
                 else:
                     data["IPv6Gateway"] = None
+
+        if params.get('dualstack'):
+            if params.get('network_name'):
+                data['description'] = params['network_name']
+        else:
+            if params.get('subnet_name'):
+                data['description'] = params['subnet_name']
+
+        if data:
             nuagel2domtemplate = nuagelib.NuageL2DomTemplate()
             self.restproxy.put(
                 nuagel2domtemplate.put_resource(
-                    params['l2dom_template_id']), data)
+                    params['nuage_l2dom_tmplt_id']), data)
             nuagel2domain = nuagelib.NuageL2Domain()
             self.restproxy.put(
-                nuagel2domain.put_resource(params['l2dom_id']), data)
-
-        new_name = helper.get_subnet_description(neutron_subnet,
-                                                 params.get('network_name'))
-        if new_name:
-            # update the description on the VSD for this subnet if required
-            # If a subnet is updated from horizon, we get the name of the
-            # subnet as well in the subnet dict for update.
-            nuagel2domain = nuagelib.NuageL2Domain()
-            l2domain = self.restproxy.get(
-                nuagel2domain.get_resource(params['parent_id']),
-                required=True)[0]
-            # For single stack, subnet name change will make description change
-            # For dualstack, network name change will make description change
-            if (l2domain['description'] != new_name and
-                    not params.get('dualstack')):
-                self.restproxy.put(
-                    nuagel2domain.put_resource(params['parent_id']),
-                    {'description': new_name})
+                nuagel2domain.put_resource(params['nuage_subnet_id']), data)
 
     def update_subnet_description(self, nuage_id, new_description):
         nuagel2domain = nuagelib.NuageL2Domain()

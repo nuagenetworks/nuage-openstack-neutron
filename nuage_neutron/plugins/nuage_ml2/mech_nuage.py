@@ -239,8 +239,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                     db_context.session, subnet['id'])
                 params = {
+                    'dualstack': True,
                     'network_name': updated_network['name'],
-                    'parent_id': subnet_mapping['nuage_subnet_id']}
+                    'nuage_subnet_id': subnet_mapping['nuage_subnet_id'],
+                    'nuage_l2dom_tmplt_id': subnet_mapping[
+                        'nuage_l2dom_tmplt_id']}
                 if self._is_l2(subnet_mapping):
                     self.vsdclient.update_subnet(subnet, params)
                 else:
@@ -813,12 +816,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return self._update_ext_network_subnet(nuage_subnet_id,
                                                    updated_subnet)
         params = {
-            'parent_id': nuage_subnet_id,
-            'l2dom_template_id': subnet_mapping['nuage_l2dom_tmplt_id'],
-            'l2dom_id': subnet_mapping['nuage_subnet_id']
+            'nuage_l2dom_tmplt_id': subnet_mapping['nuage_l2dom_tmplt_id'],
+            'nuage_subnet_id': nuage_subnet_id
         }
         if dual_stack_subnet:
-            params['dualstack'] = dual_stack_subnet
+            params['dualstack'] = True
 
         dhcp_opts_changed = self._validate_dhcp_opts_changed(
             original_subnet,
@@ -830,8 +832,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             params['ip_type'] = constants.IP_TYPE_IPV6
         curr_enable_dhcp = original_subnet.get('enable_dhcp')
         updated_enable_dhcp = updated_subnet.get('enable_dhcp')
-        params['dhcp_enable_changed'] = (
-            True if curr_enable_dhcp != updated_enable_dhcp else False)
+        params['dhcp_enable_changed'] = curr_enable_dhcp != updated_enable_dhcp
+        if original_subnet.get('name') != updated_subnet.get('name'):
+            params['subnet_name'] = updated_subnet['name']
+
         if self._is_l2(subnet_mapping):
             if not curr_enable_dhcp and updated_enable_dhcp:
                 dhcp_port = self.create_update_dhcp_nuage_port(
