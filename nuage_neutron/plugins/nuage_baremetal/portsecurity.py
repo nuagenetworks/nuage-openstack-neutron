@@ -72,12 +72,9 @@ class NuagePortSecurityHandler(object):
                   'rtr_id': rtr_id,
                   'type': '',
                   'sg_type': constants.HARDWARE}
-        policygroup_id = self.client.create_nuage_sec_grp_for_port_sec(params)
-        params = {'sg_id': policygroup_id,
-                  'l2dom_id': l2dom_id,
-                  'l3dom_id': l3dom_id,
-                  'rtr_id': rtr_id,
-                  'sg_type': constants.HARDWARE}
-        self.client.create_nuage_sec_grp_rule_for_port_sec(params)
+        policygroup_id = self.client.create_nuage_sec_grp_for_no_port_sec(
+            params)
+        params['sg_id'] = policygroup_id
+        self.client.create_nuage_sec_grp_rule_for_no_port_sec(params)
 
         self.client.update_vport_policygroups(vport['ID'], [policygroup_id])

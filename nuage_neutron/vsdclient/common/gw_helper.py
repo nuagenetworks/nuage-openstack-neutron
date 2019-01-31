@@ -28,56 +28,8 @@ from nuage_neutron.vsdclient import restproxy
 LOG = logging.getLogger(__name__)
 
 
-def _get_policygroup_name(gw_type, vport_type, subnet_name):
-    gw_suffix = 'VRSG' if gw_type in constants.SW_GW_TYPES else 'VSG'
-    return ''.join(['defaultPG-', gw_suffix, '-', vport_type, '-',
-                    subnet_name])
-
-
-def _create_policygroup_for_vport(gw_type, subn_id, rtr_id, neutron_subnet,
-                                  pg_obj, restproxy_serv, vport, subn_type):
-    # Create a policygroup for this bridge vport and create default rules
-    create_policygroup = True
-    nuage_policygroup = get_policygroup_for_interface(
-        restproxy_serv, neutron_subnet,
-        gw_type, vport['type'], subn_type)
-    if nuage_policygroup:
-        nuage_policygroup_id = nuage_policygroup[0]
-        if (nuage_policygroup[1] == constants.HARDWARE and
-                gw_type not in constants.SW_GW_TYPES):
-            # policygroup for vsg/wbx already exists
-            create_policygroup = False
-        elif (nuage_policygroup[1] == constants.SOFTWARE and
-                gw_type in constants.SW_GW_TYPES):
-            # policygroup for vrsg already exists
-            create_policygroup = False
-
-    if create_policygroup:
-        # Add the vport type to the gateway type, because when we need a way
-        # to distinguish policygroups for bridge/host vport on the same subnet.
-        pg_name = _get_policygroup_name(
-            gw_type, vport['type'],
-            helper.get_subnet_name_for_pg(neutron_subnet))
-        nuage_policygroup_id = (
-            pg_obj.create_policygroup_default_allow_any_rule(
-                subn_id, rtr_id, neutron_subnet, gw_type,
-                pg_name))
-
-    # Add vport to the policygroup
-    try:
-        pg_obj.update_vport_policygroups(vport['ID'], [nuage_policygroup_id])
-    except Exception:
-        LOG.error("Error while associating vport %(vport)s to policygroup %("
-                  "policygroup)s", {'vport': vport['ID'],
-                                    'policygroup': nuage_policygroup_id})
-        if create_policygroup:
-            # Delete the policygroup in case of an exception.
-            pg_obj.delete_nuage_policy_group(nuage_policygroup_id)
-        raise
-
-
-def _add_policy_group_for_port_sec(gw_type, subn_id, rtr_id, pg_obj,
-                                   nuage_vport_id):
+def _add_policy_group_for_no_port_sec(gw_type, subn_id, rtr_id, pg_obj,
+                                      nuage_vport_id):
     policy_group_list = []
     params = {
         'l2dom_id': subn_id,
@@ -86,10 +38,10 @@ def _add_policy_group_for_port_sec(gw_type, subn_id, rtr_id, pg_obj,
         'sg_type': (constants.SOFTWARE if gw_type in constants.SW_GW_TYPES
                     else constants.HARDWARE)
     }
-    pg_id = pg_obj.create_nuage_sec_grp_for_port_sec(params)
+    pg_id = pg_obj.create_nuage_sec_grp_for_no_port_sec(params)
     if pg_id:
         params['sg_id'] = pg_id
-        pg_obj.create_nuage_sec_grp_rule_for_port_sec(params)
+        pg_obj.create_nuage_sec_grp_rule_for_no_port_sec(params)
         policy_group_list.append(pg_id)
         pg_obj.update_vport_policygroups(nuage_vport_id, policy_group_list)
 
@@ -159,34 +111,15 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
         on_res_exists=restproxy_serv.retrieve_by_external_id,
         ignore_err_codes=[restproxy.REST_IFACE_EXISTS_ERR_CODE])[0]
 
-    if policy_group:
-        if (not params.get('nuage_managed_subnet') and
-                params.get('port_security_enabled')):
-            if subn_type == constants.SUBNET:
-                # Get rtr id from nuage_subnet_id
-                nuage_rtr_id = helper._get_nuage_domain_id_from_subnet(
-                    restproxy_serv,
-                    subnet_id)
-                _create_policygroup_for_vport(gw_type, None, nuage_rtr_id,
-                                              params.get('neutron_subnet'),
-                                              pg_obj, restproxy_serv, vport,
-                                              subn_type)
-            else:
-                _create_policygroup_for_vport(gw_type, subnet_id, None,
-                                              params.get('neutron_subnet'),
-                                              pg_obj, restproxy_serv, vport,
-                                              subn_type)
-        if (not params.get('nuage_managed_subnet') and
-                not params.get('port_security_enabled')):
-            if subn_type == constants.SUBNET:
-                nuage_rtr_id = helper._get_nuage_domain_id_from_subnet(
-                    restproxy_serv,
-                    subnet_id)
-                _add_policy_group_for_port_sec(gw_type, None, nuage_rtr_id,
-                                               pg_obj, nuage_vport_id)
-            else:
-                _add_policy_group_for_port_sec(gw_type, subnet_id, None,
-                                               pg_obj, nuage_vport_id)
+    if policy_group and not params.get('nuage_managed_subnet'):
+        if subn_type == constants.SUBNET:
+            nuage_rtr_id = helper._get_nuage_domain_id_from_subnet(
+                restproxy_serv, subnet_id)
+            _add_policy_group_for_no_port_sec(gw_type, None, nuage_rtr_id,
+                                              pg_obj, nuage_vport_id)
+        else:
+            _add_policy_group_for_no_port_sec(gw_type, subnet_id, None,
+                                              pg_obj, nuage_vport_id)
     return {
         'vport': vport,
         'interface': vport_intf
@@ -392,27 +325,6 @@ def delete_nuage_interface(restproxy_serv, nuage_intf_id, type):
     elif type == constants.HOST_VPORT_TYPE:
         nuage_intf = nuagelib.NuageHostInterface(create_params=req_params)
     restproxy_serv.delete(nuage_intf.delete_resource())
-
-
-def get_policygroup_for_interface(restproxy_serv, neutron_subnet, gw_type,
-                                  vport_type, subn_type):
-
-    nuage_policygroup = nuagelib.NuagePolicygroup()
-    pg_name = _get_policygroup_name(
-        gw_type, vport_type,
-        helper.get_subnet_name_for_pg(neutron_subnet))
-    policygroups = restproxy_serv.get(
-        nuage_policygroup.get_all_resources(),
-        extra_headers=nuage_policygroup.extra_header_filter(name=pg_name))
-    if subn_type == constants.SUBNET:
-        domain_type = constants.DOMAIN
-    else:
-        domain_type = constants.L2DOMAIN
-
-    for pg in policygroups:
-        if pg['parentType'] == domain_type:
-            return pg['ID'], pg['type']
-    return None
 
 
 def get_policygroup_for_host_vport(restproxy_serv, vport_id):

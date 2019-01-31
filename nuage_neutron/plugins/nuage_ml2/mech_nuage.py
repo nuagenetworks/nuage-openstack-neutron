@@ -2089,12 +2089,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                 nuage_vport_id, policygroup_ids)
                         else:
                             sg_id = (self.vsdclient.
-                                     create_nuage_sec_grp_for_port_sec(params))
+                                     create_nuage_sec_grp_for_no_port_sec(
+                                         params))
                             if sg_id:
                                 params['sg_id'] = sg_id
                                 (self.vsdclient.
-                                 create_nuage_sec_grp_rule_for_port_sec(params)
-                                 )
+                                 create_nuage_sec_grp_rule_for_no_port_sec(
+                                     params))
                                 policygroup_ids.append(sg_id)
                                 self.vsdclient.update_vport_policygroups(
                                     nuage_vport_id, policygroup_ids)
