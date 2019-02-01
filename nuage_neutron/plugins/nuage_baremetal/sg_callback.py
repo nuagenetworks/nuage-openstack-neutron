@@ -109,8 +109,8 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
     @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_DELETE])
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    def pre_delete_security_group(self, resource, event, trigger, **kwargs):
-        self.client.delete_nuage_secgroup(kwargs['security_group_id'])
+    def pre_delete_security_group(self, resource, event, trigger, payload):
+        self.client.delete_nuage_secgroup(payload.resource_id)
 
     def post_port_create(self, resource, event, trigger, **kwargs):
         context = kwargs['context']

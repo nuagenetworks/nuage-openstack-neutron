@@ -18,7 +18,7 @@ import six
 
 from networking_sfc.db import flowclassifier_db
 from networking_sfc.extensions import flowclassifier as fc_ext
-from neutron.db import api as db_api
+from neutron_lib.db import api as db_api
 
 
 class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
@@ -46,11 +46,11 @@ class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
                                      second_flowclassifier['l7_parameters']))
 
     def _get_ports_in_use_for_fc(self, context, filters):
-        query = self._model_query(context, flowclassifier_db.FlowClassifier)
-        result = self._apply_filters_to_query(query,
-                                              flowclassifier_db.FlowClassifier,
-                                              filters)
-        return result.all()
+        query = self.model_query.get_collection_query(
+            context,
+            flowclassifier_db.FlowClassifier,
+            filters)
+        return query.all()
 
     def create_flow_classifier(self, context, flow_classifier):
         fc = flow_classifier['flow_classifier']
@@ -77,7 +77,7 @@ class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
         self._check_ip_prefix_valid(destination_ip_prefix, ethertype)
         logical_source_port = fc['logical_source_port']
         logical_destination_port = fc['logical_destination_port']
-        with db_api.context_manager.writer.using(context):
+        with db_api.CONTEXT_WRITER.using(context):
             if logical_source_port is not None:
                 self._get_port(context, logical_source_port)
             if logical_destination_port is not None:

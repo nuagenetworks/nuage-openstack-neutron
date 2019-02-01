@@ -27,7 +27,7 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
         super(NuageSfcDbPlugin, self).__init__()
 
     def get_subnet_vlan_bit_map_with_lock(self, context, subnet_id=None):
-        with sfc_db.db_api.context_manager.writer.using(context):
+        with sfc_db.db_api.CONTEXT_WRITER.using(context):
             query = self._model_query(context,
                                       nuage_models.NuageSfcVlanSubnetMapping)
         if subnet_id:
@@ -39,7 +39,7 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
 
     @staticmethod
     def add_subnet_vlan_bit_map(context, vlan_bit_map, subnet_id):
-        with sfc_db.db_api.context_manager.writer.using(context):
+        with sfc_db.db_api.CONTEXT_WRITER.using(context):
             vlan_mapping = nuage_models.NuageSfcVlanSubnetMapping(
                 subnet_id=subnet_id,
                 vlan_bit_map=vlan_bit_map)
@@ -47,7 +47,7 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
             return vlan_mapping
 
     def update_subnet_vlan_bit_map_unset(self, context, vlan_id, subnet_id):
-        with sfc_db.db_api.context_manager.writer.using(context):
+        with sfc_db.db_api.CONTEXT_WRITER.using(context):
             mask = 1 << (vlan_id - 1)
             query = self._model_query(context,
                                       nuage_models.NuageSfcVlanSubnetMapping)
@@ -61,13 +61,13 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
                     {'vlan_bit_map': binascii.unhexlify('%x' % int_vlan_map)})
 
     def delete_subnet_vlan_bit_map(self, context, subnet_id):
-        with sfc_db.db_api.context_manager.writer.using(context):
+        with sfc_db.db_api.CONTEXT_WRITER.using(context):
             query = self._model_query(context,
                                       nuage_models.NuageSfcVlanSubnetMapping)
             query.filter_by(subnet_id=subnet_id).delete()
 
     def _validate_flow_classifiers(self, context, fc_ids, pc_id=None):
-        with sfc_db.db_api.context_manager.writer.using(context):
+        with sfc_db.db_api.CONTEXT_WRITER.using(context):
             fcs = [
                 self._get_flow_classifier(context, fc_id)
                 for fc_id in fc_ids
@@ -109,7 +109,7 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
         pc = port_chain['port_chain']
         project_id = pc['project_id']
         chain_id = pc['chain_id']
-        with sfc_db.db_api.context_manager.writer.using(context):
+        with sfc_db.db_api.CONTEXT_WRITER.using(context):
             chain_parameters = {
                 key: sfc_db.ChainParameter(keyword=key,
                                            value=sfc_db.jsonutils.dumps(val))
@@ -156,7 +156,7 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
     @sfc_db.log_helpers.log_method_call
     def update_port_chain(self, context, id, port_chain):
         pc = port_chain['port_chain']
-        with sfc_db.db_api.context_manager.writer.using(context):
+        with sfc_db.db_api.CONTEXT_WRITER.using(context):
             pc_db = self._get_port_chain(context, id)
             for k, v in six.iteritems(pc):
                 if k == 'flow_classifiers':

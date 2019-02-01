@@ -16,7 +16,6 @@ from sqlalchemy import func
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm import exc as sql_exc
 
-from neutron.db import common_db_mixin
 from neutron.db.models import allowed_address_pair as addr_pair_models
 from neutron.db.models import external_net as external_net_db
 from neutron.db.models import l3 as l3_db
@@ -24,6 +23,7 @@ from neutron.db.models import securitygroup as securitygroups_db
 from neutron.db.models import segment as segments_db
 from neutron.db import models_v2
 from neutron.plugins.ml2 import models as ml2_models
+from neutron_lib.db import model_query
 from neutron_lib import constants as os_constants
 
 from nuage_neutron.plugins.common import exceptions
@@ -64,12 +64,11 @@ def get_net_partition_by_id(session, id):
     return query.filter_by(id=id).first()
 
 
-def get_net_partitions(session, filters=None, fields=None):
+def get_net_partitions(session, filters=None):
     query = session.query(nuage_models.NetPartition)
-    common_db = common_db_mixin.CommonDbMixin()
-    query = common_db._apply_filters_to_query(query,
-                                              nuage_models.NetPartition,
-                                              filters)
+    query = model_query.apply_filters(query,
+                                      nuage_models.NetPartition,
+                                      filters)
     return query
 
 

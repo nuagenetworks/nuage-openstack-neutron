@@ -20,11 +20,11 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from neutron._i18n import _
-from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db as sg_db
 
 from neutron_lib.db import api as lib_db_api
 from neutron_lib import exceptions as n_exc
+from neutron_lib.db import resource_extend as lib_db_resource_extend
 from neutron_lib.services import base as service_base
 
 from nuage_neutron.plugins.common import base_plugin
@@ -53,8 +53,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         super(NuageApi, self).__init__()
         # Prepare default and shared netpartitions
         self._prepare_netpartitions()
-        db_base_plugin_v2.NeutronDbPluginV2.register_dict_extend_funcs(
-            'security_groups', [self._extend_resource_dict])
+        lib_db_resource_extend.register_funcs('security_groups',
+                                              [self._extend_resource_dict])
 
     def get_plugin_type(self):
         return constants.NUAGE_APIS
@@ -317,8 +317,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def get_net_partitions(self, context, filters=None, fields=None):
         net_partitions = nuagedb.get_net_partitions(context.session,
-                                                    filters=filters,
-                                                    fields=fields)
+                                                    filters=filters)
         return [self._make_net_partition_dict(net_partition, context, fields)
                 for net_partition in net_partitions]
 

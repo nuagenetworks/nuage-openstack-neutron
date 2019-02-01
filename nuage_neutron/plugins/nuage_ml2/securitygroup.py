@@ -73,9 +73,8 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_DELETE])
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    def pre_delete_security_group(self, resource, event, trigger, **kwargs):
-        sg_id = kwargs['security_group_id']
-        self.vsdclient.delete_nuage_secgroup(sg_id)
+    def pre_delete_security_group(self, resource, event, trigger, payload):
+        self.vsdclient.delete_nuage_secgroup(payload.resource_id)
 
     @registry.receives(resources.SECURITY_GROUP, [events.PRECOMMIT_DELETE])
     @nuage_utils.handle_nuage_api_error
