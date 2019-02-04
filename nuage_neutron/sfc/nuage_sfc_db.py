@@ -26,10 +26,12 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
     def __init__(self):
         super(NuageSfcDbPlugin, self).__init__()
 
-    def get_subnet_vlan_bit_map_with_lock(self, context, subnet_id=None):
+    @staticmethod
+    def get_subnet_vlan_bit_map_with_lock(context, subnet_id=None):
         with sfc_db.db_api.CONTEXT_WRITER.using(context):
-            query = self._model_query(context,
-                                      nuage_models.NuageSfcVlanSubnetMapping)
+            query = sfc_db.model_query.query_with_hooks(
+                context,
+                nuage_models.NuageSfcVlanSubnetMapping)
         if subnet_id:
             vlan_mapping = query.filter_by(
                 subnet_id=subnet_id).with_for_update().first()
@@ -49,8 +51,9 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
     def update_subnet_vlan_bit_map_unset(self, context, vlan_id, subnet_id):
         with sfc_db.db_api.CONTEXT_WRITER.using(context):
             mask = 1 << (vlan_id - 1)
-            query = self._model_query(context,
-                                      nuage_models.NuageSfcVlanSubnetMapping)
+            query = sfc_db.model_query.query_with_hooks(
+                context,
+                nuage_models.NuageSfcVlanSubnetMapping)
             vlan_mapping = query.filter_by(
                 subnet_id=subnet_id).with_for_update().first()
             if vlan_mapping:
@@ -62,8 +65,9 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
 
     def delete_subnet_vlan_bit_map(self, context, subnet_id):
         with sfc_db.db_api.CONTEXT_WRITER.using(context):
-            query = self._model_query(context,
-                                      nuage_models.NuageSfcVlanSubnetMapping)
+            query = sfc_db.model_query.query_with_hooks(
+                context,
+                nuage_models.NuageSfcVlanSubnetMapping)
             query.filter_by(subnet_id=subnet_id).delete()
 
     def _validate_flow_classifiers(self, context, fc_ids, pc_id=None):
@@ -77,7 +81,8 @@ class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):
                 if fc_assoc and fc_assoc['portchain_id'] != pc_id:
                     raise sfc_db.ext_fc.FlowClassifierInUse(id=fc.id)
 
-            query = self._model_query(context, sfc_db.PortChain)
+            query = sfc_db.model_query.query_with_hooks(context,
+                                                        sfc_db.PortChain)
             for port_chain_db in query.all():
                 if port_chain_db['id'] == pc_id:
                     continue

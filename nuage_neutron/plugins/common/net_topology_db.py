@@ -12,7 +12,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.db import common_db_mixin
+from neutron_lib.db import model_query as lib_model_query
+from neutron_lib.db import utils as lib_db_utils
 
 from oslo_db.sqlalchemy import utils as sa_utils
 from oslo_utils import uuidutils
@@ -96,8 +97,7 @@ def delete_switchport_binding(context, neutron_port_id, segmentation_id):
                 segmentation_id=segmentation_id).delete()
 
 
-class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
-                                common_db_mixin.CommonDbMixin):
+class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase):
     """Mixin class to add switchport mapping."""
 
     __native_bulk_support = False
@@ -111,7 +111,8 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
             raise _ext.SwitchportInUse(id=id)
         return switchport
 
-    def _make_switchport_mapping_dict(self, gw_map_db, fields=None):
+    @staticmethod
+    def _make_switchport_mapping_dict(gw_map_db, fields=None):
         res = {'id': gw_map_db['id'],
                'switch_info': gw_map_db['switch_info'],
                'switch_id': gw_map_db['switch_id'],
@@ -121,24 +122,25 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                'pci_slot': gw_map_db['pci_slot'],
                'host_id': gw_map_db['host_id']
                }
-        return self._fields(res, fields)
+        return lib_db_utils.resource_fields(res, fields)
 
-    def _get_switchport_mapping(self, context, id):
+    @staticmethod
+    def _get_switchport_mapping(context, resource_id):
         try:
-            query = self._model_query(context,
-                                      nuage_models.NuageSwitchportMapping)
-            gw_map_db = query.filter(
-                nuage_models.NuageSwitchportMapping.id == id).one()
+            gw_map_db = lib_model_query.get_by_id(
+                context,
+                nuage_models.NuageSwitchportMapping,
+                resource_id)
         except sql_exc.NoResultFound:
-            raise _ext.SwitchportNotFound(id=id)
+            raise _ext.SwitchportNotFound(id=resource_id)
         return gw_map_db
 
-    def _get_switchport_binding(self, context, id):
+    @staticmethod
+    def _get_switchport_binding(context, resource_id):
         try:
-            query = context.session.query(
-                nuage_models.NuageSwitchportBinding)
-            gw_bind_db = query.filter(
-                nuage_models.NuageSwitchportBinding.id == id).one()
+            gw_bind_db = lib_model_query.get_by_id(
+                context,
+                nuage_models.NuageSwitchportBinding, resource_id)
             query = context.session.query(
                 nuage_models.NuageSwitchportMapping.switch_id,
                 nuage_models.NuageSwitchportMapping.port_id)
@@ -150,10 +152,11 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
             gw_bind_db['switch_id'] = switch
 
         except sql_exc.NoResultFound:
-            raise _ext.SwitchportBindingNotFound(id=id)
+            raise _ext.SwitchportBindingNotFound(id=resource_id)
         return gw_bind_db
 
-    def _make_switchport_binding_dict(self, gw_bind_db, fields=None):
+    @staticmethod
+    def _make_switchport_binding_dict(gw_bind_db, fields=None):
         res = {'id': gw_bind_db['id'],
                'neutron_port_id': gw_bind_db['neutron_port_id'],
                'switch_id': gw_bind_db.get('switch_id'),
@@ -162,9 +165,10 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                'nuage_vport_id': gw_bind_db['nuage_vport_id'],
                'segmentation_id': gw_bind_db['segmentation_id']
                }
-        return self._fields(res, fields)
+        return lib_db_utils.resource_fields(res, fields)
 
-    def _make_switchport_binding_dict_from_tuple(self, binding, fields=None):
+    @staticmethod
+    def _make_switchport_binding_dict_from_tuple(binding, fields=None):
         gw_bind_db = binding[0]
         res = {'id': gw_bind_db['id'],
                'neutron_port_id': gw_bind_db['neutron_port_id'],
@@ -174,9 +178,10 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                'nuage_vport_id': gw_bind_db['nuage_vport_id'],
                'segmentation_id': gw_bind_db['segmentation_id']
                }
-        return self._fields(res, fields)
+        return lib_db_utils.resource_fields(res, fields)
 
-    def _validate_host_pci(self, context, switchport_mapping):
+    @staticmethod
+    def _validate_host_pci(context, switchport_mapping):
         port_map = get_switchport_by_host_slot(context, switchport_mapping)
         if port_map:
             raise _ext.SwitchportParamDuplicate(
@@ -207,16 +212,16 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
     def get_switchport_mappings(self, context, filters=None, fields=None,
                                 sorts=None, limit=None, marker=None,
                                 page_reverse=False):
-        marker_obj = self._get_marker_obj(context, 'switchport_mappings',
-                                          limit, marker)
-
-        return self._get_collection(context,
-                                    nuage_models.NuageSwitchportMapping,
-                                    self._make_switchport_mapping_dict,
-                                    filters=filters, fields=fields,
-                                    sorts=sorts,
-                                    limit=limit, marker_obj=marker_obj,
-                                    page_reverse=page_reverse)
+        marker_obj = lib_db_utils.get_marker_obj(self, context,
+                                                 'switchport_mappings',
+                                                 limit, marker)
+        return lib_model_query.get_collection(
+            context,
+            nuage_models.NuageSwitchportMapping,
+            self._make_switchport_mapping_dict,
+            filters=filters, fields=fields,
+            sorts=sorts, limit=limit, marker_obj=marker_obj,
+            page_reverse=page_reverse)
 
     def get_switchport_mapping(self, context, id, fields=None):
         gw_map = self._get_switchport_mapping(context, id)
@@ -258,8 +263,9 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                         query = query.filter(column.in_(value))
 
         if sorts:
-            marker_obj = self._get_marker_obj(context, 'switchport_bindings',
-                                              limit, marker)
+            marker_obj = lib_db_utils.get_marker_obj(self, context,
+                                                     'switchport_bindings',
+                                                     limit, marker)
             sort_dirs = ['asc' if s[1] else 'desc' for s in sorts]
             query = sa_utils.paginate_query(
                 query,

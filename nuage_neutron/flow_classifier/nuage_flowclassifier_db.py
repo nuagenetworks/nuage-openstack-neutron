@@ -45,8 +45,9 @@ class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
             cls._vlan_range_conflict(first_flowclassifier['l7_parameters'],
                                      second_flowclassifier['l7_parameters']))
 
-    def _get_ports_in_use_for_fc(self, context, filters):
-        query = self.model_query.get_collection_query(
+    @staticmethod
+    def _get_ports_in_use_for_fc(context, filters):
+        query = flowclassifier_db.model_query.get_collection_query(
             context,
             flowclassifier_db.FlowClassifier,
             filters)
@@ -82,8 +83,9 @@ class NuageFlowClassifierDbPlugin(flowclassifier_db.FlowClassifierDbPlugin):
                 self._get_port(context, logical_source_port)
             if logical_destination_port is not None:
                 self._get_port(context, logical_destination_port)
-            query = self._model_query(context,
-                                      flowclassifier_db.FlowClassifier)
+            query = flowclassifier_db.model_query.query_with_hooks(
+                context,
+                flowclassifier_db.FlowClassifier)
             for flow_classifier_db in query.all():
                 if self.flowclassifier_conflict(
                     fc,
