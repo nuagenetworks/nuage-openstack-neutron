@@ -467,10 +467,6 @@ class VsdClient(object):
     def delete_vport_dhcp_option(self, dhcp_id, on_rollback):
         pass
 
-    def validate_provider_network(self, network_type, physical_network,
-                                  vlan_id):
-        pass
-
     def update_router(self, nuage_domain_id, router, updates):
         pass
 

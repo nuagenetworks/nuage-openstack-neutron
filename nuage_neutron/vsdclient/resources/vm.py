@@ -71,7 +71,7 @@ class NuageVM(object):
                 vm_id = None
             else:
                 msg = 'VM with uuid %s not found on VSD' % params['id']
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceNotFoundException(msg)
         return vm_id
 
     def _attach_permissions_to_groups(self, nuage_grpid_list, nuage_id,
@@ -90,7 +90,7 @@ class NuageVM(object):
             if not nuage_permission.validate(resp):
                 if (nuage_permission.get_error_code(resp) !=
                         constants.CONFLICT_ERR_CODE):
-                    raise restproxy.RESTProxyError(nuage_permission.error_msg)
+                    raise nuage_permission.get_rest_proxy_error()
 
     def _make_grp_id_list(self, params):
         nuage_grp_id_list = []
@@ -126,7 +126,7 @@ class NuageVM(object):
             response = self.restproxy.rest_call(
                 'GET', nuage_perm.get_resource_by_zone_id(), '')
             if not nuage_perm.validate(response):
-                raise restproxy.RESTProxyError(nuage_perm.error_msg)
+                raise nuage_perm.get_rest_proxy_error()
             for resp in nuage_perm.get_response_objlist(response):
                 if resp['permittedEntityName'] == params['tenant']:
                     return
@@ -266,7 +266,7 @@ class NuageVM(object):
                 'GET', nuage_perm.get_resource_by_zone_id(), '')
 
         if not nuage_perm.validate(response):
-            raise restproxy.RESTProxyError(nuage_perm.error_msg)
+            raise nuage_perm.get_rest_proxy_error()
         if len(nuage_perm.get_response_objlist(response)) > 1:
             for resp in nuage_perm.get_response_objlist(response):
                 if resp['permittedEntityName'] == tenant:
@@ -274,8 +274,7 @@ class NuageVM(object):
                         'DELETE', nuage_perm.delete_resource(
                             resp['ID']), '')
                     if not nuage_perm.validate(response):
-                        raise restproxy.RESTProxyError(
-                            nuage_perm.error_msg)
+                        raise nuage_perm.get_rest_proxy_error()
                     else:
                         break
 
@@ -289,8 +288,7 @@ class NuageVM(object):
             response = self.restproxy.rest_call(
                 'GET', nuagesubnet.get_resource(l3dom_id), '')
             if not nuagesubnet.get_validate(response):
-                raise restproxy.RESTProxyError(
-                    nuagesubnet.error_msg, nuagesubnet.vsd_error_code)
+                raise nuagesubnet.get_rest_proxy_error()
             subnet = nuagesubnet.get_response_obj(response)
             create_params = {'zone_id': subnet['parentID']}
             self._delete_vsd_permission_of_tenant(create_params,
@@ -317,8 +315,7 @@ class NuageVM(object):
             nuagevm.delete_resource(), '',
             extra_headers=nuagevm.extra_headers_delete())
         if not nuagevm.delete_validate(resp):
-            raise restproxy.RESTProxyError(nuagevm.error_msg,
-                                           nuagevm.vsd_error_code)
+            raise nuagevm.get_rest_proxy_error()
         if (not params['portOnSharedSubn'] and
                 (params['subn_tenant'] != params['tenant'])):
             self._delete_extra_perm_attached(params['tenant'],
@@ -342,8 +339,7 @@ class NuageVM(object):
             nuagevmif.delete_resource(), '',
             extra_headers=nuagevmif.extra_headers())
         if not nuagevmif.delete_validate(resp):
-            raise restproxy.RESTProxyError(nuagevmif.error_msg,
-                                           nuagevmif.vsd_error_code)
+            raise nuagevmif.get_rest_proxy_error()
         if (not params['portOnSharedSubn'] and
                 (params['subn_tenant'] != params['tenant'])):
             self._delete_extra_perm_attached(params['tenant'],
@@ -413,7 +409,7 @@ class NuageVM(object):
                                             nuagevport.put_resource(),
                                             nuagevport.fip_update_data())
             if not nuagevport.validate(resp):
-                raise restproxy.RESTProxyError(nuagevport.error_msg)
+                raise nuagevport.get_rest_proxy_error()
 
     def update_nuage_vm_if(self, params):
         req_params = {
@@ -727,7 +723,7 @@ class NuageVM(object):
                                             nuage_vip.get_resource_for_vport(),
                                             '')
         if not nuage_vip.validate(response):
-            raise restproxy.RESTProxyError(nuage_vip.error_msg)
+            raise nuage_vip.get_rest_proxy_error()
 
         vips = nuage_vip.get_response_objlist(response)
         resp = []
@@ -762,7 +758,7 @@ class NuageVM(object):
                     LOG.error("Error in deleting vip with ip %(vip)s and mac "
                               "%(mac)s", {'vip': nuage_vip['vip'],
                                           'mac': nuage_vip['mac']})
-                    raise restproxy.RESTProxyError(nuage_vip.error_msg)
+                    raise nuage_vip.get_rest_proxy_error()
 
     def get_vips(self, parent, parent_id, **filters):
         nuage_vip = nuagelib.NuageVIP()

@@ -59,7 +59,7 @@ class NuageDomain(object):
                                             nuageibacl.post_resource_l3(),
                                             nuageibacl.post_data_default_l3())
         if not nuageibacl.validate(response):
-            raise restproxy.RESTProxyError(nuageibacl.error_msg)
+            raise nuageibacl.get_rest_proxy_error()
         return nuageibacl.get_iacl_id(response)
 
     def _create_nuage_l3dom_egress_tmplt(self, id, neutron_router_id):
@@ -73,7 +73,7 @@ class NuageDomain(object):
                                             nuageobacl.post_resource_l3(),
                                             nuageobacl.post_data_default_l3())
         if not nuageobacl.validate(response):
-            raise restproxy.RESTProxyError(nuageobacl.error_msg)
+            raise nuageobacl.get_rest_proxy_error()
         return nuageobacl.get_oacl_id(response)
 
     def _calculate_pat_and_underlay(self, router):
@@ -97,7 +97,7 @@ class NuageDomain(object):
             'GET', nuagerouter.get_resource_with_ext_id(), '',
             extra_headers=nuagerouter.extra_headers_get())
         if not nuagerouter.validate(response):
-            raise restproxy.RESTProxyError(nuagerouter.error_msg)
+            raise nuagerouter.get_rest_proxy_error()
         if response[3]:
             return nuagerouter.get_response_obj(response)
         else:
@@ -122,7 +122,7 @@ class NuageDomain(object):
                 l3dom_id,
                 get_vsd_external_id(neutron_router_id)))
         if not nuageadvfwdtmplt.validate(response):
-            raise restproxy.RESTProxyError(nuageadvfwdtmplt.error_msg)
+            raise nuageadvfwdtmplt.get_rest_proxy_error()
         return nuageadvfwdtmplt.get_response_objid(response)
 
     def get_routers_by_netpart(self, netpart_id):
@@ -130,7 +130,7 @@ class NuageDomain(object):
         response = self.restproxy.rest_call(
             'GET', nuagel3dom.get_all_resources_in_ent(), '')
         if not nuagel3dom.validate(response):
-            raise restproxy.RESTProxyError(nuagel3dom.error_msg)
+            raise nuagel3dom.get_rest_proxy_error()
         res = []
         for l3dom in nuagel3dom.get_response_objlist(response):
             np_dict = dict()
@@ -251,7 +251,7 @@ class NuageDomain(object):
                 msg = ("Mandatory zones %s or %s do not exist in VSD" % (
                     TEMPLATE_ISOLATED_ZONE, TEMPLATE_SHARED_ZONE))
                 self.delete_l3domain(nuage_domain_id)
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceNotFoundException(msg)
             router_dict['nuage_def_zone_id'] = isolated_id
             router_dict['nuage_shared_zone_id'] = shared_id
             self._make_nuage_zone_shared(net_partition['id'], shared_id,
@@ -274,7 +274,7 @@ class NuageDomain(object):
             if not isolated_id or not shared_id:
                 msg = "Default zones do not exist in VSD"
                 self.delete_l3domain(nuage_domain_id)
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceNotFoundException(msg)
 
             router_dict['nuage_def_zone_id'] = isolated_id
             router_dict['nuage_shared_zone_id'] = shared_id
@@ -355,7 +355,7 @@ class NuageDomain(object):
             nuagegroup.list_resource(), '',
             nuagegroup.extra_headers_get_for_everybody())
         if not nuagegroup.validate(response):
-            raise restproxy.RESTProxyError(nuagegroup.error_msg)
+            raise nuagegroup.get_rest_proxy_error()
 
         nuage_all_groupid = nuagegroup.get_groupid(response)
         self._attach_nuage_group_to_zone(nuage_all_groupid,
@@ -375,7 +375,7 @@ class NuageDomain(object):
         response = self.restproxy.rest_call(
             'GET', nuagezonetemplate.list_resource(), '')
         if not nuagezonetemplate.validate(response):
-            raise restproxy.RESTProxyError(nuagezonetemplate.error_msg)
+            raise nuagezonetemplate.get_rest_proxy_error()
         isolated_match = False
         shared_match = False
         zone_tlist = nuagezonetemplate.zonetemplate_list(response)
@@ -410,7 +410,7 @@ class NuageDomain(object):
             extra_headers=nuage_extra_headers)
 
         if not static_route.validate(response):
-            raise restproxy.RESTProxyError(static_route.error_msg)
+            raise static_route.get_rest_proxy_error()
 
         if len(response[3]) > 0:
             ret = {
@@ -444,8 +444,7 @@ class NuageDomain(object):
             'POST', nuage_staticroute.post_resource(),
             nuage_staticroute.post_data())
         if not nuage_staticroute.validate(response):
-            code = nuage_staticroute.get_error_code(response)
-            raise restproxy.RESTProxyError(nuage_staticroute.error_msg, code)
+            raise nuage_staticroute.get_rest_proxy_error()
         return nuage_staticroute.get_staticrouteid(response)
 
     def _attach_nuage_group_to_zone(self, nuage_groupid, nuage_zoneid,
@@ -461,17 +460,14 @@ class NuageDomain(object):
         if not nuage_permission.validate(resp):
             if (nuage_permission.get_error_code(resp) !=
                     constants.CONFLICT_ERR_CODE):
-                raise restproxy.RESTProxyError(
-                    nuage_permission.error_msg)
+                raise nuage_permission.get_rest_proxy_error()
 
     def get_zone_by_domainid(self, domain_id):
         nuage_l3_domain = nuagelib.NuageL3Domain({'domain_id': domain_id})
         response = self.restproxy.rest_call(
             'GET', nuage_l3_domain.get_all_zones(), '')
         if not nuage_l3_domain.validate(response):
-            raise restproxy.RESTProxyError(
-                nuage_l3_domain.error_msg,
-                nuage_l3_domain.get_error_code(response))
+            raise nuage_l3_domain.get_rest_proxy_error()
         res = []
         for zone in nuage_l3_domain.get_response_objlist(response):
             np_dict = dict()
@@ -503,7 +499,7 @@ class NuageDomain(object):
             'GET', nuage_l3_domain.get_all_zones(), '',
             extra_headers=nuage_extra_headers)
         if not nuage_l3_domain.validate(response):
-            raise restproxy.RESTProxyError(nuage_l3_domain.error_msg)
+            raise nuage_l3_domain.get_rest_proxy_error()
         if shared:
             if response[constants.VSD_RESP_OBJ]:
                 return response[3][0]
@@ -517,8 +513,7 @@ class NuageDomain(object):
                         'GET', nuage_l3_domain.get_all_zones(), '',
                         extra_headers=nuage_extra_headers)
                     if not nuage_l3_domain.validate(shared_zone):
-                        raise restproxy.RESTProxyError(
-                            nuage_l3_domain.error_msg)
+                        raise nuage_l3_domain.get_rest_proxy_error()
                     if shared_zone[VSD_RESP_OBJ]:
                         return shared_zone[VSD_RESP_OBJ][0]
                 except Exception:
@@ -539,8 +534,7 @@ class NuageDomain(object):
                         'GET', nuage_l3_domain.get_all_zones(), '',
                         extra_headers=nuage_extra_headers)
                     if not nuage_l3_domain.validate(isolated_zone):
-                        raise restproxy.RESTProxyError(
-                            nuage_l3_domain.error_msg)
+                        raise nuage_l3_domain.get_rest_proxy_error()
                     if isolated_zone[VSD_RESP_OBJ]:
                         return isolated_zone[VSD_RESP_OBJ][0]
                 except Exception:
@@ -559,7 +553,7 @@ class NuageDomain(object):
             'GET', nuage_route.post_resource(), '', '')
 
         if not nuage_route.validate(response):
-            raise restproxy.RESTProxyError(nuage_route.error_msg)
+            raise nuage_route.get_rest_proxy_error()
 
         return response[3]
 
@@ -572,7 +566,7 @@ class NuageDomain(object):
                                           [neutron_subnet['cidr']]):
                 msg = ("router interface for subnet %s is required by one or"
                        " more routes") % neutron_subnet['name']
-                raise restproxy.RESTProxyError(msg)
+                raise restproxy.ResourceConflictException(msg)
 
     def create_nuage_floatingip(self, params):
         fip = self.create_nuage_floatingip_details(params)
@@ -619,9 +613,7 @@ class NuageDomain(object):
         resp = self.restproxy.rest_call('DELETE', nuagefip.delete_resource(id),
                                         '')
         if not nuagefip.validate(resp):
-            code = nuagefip.get_error_code(resp)
-            raise restproxy.RESTProxyError(nuagefip.error_msg,
-                                           error_code=code)
+            raise nuagefip.get_rest_proxy_error()
 
     def update_vport_floatingip(self, vport_id, floatingip_id):
         floatingip = nuagelib.NuageFloatingIP()
@@ -639,7 +631,7 @@ class NuageDomain(object):
                 'GET',
                 nuagel3dom.get_domain_subnets(nuage_domain_id), '')
             if not nuagel3dom.validate(l3dom_subnets):
-                raise self.restproxy.RESTProxyError(nuagel3dom.error_msg)
+                raise nuagel3dom.get_rest_proxy_error()
 
             for subnet in l3dom_subnets[3]:
                 if subnet['ID'] == nuage_subnet_id:
@@ -859,12 +851,12 @@ class NuageDomainSubnet(object):
             nuagel3dom.extra_headers_get_address(net_ip))
 
         if not nuagel3dom.validate(nuagel3domsub):
-            raise self.restproxy.RESTProxyError(nuagel3dom.error_msg)
+            raise nuagel3dom.get_rest_proxy_error()
 
         if nuagel3domsub[3]:
             msg = ("Cidr %s of subnet %s overlaps with another subnet in the "
                    "VSD" % (net_cidr, nuage_subnet_id))
-            raise restproxy.RESTProxyError(msg)
+            raise restproxy.ResourceConflictException(msg)
         return True
 
     def move_to_l2(self, subnet_id, l2domain_id):
