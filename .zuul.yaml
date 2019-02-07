@@ -248,6 +248,8 @@
     vars:
       job_flavor: octavia
       branch_override: default
+      tempest_concurrency: ''
+
     timeout: 9000
     required-projects:
       - OpenStack/nuage-gate-utils
@@ -270,7 +272,8 @@
     vars:
       job_flavor: octavia-standby
       branch_override: default
-    timeout: 9000
+      tempest_concurrency: 1
+    timeout: 14400
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
