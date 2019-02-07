@@ -33,7 +33,13 @@ LOG = logging.getLogger(__name__)
 class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
 
     DHCP_OPTION_NUMBER_TO_NAME = {
-        v: k for k, v in six.iteritems(constants.DHCP_OPTION_NAME_TO_NUMBER)}
+        4: {
+            v: k for k, v in six.iteritems(
+                constants.DHCP_OPTION_NAME_TO_NUMBER[4])},
+        6: {
+            v: k for k, v in six.iteritems(
+                constants.DHCP_OPTION_NAME_TO_NUMBER[6])}
+    }
 
     def subscribe(self):
         self.nuage_callbacks.subscribe(self._validate_port_dhcp_opts,
@@ -49,12 +55,13 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                                           port_id, on_opts_update=False):
         response = []
         for dhcp_option in dhcp_options:
+            ip_type = dhcp_option['ip_version']
             try:
                 resp = self.vsdclient.crt_or_updt_vport_dhcp_option(
                     dhcp_option, vport['ID'], port_id)
             except Exception as e:
                 e = self._build_dhcp_option_error_message(
-                    dhcp_option['opt_name'], e)
+                    dhcp_option['opt_name'], ip_type, e)
                 if on_opts_update:
                     response.append(e)
                     response.append("error")
@@ -62,7 +69,7 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                 for del_resp in response:
                     if del_resp[1] == 'Created':
                         self.vsdclient.delete_vport_dhcp_option(
-                            del_resp[3][0]['ID'], True)
+                            del_resp[3][0]['ID'], ip_type, True)
                 raise e
             response.append(resp)
         return response
@@ -90,10 +97,26 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
             self._translate_dhcp_option(dhcp_option)
         self._validate_extra_dhcp_opt_for_duplicate_numerical(dhcp_options)
 
-    def _is_ipv4_option(self, dhcp_option):
-        return dhcp_option.get('ip_version') == os_constants.IP_VERSION_4
+    @staticmethod
+    def _is_ipv4_option(dhcp_option):
+        return dhcp_option['ip_version'] == os_constants.IP_VERSION_4
+
+    @staticmethod
+    def _is_ipv6_option(dhcp_option):
+        return dhcp_option['ip_version'] == os_constants.IP_VERSION_6
 
     def _validate_extra_dhcp_opt_for_duplicate_numerical(self, new_dhcp_opts):
+        dhcp_v4_options = [opt for opt in new_dhcp_opts
+                           if self._is_ipv4_option(opt)]
+        dhcp_v6_options = [opt for opt in new_dhcp_opts
+                           if self._is_ipv6_option(opt)]
+        self._validate_extra_dhcp_opt_for_duplicate_numerical_within_ip_type(
+            os_constants.IP_VERSION_4, dhcp_v4_options)
+        self._validate_extra_dhcp_opt_for_duplicate_numerical_within_ip_type(
+            os_constants.IP_VERSION_6, dhcp_v6_options)
+
+    def _validate_extra_dhcp_opt_for_duplicate_numerical_within_ip_type(
+            self, ip_type, new_dhcp_opts):
         # Check for duplicate extra dhcp options that are mixed between
         # numerical and string based option names.
         for key, group in itertools.groupby(
@@ -105,14 +128,15 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                 msg = _("It is not allowed to mix numerical extra "
                         "dhcp options and named extra dhcp options for "
                         "the same extra dhcp option: {}/{}.").format(
-                    opt_number, self.DHCP_OPTION_NUMBER_TO_NAME[opt_number])
+                    opt_number,
+                    self.DHCP_OPTION_NUMBER_TO_NAME[ip_type][opt_number])
                 raise nuage_exc.NuageBadRequest(msg=msg)
 
     @staticmethod
-    def _build_dhcp_option_error_message(dhcpoption, e):
+    def _build_dhcp_option_error_message(dhcp_option, ip_version, e):
         for name, number in six.iteritems(
-                constants.DHCP_OPTION_NAME_TO_NUMBER):
-            if number == dhcpoption:
+                constants.DHCP_OPTION_NAME_TO_NUMBER[ip_version]):
+            if number == dhcp_option:
                 if hasattr(e, 'msg'):
                     error = "For DHCP option " + name + ", " + e.msg
                     return nuage_exc.NuageBadRequest(msg=error)
@@ -123,24 +147,26 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
 
     @staticmethod
     def _translate_dhcp_option(dhcp_option):
+        ip_version = dhcp_option['ip_version']
+        opt_name_to_number = constants.DHCP_OPTION_NAME_TO_NUMBER[ip_version]
+
+        def check_option_name(opt_name, opt_names):
+            if opt_name not in opt_names:
+                msg = _("There is no DHCPv{} option {} available").format(
+                    ip_version, opt_name)
+                raise nuage_exc.NuageBadRequest(msg=msg)
         try:
             # Numerical DHCP option name
             option_number = int(dhcp_option['opt_name'])
-            if option_number in constants.DHCP_OPTION_NAME_TO_NUMBER.values():
-                dhcp_option['opt_name'] = option_number
-            else:
-                msg = _("There is no DHCP option available with the "
-                        "opt_ name: %s ") % dhcp_option['opt_name']
-                raise nuage_exc.NuageBadRequest(msg=msg)
+            check_option_name(option_number, opt_name_to_number.values())
+            dhcp_option['opt_name'] = option_number
+
         except ValueError:
             # Non-numerical DHCP option name
-            if dhcp_option['opt_name'] in constants.DHCP_OPTION_NAME_TO_NUMBER:
-                dhcp_option['opt_name'] = (constants.DHCP_OPTION_NAME_TO_NUMBER
-                                           [dhcp_option['opt_name']])
-            else:
-                msg = _("There is no DHCP option available with the "
-                        "opt_ name: %s ") % dhcp_option['opt_name']
-                raise nuage_exc.NuageBadRequest(msg=msg)
+            check_option_name(dhcp_option['opt_name'], opt_name_to_number)
+            dhcp_option['opt_name'] = opt_name_to_number[
+                dhcp_option['opt_name']]
+
         dhcp_option['opt_value'] = (dhcp_option['opt_value'].split(";")
                                     if dhcp_option['opt_value'] else None)
 
@@ -168,7 +194,8 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
         return {'new': add_dhcp_opts, 'update': update_dhcp_opts,
                 'delete': delete_dhcp_opts}
 
-    def _update_extra_dhcp_options(self, categorised_dhcp_opts, subnet_mapping,
+    def _update_extra_dhcp_options(self, categorised_dhcp_opts, ip_version,
+                                   subnet_mapping,
                                    port_id, current_owner, old_dhcp_opts,
                                    vport):
         if not subnet_mapping:
@@ -216,7 +243,7 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
             # Roll back create
             for rollback_opt in created_rollback_opts:
                 self.vsdclient.delete_vport_dhcp_option(
-                    rollback_opt[3][0]['ID'], True)
+                    rollback_opt[3][0]['ID'], ip_version, True)
             # Roll back update & delete
             self._create_update_extra_dhcp_options(old_dhcp_opts, vport,
                                                    port_id, True)
@@ -239,8 +266,6 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
             return
 
         dhcp_options = copy.deepcopy(port['extra_dhcp_opts'])
-        dhcp_options = [opt for opt in dhcp_options
-                        if self._is_ipv4_option(opt)]
         for dhcp_opt in dhcp_options:
             self._translate_dhcp_option(dhcp_opt)
         self._create_update_extra_dhcp_options(
@@ -252,24 +277,34 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
         if port['extra_dhcp_opts'] == original_port['extra_dhcp_opts']:
             return
 
-        old_dhcp_options = copy.deepcopy(original_port.get('extra_dhcp_opts',
-                                                           []))
-        request_dhcp_options = copy.deepcopy(
-            port.get('extra_dhcp_opts', []))
+        old_dhcp_options = (copy.deepcopy(original_port['extra_dhcp_opts'])
+                            if original_port['extra_dhcp_opts'] else [])
+        request_dhcp_options = (copy.deepcopy(port['extra_dhcp_opts'])
+                                if port['extra_dhcp_opts'] else [])
 
-        request_dhcp_options = [opt for opt in request_dhcp_options
-                                if self._is_ipv4_option(opt)]
+        for ip_version in [4, 6]:
+            self._post_port_update_dhcp_opts(original_port, vport,
+                                             subnet_mapping,
+                                             ip_version,
+                                             request_dhcp_options,
+                                             old_dhcp_options)
+
+    def _post_port_update_dhcp_opts(self, port, vport, subnet_mapping,
+                                    ip_version, request_dhcp_options,
+                                    old_dhcp_options,):
         old_dhcp_options = [opt for opt in old_dhcp_options
-                            if self._is_ipv4_option(opt)]
+                            if opt['ip_version'] == ip_version]
+        request_dhcp_options = [opt for opt in request_dhcp_options
+                                if opt['ip_version'] == ip_version]
         for dhcp_opt in request_dhcp_options:
             self._translate_dhcp_option(dhcp_opt)
         for dhcp_opt in old_dhcp_options:
             self._translate_dhcp_option(dhcp_opt)
         categorised_dhcp_opts = self._categorise_dhcp_options_for_update(
-            copy.deepcopy(old_dhcp_options),
-            request_dhcp_options)
+            old_dhcp_options, request_dhcp_options)
         self._update_extra_dhcp_options(categorised_dhcp_opts,
+                                        ip_version,
                                         subnet_mapping,
-                                        original_port.get('id'),
-                                        original_port['device_owner'],
+                                        port['id'],
+                                        port['device_owner'],
                                         old_dhcp_options, vport)

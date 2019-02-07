@@ -211,15 +211,6 @@ class NuageL2DomTemplate(NuageResource):
         else:
             return None
 
-    def validate_cidr(self, response, net_ip):
-        if response[3][0]['address'] is not None:
-            if str(net_ip.ip) != response[3][0]['address'] or \
-                    str(net_ip.netmask) != response[3][0]['netmask']:
-                return True, False
-            return True, True
-        else:
-            return False, False
-
     def delete_resource(self, id):
         return '/l2domaintemplates/%s?responseChoice=1' % id
 
@@ -292,11 +283,6 @@ class NuageL2Domain(NuageResource):
 
     def get_template_id(self, response):
         return response[3][0]['templateID']
-
-    def get_cidr_info(self, response):
-        ip = response[3][0]['address']
-        netmask = response[3][0]['netmask']
-        return (ip, netmask)
 
     def delete_resource(self, id):
         return '/%s/%s?responseChoice=1' % (self.resource, id)
@@ -413,9 +399,6 @@ class NuageSubnet(NuageResource):
     def post_data(self):
         data = {
             "name": self.create_params['name'],
-            "address": str(self.create_params['net'].ip),
-            "netmask": str(self.create_params['net'].netmask),
-            "gateway": self.create_params['gateway'],
             "externalID": get_vsd_external_id(self.create_params['externalID'])
         }
         if self.extra_params:
@@ -424,11 +407,6 @@ class NuageSubnet(NuageResource):
 
     def get_subnetid(self, response):
         return self.get_response_objid(response)
-
-    def get_cidr_info(self, response):
-        ip = response[3][0]['address']
-        netmask = response[3][0]['netmask']
-        return (ip, netmask)
 
     def delete_resource(self, id):
         return '/subnets/%s?responseChoice=1' % id
@@ -543,24 +521,29 @@ class NuageSubnet(NuageResource):
 
 
 class NuageDhcpOptions(NuageResource):
+    def __init__(self, ip_version, create_params=None, extra_params=None):
+        super(NuageDhcpOptions, self).__init__(create_params, extra_params)
+        self.resource = 'dhcpoptions' if ip_version == 4 else 'dhcpv6options'
+
     def resource_by_l2domainid(self, id):
         # This method is used for GET and POST for l2 case
-        return '/l2domains/%s/dhcpoptions' % id
+        return '/l2domains/{}/{}'.format(id, self.resource)
 
     def resource_by_subnetid(self, id):
         # This method is used for GET and POST for l3 case
-        return '/subnets/%s/dhcpoptions' % id
+        return '/subnets/{}/{}'.format(id, self.resource)
 
     def resource_by_vportid(self, id):
         # This method is used for GET and POST for VPort case
-        return '/vports/%s/dhcpoptions' % id
+        return '/vports/{}/{}'.format(id, self.resource)
 
     def dhcp_resource(self, id):
         # This method is used for DELETE and PUT with acceptance
-        return '/dhcpoptions/%s?responseChoice=1' % id
+        return '/{}/{}?responseChoice=1'.format(self.resource, id)
 
-    def get_gwIp_set_via_dhcp(self, dhcpoption):
-        gw_ip_via_dhcp_option = dhcpoption['value']
+    @staticmethod
+    def get_gwIp_set_via_dhcp(dhcp_option):
+        gw_ip_via_dhcp_option = dhcp_option['value']
         bytes = ["".join(x) for x in zip(*[iter(gw_ip_via_dhcp_option)] * 2)]
         bytes = [int(x, 16) for x in bytes]
         return ".".join(str(x) for x in bytes)
@@ -654,10 +637,13 @@ class NuageL3Domain(NuageResource):
         headers['X-Nuage-Filter'] = "name IS '%s'" % zone_name
         return headers
 
-    def extra_headers_get_address(self, net_ip):
+    def extra_headers_get_address(self, cidr, ip_type):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "address IS '%s'" % net_ip
+        if ip_type == constants.IPV4_VERSION:
+            headers['X-Nuage-Filter'] = "address IS '{}'".format(str(cidr.ip))
+        else:
+            headers['X-Nuage-Filter'] = "IPv6Address IS '{}'".format(str(cidr))
         return headers
 
     def extra_headers_get_fipunderlay(self, fipunderlay):

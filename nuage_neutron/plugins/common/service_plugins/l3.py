@@ -129,15 +129,14 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     def add_router_interface(self, context, router_id, interface_info=None):
         # pre-commit begins here
         session = context.session
-        vport = dss_l2dom = None
-        subnet_id, subnet_l2dom, vport = (
+        vport = dss_mapping = None
+        subnet_id, subnet_mapping, vport = (
             self._process_router_interface_add_info(context,
                                                     interface_info,
                                                     session,
                                                     vport))
         subnet = self.core_plugin.get_subnet(context, subnet_id)
-        network = self.core_plugin.get_network(context,
-                                               subnet['network_id'])
+        network = self.core_plugin.get_network(context, subnet['network_id'])
 
         if not self.is_vxlan_network(network):
             return super(NuageL3Plugin, self).add_router_interface(
@@ -154,41 +153,25 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     "a router.")
             raise nuage_exc.NuageBadRequest(msg=msg)
 
-        if not subnet_l2dom:
-            filters = {
-                'fixed_ips': {'subnet_id': [subnet_id]},
-                'device_owner': [lib_constants.DEVICE_OWNER_ROUTER_INTF]
-            }
-            ipv6_inf_prt = self.core_plugin.get_ports(context,
-                                                      filters=filters)
-            if ipv6_inf_prt:
-                raise nuage_router.RtrItfAddSubnetForMultipleRouters(
-                    subnet=subnet_id)
-            # no-op since it's just ipv6
-            return super(NuageL3Plugin, self).add_router_interface(
-                context,
-                router_id,
-                interface_info)
-
         vsd_zone = self.vsdclient.get_zone_by_routerid(router_id,
                                                        subnet['shared'])
         dual_stack_subnet = self.get_dual_stack_subnet(context, subnet)
         ipv4_subnet, ipv6_subnet = self.seperate_ipv4_ipv6_subnet(
             subnet, dual_stack_subnet)
+
         if dual_stack_subnet:
-            dss_l2dom = nuagedb.get_subnet_l2dom_by_id(
+            dss_mapping = nuagedb.get_subnet_l2dom_by_id(
                 session, dual_stack_subnet['id'])
             self._nuage_dualstack_valid_dss_rtr(
-                dual_stack_subnet, dss_l2dom, router_id)
-        if subnet_id == ipv4_subnet['id']:
-            ipv4_subnet_mapping = subnet_l2dom
-            ipv6_subnet_mapping = dss_l2dom
-        else:
-            ipv6_subnet_mapping = subnet_l2dom
-            ipv4_subnet_mapping = dss_l2dom
+                dual_stack_subnet, dss_mapping, router_id)
+
+        ipv4_subnet_mapping, ipv6_subnet_mapping = \
+            self.seperate_ipv4_ipv6_mapping(subnet, ipv4_subnet,
+                                            subnet_mapping, dss_mapping)
+
         nuage_subnet_id, nuage_rtr_id = self._nuage_validate_add_rtr_itf(
             session, router_id,
-            subnet, subnet_l2dom, vsd_zone,
+            subnet, subnet_mapping, vsd_zone,
             dual_stack_subnet)
 
         # pre-commit ends here
@@ -201,14 +184,14 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         if vport:
             self.vsdclient.delete_nuage_vport(vport['ID'])
         try:
-            if subnet_l2dom and self._is_l3(subnet_l2dom):
+            if subnet_mapping and self._is_l3(subnet_mapping):
                 # This subnet is already l3
                 self._notify_add_del_router_interface(
                     constants.AFTER_CREATE,
                     context=context,
                     router_id=router_id,
                     subnet_id=subnet_id,
-                    subnet_l2dom=subnet_l2dom)
+                    subnet_mapping=subnet_mapping)
                 self._update_port_status(context, rtr_if_info['port_id'],
                                          lib_constants.PORT_STATUS_ACTIVE)
                 return rtr_if_info
@@ -216,19 +199,20 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 subnet, nuage_subnet_id, nuage_rtr_id)
             return self._nuage_add_router_interface(
                 context, session, router_id, rtr_if_info,
-                subnet_l2dom, subnet_id, ipv4_subnet, ipv6_subnet, subnet,
-                vsd_zone, ipv4_subnet_mapping, ipv6_subnet_mapping)
+                subnet_mapping, subnet_id, ipv4_subnet, ipv6_subnet, subnet,
+                vsd_zone, ipv4_subnet_mapping, ipv6_subnet_mapping,
+                network['name'])
         except Exception as exc:
             msg = ["overlaps with another subnet",
                    "overlaps with existing network"]
             if msg[0] in exc.message or msg[1] in exc.message:
                 subnet_id = rtr_if_info['subnet_id']
-                subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(
+                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                     session, subnet_id)
-                nuage_id = subnet_l2dom.get('nuage_subnet_id')
+                nuage_id = subnet_mapping.get('nuage_subnet_id')
                 if nuage_id:
                     vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(
-                        subnet_l2dom)
+                        subnet_mapping)
                     if vsd_subnet:
                         msg = "In add_router_interface exception, " \
                               "nuage domain %s exists already. " \
@@ -243,7 +227,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                             context=context,
                             router_id=router_id,
                             subnet_id=subnet_id,
-                            subnet_l2dom=subnet_l2dom)
+                            subnet_mapping=subnet_mapping)
 
                         self._update_port_status(
                             context, rtr_if_info['port_id'],
@@ -298,6 +282,13 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             ipv4_subnet, ipv6_subnet = dual_stack_subnet, subnet
         return ipv4_subnet, ipv6_subnet
 
+    def seperate_ipv4_ipv6_mapping(self, subnet, ipv4_subnet, sub_mapping,
+                                   dss_mapping):
+        if ipv4_subnet and self._is_ipv4(subnet):
+            return sub_mapping, dss_mapping
+        else:
+            return dss_mapping, sub_mapping
+
     def check_if_subnet_is_attached_to_router(self, context, subnet):
         filters = {
             'network_id': [subnet['network_id']],
@@ -327,29 +318,37 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     router=nuage_dss_rtr_id, subnet=dual_stack_subnet['id'])
 
     def _nuage_add_router_interface(self, context, session, router_id,
-                                    rtr_if_info, subnet_l2dom, subnet_id,
+                                    rtr_if_info, subnet_mapping, subnet_id,
                                     ipv4_subnet, ipv6_subnet, subnet,
                                     vsd_zone, ipv4_subnet_mapping,
-                                    ipv6_subnet_mapping):
-        filters = {
-            'fixed_ips': {'subnet_id': [ipv4_subnet['id']]},
-            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-        }
-        dhcp_ports = self.core_plugin.get_ports(context, filters=filters)
-        for port in dhcp_ports:
-            self.core_plugin.delete_port(context, port['id'])
+                                    ipv6_subnet_mapping, network_name):
+        dhcp_port = None
+        if ipv4_subnet:
+            filters = {
+                'fixed_ips': {'subnet_id': [ipv4_subnet['id']]},
+                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+            }
+            dhcp_port = self.core_plugin.get_ports(context, filters=filters)
+        if ipv6_subnet and not dhcp_port:
+            filters = {
+                'fixed_ips': {'subnet_id': [ipv6_subnet['id']]},
+                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+            }
+            dhcp_port = self.core_plugin.get_ports(context, filters=filters)
+        if dhcp_port:
+            self.delete_nuage_dhcp_port(context, dhcp_port[0]['id'])
 
         pnet_binding = nuagedb.get_network_binding(context.session,
                                                    subnet['network_id'])
         with nuage_utils.rollback() as on_exc:
             vsd_subnet = self.vsdclient.create_domain_subnet(
-                vsd_zone, ipv4_subnet, pnet_binding, ipv6_subnet)
+                vsd_zone, ipv4_subnet, ipv6_subnet, pnet_binding, network_name)
 
             on_exc(self.vsdclient.delete_domain_subnet,
                    vsd_subnet['ID'], subnet['id'], pnet_binding)
 
             self.vsdclient.move_l2domain_to_l3subnet(
-                subnet_l2dom['nuage_subnet_id'],
+                subnet_mapping['nuage_subnet_id'],
                 vsd_subnet['ID'])
             self.set_mapping_as_l3subnet(session, ipv4_subnet_mapping,
                                          ipv6_subnet_mapping, vsd_subnet)
@@ -359,7 +358,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 context=context,
                 router_id=router_id,
                 subnet_id=subnet_id,
-                subnet_l2dom=subnet_l2dom)
+                subnet_mapping=subnet_mapping)
 
         self._update_port_status(context, rtr_if_info['port_id'],
                                  lib_constants.PORT_STATUS_ACTIVE)
@@ -369,11 +368,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     def set_mapping_as_l2domain(session, ipv4_subnet_mapping,
                                 ipv6_subnet_mapping, vsd_l2domain):
         with session.begin(subtransactions=True):
-            nuagedb.update_subnetl2dom_mapping(
-                ipv4_subnet_mapping,
-                {'nuage_subnet_id': vsd_l2domain['nuage_l2domain_id'],
-                 'nuage_l2dom_tmplt_id': vsd_l2domain[
-                     'nuage_l2template_id']})
+            if ipv4_subnet_mapping:
+                nuagedb.update_subnetl2dom_mapping(
+                    ipv4_subnet_mapping,
+                    {'nuage_subnet_id': vsd_l2domain['nuage_l2domain_id'],
+                     'nuage_l2dom_tmplt_id': vsd_l2domain[
+                         'nuage_l2template_id']})
             if ipv6_subnet_mapping:
                 nuagedb.update_subnetl2dom_mapping(
                     ipv6_subnet_mapping,
@@ -386,7 +386,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             context,
             router_id,
             subnet_id,
-            subnet_l2dom):
+            subnet_mapping):
 
         rollbacks = []
         try:
@@ -397,7 +397,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                         router_id=router_id,
                                         subnet_id=subnet_id,
                                         rollbacks=rollbacks,
-                                        subnet_mapping=subnet_l2dom)
+                                        subnet_mapping=subnet_mapping)
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
@@ -446,22 +446,14 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                              self).remove_router_interface(context,
                                                            router_id,
                                                            interface_info)
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-                context.session, subnet_id)
-            if not subnet_mapping:
-                # no-op since it's ipv6
-                return super(NuageL3Plugin,
-                             self).remove_router_interface(context,
-                                                           router_id,
-                                                           interface_info)
             filters = {'device_id': [router_id],
                        'device_owner':
                        [lib_constants.DEVICE_OWNER_ROUTER_INTF],
-                       'network_id': [subnet['network_id']],
-                       }
-            found = any(p['fixed_ips'][0]['subnet_id'] == subnet_id
-                        for p in self.core_plugin.get_ports(context, filters))
-            if not found:
+                       'network_id': [subnet['network_id']]}
+            router_interfaces = any(p['fixed_ips'][0]['subnet_id'] == subnet_id
+                                    for p in self.core_plugin.get_ports(
+                context, filters))
+            if not router_interfaces:
                 raise l3_exc.RouterInterfaceNotFoundForSubnet(
                     router_id=router_id, subnet_id=subnet_id)
         elif port_id_specified:
@@ -488,14 +480,14 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                                        router_id,
                                                        interface_info)
         session = context.session
-        subnet_l2dom = nuagedb.get_subnet_l2dom_by_id(session,
-                                                      subnet_id)
-        if not subnet_l2dom:
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(session,
+                                                        subnet_id)
+        if not subnet_mapping:
             return super(NuageL3Plugin,
                          self).remove_router_interface(context,
                                                        router_id,
                                                        interface_info)
-        nuage_subn_id = subnet_l2dom['nuage_subnet_id']
+        nuage_subn_id = subnet_mapping['nuage_subnet_id']
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
             context.session,
             router_id)
@@ -507,36 +499,49 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         dual_stack_subnet = self.get_dual_stack_subnet(context, subnet)
 
-        ipv4_subnet, ipv6_subnet = self.seperate_ipv4_ipv6_subnet(
-            subnet, dual_stack_subnet)
-        ipv4_subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-            session, ipv4_subnet['id'])
-        ipv6_subnet_mapping = None
+        dss_mapping = None
         if dual_stack_subnet:
-            ipv6_subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-                session, ipv6_subnet['id'])
             router_attached, r_id = self.check_if_subnet_is_attached_to_router(
                 context, dual_stack_subnet)
             if router_attached and not ('port_id' in interface_info):
-                return super(NuageL3Plugin,
-                             self).remove_router_interface(context,
-                                                           router_id,
-                                                           interface_info)
+                return super(NuageL3Plugin, self).remove_router_interface(
+                    context, router_id, interface_info)
+            dss_mapping = nuagedb.get_subnet_l2dom_by_id(
+                session, dual_stack_subnet['id'])
+
+        ipv4_subnet, ipv6_subnet = self.seperate_ipv4_ipv6_subnet(
+            subnet, dual_stack_subnet)
+
+        ipv4_subnet_mapping, ipv6_subnet_mapping = \
+            self.seperate_ipv4_ipv6_mapping(subnet, ipv4_subnet,
+                                            subnet_mapping, dss_mapping)
+
         with nuage_utils.rollback() as on_exc:
-            dhcp_port = self.create_dhcp_nuage_port(context, ipv4_subnet)
-            dhcp_ip = None
+            dhcp_port = self.create_dhcp_nuage_port(
+                context, subnet, dualstack=dual_stack_subnet)
+            ipv4_dhcp_ip = ipv6_dhcp_ip = None
             if dhcp_port:
-                on_exc(self.core_plugin.delete_port, context, dhcp_port['id'])
-                dhcp_ip = dhcp_port['fixed_ips'][0]['ip_address']
+                on_exc(self.delete_nuage_dhcp_port, context, dhcp_port['id'])
+                for fixed_ip in dhcp_port['fixed_ips']:
+                    if (ipv4_subnet
+                            and fixed_ip['subnet_id'] == ipv4_subnet['id']):
+                        ipv4_dhcp_ip = fixed_ip['ip_address']
+                    if (ipv6_subnet
+                            and fixed_ip['subnet_id'] == ipv6_subnet['id']):
+                        ipv6_dhcp_ip = fixed_ip['ip_address']
             pnet_binding = nuagedb.get_network_binding(
-                context.session, ipv4_subnet['network_id'])
+                context.session, subnet['network_id'])
 
             self.vsdclient.confirm_router_interface_not_in_use(router_id,
                                                                subnet)
+            network = self.core_plugin.get_network(context,
+                                                   subnet['network_id'])
+            subnet_mapping['network_name'] = network['name']
             with session.begin(subtransactions=True):
-                vsd_l2domain = \
+                vsd_l2domain = (
                     self.vsdclient.create_l2domain_for_router_detach(
-                        ipv4_subnet, ipv4_subnet_mapping, ipv6_subnet, dhcp_ip)
+                        ipv4_subnet, subnet_mapping, ipv6_subnet, ipv4_dhcp_ip,
+                        ipv6_dhcp_ip))
                 on_exc(self.vsdclient.delete_subnet,
                        l2dom_id=vsd_l2domain['nuage_l2domain_id'])
             result = super(NuageL3Plugin,
@@ -561,7 +566,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 context=context,
                 router_id=router_id,
                 subnet_id=subnet_id,
-                subnet_l2dom=subnet_l2dom)
+                subnet_mapping=subnet_mapping)
             routing_mechanisms.delete_nuage_subnet_parameters(context,
                                                               subnet_id)
             LOG.debug("Deleted nuage domain subnet %s", nuage_subn_id)
@@ -571,10 +576,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     def set_mapping_as_l3subnet(session, ipv4_subnet_mapping,
                                 ipv6_subnet_mapping, vsd_subnet):
         with session.begin(subtransactions=True):
-            nuagedb.update_subnetl2dom_mapping(
-                ipv4_subnet_mapping,
-                {'nuage_subnet_id': vsd_subnet['ID'],
-                 'nuage_l2dom_tmplt_id': None})
+            if ipv4_subnet_mapping:
+                nuagedb.update_subnetl2dom_mapping(
+                    ipv4_subnet_mapping,
+                    {'nuage_subnet_id': vsd_subnet['ID'],
+                     'nuage_l2dom_tmplt_id': None})
             if ipv6_subnet_mapping:
                 nuagedb.update_subnetl2dom_mapping(
                     ipv6_subnet_mapping,
