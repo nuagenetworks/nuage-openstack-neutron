@@ -46,7 +46,9 @@
           export VSP_RELEASE={{ nuage_vsp_release }}
           export DEVSTACK_GATE_TOPOLOGY=aio
           export DEVSTACK_GATE_LIBVIRT_TYPE=kvm
-
+          if [ ! -z "{{ tempest_concurrency }}" ] ; then
+              export TEMPEST_CONCURRENCY={{ tempest_concurrency }}
+          fi
           # by default devstack-gate will include bunch of projects
           # we dont actually need. We ovewrite project list here
           PROJECTS="openstack-infra/devstack-gate"
