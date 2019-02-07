@@ -144,27 +144,38 @@ class RootNuagePlugin(SubnetUtilsBase):
 
     def _validate_cidr(self, subnet, nuage_subnet, shared_subnet):
         nuage_subnet = shared_subnet or nuage_subnet
-        if nuage_subnet.get('DHCPManaged', True) is False:
-            subnet_validate = {'enable_dhcp': Is(False)}
-        else:
-            if subnet['ip_version'] == 4:
-                nuage_cidr = netaddr.IPNetwork(nuage_subnet['address'] + '/' +
-                                               nuage_subnet['netmask'])
-                subnet_validate = {'enable_dhcp': Is(nuage_cidr is not None)}
-            else:
-                if nuage_subnet['IPType'] == constants.IP_TYPE_IPV4:
-                    msg = (_("Subnet with ip_version %(ip_version)s can't be "
-                             "linked to vsd subnet with IPType %(ip_type)s.")
-                           % {'ip_version': subnet['ip_version'],
-                              'ip_type': nuage_subnet['IPType']})
-                    raise NuageBadRequest(msg=msg)
-                nuage_cidr = netaddr.IPNetwork(nuage_subnet['IPv6Address'])
-                subnet_validate = {}
-
-            if not self.compare_cidr(subnet['cidr'], nuage_cidr):
-                msg = 'OSP cidr %s and NuageVsd cidr %s do not match' % \
-                      (subnet['cidr'], nuage_cidr)
+        if subnet['ip_version'] == 4:
+            subnet_validate = {'enable_dhcp': Is(nuage_subnet.get(
+                'enableDHCPv4', True))}
+            if nuage_subnet['IPType'] == constants.IP_TYPE_IPV6:
+                msg = (_("Subnet with ip_version %(ip_version)s can't be "
+                         "linked to vsd subnet with IPType %(ip_type)s.")
+                       % {'ip_version': subnet['ip_version'],
+                          'ip_type': nuage_subnet['IPType']})
                 raise NuageBadRequest(msg=msg)
+            nuage_cidr = (netaddr.IPNetwork(nuage_subnet['address'] + '/' +
+                                            nuage_subnet['netmask'])
+                          if nuage_subnet.get('address') else None)
+        else:
+            subnet_validate = {'enable_dhcp': Is(nuage_subnet.get(
+                'enableDHCPv6', False))}
+            if nuage_subnet['IPType'] == constants.IP_TYPE_IPV4:
+                msg = (_("Subnet with ip_version %(ip_version)s can't be "
+                         "linked to vsd subnet with IPType %(ip_type)s.")
+                       % {'ip_version': subnet['ip_version'],
+                          'ip_type': nuage_subnet['IPType']})
+                raise NuageBadRequest(msg=msg)
+            nuage_cidr = (netaddr.IPNetwork(nuage_subnet['IPv6Address'])
+                          if nuage_subnet.get('IPv6Address') else None)
+
+        if not nuage_cidr:
+            msg = (_("The nuage subnet is DHCP unmanaged. Only DHCP managed "
+                     "subnet is allowed to be linked."))
+            raise NuageBadRequest(msg=msg)
+        elif not self.compare_cidr(subnet['cidr'], nuage_cidr):
+            msg = 'OSP cidr %s and NuageVsd cidr %s do not match' % \
+                  (subnet['cidr'], nuage_cidr)
+            raise NuageBadRequest(msg=msg)
 
         validate("subnet", subnet, subnet_validate)
 
@@ -255,20 +266,28 @@ class RootNuagePlugin(SubnetUtilsBase):
 
     @log_helpers.log_method_call
     def create_dhcp_nuage_port(self, context, neutron_subnet,
-                               nuage_subnet=None):
-        fixed_ip = None
-        if (nuage_subnet and nuage_subnet.get('DHCPManaged', True) and
-                self._is_ipv4(neutron_subnet)):
-            fixed_ip = [{'ip_address': nuage_subnet['gateway'],
-                         'subnet_id': neutron_subnet['id']}]
-        elif neutron_subnet.get('enable_dhcp'):
-            fixed_ip = [{'subnet_id': neutron_subnet['id']}]
+                               nuage_subnet=None, dualstack=None):
+        fixed_ips = []
+        if nuage_subnet and nuage_subnet.get('DHCPManaged', True):
+            if self._is_ipv4(neutron_subnet) and nuage_subnet.get(
+                    'enableDHCPv4'):
+                fixed_ips = [{'ip_address': nuage_subnet['gateway'],
+                              'subnet_id': neutron_subnet['id']}]
+            if self._is_ipv6(neutron_subnet) and nuage_subnet.get(
+                    'enableDHCPv6'):
+                fixed_ips = [{'ip_address': nuage_subnet['IPv6Gateway'],
+                              'subnet_id': neutron_subnet['id']}]
+        else:
+            if neutron_subnet.get('enable_dhcp'):
+                fixed_ips = [{'subnet_id': neutron_subnet['id']}]
+            if dualstack and dualstack.get('enable_dhcp'):
+                fixed_ips.append({'subnet_id': dualstack['id']})
 
-        if fixed_ip:
+        if fixed_ips:
             p_data = {
                 'network_id': neutron_subnet['network_id'],
                 'tenant_id': neutron_subnet['tenant_id'],
-                'fixed_ips': fixed_ip,
+                'fixed_ips': fixed_ips,
                 'device_owner': constants.DEVICE_OWNER_DHCP_NUAGE
             }
             port = plugin_utils._fixup_res_dict(context,
@@ -277,10 +296,31 @@ class RootNuagePlugin(SubnetUtilsBase):
             port['status'] = lib_constants.PORT_STATUS_ACTIVE
             return self.core_plugin._create_port_db(context, {'port': port})[0]
         else:
-            LOG.warning(_('CIDR parameter ignored for unmanaged subnet.'))
-            LOG.warning(_('Allocation Pool parameter ignored '
-                          'for unmanaged subnet.'))
             return None
+
+    def delete_nuage_dhcp_port(self, context, port_id):
+        db_base_plugin_v2.NeutronDbPluginV2.delete_port(self.core_plugin,
+                                                        context, port_id)
+
+    def update_nuage_port_dhcp_ip(self, context, neutron_subnet, dualstack,
+                                  del_dhcp_ip=False):
+        filters = {
+            'fixed_ips': {'subnet_id': [dualstack['id']]},
+            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+        }
+        dhcp_port = self.core_plugin.get_ports(context, filters=filters)[0]
+        fixed_ips = dhcp_port['fixed_ips']
+        if del_dhcp_ip:
+            # Remove DHCP ip for neutron subnet
+            fixed_ips = [fixed_ip for fixed_ip in fixed_ips if
+                         fixed_ip['subnet_id'] != neutron_subnet['id']]
+        else:
+            # Add DHCP ip for neutron subnet
+            fixed_ips.append({'subnet_id': neutron_subnet['id']})
+        # Add another fixed ip to DHCP port under subnet creation transaction
+        return db_base_plugin_v2.NeutronDbPluginV2.update_port(
+            self.core_plugin, context, dhcp_port['id'],
+            {'port': {'fixed_ips': fixed_ips}})
 
     @staticmethod
     def _check_security_groups_per_port_limit(sgs_per_port):
@@ -409,12 +449,9 @@ class RootNuagePlugin(SubnetUtilsBase):
                 LOG.info("Subnet %s has been deleted concurrently",
                          subnet_mapping['subnet_id'])
                 return
-            if self._is_ipv6(neutron_subnet):
-                neutron_subnet = self.get_dual_stack_subnet(
-                    context, neutron_subnet)
-                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-                    context.session,
-                    neutron_subnet['id'])
+            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+                context.session,
+                neutron_subnet['id'])
             if self._is_os_mgd(subnet_mapping):
                 LOG.debug("Retrying to get the subnet from vsd.")
                 # Here is for the case that router attach/detach has happened
