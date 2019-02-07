@@ -164,55 +164,36 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def get_subnet_by_netpart(self, netpart_id):
         return self.l2domain.get_subnet_by_netpart(netpart_id)
 
-    def create_subnet(self, ipv4_subnet, params, ipv6_subnet=None):
+    def create_subnet(self, ipv4_subnet, ipv6_subnet, params):
         mapping = params.get('mapping')
-        if mapping:  # eg. There is already ipv4, so we add ipv6
+        if mapping:
+            # There is already ipv4/ipv6,
+            # Then we change l2domain/subnet to dualstack.
             if mapping['nuage_l2dom_tmplt_id']:
-                return self.l2domain.update_subnet_ipv6(ipv6_subnet, mapping)
+                return self.l2domain.update_subnet_to_dualstack(
+                    ipv4_subnet, ipv6_subnet, params)
             else:
-                return self.domain.domainsubnet.create_domain_subnet_ipv6(
-                    ipv6_subnet, mapping)
-        else:  # eg. No subnet exists yet, make subnet (could be dualstack)
-            if params.get('router_attached'):
-                return self.create_l3_subnet(
-                    ipv4_subnet, params, ipv6_subnet)
-            else:
-                return self.l2domain.create_subnet(ipv4_subnet, params,
-                                                   ipv6_subnet=ipv6_subnet)
+                return (self.domain.domainsubnet
+                        .update_domain_subnet_to_dualstack(
+                            ipv4_subnet, ipv6_subnet, params))
+        else:
+            return self.l2domain.create_subnet(ipv4_subnet, ipv6_subnet,
+                                               params)
 
-    def create_l3_subnet(self, ipv4_subnet, params, ipv6_subnet):
-        vsd_domain = self.get_router_by_external(
-            params.get('router_id'))
-        zone = self.get_zone_by_routerid(
-            helper.strip_cms_id(vsd_domain['externalID']))
-        l3_subnet = self.domain.domainsubnet.create_domain_subnet(
-            zone, ipv4_subnet, params.get('pnet_binding'),
-            ipv6_subnet)
-        # fetch the user details.
-        nuage_userid, nuage_groupid = \
-            helper.create_usergroup(self.restproxy,
-                                    params['tenant_id'],
-                                    params['netpart_id'],
-                                    params.get('tenant_name'))
-        l3_subnet['nuage_userid'] = nuage_userid
-        l3_subnet['nuage_groupid'] = nuage_groupid
-        l3_subnet['nuage_l2template_id'] = None
-        l3_subnet['nuage_l2domain_id'] = l3_subnet['ID']
-        return l3_subnet
-
-    def delete_subnet(self, mapping=None, l2dom_id=None,
-                      l3_vsd_subnet_id=None):
+    def delete_subnet(self, mapping=None, l2dom_id=None, l3_vsd_subnet_id=None,
+                      ipv4_subnet=None, ipv6_subnet=None):
         if l3_vsd_subnet_id:
             self.domain.domainsubnet.delete_l3domain_subnet(l3_vsd_subnet_id)
         elif l2dom_id:
             self.l2domain.delete_subnet(l2dom_id, mapping)
-        else:  # eg. delete ipv6 only
+        else:  # eg. delete ipv6 or ipv4 only
             template_id = mapping['nuage_l2dom_tmplt_id']
             if template_id:
-                self.l2domain.delete_subnet_ipv6(mapping)
+                self.l2domain.delete_subnet_from_dualstack(
+                    mapping, ipv4_subnet, ipv6_subnet)
             else:
-                self.domain.domainsubnet.delete_domain_subnet_ipv6(
-                    mapping)
+                self.domain.domainsubnet.update_domain_subnet_to_single_stack(
+                    mapping, ipv4_subnet, ipv6_subnet)
 
     def update_subnet(self, neutron_subnet, params):
         self.l2domain.update_subnet(neutron_subnet, params)
@@ -230,9 +211,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def update_nuage_subnet(self, nuage_id, params):
         self.domain.domainsubnet.update_nuage_subnet(nuage_id, params)
-
-    def get_nuage_cidr(self, nuage_subnetid):
-        return self.l2domain.get_nuage_cidr(nuage_subnetid)
 
     def attach_nuage_group_to_nuagenet(self, tenant, nuage_npid,
                                        nuage_subnetid, shared, tenant_name):
@@ -265,22 +243,22 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             pass
 
     def create_l2domain_for_router_detach(self, ipv4_subnet, subnet_mapping,
-                                          ipv6_subnet=None, ipv4_dhcp_ip=None):
-        dhcp_ip = ipv4_dhcp_ip or ipv4_subnet['allocation_pools'][-1]['end']
+                                          ipv6_subnet=None, ipv4_dhcp_ip=None,
+                                          ipv6_dhcp_ip=None):
+        subnet = ipv4_subnet or ipv6_subnet
         req_params = {
-            'tenant_id': ipv4_subnet['tenant_id'],
+            'tenant_id': subnet['tenant_id'],
             'netpart_id': subnet_mapping['net_partition_id'],
             'pnet_binding': None,
-            'dhcp_ip': dhcp_ip,
-            'shared': ipv4_subnet['shared'],
+            'shared': subnet['shared'],
+            'network_name': subnet_mapping['network_name']
         }
-        try:
-            return self.l2domain.create_subnet(
-                ipv4_subnet, req_params, ipv6_subnet)
-        except Exception:
-            self.delete_subnet(
-                l3_vsd_subnet_id=subnet_mapping['nuage_subnet_id'])
-            raise
+        if ipv4_subnet:
+            req_params['dhcp_ip'] = ipv4_dhcp_ip
+        if ipv6_subnet:
+            req_params['dhcpv6_ip'] = ipv6_dhcp_ip
+        return self.l2domain.create_subnet(
+            ipv4_subnet, ipv6_subnet, req_params)
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
                                   ipv4_subnet_mapping, pnet_binding,
@@ -499,10 +477,10 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                                                       os_subnet_id,
                                                       pnet_binding)
 
-    def create_domain_subnet(self, vsd_zone, ipv4_subnet,
-                             pnet_binding, ipv6_subnet=None):
+    def create_domain_subnet(self, vsd_zone, ipv4_subnet, ipv6_subnet,
+                             pnet_binding, network_name):
         return self.domain.domainsubnet.create_domain_subnet(
-            vsd_zone, ipv4_subnet, pnet_binding, ipv6_subnet)
+            vsd_zone, ipv4_subnet, ipv6_subnet, pnet_binding, network_name)
 
     def validate_create_domain_subnet(self, neutron_subn,
                                       nuage_subnet_id, nuage_rtr_id):
@@ -752,15 +730,15 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def crt_or_updt_vport_dhcp_option(self, extra_dhcp_opt, resource_id,
                                       external_id):
-        return self.dhcp_options.nuage_extra_dhcp_option(extra_dhcp_opt,
-                                                         resource_id,
-                                                         external_id)
+        return self.dhcp_options.create_update_extra_dhcp_option_on_vport(
+            extra_dhcp_opt, resource_id, external_id)
 
     def delete_vport_nuage_dhcp(self, dhcp_opt, vport_id):
         return self.dhcp_options.delete_vport_nuage_dhcp(dhcp_opt, vport_id)
 
-    def delete_vport_dhcp_option(self, dhcp_id, on_rollback):
+    def delete_vport_dhcp_option(self, dhcp_id, ip_version, on_rollback):
         return self.dhcp_options.delete_nuage_extra_dhcp_option(dhcp_id,
+                                                                ip_version,
                                                                 on_rollback)
 
     def update_router(self, nuage_domain_id, router, updates):

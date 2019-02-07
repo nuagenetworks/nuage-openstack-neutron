@@ -263,19 +263,6 @@ class NuageTrunkHandler(object):
                 'net_partition_name': np_name,
                 'nuage_subnet_id': subnet_mapping.get('nuage_subnet_id')
             }
-            nuage_subnet, _ = self.plugin_driver._get_nuage_subnet(
-                subnet_mapping['nuage_subnet_id'], subnet_db=subnet_mapping)
-            # TODO(gridinv): should we handle shared network resources
-            if nuage_subnet['type'] == p_consts.L2DOMAIN:
-                shared_resource_id = nuage_subnet.get(
-                    'associatedSharedNetworkResourceID')
-                if not subnets[4].get('enable_dhcp'):
-                    data['ipv4'] = None
-                    data['ipv6'] = None
-                elif ((not nuage_subnet['DHCPManaged']) and
-                      (not shared_resource_id)):
-                    data['ipv4'] = None
-                    data['ipv6'] = None
             try:
                 _vsdclient.add_subport(trunk_id, port, data)
             except Exception as ex:

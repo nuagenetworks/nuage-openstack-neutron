@@ -82,11 +82,11 @@ class VsdClient(object):
     def get_subnet_by_netpart(self, netpart_id):
         pass
 
-    def create_subnet(self, ipv4_subnet, params, ipv6_subnet=None):
+    def create_subnet(self, ipv4_subnet, ipv6_subnet, params):
         pass
 
-    def delete_subnet(self, mapping=None, l2dom_id=None,
-                      l3_vsd_subnet_id=None):
+    def delete_subnet(self, mapping=None, l2dom_id=None, l3_vsd_subnet_id=None,
+                      ipv4_subnet=None, ipv6_subnet=None):
         pass
 
     def update_subnet(self, neutron_subnet, params):
@@ -99,9 +99,6 @@ class VsdClient(object):
         pass
 
     def update_nuage_subnet(self, nuage_id, params):
-        pass
-
-    def get_nuage_cidr(self, nuage_subnetid):
         pass
 
     def attach_nuage_group_to_nuagenet(self, tenant, nuage_npid,
@@ -128,7 +125,8 @@ class VsdClient(object):
         pass
 
     def create_l2domain_for_router_detach(self, os_subnet, subnet_mapping,
-                                          ipv6_subnet=None, ipv4_dhcp_ip=None):
+                                          ipv6_subnet=None, ipv4_dhcp_ip=None,
+                                          ipv6_dhcp_ip=None):
         pass
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
@@ -254,8 +252,8 @@ class VsdClient(object):
     def delete_domain_subnet(self, vsd_subnet_id, os_subnet_id, pnet_binding):
         pass
 
-    def create_domain_subnet(self, vsd_zone, ipv4_subnet,
-                             pnet_binding, ipv6_subnet):
+    def create_domain_subnet(self, vsd_zone, ipv4_subnet, ipv6_subnet,
+                             pnet_binding, network_name):
         pass
 
     def validate_create_domain_subnet(self, neutron_subn,
@@ -468,7 +466,7 @@ class VsdClient(object):
     def delete_vport_nuage_dhcp(self, dhcp_opt, vport_id):
         pass
 
-    def delete_vport_dhcp_option(self, dhcp_id, on_rollback):
+    def delete_vport_dhcp_option(self, dhcp_id, ip_version, on_rollback):
         pass
 
     def update_router(self, nuage_domain_id, router, updates):

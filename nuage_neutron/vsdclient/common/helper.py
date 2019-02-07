@@ -723,20 +723,6 @@ def process_rollback(restproxy_serv, rollback_list):
         delete_resource(restproxy_serv, resource, resource_id)
 
 
-def make_subnet_dict(subnet):
-    res = dict()
-    res['subnet_id'] = subnet['ID']
-    res['subnet_name'] = subnet['name']
-    res['subnet_os_id'] = strip_cms_id(subnet['externalID'])
-    res['subnet_shared_net_id'] = \
-        subnet['associatedSharedNetworkResourceID']
-    res['subnet_address'] = subnet['address']
-    res['subnet_netmask'] = subnet['netmask']
-    res['subnet_gateway'] = subnet['gateway']
-    res['subnet_iptype'] = subnet['IPType']
-    return res
-
-
 def get_in_adv_fwd_policy(restproxy_serv, parent_type, parent_id):
     response = None
     nuageadvfwdtmplt = nuagelib.NuageInAdvFwdTemplate()
@@ -901,7 +887,7 @@ def change_perm_of_subns(restproxy_serv, nuage_npid, nuage_subnetid,
 
 
 # function to be able to convert the value in to a VSD supported hex format
-def convert_to_hex(value):
+def convert_hex_for_vsd(value):
     if str(value[:2]).lower() != '0x':
         raise ValueError('Malformed hex value: %s' % value)
     hex_val = str(value[2:])
@@ -951,19 +937,69 @@ def get_l2_and_l3_sub_id(subnet_mapping):
     return l2_id, l3_id
 
 
-def get_ipv6_vsd_data(ipv6_subnet):
-    if ipv6_subnet:
-        ip_network = netaddr.IPNetwork(ipv6_subnet['cidr'])
+def get_subnet_update_data(ipv4_subnet, ipv6_subnet, params):
+    # get the parameters to create single stack or update dualstack to single
+    if ipv4_subnet and not ipv6_subnet:
         return {
-            'IPv6Address': str(ip_network.cidr),
-            'IPType': constants.DUALSTACK,
-            'IPv6Gateway': ipv6_subnet['gateway_ip']}
-    else:
-        return {
+            'name': get_subnet_name(ipv4_subnet),
+            'description': get_subnet_description(ipv4_subnet),
             'IPv6Address': None,
             'IPType': constants.IPV4,
             'IPv6Gateway': None,
+            'enableDHCPv6': False  # keep default value
         }
+    elif ipv6_subnet and not ipv4_subnet:
+        return {
+            'name': get_subnet_name(ipv6_subnet),
+            'description': get_subnet_description(ipv6_subnet),
+            'address': None,
+            'IPType': constants.IPV6,
+            'gateway': None,
+            'netmask': None,
+            'enableDHCPv4': True  # keep default value
+        }
+    else:
+        ipv4_network = netaddr.IPNetwork(ipv4_subnet['cidr'])
+        ipv6_network = netaddr.IPNetwork(ipv6_subnet['cidr'])
+        mapping = params.get('mapping')
+        if mapping:
+            # get the parameters to update single to dualstack
+            if mapping['subnet_id'] == ipv4_subnet['id']:
+                # update ipv4 subnet to dualstack, get ipv6 attributes
+                dual_stack_data = {
+                    'IPv6Address': str(ipv6_network.cidr),
+                    'enableDHCPv6': ipv6_subnet['enable_dhcp']
+                }
+                if mapping['nuage_l2dom_tmplt_id']:
+                    dual_stack_data['IPv6Gateway'] = params['dhcpv6_ip']
+                else:
+                    dual_stack_data['IPv6Gateway'] = ipv6_subnet['gateway_ip']
+            else:
+                # update ipv6 subnet to dualstack, get ipv4 attributes
+                dual_stack_data = {
+                    'address': str(ipv4_network.ip),
+                    'netmask': str(ipv4_network.netmask),
+                    'enableDHCPv4': ipv4_subnet['enable_dhcp']
+                }
+                if mapping['nuage_l2dom_tmplt_id']:
+                    dual_stack_data['gateway'] = params['dhcp_ip']
+                else:
+                    dual_stack_data['gateway'] = ipv4_subnet['gateway_ip']
+        else:
+            # For creating domain subnet
+            dual_stack_data = {
+                'IPv6Address': str(ipv6_network.cidr),
+                'IPv6Gateway': ipv6_subnet['gateway_ip'],
+                'enableDHCPv6': ipv6_subnet['enable_dhcp']}
+            # For creating l2domain when detaching router
+            if params.get('dhcpv6_ip'):
+                dual_stack_data['IPv6Gateway'] = params['dhcpv6_ip']
+        dual_stack_data['IPType'] = constants.DUALSTACK
+        dual_stack_data['name'] = get_subnet_name(
+            ipv4_subnet, params['network_id'])
+        dual_stack_data['description'] = get_subnet_description(
+            ipv4_subnet, params['network_name'])
+        return dual_stack_data
 
 
 def get_pnet_params(pnet_binding, vsd_subnet_id, np_id, subnet):
@@ -992,14 +1028,14 @@ def get_subnet_external_id(subnet):
     return get_vsd_external_id(neutron_id)
 
 
-def get_subnet_name(subnet):
-    return subnet['nuage_l2bridge'] or subnet['id']
+def get_subnet_name(subnet, network_id=None):
+    return subnet['nuage_l2bridge'] or network_id or subnet['id']
 
 
-def get_subnet_description(subnet):
+def get_subnet_description(subnet, network_name=None):
     if subnet['nuage_l2bridge']:
         session = lib_db_api.get_reader_session()
         return nuagedb.get_nuage_l2bridge(session,
                                           subnet['nuage_l2bridge'])['name']
     else:
-        return subnet['name']
+        return network_name or subnet['name']

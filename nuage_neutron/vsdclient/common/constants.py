@@ -42,15 +42,25 @@ NUAGE_DEFAULT_L2_EGRESS_ACL = '_def_obl2acl'
 NUAGE_DEFAULT_L3_INGRESS_ACL = '_def_ibl3acl'
 NUAGE_DEFAULT_L3_EGRESS_ACL = '_def_obl3acl'
 
+# need to better integrate this ...
+# --- also , these are in HEX ! ---
 DHCP_OPTIONS = {
-    'gateway_ip': '03',
-    'dns_nameservers': '06',
-    'classless-static-route': '79',  # 121
-    'microsoft-classless-static-route': 'f9'  # 249
+    4: {
+        'gateway_ip': '03',
+        'dns_nameservers': '06',
+        'classless-static-route': '79',  # 121
+        'microsoft-classless-static-route': 'f9'  # 249
+    },
+    6: {
+        'dns_nameservers': '17'  # 23
+    }
 }
 DHCP_ROUTER_OPTION = '03'
 
-PRCS_DHCP_OPT_AS_RAW_HEX = [46, 77, 94, 97, 121, 125, 255]
+# these options, the user needs to enter as hex
+PRCS_DHCP_OPT_AS_RAW_HEX = {
+    4: [46, 77, 94, 97, 121, 125, 255],
+    6: []}
 
 NOVA_PORT_OWNER_PREF = 'compute:'
 
