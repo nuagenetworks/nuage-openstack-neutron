@@ -668,31 +668,51 @@ class NuageDomainSubnet(object):
         subnet = nuagelib.NuageSubnet({'zone': zone_id})
         return self.restproxy.get(subnet.get_all_resources_in_zone())
 
-    def create_domain_subnet_ipv6(self, ipv6_subnet, mapping):
-        data = helper.get_ipv6_vsd_data(ipv6_subnet)
-        self.update_domain_subnet_ipv6(mapping['nuage_subnet_id'], **data)
+    def update_domain_subnet_to_dualstack(self, ipv4_subnet, ipv6_subnet,
+                                          params):
+        mapping = params['mapping']
+        data = helper.get_subnet_update_data(ipv4_subnet, ipv6_subnet, params)
+        self.update_domain_subnet_for_stack_exchange(
+            mapping['nuage_subnet_id'], **data)
+        nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
+        if mapping['subnet_id'] == ipv4_subnet['id']:
+            nuagedhcpoptions.create_nuage_dhcp(
+                ipv6_subnet,
+                parent_id=mapping['nuage_subnet_id'],
+                network_type=constants.NETWORK_TYPE_L3)
+        if mapping['subnet_id'] == ipv6_subnet['id']:
+            nuagedhcpoptions.create_nuage_dhcp(
+                ipv4_subnet,
+                parent_id=mapping['nuage_subnet_id'],
+                network_type=constants.NETWORK_TYPE_L3)
 
-    def delete_domain_subnet_ipv6(self, mapping):
-        data = helper.get_ipv6_vsd_data(None)
-        self.update_domain_subnet_ipv6(mapping['nuage_subnet_id'], **data)
+    def update_domain_subnet_to_single_stack(self, mapping, ipv4_subnet,
+                                             ipv6_subnet):
+        data = helper.get_subnet_update_data(ipv4_subnet, ipv6_subnet,
+                                             params=None)
+        self.update_domain_subnet_for_stack_exchange(
+            mapping['nuage_subnet_id'], **data)
 
     def delete_l3domain_subnet(self, vsd_id):
         vsd_subnet = nuagelib.NuageSubnet()
         self.restproxy.delete(vsd_subnet.delete_resource(vsd_id))
 
-    def update_domain_subnet_ipv6(self, domain_subnet_id, **data):
+    def update_domain_subnet_for_stack_exchange(self, domain_subnet_id,
+                                                **data):
         vsd_subnet = nuagelib.NuageSubnet()
         self.restproxy.put(vsd_subnet.put_resource(domain_subnet_id), data)
 
     def create_shared_subnet(self, vsd_zone_id, subnet, params):
         req_params = {
             'name': helper.get_subnet_name(subnet),
-            'net': netaddr.IPNetwork(subnet['cidr']),
             'zone': vsd_zone_id,
-            'gateway': subnet['gateway_ip'],
             'externalID': helper.get_subnet_external_id(subnet)
         }
+        net = netaddr.IPNetwork(subnet['cidr'])
         extra_params = {
+            'address': str(net.ip),
+            'netmask': str(net.netmask),
+            'gateway': subnet['gateway_ip'],
             'resourceType': params['resourceType'],
             'description': subnet['name'],
             'IPType': constants.IPV4
@@ -705,28 +725,52 @@ class NuageDomainSubnet(object):
         nuage_subnet['nuage_groupid'] = None
         return nuage_subnet
 
-    def create_domain_subnet(self, vsd_zone, ipv4_subnet, pnet_binding,
-                             ipv6_subnet=None):
-        external_id = helper.get_subnet_external_id(ipv4_subnet)
+    def create_domain_subnet(self, vsd_zone, ipv4_subnet, ipv6_subnet,
+                             pnet_binding, network_name):
+        subnet = ipv4_subnet or ipv6_subnet
+        net = netaddr.IPNetwork(subnet['cidr'])
         req_params = {
-            'name': helper.get_subnet_name(ipv4_subnet),
-            'net': netaddr.IPNetwork(ipv4_subnet['cidr']),
+            'name': helper.get_subnet_name(subnet),
             'zone': vsd_zone['ID'],
-            'gateway': ipv4_subnet['gateway_ip'],
-            'externalID': external_id
+            'externalID': helper.get_subnet_external_id(subnet)
         }
-        description = helper.get_subnet_description(ipv4_subnet)
+        description = helper.get_subnet_description(subnet)
         extra_params = {'description': description,
                         'entityState': 'UNDER_CONSTRUCTION',
+                        'dynamicIpv4Address': False,
                         'dynamicIpv6Address': False}
-        extra_params.update(helper.get_ipv6_vsd_data(ipv6_subnet))
-        vsd_subnet = self._create_subnet(req_params, extra_params)
-        nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
-        nuagedhcpoptions.create_nuage_dhcp(
-            ipv4_subnet,
-            parent_id=vsd_subnet['ID'],
-            network_type=constants.NETWORK_TYPE_L3)
+        if ipv4_subnet:
+            extra_params.update({
+                'address': str(net.ip),
+                'netmask': str(net.netmask),
+                'gateway': ipv4_subnet['gateway_ip'],
+                'enableDHCPv4': ipv4_subnet['enable_dhcp']
+            })
+        elif ipv6_subnet:
+            extra_params.update({
+                'IPv6Address': str(net.cidr),
+                'IPv6Gateway': ipv6_subnet['gateway_ip'],
+                'IPType': constants.IPV6,
+                'enableDHCPv6': ipv6_subnet['enable_dhcp']
+            })
 
+        # attach dualstack subnet to a router
+        if ipv4_subnet and ipv6_subnet:
+            params = {'network_name': network_name,
+                      'network_id': subnet['network_id']}
+            data = helper.get_subnet_update_data(ipv4_subnet, ipv6_subnet,
+                                                 params)
+            req_params['name'] = data.pop('name')
+            extra_params.update(data)
+
+        vsd_subnet = self._create_subnet(req_params, extra_params)
+
+        nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
+        if ipv4_subnet:
+            nuagedhcpoptions.create_nuage_dhcp(
+                ipv4_subnet,
+                parent_id=vsd_subnet['ID'],
+                network_type=constants.NETWORK_TYPE_L3)
         if ipv6_subnet:
             nuagedhcpoptions.create_nuage_dhcp(
                 ipv6_subnet,
@@ -741,8 +785,9 @@ class NuageDomainSubnet(object):
             domain = self.restproxy.get(nuage_l3domain.get_resource())[0]
             np_id = helper.get_l3domain_np_id(self.restproxy, domain['ID'])
 
-            self._process_provider_network(pnet_binding, vsd_subnet['ID'],
-                                           np_id, ipv4_subnet['id'])
+            if ipv4_subnet:
+                self._process_provider_network(pnet_binding, vsd_subnet['ID'],
+                                               np_id, ipv4_subnet['id'])
             if ipv6_subnet:
                 self._process_provider_network(pnet_binding, vsd_subnet['ID'],
                                                np_id, ipv6_subnet['id'])
@@ -776,10 +821,15 @@ class NuageDomainSubnet(object):
                 network_type=constants.NETWORK_TYPE_L3)
 
         updates = {}
-        if neutron_subnet.get('name'):
-            if neutron_subnet['ip_version'] == constants.IPV6_VERSION:
-                # We don't change if IPv6 description is changed by user.
-                return
+        if params.get('dhcp_enable_changed'):
+            if params.get('ip_type') == constants.IPV4:
+                updates['enableDHCPv4'] = neutron_subnet.get('enable_dhcp')
+            else:
+                updates['enableDHCPv6'] = neutron_subnet.get('enable_dhcp')
+
+        new_name = helper.get_subnet_description(neutron_subnet,
+                                                 params.get('network_name'))
+        if new_name:
             # update the description on the VSD for this subnet if required
             # If a subnet is updated from horizon, we get the name of the
             # subnet as well in the subnet dict for update.
@@ -787,20 +837,17 @@ class NuageDomainSubnet(object):
             subn = self.restproxy.get(
                 nuagesubn.get_resource(params['parent_id']),
                 required=True)[0]
-            if subn['description'] != neutron_subnet['name']:
-                updates['description'] = neutron_subnet['name']
+            if subn['description'] != new_name and not params.get('dualstack'):
+                updates['description'] = new_name
         if neutron_subnet.get(plugin_constants.NUAGE_UNDERLAY):
             nuage_pat, nuage_underlay = self._calculate_pat_and_underlay(
-                neutron_subnet
-            )
+                neutron_subnet)
             updates['PATEnabled'] = nuage_pat
             updates['underlayEnabled'] = nuage_underlay
         if updates:
             nuagel3domsub = nuagelib.NuageSubnet()
-            self.restproxy.put(
-                nuagel3domsub.put_resource(params['parent_id']),
-                updates
-            )
+            self.restproxy.put(nuagel3domsub.put_resource(params['parent_id']),
+                               updates)
 
     def _calculate_pat_and_underlay(self, subnet):
 
@@ -845,18 +892,15 @@ class NuageDomainSubnet(object):
     def validate_create_domain_subnet(self, neutron_subn, nuage_subnet_id,
                                       nuage_rtr_id):
         net_cidr = netaddr.IPNetwork(neutron_subn['cidr'])
-        net_ip = net_cidr.ip
 
         nuagel3dom = nuagelib.NuageL3Domain()
-        nuagel3domsub = self.restproxy.rest_call(
-            'GET',
-            nuagel3dom.get_domain_subnets(nuage_rtr_id), '',
-            nuagel3dom.extra_headers_get_address(net_ip))
+        overlapping_subnet = self.restproxy.get(
+            nuagel3dom.get_domain_subnets(nuage_rtr_id),
+            extra_headers=nuagel3dom.extra_headers_get_address(
+                cidr=net_cidr, ip_type=neutron_subn['ip_version']),
+            required=True)
 
-        if not nuagel3dom.validate(nuagel3domsub):
-            raise nuagel3dom.get_rest_proxy_error()
-
-        if nuagel3domsub[3]:
+        if overlapping_subnet:
             msg = ("Cidr %s of subnet %s overlaps with another subnet in the "
                    "VSD" % (net_cidr, nuage_subnet_id))
             raise restproxy.ResourceConflictException(msg)

@@ -14,7 +14,6 @@
 
 import logging
 
-from netaddr import IPAddress
 from netaddr import IPNetwork
 
 from nuage_neutron.plugins.common import utils
@@ -157,8 +156,6 @@ class NuageVM(object):
                     params, vsd_subnet['parentID'], on_l2=False)
 
         elif vsd_subnet['type'] == constants.L2DOMAIN:
-            self.send_or_drop_l2_domain_vm_ip(vsd_subnet, req_params,
-                                              params.get('dhcp_enabled'))
             if not params['portOnSharedSubn']:
                 self._attach_reqd_perm_for_vm_boot(
                     params, vsd_subnet['ID'], on_l2=True)
@@ -211,8 +208,6 @@ class NuageVM(object):
             self._attach_reqd_perm_for_vm_boot(
                 params, vsd_subnet['parentID'], on_l2=False)
         elif vsd_subnet['type'] == constants.L2DOMAIN:
-            self.send_or_drop_l2_domain_vm_ip(vsd_subnet, req_params,
-                                              params.get('dhcp_enabled'))
             self._attach_reqd_perm_for_vm_boot(
                 params, vsd_subnet['ID'], on_l2=True)
 
@@ -227,26 +222,11 @@ class NuageVM(object):
                 'vport_id': nuagevmif.get_vport_id(response),
                 'vif_id': nuagevmif.get_vif_id(response)}
 
-    def send_or_drop_l2_domain_vm_ip(self, domain, req_params, dhcp_enabled):
-        # Decide if we have to send or drop IP to the VSD
-        shared_resource_id = domain.get(
-            'associatedSharedNetworkResourceID')
-        if not dhcp_enabled:
-            req_params['ipv4'] = None
-            req_params['ipv6'] = None
-        elif (not domain['DHCPManaged']) and (not shared_resource_id):
-            req_params['ipv4'] = None
-            req_params['ipv6'] = None
-        elif shared_resource_id:
-            if not self.is_shared_l2_domain_managed(shared_resource_id):
-                req_params['ipv4'] = None
-                req_params['ipv6'] = None
-
     def is_shared_l2_domain_managed(self, shared_nuage_id):
         nuagel2dom = nuagelib.NuageL2Domain()
         response = self.restproxy.get(nuagel2dom.get_resource(shared_nuage_id),
                                       required=True)[0]
-        return response.get('DHCPManaged')
+        return response.get('enableDHCPv4'), response.get('enableDHCPv6')
 
     def create_vms(self, params):
         if params['no_of_ports'] > 1:
@@ -599,25 +579,20 @@ class NuageVM(object):
         else:
             return constants.SUBNET
 
-    def _check_if_same_subnet(self, params):
+    @staticmethod
+    def _check_if_same_subnet(params):
         nuage_subnet = params['vsd_subnet']
-        if nuage_subnet.get('DHCPManaged') is False:
-            return True
-
-        ipaddr = nuage_subnet['address'].split('.')
-        netmask = nuage_subnet['netmask'].split('.')
-        net_start = [str(int(ipaddr[x]) & int(netmask[x]))
-                     for x in range(0, 4)]
-        ipcidr = '.'.join(net_start) + '/' + self.get_net_size(netmask)
-
-        vip_addr = params['vip']
-        if '/' in vip_addr:
-            ip = vip_addr.split('/')
-            vip_addr = ip[0]
-        vip_address = IPAddress(vip_addr)
-        return (vip_address in IPNetwork(ipcidr) or
-                (nuage_subnet['IPType'] == 'DUALSTACK' and
-                 vip_address in IPNetwork(nuage_subnet['IPv6Address'])))
+        vip = IPNetwork(params['vip'])
+        if vip.version == 6:
+            if not nuage_subnet['IPv6Address']:
+                return False
+            subnet = IPNetwork(nuage_subnet['IPv6Address'])
+        else:
+            if not nuage_subnet['address']:
+                return False
+            subnet = IPNetwork('{}/{}'.format(nuage_subnet['address'],
+                                              nuage_subnet['netmask']))
+        return vip in subnet
 
     def process_vip(self, params):
         key, action = self._find_vip_action(params)
