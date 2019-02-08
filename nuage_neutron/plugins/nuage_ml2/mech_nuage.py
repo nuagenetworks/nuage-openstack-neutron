@@ -1020,7 +1020,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     vm_exist = (e.code == restproxy.RES_CONFLICT and
                                 e.vsd_code in
                                 [vsd_constants.VSD_VM_EXIST,
-                                 vsd_constants.VSD_VM_EXISTS_ON_VPORT])
+                                 vsd_constants.VSD_VM_EXISTS_ON_VPORT,
+                                 vsd_constants.VSD_PG_IN_USE])
                     if vm_exist:
                         if l3_sub_id:
                             vms = self.vsdclient.vms_on_subnet(l3_sub_id)
