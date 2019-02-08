@@ -988,7 +988,14 @@ class NuagePolicyGroups(object):
                     policygroup['ID']))
             if not pg_vports:
                 # pg no longer in use - delete it
-                self.delete_nuage_policy_group(policygroup['ID'])
+                try:
+                    self.delete_nuage_policy_group(policygroup['ID'])
+                except restproxy.RESTProxyError as e:
+                    if e.vsd_code == constants.VSD_PG_IN_USE:
+                        # concurrenct usage of policygroup, ignore
+                        continue
+                    else:
+                        raise
 
     @staticmethod
     def get_sg_stateful_value(sg_id):
