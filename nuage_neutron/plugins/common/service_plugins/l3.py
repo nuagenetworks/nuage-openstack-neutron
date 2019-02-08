@@ -45,6 +45,7 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import routing_mechanisms
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
+from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 
@@ -842,7 +843,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             if ports:
                 raise l3_exc.RouterInUse(router_id=id)
             nuage_domain_id = ent_rtr_mapping['nuage_router_id']
-            self.vsdclient.delete_l3domain(nuage_domain_id)
+            nuage_utils.retry_on_vsdclient_error(
+                self.vsdclient.delete_l3domain,
+                vsd_error_codes=[vsd_constants.VSD_VM_EXISTS_ON_VPORT,
+                                 vsd_constants.VSD_PG_IN_USE,
+                                 vsd_constants.VSD_VM_EXIST])(nuage_domain_id)
 
         super(NuageL3Plugin, self).delete_router(context, id)
 
