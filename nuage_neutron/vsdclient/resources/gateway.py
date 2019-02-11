@@ -166,14 +166,10 @@ class NuageGateway(object):
             if 'gw_port_name' in extra_params:
                 extra_headers = nuage_gw_port.extra_headers_by_name()
 
-        response = self.restproxy.rest_call(
-            'GET',
-            nuage_gw_port.get_resource_by_gateway(), '',
-            extra_headers=extra_headers)
-
-        if not nuage_gw_port.validate(response):
-            raise nuage_gw_port.get_rest_proxy_error()
-        return nuage_gw_port.get_response_objlist(response)
+        return self.restproxy.get(
+            nuage_gw_port.get_resource_by_gateway(),
+            extra_headers=extra_headers,
+            required=True)
 
     def _get_gateway_port_vlans(self, tenant_id, req_params,
                                 extra_params=None):
@@ -198,13 +194,10 @@ class NuageGateway(object):
             if not helper.is_vlan_valid(vlan_val):
                 return []
             extra_headers = nuage_gw_vlan.extra_headers_by_value()
-
-        response = self.restproxy.rest_call('GET', resource_url, '',
-                                            extra_headers=extra_headers)
-        if not nuage_gw_vlan.validate(response):
-            raise nuage_gw_vlan.get_rest_proxy_error()
-
-        return nuage_gw_vlan.get_response_objlist(response)
+        gw_vlans = self.restproxy.get(resource_url,
+                                      extra_headers=extra_headers,
+                                      required=True)
+        return gw_vlans if gw_vlans else None
 
     def get_gateway_port_vlans(self, tenant_id, netpart_id, filters):
         if 'gateway' in filters and 'gatewayport' in filters:
@@ -314,14 +307,9 @@ class NuageGateway(object):
         }
 
         nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-
-        response = self.restproxy.rest_call(
-            'GET',
-            nuage_ent_perm.get_resource_by_vlan(), '')
-        if not nuage_ent_perm.validate(response):
-            raise nuage_ent_perm.get_rest_proxy_error()
-
-        return nuage_ent_perm.get_response_obj(response)
+        permissions = self.restproxy.get(nuage_ent_perm.get_resource_by_vlan(),
+                                         required=True)
+        return permissions[0] if permissions else None
 
     def _check_ent_permission(self, gw_id, gw_port_id, netpart_id):
         gw = gw_helper.get_gateway(self.restproxy, gw_id)
@@ -377,14 +365,8 @@ class NuageGateway(object):
             create_params=req_params,
             extra_params=None,
             redundant=gw['redundant'])
-        response = self.restproxy.rest_call(
-            'POST',
-            nuage_gw_vlan.post_vlan(),
-            nuage_gw_vlan.post_vlan_data(vlan_value))
-        if not nuage_gw_vlan.validate(response):
-            raise nuage_gw_vlan.get_rest_proxy_error()
-
-        return nuage_gw_vlan.get_response_objlist(response)
+        return self.restproxy.post(nuage_gw_vlan.post_vlan(),
+                                   nuage_gw_vlan.post_vlan_data(vlan_value))
 
     def create_gateway_vlan(self, vlan_dict):
         req_params = {
@@ -397,8 +379,7 @@ class NuageGateway(object):
             redundant=vlan_dict['redundant'])
         return self.restproxy.post(
             nuage_gw_vlan.post_vlan(),
-            nuage_gw_vlan.post_vlan_data(
-                vlan_dict['value']),
+            nuage_gw_vlan.post_vlan_data(vlan_dict['value']),
             on_res_exists=self.restproxy.retrieve_by_external_id,
             ignore_err_codes=[restproxy.REST_VLAN_EXISTS_ERR_CODE])[0]
 
@@ -407,11 +388,8 @@ class NuageGateway(object):
             'vlan_id': vlan_id
         }
         nuage_gw_vlan = nuagelib.NuageVlan(create_params=req_params)
-        response = self.restproxy.rest_call(
-            'DELETE',
-            nuage_gw_vlan.get_resource() + '?responseChoice=1', '')
-        if not nuage_gw_vlan.validate(response):
-            raise nuage_gw_vlan.get_rest_proxy_error()
+        self.restproxy.delete(
+            nuage_gw_vlan.get_resource() + '?responseChoice=1')
 
     def add_ent_perm(self, tenant_id, vlan_id, netpart_id):
         req_params = {
@@ -439,30 +417,23 @@ class NuageGateway(object):
         }
 
         nuage_vlan = nuagelib.NuageVlan(create_params=req_params)
-        response = self.restproxy.rest_call('GET', nuage_vlan.get_resource(),
-                                            '')
-        if not nuage_vlan.get_validate(response):
-            raise nuage_vlan.get_rest_proxy_error()
-
+        vlans = self.restproxy.get(nuage_vlan.get_resource(),
+                                   required=True)
         # Get ent permissions on port
-        gw_port_id = nuage_vlan.get_response_parentid(response)
+        gw_port_id = vlans[0]['parentID']
         gw_port = gw_helper.get_gateway_port(self.restproxy,
                                              gw_port_id)
         gw = gw_helper.get_gateway(self.restproxy, gw_port['parentID'])
         req_params['port_id'] = gw_port_id
         nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-        response = self.restproxy.rest_call(
-            'GET',
+        permissions = self.restproxy.get(
             nuage_ent_perm.get_resource_by_port(gw['redundant']),
-            '')
-        if not nuage_ent_perm.validate(response):
-            raise nuage_ent_perm.get_rest_proxy_error()
-
-        ent_perm = nuage_ent_perm.get_response_obj(response)
+            required=True)
+        ent_perm = permissions[0] if permissions else None
         if ent_perm:
-            ent_id = nuage_ent_perm.get_permitted_entity_id(response)
+            ent_id = ent_perm['permittedEntityID']
             if ent_id != netpart_id:
-                ent_type = nuage_ent_perm.get_permitted_entity_type(response)
+                ent_type = ent_perm['permittedEntityType']
                 LOG.debug("Port %(port)s already assigned to %(ent)s with id"
                           " %(ent_id)s", {'port': vlan_id,
                                           'ent': ent_type,
@@ -484,18 +455,13 @@ class NuageGateway(object):
         gw_id = gw_port['parentID']
         req_params['gw_id'] = gw_id
         nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-        response = self.restproxy.rest_call(
-            'GET',
-            nuage_ent_perm.get_resource_by_gw(),
-            '')
-        if not nuage_ent_perm.validate(response):
-            raise nuage_ent_perm.get_rest_proxy_error()
-
-        ent_perm = nuage_ent_perm.get_response_obj(response)
+        permissions = self.restproxy.get(nuage_ent_perm.get_resource_by_gw(),
+                                         required=True)
+        ent_perm = permissions[0] if permissions else None
         if ent_perm:
-            ent_id = nuage_ent_perm.get_permitted_entity_id(response)
+            ent_id = ent_perm['permittedEntityID']
             if ent_id != netpart_id:
-                ent_type = nuage_ent_perm.get_permitted_entity_type(response)
+                ent_type = ent_perm['permittedEntityType']
                 LOG.debug("Gateway %(gw)s already assigned to %(ent)s with "
                           "id %(ent_id)s", {'gw': gw_id,
                                             'ent': ent_type,
@@ -506,6 +472,7 @@ class NuageGateway(object):
                           {'gw': gw_id,
                            'ent': ent_id})
                 return True
+        return None
 
     def remove_ent_perm(self, vlan_id):
         req_params = {
@@ -514,21 +481,13 @@ class NuageGateway(object):
 
         nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
 
-        response = self.restproxy.rest_call(
-            'GET',
-            nuage_ent_perm.get_resource_by_vlan(), '')
-        if not nuage_ent_perm.validate(response):
-            raise nuage_ent_perm.get_rest_proxy_error()
-
-        ent_perm = nuage_ent_perm.get_response_obj(response)
+        permissions = self.restproxy.get(nuage_ent_perm.get_resource_by_vlan(),
+                                         required=True)
+        ent_perm = permissions[0] if permissions else None
         if ent_perm:
-            req_params['perm_id'] = nuage_ent_perm.get_response_objid(response)
-
-            response = self.restproxy.rest_call(
-                'DELETE',
-                nuage_ent_perm.get_resource_by_id() + '?responseChoice=1', '')
-            if not nuage_ent_perm.validate(response):
-                raise nuage_ent_perm.get_rest_proxy_error()
+            req_params['perm_id'] = ent_perm['ID']
+            self.restproxy.delete(
+                nuage_ent_perm.get_resource_by_id() + '?responseChoice=1')
 
     def add_tenant_perm(self, vlan_id, user_tenant, netpart_id):
         req_params = {
@@ -552,11 +511,7 @@ class NuageGateway(object):
         nuage_perm = nuagelib.NuagePermission(create_params=req_params)
         data = nuage_perm.perm_update(nuage_group)
         data.update({'externalID': get_vsd_external_id(user_tenant)})
-        response = self.restproxy.rest_call(
-            'POST',
-            nuage_perm.get_resource_by_vlan(), data)
-        if not nuage_perm.validate(response):
-            raise nuage_perm.get_rest_proxy_error()
+        self.restproxy.post(nuage_perm.get_resource_by_vlan(), data)
 
     def _check_tenant_perm(self, vlan_id, user_tenant, netpart_id):
         req_params = {
@@ -567,23 +522,12 @@ class NuageGateway(object):
             self.restproxy, user_tenant, netpart_id)
 
         nuage_perm = nuagelib.NuagePermission(create_params=req_params)
-        response = self.restproxy.rest_call(
-            'GET',
-            nuage_perm.get_resource_by_vlan(), '')
-        if not nuage_perm.validate(response):
-            LOG.error("Permissions not available for vlan %s", vlan_id)
+        permissions = self.restproxy.get(nuage_perm.get_resource_by_vlan(),
+                                         required=True)
+        if not permissions:
             return False
-
-        if nuage_perm.check_response_exist(response):
-            perm = nuage_perm.get_response_obj(response)
-            if perm['permittedEntityID'] == nuage_group:
-                LOG.debug("user tenant %(ten)s has permission on vlan "
-                          "%(vlan)s",
-                          {'ten': user_tenant,
-                           'vlan': vlan_id})
-                return True
-
-        return False
+        else:
+            return permissions[0]['permittedEntityID'] == nuage_group
 
     def remove_tenant_perm(self, vlan_id, user_tenant, netpart_id):
         nuage_user, nuage_group = helper.create_usergroup(
@@ -598,35 +542,25 @@ class NuageGateway(object):
         }
         nuage_perm = nuagelib.NuagePermission(create_params=req_params,
                                               extra_params=extra_params)
-        response = self.restproxy.rest_call(
-            'GET',
-            nuage_perm.get_resource_by_vlan(), '')
-        if not nuage_perm.validate(response):
-            raise nuage_perm.get_rest_proxy_error()
+        permissions = self.restproxy.get(nuage_perm.get_resource_by_vlan())
 
-        perm_list = nuage_perm.get_response_objlist(response)
-
-        for perm in perm_list:
+        for perm in permissions:
             if perm['permittedEntityID'] == nuage_group:
                 LOG.debug("Removing %(grp)s permission from vlan %(vlan)s",
                           {'grp': user_tenant,
                            'vlan': vlan_id})
                 req_params['perm_id'] = perm['ID']
-
-                response = self.restproxy.rest_call(
-                    'DELETE',
-                    nuage_perm.get_resource_by_id() + '?responseChoice=1', '')
-                if not nuage_perm.validate(response):
-                    raise nuage_perm.get_rest_proxy_error()
+                self.restproxy.delete(
+                    nuage_perm.get_resource_by_id() + '?responseChoice=1')
 
                 # return the num of remaining groups
-                return len(perm_list) - 1
+                return len(permissions) - 1
 
         msg = _("Vlan %(vlan)s is not assigned to tenant "
                 "%(grp)s") % {'grp': user_tenant,
                               'vlan': vlan_id}
         LOG.debug(msg)
-        return len(perm_list) - 1
+        return len(permissions) - 1
 
     def update_gateway_port_vlan(self, tenant_id, vlan_id, params):
         action = params['vlan']['action']
@@ -871,13 +805,13 @@ class NuageGateway(object):
             # as we do not create it in that case
             if not subnet_info['vsd_managed']:
                 # Delete the policygroup
-                policy_group_id = gw_helper.get_policygroup_for_host_vport(
+                policy_group = gw_helper.get_policygroup_for_host_vport(
                     self.restproxy,
                     resp['vport_id'])
-                if policy_group_id:
+                if policy_group:
                     # Check if policygroup has more than 1 vport associated
                     self._delete_policygroup(resp['interface'],
-                                             policy_group_id)
+                                             policy_group['ID'])
 
         # Delete the vport
         # if 'vport_type' is not None, then 'vport_id' is not None
