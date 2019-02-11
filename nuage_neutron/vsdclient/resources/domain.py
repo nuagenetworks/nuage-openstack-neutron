@@ -55,12 +55,9 @@ class NuageDomain(object):
             'externalID': get_vsd_external_id(neutron_router_id)
         }
         nuageibacl = nuagelib.NuageInboundACL(create_params=req_params)
-        response = self.restproxy.rest_call('POST',
-                                            nuageibacl.post_resource_l3(),
-                                            nuageibacl.post_data_default_l3())
-        if not nuageibacl.validate(response):
-            raise nuageibacl.get_rest_proxy_error()
-        return nuageibacl.get_iacl_id(response)
+        acls = self.restproxy.post(nuageibacl.post_resource_l3(),
+                                   nuageibacl.post_data_default_l3())
+        return acls[0]['ID'] if acls else None
 
     def _create_nuage_l3dom_egress_tmplt(self, id, neutron_router_id):
         req_params = {
@@ -69,12 +66,9 @@ class NuageDomain(object):
             'externalID': get_vsd_external_id(neutron_router_id)
         }
         nuageobacl = nuagelib.NuageOutboundACL(create_params=req_params)
-        response = self.restproxy.rest_call('POST',
-                                            nuageobacl.post_resource_l3(),
-                                            nuageobacl.post_data_default_l3())
-        if not nuageobacl.validate(response):
-            raise nuageobacl.get_rest_proxy_error()
-        return nuageobacl.get_oacl_id(response)
+        acls = self.restproxy.post(nuageobacl.post_resource_l3(),
+                                   nuageobacl.post_data_default_l3())
+        return acls[0]['ID'] if acls else None
 
     @staticmethod
     def _calculate_pat_and_underlay(router):
@@ -94,15 +88,11 @@ class NuageDomain(object):
         }
 
         nuagerouter = nuagelib.NuageL3Domain(create_params=params)
-        response = self.restproxy.rest_call(
-            'GET', nuagerouter.get_resource_with_ext_id(), '',
-            extra_headers=nuagerouter.extra_headers_get())
-        if not nuagerouter.validate(response):
-            raise nuagerouter.get_rest_proxy_error()
-        if response[3]:
-            return nuagerouter.get_response_obj(response)
-        else:
-            return None
+        l3_doms = self.restproxy.get(
+            nuagerouter.get_resource_with_ext_id(),
+            extra_headers=nuagerouter.extra_headers_get(),
+            required=True)
+        return l3_doms[0] if l3_doms else None
 
     def get_router_by_id(self, nuage_l3domain_id, required=False):
         params = {
@@ -116,23 +106,17 @@ class NuageDomain(object):
     def _create_nuage_def_l3domain_adv_fwd_template(self, l3dom_id,
                                                     neutron_router_id):
         nuageadvfwdtmplt = nuagelib.NuageInAdvFwdTemplate()
-        response = self.restproxy.rest_call(
-            'POST',
+        fwd_temps = self.restproxy.post(
             nuageadvfwdtmplt.post_resource_l3(l3dom_id),
             nuageadvfwdtmplt.post_data_default_l3(
                 l3dom_id,
                 get_vsd_external_id(neutron_router_id)))
-        if not nuageadvfwdtmplt.validate(response):
-            raise nuageadvfwdtmplt.get_rest_proxy_error()
-        return nuageadvfwdtmplt.get_response_objid(response)
+        return fwd_temps[0]['ID'] if fwd_temps else None
 
     def get_routers_by_netpart(self, netpart_id):
         nuagel3dom = nuagelib.NuageL3Domain({'net_partition_id': netpart_id})
-        response = self.restproxy.rest_call(
-            'GET', nuagel3dom.get_all_resources_in_ent(), '')
-        if not nuagel3dom.validate(response):
-            raise nuagel3dom.get_rest_proxy_error()
-        return nuagel3dom.get_response_objlist(response)
+        return self.restproxy.get(nuagel3dom.get_all_resources_in_ent(),
+                                  required=True)
 
     def get_fip_underlay_enabled_domain_by_netpart(self, netpart_id):
         nuagel3dom = nuagelib.NuageL3Domain({'net_partition_id': netpart_id})
@@ -346,14 +330,11 @@ class NuageDomain(object):
             'net_partition_id': nuage_netpartid
         }
         nuagegroup = nuagelib.NuageGroup(create_params=params)
-        response = self.restproxy.rest_call(
-            'GET',
-            nuagegroup.list_resource(), '',
-            nuagegroup.extra_headers_get_for_everybody())
-        if not nuagegroup.validate(response):
-            raise nuagegroup.get_rest_proxy_error()
-
-        nuage_all_groupid = nuagegroup.get_groupid(response)
+        groups = self.restproxy.get(
+            nuagegroup.list_resource(),
+            extra_headers=nuagegroup.extra_headers_get_for_everybody(),
+            required=True)
+        nuage_all_groupid = groups[0]['ID']
         self._attach_nuage_group_to_zone(nuage_all_groupid,
                                          nuage_zoneid,
                                          neutron_tenant_id)
@@ -368,28 +349,23 @@ class NuageDomain(object):
             'l3domain_id': l3dom_id
         }
         nuagezonetemplate = nuagelib.NuageZoneTemplate(create_params=params)
-        response = self.restproxy.rest_call(
-            'GET', nuagezonetemplate.list_resource(), '')
-        if not nuagezonetemplate.validate(response):
-            raise nuagezonetemplate.get_rest_proxy_error()
+        zone_templates = self.restproxy.get(nuagezonetemplate.list_resource(),
+                                            required=True)
         isolated_match = False
         shared_match = False
-        zone_tlist = nuagezonetemplate.zonetemplate_list(response)
-        for zone in zone_tlist:
+        for zone in zone_templates:
             if zone['name'] == l3isolated:
                 isolated_match = True
             if zone['name'] == l3shared:
                 shared_match = True
-        return (shared_match, isolated_match)
+        return shared_match, isolated_match
 
     def delete_nuage_staticroute(self, params):
         static_route = self.get_nuage_static_route(params)
         if static_route:
             nuage_staticroute = nuagelib.NuageStaticRoute()
-            self.restproxy.rest_call(
-                'DELETE',
-                nuage_staticroute.delete_resource(
-                    static_route['nuage_static_route_id']), '')
+            self.restproxy.delete(nuage_staticroute.delete_resource(
+                static_route['nuage_static_route_id']))
 
     def get_nuage_static_route(self, params):
         cidr = netaddr.IPNetwork(params['address'])
@@ -403,7 +379,8 @@ class NuageDomain(object):
         static_route = nuagelib.NuageStaticRoute(create_params=req_params)
         static_route = self.restproxy.get(
             static_route.get_resources_of_domain(),
-            extra_headers=static_route.extra_headers_get())
+            extra_headers=static_route.extra_headers_get(),
+            required=True)
         return {
             'nuage_zone_id': static_route[0]['ID'],
             'nuage_static_route_id': static_route[0]['ID'],
@@ -429,36 +406,29 @@ class NuageDomain(object):
         }
 
         nuage_staticroute = nuagelib.NuageStaticRoute(create_params=req_params)
-        response = self.restproxy.rest_call(
-            'POST', nuage_staticroute.post_resource(),
+        static_routes = self.restproxy.post(
+            nuage_staticroute.post_resource(),
             nuage_staticroute.post_data())
-        if not nuage_staticroute.validate(response):
-            raise nuage_staticroute.get_rest_proxy_error()
-        return nuage_staticroute.get_staticrouteid(response)
+        return static_routes[0]['ID'] if static_routes else None
 
     def _attach_nuage_group_to_zone(self, nuage_groupid, nuage_zoneid,
                                     neutron_tenant_id):
         nuage_permission = nuagelib.NuagePermission()
-        resp = self.restproxy.rest_call(
-            'POST',
-            nuage_permission.post_resource_by_parent_id('zones', nuage_zoneid),
+        self.restproxy.post(
+            nuage_permission.post_resource_by_parent_id('zones',
+                                                        nuage_zoneid),
             nuage_permission.perm_create_data(
                 nuage_groupid,
                 constants.NUAGE_PERMISSION_USE,
-                neutron_tenant_id))
-        if not nuage_permission.validate(resp):
-            if (nuage_permission.get_error_code(resp) !=
-                    constants.CONFLICT_ERR_CODE):
-                raise nuage_permission.get_rest_proxy_error()
+                neutron_tenant_id),
+            ignore_err_codes=[constants.CONFLICT_ERR_CODE])
 
     def get_zone_by_domainid(self, domain_id):
         nuage_l3_domain = nuagelib.NuageL3Domain({'domain_id': domain_id})
-        response = self.restproxy.rest_call(
-            'GET', nuage_l3_domain.get_all_zones(), '')
-        if not nuage_l3_domain.validate(response):
-            raise nuage_l3_domain.get_rest_proxy_error()
+        zones = self.restproxy.get(nuage_l3_domain.get_all_zones(),
+                                   required=True)
         res = []
-        for zone in nuage_l3_domain.get_response_objlist(response):
+        for zone in zones:
             np_dict = dict()
             np_dict['zone_name'] = zone['name']
             np_dict['zone_id'] = zone['ID']
@@ -484,52 +454,16 @@ class NuageDomain(object):
                          l3dom_tmplt_id)
 
         nuage_extra_headers = nuage_l3_domain.extra_headers_get_name(zone_name)
-        response = self.restproxy.rest_call(
-            'GET', nuage_l3_domain.get_all_zones(), '',
-            extra_headers=nuage_extra_headers)
-        if not nuage_l3_domain.validate(response):
-            raise nuage_l3_domain.get_rest_proxy_error()
-        if shared:
-            if response[constants.VSD_RESP_OBJ]:
-                return response[3][0]
-            else:
-                # TODO(Divya): try seems to be not required here
-                try:
-                    nuage_extra_headers = (
-                        nuage_l3_domain.extra_headers_get_name(
-                            TEMPLATE_SHARED_ZONE))
-                    shared_zone = self.restproxy.rest_call(
-                        'GET', nuage_l3_domain.get_all_zones(), '',
-                        extra_headers=nuage_extra_headers)
-                    if not nuage_l3_domain.validate(shared_zone):
-                        raise nuage_l3_domain.get_rest_proxy_error()
-                    if shared_zone[VSD_RESP_OBJ]:
-                        return shared_zone[VSD_RESP_OBJ][0]
-                except Exception:
-                    return None
-        else:
-            if response[constants.VSD_RESP_OBJ]:
-                return response[3][0]
-            else:
-                # This is needed for add_router_interface to a router created
-                # with nuage-router-template parameter
-                # return None when called from router_delete
-                # TODO(Divya): try seems to be not required here
-                try:
-                    nuage_extra_headers = (
-                        nuage_l3_domain.extra_headers_get_name(
-                            TEMPLATE_ISOLATED_ZONE))
-                    isolated_zone = self.restproxy.rest_call(
-                        'GET', nuage_l3_domain.get_all_zones(), '',
-                        extra_headers=nuage_extra_headers)
-                    if not nuage_l3_domain.validate(isolated_zone):
-                        raise nuage_l3_domain.get_rest_proxy_error()
-                    if isolated_zone[VSD_RESP_OBJ]:
-                        return isolated_zone[VSD_RESP_OBJ][0]
-                except Exception:
-                    return None
-
-        return None
+        zones = self.restproxy.get(nuage_l3_domain.get_all_zones(),
+                                   extra_headers=nuage_extra_headers)
+        if zones:
+            return zones[0]
+        zone_name = TEMPLATE_SHARED_ZONE if shared else TEMPLATE_ISOLATED_ZONE
+        nuage_extra_headers = nuage_l3_domain.extra_headers_get_name(
+            zone_name)
+        zones = self.restproxy.get(nuage_l3_domain.get_all_zones(),
+                                   extra_headers=nuage_extra_headers)
+        return zones[0] if zones else None
 
     def _get_nuage_static_routes_by_router_id(self, neutron_router_id):
         domain_id = helper.get_l3domid_by_router_id(self.restproxy,
@@ -538,13 +472,8 @@ class NuageDomain(object):
             'domain_id': domain_id
         }
         nuage_route = nuagelib.NuageStaticRoute(create_params=req_params)
-        response = self.restproxy.rest_call(
-            'GET', nuage_route.post_resource(), '', '')
-
-        if not nuage_route.validate(response):
-            raise nuage_route.get_rest_proxy_error()
-
-        return response[3]
+        return self.restproxy.get(nuage_route.post_resource(),
+                                  required=True)
 
     def confirm_router_interface_not_in_use(self, neutron_router_id,
                                             neutron_subnet):
@@ -599,10 +528,7 @@ class NuageDomain(object):
 
     def delete_nuage_floatingip(self, id):
         nuagefip = nuagelib.NuageFloatingIP()
-        resp = self.restproxy.rest_call('DELETE', nuagefip.delete_resource(id),
-                                        '')
-        if not nuagefip.validate(resp):
-            raise nuagefip.get_rest_proxy_error()
+        self.restproxy.delete(nuagefip.delete_resource(id))
 
     def update_vport_floatingip(self, vport_id, floatingip_id):
         floatingip = nuagelib.NuageFloatingIP()
@@ -616,13 +542,11 @@ class NuageDomain(object):
         if params.get('parent_type') == constants.DOMAIN:
             nuage_domain_id = params.get('parent')
             nuagel3dom = nuagelib.NuageL3Domain()
-            l3dom_subnets = self.restproxy.rest_call(
-                'GET',
-                nuagel3dom.get_domain_subnets(nuage_domain_id), '')
-            if not nuagel3dom.validate(l3dom_subnets):
-                raise nuagel3dom.get_rest_proxy_error()
+            l3_subnets = self.restproxy.get(
+                nuagel3dom.get_domain_subnets(nuage_domain_id),
+                required=True)
 
-            for subnet in l3dom_subnets[3]:
+            for subnet in l3_subnets:
                 if subnet['ID'] == nuage_subnet_id:
                     return True
         elif params.get('parent_type') == constants.L2DOMAIN:
@@ -638,11 +562,9 @@ class NuageDomain(object):
             'externalID': params['vpn_id']
         }
         nuage_fip = nuagelib.NuageFloatingIP(create_params=req_params)
-        response = self.restproxy.rest_call('POST', nuage_fip.post_resource(),
-                                            nuage_fip.post_fip_data())
-        if not nuage_fip.validate(response):
-            raise nuage_fip.get_rest_proxy_error()
-        return response[3][0]
+        fips = self.restproxy.post(nuage_fip.post_resource(),
+                                   nuage_fip.post_fip_data())
+        return fips[0] if fips else None
 
 
 class NuageDomainSubnet(object):
@@ -859,9 +781,7 @@ class NuageDomainSubnet(object):
     def delete_domain_subnet(self, nuage_subn_id, neutron_subn_id):
         nuagel3domsub = nuagelib.NuageSubnet()
         # Delete domain_subnet
-        self.restproxy.rest_call('DELETE',
-                                 nuagel3domsub.delete_resource(nuage_subn_id),
-                                 '')
+        self.restproxy.delete(nuagel3domsub.delete_resource(nuage_subn_id))
 
     def validate_create_domain_subnet(self, neutron_subn, nuage_subnet_id,
                                       nuage_rtr_id):

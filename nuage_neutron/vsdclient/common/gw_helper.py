@@ -187,12 +187,10 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
             else:
                 _add_policy_group_for_port_sec(gw_type, subnet_id, None,
                                                pg_obj, nuage_vport_id)
-
-    ret = {
+    return {
         'vport': vport,
         'interface': vport_intf
     }
-    return ret
 
 
 def create_vport_interface(restproxy_serv, pg_obj, params,
@@ -232,24 +230,15 @@ def create_vport_interface(restproxy_serv, pg_obj, params,
                                            params)
 
 
-def get_tenant_perm(restproxy_serv, vlan_id):
+def get_tenant_perm(restproxy_serv, vlan_id, required=False):
     req_params = {
         'vlan_id': vlan_id
     }
 
     nuage_perm = nuagelib.NuagePermission(create_params=req_params)
-    response = restproxy_serv.rest_call(
-        'GET',
-        nuage_perm.get_resource_by_vlan(), '')
-    if not nuage_perm.validate(response):
-        LOG.error("Permissions not available for vlan %s", vlan_id)
-        return
-
-    if nuage_perm.check_response_exist(response):
-        perm = nuage_perm.get_response_obj(response)
-        if perm:
-            LOG.debug("Some tenant has permission on vlan %s", vlan_id)
-            return perm
+    permissions = restproxy_serv.get(nuage_perm.get_resource_by_vlan(),
+                                     required=required)
+    return permissions[0] if permissions else None
 
 
 def get_gateway_port_vlan(restproxy_serv, nuage_vlan_id):
@@ -257,12 +246,8 @@ def get_gateway_port_vlan(restproxy_serv, nuage_vlan_id):
         'vlan_id': nuage_vlan_id
     }
     nuage_gw_vlan = nuagelib.NuageVlan(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_gw_vlan.get_resource(), '')
-    if not nuage_gw_vlan.validate(response):
-        raise nuage_gw_vlan.get_rest_proxy_error()
-
-    return nuage_gw_vlan.get_response_obj(response)
+    return restproxy_serv.get(nuage_gw_vlan.get_resource(),
+                              required=True)[0]
 
 
 def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
@@ -271,9 +256,7 @@ def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
     if '/' in gw_port_id:
         return
 
-    parent_id = None
-    nuage_gw_port = None
-    response = None
+    gw_port = None
     any_hw_personality = 'VSG'  # don't care which, as long as it is a HW one
 
     # -------------------------------------------------------------------------
@@ -295,32 +278,21 @@ def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
             extra_params=None,
             redundant=redundant) for redundant in [False, True]]:
 
-        response = restproxy_serv.rest_call('GET',
-                                            nuage_gw_port.get_resource(), '')
-        if nuage_gw_port.get_validate(response):
-            parent_id = nuage_gw_port.get_response_parentid(response)
+        try:
+            gw_port = restproxy_serv.get(nuage_gw_port.get_resource(),
+                                         required=True)[0]
             break
-
-    if not parent_id:
-        if not nuage_gw_port:
-            return []
-        else:
-            err_code = nuage_gw_port.get_error_code(response)
-            if err_code == constants.RES_NOT_FOUND:
-                return []
-
-            raise nuage_gw_port.get_rest_proxy_error()
-
+        except restproxy.ResourceNotFoundException:
+            continue
+    if not gw_port:
+        return []
     if gw_id:
-        if parent_id == gw_id:
-            return nuage_gw_port.get_response_obj(response)
-        else:
+        if gw_port['parentID'] != gw_id:
             msg = (_("Port %(port)s not found on gateway %(gw)s")
                    % {'port': gw_port_id,
                       'gw': gw_id})
             raise restproxy.ResourceNotFoundException(msg)
-
-    return nuage_gw_port.get_response_obj(response)
+    return gw_port
 
 
 def get_gateway(restproxy_serv, gw_id):
@@ -331,13 +303,15 @@ def get_gateway(restproxy_serv, gw_id):
             create_params=req_params,
             extra_params=None,
             redundant=redundant) for redundant in [False, True]]:
-        response = restproxy_serv.rest_call('GET',
-                                            nuage_gw.get_resource_by_id(), '')
-        if nuage_gw.validate(response):
-            gw = nuage_gw.get_response_obj(response)
-            gw['redundant'] = 'redundantGatewayStatus' in gw
-            return gw
-    raise nuage_gw.get_rest_proxy_error()
+        try:
+            gateway = restproxy_serv.get(nuage_gw.get_resource_by_id(),
+                                         required=True)[0]
+            gateway['redundant'] = 'redundantGatewayStatus' in gateway
+            return gateway
+        except restproxy.RESTProxyError:
+            continue
+    raise restproxy.ResourceNotFoundException(
+        msg='GW:{} not found!'.format(gw_id))
 
 
 def get_gateway_by_vlan(restproxy_serv, nuage_vlan_id):
@@ -366,18 +340,10 @@ def get_nuage_vport_by_name(restproxy_serv, nuage_subnet_id,
     else:
         req_params['subnet_id'] = nuage_subnet_id
         res_url = nuage_vport.get_vports_for_subnet()
-
-    response = restproxy_serv.rest_call(
-        'GET', res_url, '',
-        nuage_vport.extra_headers_get_by_name())
-
-    if not nuage_vport.validate(response):
-        raise nuage_vport.get_rest_proxy_error()
-
-    if nuage_vport.check_response_exist(response):
-        return nuage_vport.get_response_obj(response)
-
-    return []
+    vports = restproxy_serv.get(res_url,
+                                nuage_vport.extra_headers_get_by_name(),
+                                required=True)
+    return vports[0] if vports else None
 
 
 def get_nuage_vport(restproxy_serv, nuage_vport_id):
@@ -385,16 +351,15 @@ def get_nuage_vport(restproxy_serv, nuage_vport_id):
         'vport_id': nuage_vport_id
     }
     nuage_vport = nuagelib.NuageVPort(create_params=req_params)
-    response = restproxy_serv.rest_call('GET', nuage_vport.get_resource(), '')
-    if not nuage_vport.validate(response):
-        if nuage_vport.error_code == constants.RES_NOT_FOUND:
+    try:
+        vports = restproxy_serv.get(nuage_vport.get_resource())
+        return vports[0]
+    except restproxy.RESTProxyError as e:
+        if e.code == constants.RES_NOT_FOUND:
             # This is because HEAT does not call get_all before get. So we
             # explicitly have to return empty list and not throw an exception.
-            return []
-        raise nuage_vport.get_rest_proxy_error()
-
-    if nuage_vport.check_response_exist(response):
-        return nuage_vport.get_response_obj(response)
+            return None
+        raise
 
 
 def delete_nuage_vport(restproxy_serv, nuage_vport_id):
@@ -402,11 +367,7 @@ def delete_nuage_vport(restproxy_serv, nuage_vport_id):
         'vport_id': nuage_vport_id
     }
     nuage_vport = nuagelib.NuageVPort(create_params=req_params)
-    response = restproxy_serv.rest_call('DELETE',
-                                        nuage_vport.delete_resource(), '')
-
-    if not nuage_vport.validate(response):
-        raise nuage_vport.get_rest_proxy_error()
+    restproxy_serv.delete(nuage_vport.delete_resource())
 
 
 def get_interface_by_vport(restproxy_serv, nuage_vport_id, type):
@@ -417,15 +378,9 @@ def get_interface_by_vport(restproxy_serv, nuage_vport_id, type):
         nuage_intf = nuagelib.NuageBridgeInterface(create_params=req_params)
     elif type == constants.HOST_VPORT_TYPE:
         nuage_intf = nuagelib.NuageHostInterface(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_intf.get_resource_by_vport(),
-                                        '')
-
-    if not nuage_intf.validate(response):
-        raise nuage_intf.get_rest_proxy_error()
-
-    if nuage_intf.check_response_exist(response):
-        return nuage_intf.get_response_obj(response)
+    host_interfaces = restproxy_serv.get(nuage_intf.get_resource_by_vport(),
+                                         required=True)
+    return host_interfaces[0] if host_interfaces else None
 
 
 def delete_nuage_interface(restproxy_serv, nuage_intf_id, type):
@@ -436,12 +391,7 @@ def delete_nuage_interface(restproxy_serv, nuage_intf_id, type):
         nuage_intf = nuagelib.NuageBridgeInterface(create_params=req_params)
     elif type == constants.HOST_VPORT_TYPE:
         nuage_intf = nuagelib.NuageHostInterface(create_params=req_params)
-
-    response = restproxy_serv.rest_call('DELETE',
-                                        nuage_intf.delete_resource(), '')
-
-    if not nuage_intf.validate(response):
-        raise nuage_intf.get_rest_proxy_error()
+    restproxy_serv.delete(nuage_intf.delete_resource())
 
 
 def get_policygroup_for_interface(restproxy_serv, neutron_subnet, gw_type,
@@ -462,6 +412,7 @@ def get_policygroup_for_interface(restproxy_serv, neutron_subnet, gw_type,
     for pg in policygroups:
         if pg['parentType'] == domain_type:
             return pg['ID'], pg['type']
+    return None
 
 
 def get_policygroup_for_host_vport(restproxy_serv, vport_id):
@@ -469,53 +420,34 @@ def get_policygroup_for_host_vport(restproxy_serv, vport_id):
         'vport_id': vport_id
     }
     nuage_policygroup = nuagelib.NuagePolicygroup(create_params=req_params)
-    response = restproxy_serv.rest_call(
-        'GET', nuage_policygroup.get_policygroups_for_vport(), '')
-
-    if not nuage_policygroup.validate(response):
-        raise nuage_policygroup.get_rest_proxy_error()
-
-    if nuage_policygroup.check_response_exist(response):
-        return nuage_policygroup.get_response_objid(response)
+    policy_groups = restproxy_serv.get(
+        nuage_policygroup.get_policygroups_for_vport(),
+        required=True)
+    return policy_groups[0] if policy_groups else None
 
 
 def get_vports_for_subnet(restproxy_serv, nuage_subnet_id):
     req_params = {
         'subnet_id': nuage_subnet_id
     }
-
     nuage_vport = nuagelib.NuageVPort(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_vport.get_vports_for_subnet(),
-                                        '')
-
-    if not nuage_vport.validate(response):
-        raise nuage_vport.get_rest_proxy_error()
-
-    return nuage_vport.get_response_objlist(response)
+    return restproxy_serv.get(nuage_vport.get_vports_for_subnet(),
+                              required=True)
 
 
 def get_vports_for_l2domain(restproxy_serv, nuage_l2dom_id):
     req_params = {
         'l2domain_id': nuage_l2dom_id
     }
-
     nuage_vport = nuagelib.NuageVPort(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_vport.get_vports_for_l2domain(),
-                                        '')
-
-    if not nuage_vport.validate(response):
-        raise nuage_vport.get_rest_proxy_error()
-
-    return nuage_vport.get_response_objlist(response)
+    return restproxy_serv.get(nuage_vport.get_vports_for_l2domain(),
+                              required=True)
 
 
 def get_vports_for_policygroup(restproxy_serv, policygroup_id):
     req_params = {
         'policygroup_id': policygroup_id
     }
-
     nuage_vport = nuagelib.NuageVPort(create_params=req_params)
     return restproxy_serv.get(nuage_vport.get_vports_for_policygroup(),
                               required=True)
@@ -527,14 +459,8 @@ def get_gateways_for_netpart(restproxy_serv, netpart_id):
     }
 
     nuage_gw = nuagelib.NuageGateway(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_gw.get_resource_for_netpart(),
-                                        '')
-
-    if not nuage_gw.validate(response):
-        raise nuage_gw.get_rest_proxy_error()
-
-    return nuage_gw.get_response_objlist(response)
+    return restproxy_serv.get(nuage_gw.get_resource_for_netpart(),
+                              required=True)
 
 
 def get_ent_permission_on_gateway(restproxy_serv, gw_id, redundancy=False):
@@ -542,14 +468,10 @@ def get_ent_permission_on_gateway(restproxy_serv, gw_id, redundancy=False):
         'gw_id': gw_id
     }
     nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_ent_perm.get_resource_by_gw(
-                                            redundancy),
-                                        '')
-    if not nuage_ent_perm.validate(response):
-        raise nuage_ent_perm.get_rest_proxy_error()
-
-    return nuage_ent_perm.get_response_obj(response)
+    ent_permissions = restproxy_serv.get(
+        nuage_ent_perm.get_resource_by_gw(redundancy),
+        required=True)
+    return ent_permissions[0] if ent_permissions else None
 
 
 def get_ent_permission_on_port(restproxy_serv, gw_port_id, redundancy=False):
@@ -557,14 +479,10 @@ def get_ent_permission_on_port(restproxy_serv, gw_port_id, redundancy=False):
         'port_id': gw_port_id
     }
     nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_ent_perm.get_resource_by_port(
-                                            redundancy),
-                                        '')
-    if not nuage_ent_perm.validate(response):
-        raise nuage_ent_perm.get_rest_proxy_error()
-
-    return nuage_ent_perm.get_response_obj(response)
+    ent_permissions = restproxy_serv.get(
+        nuage_ent_perm.get_resource_by_port(redundancy),
+        required=True)
+    return ent_permissions[0] if ent_permissions else None
 
 
 def get_ent_permission_on_vlan(restproxy_serv, gw_vlan_id):
@@ -572,13 +490,9 @@ def get_ent_permission_on_vlan(restproxy_serv, gw_vlan_id):
         'vlan_id': gw_vlan_id
     }
     nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-    response = restproxy_serv.rest_call('GET',
-                                        nuage_ent_perm.get_resource_by_vlan(),
-                                        '')
-    if not nuage_ent_perm.validate(response):
-        raise nuage_ent_perm.get_rest_proxy_error()
-
-    return nuage_ent_perm.get_response_obj(response)
+    ent_permissions = restproxy_serv.get(nuage_ent_perm.get_resource_by_vlan(),
+                                         required=True)
+    return ent_permissions[0] if ent_permissions else None
 
 
 def make_gateway_dict(gateway):
