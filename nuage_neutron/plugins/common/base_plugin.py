@@ -419,16 +419,15 @@ class RootNuagePlugin(SubnetUtilsBase):
                     neutron_subnet['id'])
             if self._is_os_mgd(subnet_mapping):
                 LOG.debug("Retrying to get the subnet from vsd.")
-                l2bridge_id = nuagedb.get_nuage_l2bridge_id_for_subnet(
-                    context.session, subnet_mapping['subnet_id'])
-                subnet = {'id': subnet_mapping['subnet_id'],
-                          'nuage_l2bridge': l2bridge_id}
+                # Here is for the case that router attach/detach has happened
+                # but neutron DB is not updated. Then we use externalID and
+                # cidr to get that subnet in vsd.
                 if self._is_l2(subnet_mapping):
-                    return self.vsdclient.get_domain_subnet_by_external_id(
-                        subnet)
+                    return self.vsdclient.get_domain_subnet_by_ext_id_and_cidr(
+                        neutron_subnet)
                 else:
-                    return self.vsdclient.get_l2domain_by_external_id(
-                        subnet)
+                    return self.vsdclient.get_l2domain_by_ext_id_and_cidr(
+                        neutron_subnet)
             else:
                 raise
 

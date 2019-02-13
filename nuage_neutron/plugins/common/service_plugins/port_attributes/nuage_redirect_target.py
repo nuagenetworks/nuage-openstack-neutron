@@ -150,7 +150,12 @@ class NuageRedirectTarget(BaseNuagePlugin):
             context.session, redirect_target.get('router_id')) or {}
         if not subnet_mapping and not router_mapping:
             raise ext_rtarget.RedirectTargetNoDomainOrL2Domain()
-
+        if has_subnet_id:
+            subnet = self.core_plugin.get_subnet(context,
+                                                 redirect_target['subnet_id'])
+            if subnet:
+                redirect_target['external_id'] = \
+                    cms_id_helper.get_vsd_external_id(subnet['network_id'])
         try:
             nuage_redirect_target = self.vsdclient\
                 .create_nuage_redirect_target(

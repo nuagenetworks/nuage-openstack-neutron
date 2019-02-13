@@ -95,9 +95,10 @@ class NuageL2Domain(object):
         nuagel2domtemplate = self.restproxy.post(
             nuagel2domtmplt.post_resource(),
             nuagel2domtmplt.post_data(),
-            on_res_exists=self.restproxy.retrieve_by_name)[0]
+            on_res_exists=self.restproxy.retrieve_by_ext_id_and_cidr)[0]
 
         l2dom_tmplt_id = nuagel2domtemplate['ID']
+        ip_type = ext_params['IPType']
 
         req_params = {
             'net_partition_id': params['netpart_id'],
@@ -107,13 +108,17 @@ class NuageL2Domain(object):
         }
         description = helper.get_subnet_description(ipv4_subnet)
         ext_params = {
-            'description': description
+            'address': str(net.ip),
+            'description': description,
+            'IPType': ip_type
         }
         nuagel2domain = nuagelib.NuageL2Domain(create_params=req_params,
                                                extra_params=ext_params)
         try:
-            l2domain = self.restproxy.post(nuagel2domain.post_resource(),
-                                           nuagel2domain.post_data())[0]
+            l2domain = self.restproxy.post(
+                nuagel2domain.post_resource(),
+                nuagel2domain.post_data(),
+                on_res_exists=self.restproxy.retrieve_by_ext_id_and_cidr)[0]
         except Exception:
             self.restproxy.delete(
                 nuagel2domtmplt.delete_resource(nuagel2domtemplate['ID']))
@@ -177,20 +182,22 @@ class NuageL2Domain(object):
             if e.code != constants.RES_NOT_FOUND:
                 raise
 
-    def get_l2domain_by_external_id(self, subnet, required=True):
+    def get_l2domain_by_ext_id_and_cidr(self, subnet):
         params = {
-            'externalID': helper.get_subnet_external_id(subnet)
+            'externalID': helper.get_subnet_external_id(subnet),
+            'cidr': netaddr.IPNetwork(subnet['cidr']),
+            'ip_type': subnet['ip_version']
         }
         nuagel2domain = nuagelib.NuageL2Domain(create_params=params)
-        l2domains = self.restproxy.get(
-            nuagel2domain.get_resource_with_ext_id(), '',
-            extra_headers=nuagel2domain.extra_headers_get(),
-            required=required)
-        if l2domains:
-            return l2domains[0]
+        l2domain = self.restproxy.get(
+            nuagel2domain.get_all_resources(),
+            extra_headers=nuagel2domain.extra_headers_ext_id_and_cidr_get())
+        if l2domain:
+            return l2domain[0]
         else:
-            msg = ("Cannot find subnet with ID %s"
-                   " in L2domains on VSD" % params['externalID'])
+            msg = ("Cannot find subnet with externalID {} and cidr {}"
+                   " in L2domains on VSD").format(params['externalID'],
+                                                  params['cidr'])
             raise restproxy.ResourceNotFoundException(message=msg)
 
     def delete_subnet(self, l2dom_id, mapping):

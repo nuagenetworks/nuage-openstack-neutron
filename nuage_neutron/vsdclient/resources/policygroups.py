@@ -1018,7 +1018,11 @@ class NuagePolicyGroups(object):
                     (neutron_subnet['nuage_l2bridge'] or neutron_subnet['id']),
             'sg_id': None,
             'sg_type': sg_type,
-            'externalID': helper.get_subnet_external_id(neutron_subnet)
+            # TODO(Kris) Remove deprecated code
+            # keep externalID to be subnet_id@cms_id because
+            # GW API will be deprecated.
+            'externalID': helper.get_external_id_based_on_subnet_id(
+                neutron_subnet)
         }
 
         if pg_name:
@@ -1054,7 +1058,10 @@ class NuagePolicyGroups(object):
                     'policygroup': policygroup,
                     'neutron_sg_rule': neutron_sg_rule,
                     'sg_type': constants.HARDWARE,
-                    'externalID': helper.get_subnet_external_id(
+                    # TODO(Kris) Remove deprecated code
+                    # keep externalID to be subnet_id@cms_id because
+                    # GW API will be deprecated.
+                    'externalID': helper.get_external_id_based_on_subnet_id(
                         neutron_subnet),
                     'legacy': True
                 }
@@ -1333,6 +1340,9 @@ class NuagePolicyGroups(object):
             'description': constants.NUAGE_PLCY_GRP_FOR_SPOOFING,
             'name': (constants.NUAGE_PLCY_GRP_FOR_SPOOFING +
                      '_' + append_str),
+            # TODO(Lina) OPENSTACK-2370
+            # sg_id is for externalID, here keep it is dependent on l2dom_id
+            # because it will be domain-independent in 6.0
             'sg_id': (constants.NUAGE_PLCY_GRP_FOR_SPOOFING +
                       '_' + append_str),
             'sg_type': params['sg_type']
@@ -1506,8 +1516,10 @@ class NuageRedirectTargets(object):
         rtarget = nuagelib.NuageRedirectTarget()
         if l2dom_id:
             try:
+                # Only the subnet redirect target's externalID is
+                # network_id@cms_id.
                 redirect_target['externalID'] = get_vsd_external_id(
-                    redirect_target.get('subnet_id'))
+                    redirect_target.get('external_id'))
                 return self.restproxy.post(
                     rtarget.post_resource_l2dom(l2dom_id),
                     rtarget.post_rtarget_data(redirect_target))[0]
@@ -1520,7 +1532,7 @@ class NuageRedirectTargets(object):
                     redirect_target.get('router_id'))
             else:
                 redirect_target['externalID'] = get_vsd_external_id(
-                    redirect_target.get('subnet_id'))
+                    redirect_target.get('external_id'))
             return self.restproxy.post(
                 rtarget.post_resource_l3dom(domain_id),
                 rtarget.post_rtarget_data(redirect_target))[0]

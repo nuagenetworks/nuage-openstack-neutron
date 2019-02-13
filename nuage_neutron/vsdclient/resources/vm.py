@@ -537,11 +537,9 @@ class NuageVM(object):
         vsd_fip = self.vsdclient.get_nuage_fip_by_id(
             {'fip_id': os_fip['id']})
         if not vsd_fip:
-            fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(
-                os_fip['fip_subnet_id'])
             params = {
                 'nuage_rtr_id': params['vsd_l3domain_id'],
-                'nuage_fippool_id': fip_pool['nuage_fip_pool_id'],
+                'nuage_fippool_id': os_fip['vsd_fip_subnet_id'],
                 'neutron_fip_ip': os_fip.floating_ip_address,
                 'neutron_fip_id': os_fip.id
             }
@@ -768,15 +766,10 @@ class NuageVM(object):
             extra_headers=headers)
 
     def _get_vips_for_subnet(self, neutron_subnet, **filters):
-        external_id = helper.get_subnet_external_id(neutron_subnet)
-        subnets = helper.get_l3_subnets(self.restproxy,
-                                        externalID=external_id)
-        if not subnets:
-            msg = ("Could not find subnet with externalID '%s'"
-                   % neutron_subnet['id'])
-            raise restproxy.ResourceNotFoundException(msg)
+        subnet = helper.get_domain_subnet_by_ext_id_and_cidr(self.restproxy,
+                                                             neutron_subnet)
         return self.get_vips(nuagelib.NuageSubnet.resource,
-                             subnets[0]['ID'],
+                             subnet['ID'],
                              **filters)
 
     def _update_fip_to_vip(self, vip, vsd_fip_id):

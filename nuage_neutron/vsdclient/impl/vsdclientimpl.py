@@ -382,8 +382,8 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         subnet['type'] = constants.SUBNET
         return subnet
 
-    def get_domain_subnet_by_external_id(self, subnet):
-        subnet = self.domain.domainsubnet.get_domain_subnet_by_external_id(
+    def get_domain_subnet_by_ext_id_and_cidr(self, subnet):
+        subnet = self.domain.domainsubnet.get_domain_subnet_by_ext_id_and_cidr(
             subnet)
         subnet['type'] = constants.SUBNET
         return subnet
@@ -393,8 +393,8 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         l2domain['type'] = constants.L2DOMAIN
         return l2domain
 
-    def get_l2domain_by_external_id(self, subnet):
-        l2domain = self.l2domain.get_l2domain_by_external_id(subnet)
+    def get_l2domain_by_ext_id_and_cidr(self, subnet):
+        l2domain = self.l2domain.get_l2domain_by_ext_id_and_cidr(subnet)
         l2domain['type'] = constants.L2DOMAIN
         return l2domain
 

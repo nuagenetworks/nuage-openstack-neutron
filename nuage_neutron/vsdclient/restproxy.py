@@ -25,6 +25,7 @@ import requests
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
+from nuage_neutron.vsdclient.common import constants
 
 
 # Suppress urllib3 warnings
@@ -461,13 +462,36 @@ class RESTProxyServer(object):
         return restproxy.get(resource, extra_headers=headers)
 
     @staticmethod
-    def retrieve_by_name(restproxy, resource, data):
-        if not data.get('name'):
+    def retrieve_by_ext_id_and_cidr(restproxy, resource, data):
+        if not (data.get('externalID') and (data.get('address')
+                                            or data.get('IPv6Address'))):
             return None
-        headers = {
-            'X-NUAGE-FilterType': "predicate",
-            'X-Nuage-Filter': "name IS '%s'" % data.get('name'),
-        }
+        if data['IPType'] == constants.IPV4:
+            headers = {
+                'X-NUAGE-FilterType': "predicate",
+                'X-Nuage-Filter': ("externalID IS '{}' and address IS '{}'"
+                                   .format(data['externalID'],
+                                           data['address']))
+            }
+        elif data['IPType'] == constants.IPV6:
+            headers = {
+                'X-NUAGE-FilterType': "predicate",
+                'X-Nuage-Filter': ("externalID IS '{}' and IPv6Address IS '{}'"
+                                   .format(data['externalID'],
+                                           data['IPv6Address']))
+            }
+        else:
+            # We need to fetch the dualstack l2domain in vsd if it exists
+            # already when detaching a dualstack subnet from l3 and create
+            # it in l2.
+            headers = {
+                'X-NUAGE-FilterType': "predicate",
+                'X-Nuage-Filter': ("externalID IS '{}' and address IS '{}' "
+                                   "and IPv6Address IS '{}'"
+                                   .format(data['externalID'],
+                                           data['address'],
+                                           data['IPv6Address']))
+            }
         return restproxy.get(resource, extra_headers=headers)
 
     @staticmethod
