@@ -876,7 +876,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         params['name'] = dir_ppg
         params['redundancy_enabled'] = 'false'
         params['insertion_mode'] = insertion_mode
-        params['subnet_id'] = dir_ppg  # for external_id
+        params['external_id'] = dir_ppg
         rt = self.vsdclient.create_nuage_redirect_target(
             params, l2dom_id=l2dom_id, domain_id=rtr_id)
         on_exc(self.vsdclient.delete_nuage_redirect_target, rt['ID'])

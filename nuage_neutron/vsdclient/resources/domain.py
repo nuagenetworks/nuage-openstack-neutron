@@ -666,20 +666,9 @@ class NuageDomainSubnet(object):
         return self.restproxy.get(nuagesubnet.get_resource(nuage_id),
                                   required=True)[0]
 
-    def get_domain_subnet_by_external_id(self, neutron_subnet):
-        params = {
-            'externalID': helper.get_subnet_external_id(neutron_subnet)
-        }
-        nuagesubnet = nuagelib.NuageSubnet(create_params=params)
-        subnets = self.restproxy.get(
-            nuagesubnet.get_resource_with_ext_id(),
-            extra_headers=nuagesubnet.extra_headers_get())
-        if subnets:
-            return subnets[0]
-        else:
-            msg = ("Cannot find subnet with ID %s"
-                   " in L3domains on VSD" % params['externalID'])
-            raise restproxy.ResourceNotFoundException(message=msg)
+    def get_domain_subnet_by_ext_id_and_cidr(self, neutron_subnet):
+        return helper.get_domain_subnet_by_ext_id_and_cidr(self.restproxy,
+                                                           neutron_subnet)
 
     def get_domain_subnet_by_zone_id(self, zone_id):
         subnet = nuagelib.NuageSubnet({'zone': zone_id})
@@ -704,14 +693,15 @@ class NuageDomainSubnet(object):
     def create_shared_subnet(self, vsd_zone_id, subnet, params):
         req_params = {
             'name': helper.get_subnet_name(subnet),
-            'net': params['netaddr'],
+            'net': netaddr.IPNetwork(subnet['cidr']),
             'zone': vsd_zone_id,
             'gateway': subnet['gateway_ip'],
-            'externalID': get_vsd_external_id(subnet['id'])
+            'externalID': helper.get_subnet_external_id(subnet)
         }
         extra_params = {
             'resourceType': params['resourceType'],
-            'description': subnet['name']
+            'description': subnet['name'],
+            'IPType': constants.IPV4
         }
         if params.get('underlay'):
             extra_params['underlay'] = params['underlay']
@@ -767,11 +757,14 @@ class NuageDomainSubnet(object):
     def _create_subnet(self, req_params, extra_params):
         nuagel3domsub = nuagelib.NuageSubnet(create_params=req_params,
                                              extra_params=extra_params)
+
         ignore_error_codes = [constants.RES_EXISTS_INTERNAL_ERR_CODE,
                               constants.SUBNET_NAME_DUPLICATE_ERROR]
-        return self.restproxy.post(nuagel3domsub.post_resource(),
-                                   nuagel3domsub.post_data(),
-                                   ignore_err_codes=ignore_error_codes)[0]
+        return self.restproxy.post(
+            nuagel3domsub.post_resource(),
+            nuagel3domsub.post_data(),
+            on_res_exists=self.restproxy.retrieve_by_ext_id_and_cidr,
+            ignore_err_codes=ignore_error_codes)[0]
 
     def _process_provider_network(
             self, pnet_binding, vsd_subnet_id, np_id, subnet):

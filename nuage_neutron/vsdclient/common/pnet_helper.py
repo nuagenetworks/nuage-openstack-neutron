@@ -160,7 +160,7 @@ def create_bridge_vport_iface_for_pnet(restproxy_serv, pg_obj, params):
             nuage_vport.post_bridge_iface_data(
                 constants.L2DOMAIN.upper(),
                 "BRIDGE INTERFACE(" + vport_id + ")",
-                helper.get_subnet_external_id(params.get('neutron_subnet'))))
+                helper.get_subnet_external_id(neutron_subnet)))
         if not nuage_vport.validate(bridge_iface):
             raise nuage_vport.get_rest_proxy_error()
 

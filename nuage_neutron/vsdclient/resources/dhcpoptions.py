@@ -221,7 +221,7 @@ class NuageDhcpOptions(object):
             _data = self._get_gateway_ip_tmpl(subnet['gateway_ip'])
         else:
             raise Exception("Unknown DHCP option")
-        _data['externalID'] = helper.get_subnet_external_id(subnet)
+        _data['externalID'] = helper.get_external_id_based_on_subnet_id(subnet)
         resp = self._set_nuage_dhcp_options(_resource_id, _data,
                                             dhcp_id, type)
 

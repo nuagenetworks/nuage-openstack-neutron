@@ -113,6 +113,10 @@ class NuageAddressPair(BaseNuagePlugin):
                 vsd_l3domain_id = nuagedb.get_ent_rtr_mapping_by_rtrid(
                     context.session,
                     os_fip['router_id'])['nuage_router_id']
+                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+                    context.session,
+                    os_fip['fip_subnet_id'])
+                os_fip['vsd_fip_subnet_id'] = subnet_mapping['nuage_subnet_id']
             else:
                 vsd_l3domain_id = None
 

@@ -461,19 +461,15 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         subnet['net_partition'] = constants.SHARED_INFRASTRUCTURE
         shared_netpart = self._get_net_partition_for_entity(context, subnet)
         netpart_id = shared_netpart['id']
-        net_addr = netaddr.IPNetwork(subnet['cidr'])
-        subnet_params = {
-            'netaddr': net_addr,
-            'resourceType': fip_type
-        }
-
-        self.set_nuage_uplink(subnet_params, subnet, network_subnets)
 
         l3dom_params = {
             'netpart_id': netpart_id,
             'templateID': shared_netpart['l3dom_tmplt_id']
         }
-
+        subnet_params = {
+            'resourceType': fip_type,
+            'nuage_uplink': self.get_nuage_uplink(subnet, network_subnets)
+        }
         if subnet.get('underlay') in [True, False]:
             subnet_params['underlay'] = subnet.get('underlay')
             l3dom_params['FIPUnderlay'] = subnet.get('underlay')
@@ -547,23 +543,25 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                         subnet, nuage_subnet)
 
     @staticmethod
-    def set_nuage_uplink(params, subnet, network_subnets):
+    def get_nuage_uplink(subnet, network_subnets):
+        nuage_uplink = None
         nuage_uplinks = {s['nuage_uplink'] for s in network_subnets
                          if s['id'] != subnet['id'] and s.get('nuage_uplink')}
         if subnet.get('nuage_uplink'):
-            params['nuage_uplink'] = subnet.get('nuage_uplink')
+            nuage_uplink = subnet.get('nuage_uplink')
         elif cfg.CONF.RESTPROXY.nuage_uplink:
-            params['nuage_uplink'] = cfg.CONF.RESTPROXY.nuage_uplink
+            nuage_uplink = cfg.CONF.RESTPROXY.nuage_uplink
         elif nuage_uplinks:
             # Use the same parent of the existing subnets in the network
-            params['nuage_uplink'] = list(nuage_uplinks)[0]
-        if params.get('nuage_uplink'):
-            nuage_uplinks.add(params['nuage_uplink'])
+            nuage_uplink = list(nuage_uplinks)[0]
+        if nuage_uplink:
+            nuage_uplinks.add(nuage_uplink)
             if len(nuage_uplinks) > 1:
                 msg = _("It is not possible for subnets in an "
                         "external network to have different nuage_uplink "
                         "specified: {}.").format(nuage_uplinks)
                 raise NuageBadRequest(msg=msg)
+        return nuage_uplink
 
     @log_helpers.log_method_call
     def check_if_subnet_is_attached_to_router(self, context, subnet):

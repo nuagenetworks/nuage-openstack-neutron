@@ -1006,7 +1006,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         subn = nuagedb.get_ipalloc_for_fip(context.session,
                                            net_id,
                                            neutron_fip['floating_ip_address'])
-        fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(subn['subnet_id'])
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
+                                                        subn['subnet_id'])
+        fip_pool = self.vsdclient.get_nuage_fip_pool_by_id(
+            subnet_mapping['nuage_subnet_id'])
         if not fip_pool:
             msg = _('sharedresource %s not found on VSD') % subn['subnet_id']
             raise n_exc.BadRequest(resource='floatingip',
