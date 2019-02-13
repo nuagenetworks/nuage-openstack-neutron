@@ -577,11 +577,23 @@ def get_nuage_subnet(restproxy_serv, subnet_mapping):
         return None
 
 
-def get_l3_subnets(restproxy_serv, **filters):
-    nuagesubnet = nuagelib.NuageSubnet()
-    headers = nuagesubnet.extra_header_filter(**filters)
-    return restproxy_serv.get(nuagesubnet.get_all_resources(),
-                              extra_headers=headers)
+def get_domain_subnet_by_ext_id_and_cidr(restproxy_serv, neutron_subnet):
+    params = {
+        'externalID': get_subnet_external_id(neutron_subnet),
+        'cidr': netaddr.IPNetwork(neutron_subnet['cidr']),
+        'ip_type': neutron_subnet['ip_version']
+    }
+    nuagesubnet = nuagelib.NuageSubnet(create_params=params)
+    subnet = restproxy_serv.get(
+        nuagesubnet.get_all_resources(),
+        extra_headers=nuagesubnet.extra_headers_ext_id_and_cidr_get())
+    if subnet:
+        return subnet[0]
+    else:
+        msg = ("Cannot find subnet with externalID {} and cidr {}"
+               " in L3domains on VSD").format(params['externalID'],
+                                              params['cidr'])
+        raise restproxy.ResourceNotFoundException(message=msg)
 
 
 def _get_nuage_domain_id_from_subnet(restproxy_serv, nuage_subnet_id):
@@ -965,11 +977,19 @@ def get_pnet_params(pnet_binding, vsd_subnet_id, np_id, subnet):
     return pnet_params
 
 
+def get_external_id_based_on_subnet_id(subnet):
+    if not subnet:
+        raise restproxy.ResourceConflictException(
+            "Unable to calculate external ID based on subnet.")
+    neutron_id = subnet['nuage_l2bridge'] or subnet['id']
+    return get_vsd_external_id(neutron_id)
+
+
 def get_subnet_external_id(subnet):
     if not subnet:
         raise restproxy.ResourceConflictException(
             "Unable to calculate external ID for subnet.")
-    neutron_id = subnet['nuage_l2bridge'] or subnet['id']
+    neutron_id = subnet['nuage_l2bridge'] or subnet['network_id']
     return get_vsd_external_id(neutron_id)
 
 

@@ -692,7 +692,7 @@ class NuageGateway(object):
         if type == constants.BRIDGE_VPORT_TYPE:
             req_params[constants.PORTSECURITY] = True
             req_params['externalid'] = get_vsd_external_id(
-                port['id'] if port else subn_id)
+                port['id'] if port else subnet['network_id'])
             resp = gw_helper.create_vport_interface(self.restproxy,
                                                     self.policygroup,
                                                     req_params, type)
@@ -736,7 +736,8 @@ class NuageGateway(object):
             'neutron_subnet': subnet,
             'nuage_managed_subnet': params.get('nuage_managed_subnet'),
             'gw_type': params['personality'],
-            'externalid': get_vsd_external_id(port['id'] if port else subn_id)
+            'externalid': get_vsd_external_id(port['id'] if port else
+                                              subnet['network_id'])
         }
         if nuage_subnet['parentType'] == 'zone':
             req_params['nuage_subnet_id'] = nuage_subnet['ID']

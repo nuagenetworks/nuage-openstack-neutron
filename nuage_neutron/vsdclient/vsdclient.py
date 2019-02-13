@@ -198,13 +198,13 @@ class VsdClient(object):
     def get_domain_subnet_by_id(self, subnet_id):
         pass
 
-    def get_domain_subnet_by_external_id(self, subnet):
+    def get_domain_subnet_by_ext_id_and_cidr(self, subnet):
         pass
 
     def get_l2domain_by_id(self, l2domain_id):
         pass
 
-    def get_l2domain_by_external_id(self, subnet):
+    def get_l2domain_by_ext_id_and_cidr(self, subnet):
         pass
 
     def create_l3domain(self, neutron_router, router, net_partition,

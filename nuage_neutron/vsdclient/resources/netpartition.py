@@ -275,14 +275,10 @@ class NuageNetPartition(object):
             }
         return ret
 
-    def get_nuage_fip_pool_by_id(self, net_id):
-        req_params = {
-            'externalID': get_vsd_external_id(net_id)
-        }
-        nuage_fip_pool = nuagelib.NuageSubnet(create_params=req_params)
-        response = self.restproxy.get(
-            nuage_fip_pool.get_resource_with_ext_id(),
-            extra_headers=nuage_fip_pool.extra_headers_get())
+    def get_nuage_fip_pool_by_id(self, nuage_subnet_id):
+        nuage_fip_pool = nuagelib.NuageSubnet()
+        response = self.restproxy.get(nuage_fip_pool.get_resource(
+            nuage_subnet_id))
         if response:
             ret = {'nuage_fip_pool_id': response[0]['ID']}
             return ret

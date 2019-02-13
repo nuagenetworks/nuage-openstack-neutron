@@ -147,7 +147,7 @@ class NuageFlowClassifierPlugin(
                        create_nuage_sec_grp_for_sfc(params))
         params['redundancy_enabled'] = 'false'
         params['insertion_mode'] = 'VIRTUAL_WIRE'
-        params['subnet_id'] = port_info['externalID']  # for external_id
+        params['external_id'] = port_info['externalID']
         get_param = {'name': port_info['externalID']}
         rt_list = self.vsdclient.get_nuage_redirect_targets(get_param)
         if not rt_list:

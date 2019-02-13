@@ -295,9 +295,6 @@ class NuageL2Domain(NuageResource):
     def get_template_id(self, response):
         return response[3][0]['templateID']
 
-    def get_resource_with_ext_id(self):
-        return '/%s' % self.resource
-
     def get_cidr_info(self, response):
         ip = response[3][0]['address']
         netmask = response[3][0]['netmask']
@@ -376,9 +373,23 @@ class NuageL2Domain(NuageResource):
     def extra_headers_get(self):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "externalID IS '%s'" %  \
-                                    get_vsd_external_id(
-                                        self.create_params['externalID'])
+        headers['X-Nuage-Filter'] = "externalID IS '{}'".format(
+            get_vsd_external_id(self.create_params['externalID']))
+        return headers
+
+    def extra_headers_ext_id_and_cidr_get(self):
+        headers = {}
+        headers['X-NUAGE-FilterType'] = "predicate"
+        if self.create_params['ip_type'] == constants.IPV4_VERSION:
+            headers['X-Nuage-Filter'] = (
+                "externalID IS '{}' and address IS '{}'".format(
+                    self.create_params['externalID'],
+                    str(self.create_params['cidr'].ip)))
+        else:
+            headers['X-Nuage-Filter'] = (
+                "externalID IS '{}' and IPv6Address IS '{}'".format(
+                    self.create_params['externalID'],
+                    str(self.create_params['cidr'])))
         return headers
 
     def extra_headers_vport_get(self):
@@ -439,9 +450,6 @@ class NuageSubnet(NuageResource):
     def get_all_resources(self):
         return '/subnets'
 
-    def get_resource_with_ext_id(self):
-        return '/subnets'
-
     def get_parentzone(self, response):
         return response[3][0]['parentID']
 
@@ -500,12 +508,6 @@ class NuageSubnet(NuageResource):
     def get_all_vports(self, id):
         return '/subnets/%s/vports' % id
 
-    def extra_headers_get_name(self, subn_name):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "name IS '%s'" % subn_name
-        return headers
-
     def extra_headers_vport_get(self):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
@@ -515,9 +517,24 @@ class NuageSubnet(NuageResource):
     def extra_headers_get(self):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "externalID IS '%s'" %  \
-                                    get_vsd_external_id(
-                                        self.create_params['externalID'])
+        headers['X-Nuage-Filter'] = "externalID IS '{}'".format(
+            get_vsd_external_id(self.create_params['externalID']))
+        return headers
+
+    def extra_headers_ext_id_and_cidr_get(self):
+        headers = {}
+        headers['X-NUAGE-FilterType'] = "predicate"
+        if self.create_params['ip_type'] == constants.IPV4_VERSION:
+            headers['X-Nuage-Filter'] = (
+                "externalID IS '{}' and address IS '{}'".format(
+                    self.create_params['externalID'],
+                    str(self.create_params['cidr'].ip))
+            )
+        else:
+            headers['X-Nuage-Filter'] = (
+                "externalID IS '{}' and IPv6Address IS '{}'".format(
+                    self.create_params['externalID'],
+                    str(self.create_params['cidr'])))
         return headers
 
     def extra_headers_host_and_vm_vport_get(self):
@@ -1261,14 +1278,6 @@ class NuageOutboundACL(NuageResource):
         headers['X-Nuage-Filter'] = "name IS '%s'" % name
         return headers
 
-    def extra_headers_get_by_externalID(self):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "externalID IS '%s'" % \
-                                    get_vsd_external_id(
-                                        self.create_params['externalID'])
-        return headers
-
 
 class NuageFloatingIP(NuageResource):
     resource = 'floatingips'
@@ -1618,14 +1627,6 @@ class NuageACLRule(NuageResource):
         if self.extra_params:
             aclrule.update(self.extra_params)
         return aclrule
-
-    def extra_headers_get(self):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "externalID IS '%s'" % \
-                                    get_vsd_external_id(
-                                        self.create_params['externalID'])
-        return headers
 
     def extra_headers_get_locationID(self, policygroup_id):
         headers = {}
