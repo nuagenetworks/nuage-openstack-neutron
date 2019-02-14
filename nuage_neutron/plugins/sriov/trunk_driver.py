@@ -18,7 +18,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 import six
 
-from neutron.db import api as db_api
 from neutron.objects import trunk as trunk_objects
 from neutron.services.trunk import constants as t_consts
 from neutron.services.trunk.drivers import base as trunk_base
@@ -27,6 +26,7 @@ from neutron_lib.api.definitions import portbindings
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
+from neutron_lib.db import api as db_api
 from neutron_lib import context as n_ctx
 from neutron_lib.plugins import directory
 
