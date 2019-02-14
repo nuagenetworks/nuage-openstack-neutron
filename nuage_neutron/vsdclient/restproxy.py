@@ -169,6 +169,14 @@ class RESTProxyServer(object):
 
     @staticmethod
     def raise_error_response(response):
+        if not response[0]:
+            # this happens when after the configured amount of retries
+            # we were not able to obtain a VSD response
+            msg = ("Cannot communicate with Nuage VSD. Please do not perform "
+                   "any further operations and contact the administrator.")
+            RESTProxyServer.raise_rest_error(msg)
+
+        # else:
         try:
             errors = json.loads(response[3])
             log_as_error = False
@@ -186,12 +194,13 @@ class RESTProxyServer(object):
                 e = RESTProxyError(msg, error_code=response[0],
                                    vsd_code=vsd_code)
             RESTProxyServer.raise_rest_error(msg, e, log_as_error)
+
         except (TypeError, ValueError):
             if response[3]:
                 LOG.error('REST response from VSD: %s', response[3])
-            msg = ("Cannot communicate with SDN controller. Please do not "
-                   "perform any further operations and contact the "
-                   "administrator.")
+            msg = ("No valid response received from Nuage VSD. "
+                   "Please do not perform any further operations and contact "
+                   "the administrator.")
             RESTProxyServer.raise_rest_error(msg)
 
     @staticmethod
