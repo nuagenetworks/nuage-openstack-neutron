@@ -754,8 +754,11 @@ class NuageDomainSubnet(object):
     def _create_subnet(self, req_params, extra_params):
         nuagel3domsub = nuagelib.NuageSubnet(create_params=req_params,
                                              extra_params=extra_params)
+        ignore_error_codes = [constants.RES_EXISTS_INTERNAL_ERR_CODE,
+                              constants.SUBNET_NAME_DUPLICATE_ERROR]
         return self.restproxy.post(nuagel3domsub.post_resource(),
-                                   nuagel3domsub.post_data())[0]
+                                   nuagel3domsub.post_data(),
+                                   ignore_err_codes=ignore_error_codes)[0]
 
     def _process_provider_network(
             self, pnet_binding, vsd_subnet_id, np_id, subnet):
