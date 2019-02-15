@@ -835,11 +835,15 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             if ports:
                 raise l3.RouterInUse(router_id=id)
             nuage_domain_id = ent_rtr_mapping['nuage_router_id']
+            vsd_retry_error_codes = [(vsd_constants.CONFLICT_ERR_CODE,
+                                      vsd_constants.VSD_VM_EXISTS_ON_VPORT),
+                                     (vsd_constants.CONFLICT_ERR_CODE,
+                                      vsd_constants.VSD_PG_IN_USE),
+                                     (vsd_constants.CONFLICT_ERR_CODE,
+                                      vsd_constants.VSD_VM_EXIST)]
             nuage_utils.retry_on_vsdclient_error(
                 self.vsdclient.delete_l3domain,
-                vsd_error_codes=[vsd_constants.VSD_VM_EXISTS_ON_VPORT,
-                                 vsd_constants.VSD_PG_IN_USE,
-                                 vsd_constants.VSD_VM_EXIST])(nuage_domain_id)
+                vsd_error_codes=vsd_retry_error_codes)(nuage_domain_id)
 
         super(NuageL3Plugin, self).delete_router(context, id)
 
