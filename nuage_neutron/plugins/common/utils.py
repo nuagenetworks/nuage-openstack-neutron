@@ -15,9 +15,11 @@
 from __future__ import print_function
 import contextlib
 import functools
+import inspect
 import netaddr
 import six
 import sys
+import time
 
 from oslo_log import log as logging
 
@@ -120,8 +122,8 @@ def context_log(fn):
         class_name = instance.__class__.__name__
         method_name = fn.__name__
         context = args[1]
-        LOG = get_logger(fn=fn)
-        LOG.debug('%s method %s is getting called with context.current %s, '
+        log = get_logger(fn=fn)
+        log.debug('%s method %s is getting called with context.current %s, '
                   'context.original %s',
                   class_name, method_name, context.current, context.original)
         return fn(*args, **kwargs)
@@ -144,34 +146,42 @@ class Ignored(object):
         return False
 
 
-def retry_on_vsdclient_error(fn, nr_retries=3, vsd_error_codes=None):
+def retry_on_vsdclient_error(fn, nr_attempts=5, vsd_error_codes=None):
     """Retry function on vsdclient error
 
     :param fn: function to (re)try
-    :param nr_retries
+    :param nr_attempts
     :param vsd_error_codes: vsd_error_codes to retry [(http_code, vsd_code)]
         [(409,'7010')]
     """
     def wrapped(*args, **kwargs):
-        tries = 1
-        while tries <= nr_retries:
+        attempt = 1
+        log = None
+        fn_name = None
+        while attempt <= nr_attempts:
             try:
                 return fn(*args, **kwargs)
             except RESTProxyError as e:
-                LOG = get_logger(fn=fn)
-                if tries == nr_retries:
-                    LOG.debug('Failed to execute {} {} times.'.format(
-                        fn.__name__, nr_retries)
+                if not log:
+                    log = get_logger(fn=fn)
+                    # when function fn is wrapped, all you see is 'wrapped'
+                    # adding info about the caller method is useful therefore
+                    caller_name = inspect.stack()[1][3]
+                    fn_name = fn.__name__ + '[' + caller_name + ']'
+                if attempt == nr_attempts:
+                    log.debug('Failed to execute {} {} times.'.format(
+                        fn_name, nr_attempts)
                     )
                     raise
                 if (e.code, e.vsd_code) in vsd_error_codes:
-                    LOG.debug('Attempt {} of {} to execute {} failed.'.format(
-                        tries, nr_retries, fn.__name__)
+                    log.debug('Attempt {} of {} to execute {} failed.'.format(
+                        attempt, nr_attempts, fn_name)
                     )
-                    tries += 1
+                    attempt += 1
+                    time.sleep(0.2)
                 else:
-                    LOG.debug('Non retry-able error '
-                              'encountered on {}.'.format(fn.__name__))
+                    log.debug('Non retry-able error '
+                              'encountered on {}.'.format(fn_name))
                     raise
     return wrapped
 
