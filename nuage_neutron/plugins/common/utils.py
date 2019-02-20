@@ -110,7 +110,7 @@ def handle_nuage_api_error(fn):
         except RESTProxyError as ex:
             _, _, tb = sys.exc_info()
             six.reraise(nuage_exc.NuageAPIException,
-                        nuage_exc.NuageAPIException(msg=ex.message),
+                        nuage_exc.NuageAPIException(msg=ex.msg),
                         tb)
     return wrapped
 
