@@ -1083,8 +1083,9 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     elif 'egress' in direction:
                         fip['nuage_egress_fip_rate_kbps'] = value
             except Exception as e:
+                # ignoring rate limiting not found for fip
                 msg = (_('Got exception while retrieving fip rate from vsd: '
-                         '%s') % e.message)
+                       '{}').format(e))
                 LOG.error(msg)
 
         return self._fields(fip, fields)

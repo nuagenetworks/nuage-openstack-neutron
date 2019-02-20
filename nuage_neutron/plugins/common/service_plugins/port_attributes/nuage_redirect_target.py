@@ -167,7 +167,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 msg = _("A Nuage redirect target with name '%s' already "
                         "exists") % redirect_target['name']
                 raise nuage_exc.NuageBadRequest(msg=msg)
-            raise e
+            raise
         return self._make_redirect_target_dict(nuage_redirect_target,
                                                context=context)
 

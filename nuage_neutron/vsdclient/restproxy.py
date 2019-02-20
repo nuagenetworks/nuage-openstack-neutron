@@ -22,6 +22,7 @@ from eventlet.green import threading
 from neutron._i18n import _
 from oslo_serialization import jsonutils as json
 import requests
+import six
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants
@@ -90,31 +91,33 @@ class RESTProxyBaseException(Exception):
             else:
                 super(RESTProxyBaseException, self).__init__(self.message)
 
-    def __unicode__(self):
-        return str(self.msg)
+    if six.PY2:
+        def __unicode__(self):
+            return unicode(self.msg)  # noqa
+
+    def __str__(self):
+        return self.msg
 
     def use_fatal_exceptions(self):
         return False
 
 
 class RESTProxyError(RESTProxyBaseException):
-    def __init__(self, message, error_code=None, vsd_code=None):
+
+    message = _('Error in REST call to VSD: %(msg)s')
+
+    def __init__(self, msg='', error_code=None, vsd_code=None):
+        super(RESTProxyError, self).__init__(msg=msg)
         self.code = 0
         if error_code:
             self.code = error_code
         self.vsd_code = vsd_code
 
-        if self.code == REST_CONFLICT_ERR_CODE:
-            self.message = (_('%s') % message)
-        else:
-            self.message = (_('Error in REST call to VSD: %s') % message)
-        super(RESTProxyError, self).__init__()
-
 
 class ResourceExistsException(RESTProxyError):
-    def __init__(self, message):
+    def __init__(self, msg=''):
         super(ResourceExistsException, self).__init__(
-            message,
+            msg,
             REST_CONFLICT_ERR_CODE,
             vsd_code=REST_EXISTS_INTERNAL_ERR_CODE)
 
@@ -122,16 +125,16 @@ class ResourceExistsException(RESTProxyError):
 
 
 class ResourceNotFoundException(RESTProxyError):
-    def __init__(self, message):
+    def __init__(self, msg=''):
         super(ResourceNotFoundException, self).__init__(
-            message,
+            msg,
             REST_NOT_FOUND)
 
 
 class ResourceConflictException(RESTProxyError):
-    def __init__(self, message):
+    def __init__(self, msg=''):
         super(ResourceConflictException, self).__init__(
-            message,
+            msg,
             REST_CONFLICT)
 
 

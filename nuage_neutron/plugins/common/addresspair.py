@@ -99,7 +99,7 @@ class NuageAddressPair(BaseNuagePlugin):
                             "Error in creating vip for ip %(vip)s and mac "
                             "%(mac)s: %(err)s", {'vip': vip_ip,
                                                  'mac': port['mac_address'],
-                                                 'err': e.message})
+                                                 'err': str(e)})
                         self.vsdclient.delete_vips(nuage_vport['ID'],
                                                    port_vip_dict,
                                                    port_vip_dict)
@@ -143,7 +143,7 @@ class NuageAddressPair(BaseNuagePlugin):
                     LOG.error("Error in creating vip for ip %(vip)s and mac "
                               "%(mac)s: %(err)s", {'vip': vip,
                                                    'mac': mac,
-                                                   'err': e.message})
+                                                   'err': str(e)})
                     self.vsdclient.delete_vips(nuage_vport['ID'],
                                                nuage_vip_dict,
                                                nuage_vip_dict)

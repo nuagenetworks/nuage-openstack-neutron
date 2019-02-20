@@ -301,8 +301,10 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                         'policy group' not in msg):
                     raise
                 elif e.vsd_code in constants.NOT_SUPPORTED_NW_MACRO:
-                    e.message = ("Non supported remote CIDR in "
-                                 "security rule: " + e.message)
+                    msg = e.msg.split(': ', 1)
+                    if len(msg) > 1:
+                        e.msg = ('{}: Non supported remote CIDR in security'
+                                 ' rule: {}'.format(msg[0], msg[1]))
                     raise
                 elif attempt < max_attempts:
                     attempt += 1

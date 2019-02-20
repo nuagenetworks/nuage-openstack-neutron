@@ -242,7 +242,7 @@ def main():
             print("echo Unplugging succesfull!")
         except Exception as e:
             print("echo Unplugging Octavia Management Port failed:\n%msg\n",
-                  {'msg': e.message})
+                  {'msg': str(e)})
     else:
         try:
             print("echo plugging\n")
@@ -251,7 +251,7 @@ def main():
             print("echo Plugging Octavia Management Port succeeded\n")
         except Exception as e:
             print("echo Plugging Octavia Management Port failed:\n%msg\n",
-                  {'msg': e.message})
+                  {'msg': str(e)})
 
 
 def parse_arguments():
