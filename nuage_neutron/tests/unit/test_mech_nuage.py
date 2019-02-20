@@ -463,7 +463,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
         try:
             rest_proxy.rest_call('get', '', '')
         except Exception as e:
-            self.assertEqual(True, 'Unauthorized' in e.message,
+            self.assertEqual(True, 'Unauthorized' in str(e),
                              "Got an exception other than Unauthorized")
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
