@@ -201,10 +201,10 @@ def handle_nuage_api_errorcode(fn):
                 # reported same way. At least, that decision was made in
                 # early days of Nuage.
                 six.reraise(nuage_exc.NuageBadRequest,
-                            nuage_exc.NuageBadRequest(msg=e.message), tb)
+                            nuage_exc.NuageBadRequest(msg=str(e)), tb)
             else:  # there is not --> Nuage API error (leading to 500)
                 six.reraise(nuage_exc.NuageAPIException,
-                            nuage_exc.NuageAPIException(msg=e.message), tb)
+                            nuage_exc.NuageAPIException(msg=str(e)), tb)
     return wrapped
 
 

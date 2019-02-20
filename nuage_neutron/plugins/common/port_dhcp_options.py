@@ -118,7 +118,7 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                     return nuage_exc.NuageBadRequest(msg=error)
                 else:
                     error = ("Error encountered while processing option value"
-                             " of " + name + " due to: " + e.message)
+                             " of {} due to: {}".format(name, e))
                     return nuage_exc.NuageBadRequest(msg=error)
 
     @staticmethod
@@ -190,7 +190,7 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
             created_rollback_opts = self._create_update_extra_dhcp_options(
                 categorised_dhcp_opts['new'], vport, port_id, False)
         except Exception as e:
-            LOG.error(_("Port Update failed due to: %s"), e.message)
+            LOG.error(_("Port Update failed due to: {}").format(e))
             raise
         try:
             # Delete
@@ -220,7 +220,7 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
             # Roll back update & delete
             self._create_update_extra_dhcp_options(old_dhcp_opts, vport,
                                                    port_id, True)
-            LOG.error(_("Port Update failed due to: %s"), e.message)
+            LOG.error(_("Port Update failed due to: {}").format(e))
             raise e
 
     def _get_nuage_vport(self, port, subnet_mapping, required=True):
