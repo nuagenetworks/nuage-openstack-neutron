@@ -62,11 +62,12 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_CREATE])
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
-    def pre_create_security_group(self, resource, event, trigger, **kwargs):
-        session = kwargs['context'].session
-        stateful = kwargs['security_group'].get('stateful', True)
-        kwargs['security_group']['id'] = sg_id = \
-            kwargs['security_group'].get('id') or uuidutils.generate_uuid()
+    def pre_create_security_group(self, resource, event, trigger, payload):
+        session = payload.context.session
+        sg = payload.desired_state
+        stateful = sg.get('stateful', True)
+        payload.request_body['security_group']['id'] = sg_id = \
+            sg.get('id') or uuidutils.generate_uuid()
         if not stateful:
             nuagedb.set_nuage_sg_parameter(session, sg_id, 'STATEFUL', '0')
 
