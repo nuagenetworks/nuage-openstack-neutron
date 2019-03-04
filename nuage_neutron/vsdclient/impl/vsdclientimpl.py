@@ -28,7 +28,6 @@ from nuage_neutron.vsdclient.common import nuagelib
 from nuage_neutron.vsdclient.common import pnet_helper
 from nuage_neutron.vsdclient.resources import dhcpoptions
 from nuage_neutron.vsdclient.resources import domain
-from nuage_neutron.vsdclient.resources import fwaas
 from nuage_neutron.vsdclient.resources import gateway
 from nuage_neutron.vsdclient.resources import l2domain
 from nuage_neutron.vsdclient.resources import netpartition
@@ -73,7 +72,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         self.dhcp_options = dhcpoptions.NuageDhcpOptions(self.restproxy)
         self.nuagegw = gateway.NuageGateway(self.restproxy,
                                             self.policygroups)
-        self.fwaas = fwaas.NuageFwaas(self.restproxy)
         self.trunk = trunk.NuageTrunk(self.restproxy)
 
     def _auth_key_renewal(self, api_key_info):
@@ -999,46 +997,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         return self.redirecttargets.get_child_redirect_targets(
             nuagelib.NuageVPort.resource, vport_id, required=required,
             **filters)
-
-    # Firewall
-
-    def create_firewall_rule(self, enterprise_id, os_rule):
-        return self.fwaas.create_firewall_rule(enterprise_id, os_rule)
-
-    def update_firewall_rule(self, enterprise_id, id, os_rule):
-        self.fwaas.update_firewall_rule(enterprise_id, id, os_rule)
-
-    def delete_firewall_rule(self, enterprise_id, id):
-        self.fwaas.delete_firewall_rule(enterprise_id, id)
-
-    def delete_vsd_firewallrule(self, id):
-        self.fwaas.delete_vsd_firewallrule(id)
-
-    def create_firewall_policy(self, enterprise_id, os_policy):
-        return self.fwaas.create_firewall_policy(enterprise_id, os_policy)
-
-    def update_firewall_policy(self, enterprise_id, id, os_policy):
-        self.fwaas.update_firewall_policy(enterprise_id, id, os_policy)
-
-    def delete_firewall_policy(self, enterprise_id, id):
-        self.fwaas.delete_firewall_policy(enterprise_id, id)
-
-    def insert_rule(self, enterprise_id, os_policy_id, os_rule_info):
-        self.fwaas.insert_rule(enterprise_id, os_policy_id, os_rule_info)
-
-    def remove_rule(self, enterprise_id, os_policy_id, os_rule_info):
-        self.fwaas.remove_rule(enterprise_id, os_policy_id, os_rule_info)
-
-    def create_firewall(self, enterprise_id, os_firewall, l3domain_ids):
-        self.fwaas.create_firewall(enterprise_id, os_firewall, l3domain_ids)
-
-    def update_firewall(self, enterprise_id, os_firewall, l3domain_ids,
-                        admin_state_updated, routers_updated):
-        self.fwaas.update_firewall(enterprise_id, os_firewall, l3domain_ids,
-                                   admin_state_updated, routers_updated)
-
-    def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
-        self.fwaas.delete_firewall(enterprise_id, os_firewall, l3domain_ids)
 
     def get_nuage_plugin_stats(self):
         stats = {}
