@@ -25,6 +25,7 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE plugin experimental_features $NUAGE_EXPERIMENTAL_FEATURES
     iniset $NUAGE_PLUGIN_CONF_FILE plugin enable_debug $NUAGE_ENABLE_DEBUG
 
+    # [RESTPROXY]
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy base_uri $NUAGE_VSD_BASE_URI
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy serverssl $NUAGE_VSD_SERVER_SSL
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy serverauth $NUAGE_VSD_SERVER_AUTH
@@ -34,10 +35,11 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy default_net_partition_name $NUAGE_VSD_DEF_NETPART_NAME
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_fip_underlay $NUAGE_FIP_UNDERLAY
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_pat $NUAGE_PAT
-
-    if [ ! -z "$NUAGE_UNDERLAY_DEFAULT" ]; then
-        iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_underlay_default $NUAGE_UNDERLAY_DEFAULT
+    if [[ "$NUAGE_PAT" == "legacy_disabled" ]]; then
+        iniset $NEUTRON_CONF DEFAULT enable_snat_by_default False
     fi
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_underlay_default $NUAGE_UNDERLAY_DEFAULT
+
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
 
