@@ -13,7 +13,6 @@
 #    under the License.
 
 from neutron._i18n import _
-from neutron.db.common_db_mixin import CommonDbMixin
 from neutron.db import securitygroups_db as sg_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.callbacks import events
@@ -38,7 +37,6 @@ LOG = logging.getLogger(__name__)
 
 
 class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
-                         CommonDbMixin,
                          sg_db.SecurityGroupDbMixin):
     def __init__(self):
         super(NuageSecurityGroup, self).__init__()
