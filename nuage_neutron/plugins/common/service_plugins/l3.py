@@ -24,7 +24,6 @@ from oslo_utils import excutils
 import six
 
 from neutron._i18n import _
-from neutron.db.common_db_mixin import CommonDbMixin
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
@@ -56,7 +55,6 @@ LOG = logging.getLogger(__name__)
 
 class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     service_base.ServicePluginBase,
-                    CommonDbMixin,
                     extraroute_db.ExtraRoute_db_mixin,
                     l3_gwmode_db.L3_NAT_db_mixin,
                     dns_db.DNSDbMixin):

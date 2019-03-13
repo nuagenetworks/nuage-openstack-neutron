@@ -12,9 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from neutron._i18n import _
-from neutron.db import common_db_mixin
 from neutron.db.models.plugins.ml2.vlanallocation import VlanAllocation
 from neutron_lib import constants as lib_constants
+from neutron_lib.db import model_query as lib_model_query
+from neutron_lib.db import utils as lib_db_utils
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
@@ -23,7 +24,7 @@ from nuage_neutron.plugins.common import nuage_models
 from nuage_neutron.plugins.common import nuagedb
 
 
-class NuageL2BridgePlugin(BaseNuagePlugin, common_db_mixin.CommonDbMixin):
+class NuageL2BridgePlugin(BaseNuagePlugin):
 
     supported_extension_aliases = ['nuage-l2bridge']
     supported_segmentation_types = ['vlan']
@@ -40,15 +41,17 @@ class NuageL2BridgePlugin(BaseNuagePlugin, common_db_mixin.CommonDbMixin):
     def get_nuage_l2bridges(self, context, filters=None, fields=None,
                             sorts=None, limit=None, marker=None,
                             page_reverse=False):
-        marker_obj = self._get_marker_obj(context, 'nuage_l2bridges',
-                                          limit, marker)
-        l2bridges = self._get_collection(context,
-                                         nuage_models.NuageL2bridge,
-                                         self._make_l2bridges_dict,
-                                         filters=filters, fields=fields,
-                                         sorts=sorts,
-                                         limit=limit, marker_obj=marker_obj,
-                                         page_reverse=page_reverse)
+        marker_obj = lib_db_utils.get_marker_obj(self, context,
+                                                 'nuage_l2bridges',
+                                                 limit, marker)
+        l2bridges = lib_model_query.get_collection(
+            context,
+            nuage_models.NuageL2bridge,
+            self._make_l2bridges_dict,
+            filters=filters, fields=fields,
+            sorts=sorts,
+            limit=limit, marker_obj=marker_obj,
+            page_reverse=page_reverse)
         if not fields or 'physnets' in fields:
             for l2bridge in l2bridges:
                 physnets = nuagedb.get_nuage_l2bridge_physnet_mappings(
