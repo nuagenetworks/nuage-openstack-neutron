@@ -58,7 +58,7 @@ def delete_net_partition_by_id(session, netpart_id):
 
 def get_net_partition_by_name(session, name):
     return session.query(nuage_models.NetPartition).filter_by(
-        name=name).with_for_update().first()
+        name=name).first()
 
 
 def get_net_partition_by_id(session, id):
