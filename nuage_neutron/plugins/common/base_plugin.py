@@ -258,16 +258,15 @@ class RootNuagePlugin(SubnetUtilsBase):
     @log_helpers.log_method_call
     def create_dhcp_nuage_port(self, context, neutron_subnet,
                                nuage_subnet=None):
-        dhcp_ip = None
+        fixed_ip = None
         if (nuage_subnet and nuage_subnet.get('DHCPManaged', True) and
                 self._is_ipv4(neutron_subnet)):
-            dhcp_ip = nuage_subnet['gateway']
-        elif neutron_subnet.get('enable_dhcp'):
-            dhcp_ip = neutron_subnet['allocation_pools'][-1]['end']
-
-        if dhcp_ip:
-            fixed_ip = [{'ip_address': dhcp_ip,
+            fixed_ip = [{'ip_address': nuage_subnet['gateway'],
                          'subnet_id': neutron_subnet['id']}]
+        elif neutron_subnet.get('enable_dhcp'):
+            fixed_ip = [{'subnet_id': neutron_subnet['id']}]
+
+        if fixed_ip:
             p_data = {
                 'network_id': neutron_subnet['network_id'],
                 'tenant_id': neutron_subnet['tenant_id'],
