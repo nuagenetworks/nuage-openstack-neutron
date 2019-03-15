@@ -17,7 +17,6 @@ from oslo_log import log as logging
 from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron.quota import resource_registry
 from neutron_lib.api import converters as lib_converters
 from neutron_lib.api import extensions as api_extensions
 from neutron_lib.api import validators as lib_validators
@@ -108,7 +107,6 @@ class Nuagepolicygroup(api_extensions.ExtensionDescriptor):
         resource_name = 'nuage_policy_group'
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-        resource_registry.register_resource_by_name(resource_name)
         controller = base.create_resource(collection_name, resource_name,
                                           plugin, params, allow_bulk=True)
         ex = extensions.ResourceExtension(collection_name, controller)
