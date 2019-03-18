@@ -755,6 +755,9 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                                                          resource_id,
                                                          external_id)
 
+    def delete_vport_nuage_dhcp(self, dhcp_opt, vport_id):
+        return self.dhcp_options.delete_vport_nuage_dhcp(dhcp_opt, vport_id)
+
     def delete_vport_dhcp_option(self, dhcp_id, on_rollback):
         return self.dhcp_options.delete_nuage_extra_dhcp_option(dhcp_id,
                                                                 on_rollback)
