@@ -96,7 +96,6 @@
               - stable/pike
               - stable/queens
               - stable/rocky
-              - master
         - legacy-tempest-aio-legacy-pat:  # using legacy PAT model
             #                            -- hoped for to remove soon (6.0)
             branches:
@@ -109,10 +108,13 @@
               - stable/pike
               - stable/queens
               - stable/rocky
-              - master
-        - legacy-tempest-aio-ml2-vsp-0.0:
+        - legacy-tempest-aio-full-vsp-0.0:
             branches:
-              - stable/rocky
+              - master
+        - legacy-tempest-aio-upstream-vsp-0.0:
+            branches:
+              - master
+
 - job:
     name: legacy-tempest-aio-base
     parent: legacy-dsvm-base
@@ -341,4 +343,19 @@
     parent: legacy-tempest-aio-base
     vars:
       vsp_release: "0.0"
+
+- job:
+    name: legacy-tempest-aio-full-vsp-0.0
+    parent: legacy-tempest-aio-base
+    vars:
+      vsp_release: "0.0"
+      job_flavor: full
+    timeout: 14400
+
+- job:
+    name: legacy-tempest-aio-upstream-vsp-0.0
+    parent: legacy-tempest-aio-base
+    vars:
+      vsp_release: "0.0"
+      job_flavor: neutron
 
