@@ -22,7 +22,6 @@ from neutron._i18n import _
 from neutron_lib.api import validators as lib_validators
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as os_constants
-from neutron_lib import exceptions as n_exc
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
@@ -32,6 +31,9 @@ LOG = logging.getLogger(__name__)
 
 
 class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
+
+    DHCP_OPTION_NUMBER_TO_NAME = {
+        v: k for k, v in six.iteritems(constants.DHCP_OPTION_NAME_TO_NUMBER)}
 
     def subscribe(self):
         self.nuage_callbacks.subscribe(self._validate_port_dhcp_opts,
@@ -65,6 +67,18 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
             response.append(resp)
         return response
 
+    def _delete_extra_dhcp_options(self, dhcp_options, vport, port_id):
+        response = []
+        for dhcp_option in dhcp_options:
+            try:
+                resp = self.vsdclient.delete_vport_nuage_dhcp(dhcp_option,
+                                                              vport['ID'])
+                response.append(resp)
+            except Exception as e:
+                e = self._build_dhcp_option_error_message(
+                    dhcp_option['opt_name'], e)
+                raise e
+
     def _validate_port_dhcp_opts(self, resource, event, trigger, **kwargs):
         request_port = kwargs.get('request_port')
         if not request_port or \
@@ -74,35 +88,32 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
         dhcp_options = copy.deepcopy(request_port['extra_dhcp_opts'])
         for dhcp_option in dhcp_options:
             self._translate_dhcp_option(dhcp_option)
-        self._validate_extra_dhcp_opt_for_neutron(dhcp_options)
+        self._validate_extra_dhcp_opt_for_duplicate_numerical(dhcp_options)
 
     def _is_ipv4_option(self, dhcp_option):
         return dhcp_option.get('ip_version') == os_constants.IP_VERSION_4
 
-    def _validate_extra_dhcp_opt_for_neutron(self, new_dhcp_opts):
-        # validating for neutron internal error, checking for the
-        #  neutron failure case
+    def _validate_extra_dhcp_opt_for_duplicate_numerical(self, new_dhcp_opts):
+        # Check for duplicate extra dhcp options that are mixed between
+        # numerical and string based option names.
         for key, group in itertools.groupby(
                 sorted(new_dhcp_opts, key=lambda opt: opt['opt_name']),
                 lambda opt: opt['opt_name']):
             options = list(group)
             if len(options) > 1:
-                e = n_exc.InvalidInput()
-                raise self._build_dhcp_option_error_message(
-                    options[0]['opt_name'], e)
+                opt_number = options[0]['opt_name']
+                msg = _("It is not allowed to mix numerical extra "
+                        "dhcp options and named extra dhcp options for "
+                        "the same extra dhcp option: {}/{}.").format(
+                    opt_number, self.DHCP_OPTION_NUMBER_TO_NAME[opt_number])
+                raise nuage_exc.NuageBadRequest(msg=msg)
 
-    def _build_dhcp_option_error_message(self, dhcpoption, e):
+    @staticmethod
+    def _build_dhcp_option_error_message(dhcpoption, e):
         for name, number in six.iteritems(
                 constants.DHCP_OPTION_NAME_TO_NUMBER):
             if number == dhcpoption:
-                if isinstance(e, n_exc.InvalidInput):
-                    error = ("Neutron Error: DHCP Option %s that is being set"
-                             " for the first time cannot be mentioned more"
-                             " than once") % name
-                    e.message = error
-                    e.msg = error
-                    return e
-                elif hasattr(e, 'msg'):
+                if hasattr(e, 'msg'):
                     error = "For DHCP option " + name + ", " + e.msg
                     return nuage_exc.NuageBadRequest(msg=error)
                 else:
@@ -110,29 +121,52 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                              " of " + name + " due to: " + e.message)
                     return nuage_exc.NuageBadRequest(msg=error)
 
-    def _translate_dhcp_option(self, dhcp_option):
-        if dhcp_option['opt_name'] in constants.DHCP_OPTION_NAME_TO_NUMBER:
-            dhcp_option['opt_name'] = (constants.DHCP_OPTION_NAME_TO_NUMBER
-                                       [dhcp_option['opt_name']])
-            dhcp_option['opt_value'] = dhcp_option['opt_value'].split(";")
-        else:
-            msg = _("There is no DHCP option available with the "
-                    "opt_ name: %s ") % dhcp_option['opt_name']
-            raise nuage_exc.NuageBadRequest(msg=msg)
+    @staticmethod
+    def _translate_dhcp_option(dhcp_option):
+        try:
+            # Numerical DHCP option name
+            option_number = int(dhcp_option['opt_name'])
+            if option_number in constants.DHCP_OPTION_NAME_TO_NUMBER.values():
+                dhcp_option['opt_name'] = option_number
+            else:
+                msg = _("There is no DHCP option available with the "
+                        "opt_ name: %s ") % dhcp_option['opt_name']
+                raise nuage_exc.NuageBadRequest(msg=msg)
+        except ValueError:
+            # Non-numerical DHCP option name
+            if dhcp_option['opt_name'] in constants.DHCP_OPTION_NAME_TO_NUMBER:
+                dhcp_option['opt_name'] = (constants.DHCP_OPTION_NAME_TO_NUMBER
+                                           [dhcp_option['opt_name']])
+            else:
+                msg = _("There is no DHCP option available with the "
+                        "opt_ name: %s ") % dhcp_option['opt_name']
+                raise nuage_exc.NuageBadRequest(msg=msg)
+        dhcp_option['opt_value'] = (dhcp_option['opt_value'].split(";")
+                                    if dhcp_option['opt_value'] else None)
 
-    def _categorise_dhcp_options_for_update(self, old_dhcp_opts,
-                                            new_dhcp_opts):
+    @staticmethod
+    def _categorise_dhcp_options_for_update(old_dhcp_opts, new_dhcp_opts):
         add_dhcp_opts = []
         update_dhcp_opts = []
+        delete_dhcp_opts = []
         existing_opts = set()
         for old_dhcp_opt in old_dhcp_opts:
             existing_opts.add(old_dhcp_opt['opt_name'])
         for new_dhcp_opt in new_dhcp_opts:
             if new_dhcp_opt['opt_name'] in existing_opts:
-                update_dhcp_opts.append(new_dhcp_opt)
+                if new_dhcp_opt['opt_value'] is not None:
+                    update_dhcp_opts.append(new_dhcp_opt)
+                else:
+                    delete_dhcp_opts.append(new_dhcp_opt)
+                existing_opts.remove(new_dhcp_opt['opt_name'])
             else:
                 add_dhcp_opts.append(new_dhcp_opt)
-        return {'new': add_dhcp_opts, 'update': update_dhcp_opts}
+        # Add remaining existing dhcp options to deleted.
+        for dhcp_opt in existing_opts:
+            delete_dhcp_opts.extend(
+                [opt for opt in old_dhcp_opts if opt['opt_name'] == dhcp_opt])
+        return {'new': add_dhcp_opts, 'update': update_dhcp_opts,
+                'delete': delete_dhcp_opts}
 
     def _update_extra_dhcp_options(self, categorised_dhcp_opts, subnet_mapping,
                                    port_id, current_owner, old_dhcp_opts,
@@ -159,22 +193,31 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
             LOG.error(_("Port Update failed due to: %s"), e.message)
             raise
         try:
+            # Delete
+            delete_rollback = self._delete_extra_dhcp_options(
+                categorised_dhcp_opts['delete'], vport, port_id)
+            # Update
             update_rollback = self._create_update_extra_dhcp_options(
                 categorised_dhcp_opts['update'], vport, port_id, True)
             if "error" in update_rollback:
                 update_rollback.remove("error")
                 e = update_rollback.pop(-1)
-                include_rollback_opt = [categorised_dhcp_opts['update'][i]
+                include_rollback_opt = ([categorised_dhcp_opts['update'][i]
                                         ['opt_name'] for i in
-                                        range(len(update_rollback))]
+                                        range(len(update_rollback))] +
+                                        [categorised_dhcp_opts['delete'][i]
+                                        ['opt_name'] for i in
+                                        range(len(delete_rollback))])
                 for dhcp_opt in old_dhcp_opts:
                     if dhcp_opt['opt_name'] not in include_rollback_opt:
                         old_dhcp_opts.remove(dhcp_opt)
                 raise e
         except Exception as e:
+            # Roll back create
             for rollback_opt in created_rollback_opts:
                 self.vsdclient.delete_vport_dhcp_option(
                     rollback_opt[3][0]['ID'], True)
+            # Roll back update & delete
             self._create_update_extra_dhcp_options(old_dhcp_opts, vport,
                                                    port_id, True)
             LOG.error(_("Port Update failed due to: %s"), e.message)
@@ -219,6 +262,8 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
         old_dhcp_options = [opt for opt in old_dhcp_options
                             if self._is_ipv4_option(opt)]
         for dhcp_opt in request_dhcp_options:
+            self._translate_dhcp_option(dhcp_opt)
+        for dhcp_opt in old_dhcp_options:
             self._translate_dhcp_option(dhcp_opt)
         categorised_dhcp_opts = self._categorise_dhcp_options_for_update(
             copy.deepcopy(old_dhcp_options),
