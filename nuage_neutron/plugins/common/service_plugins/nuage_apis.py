@@ -23,6 +23,7 @@ from neutron._i18n import _
 from neutron.db import securitygroups_db as sg_db
 
 from neutron_lib.db import api as lib_db_api
+from neutron_lib import context as n_ctx
 from neutron_lib import exceptions as n_exc
 from neutron_lib.db import resource_extend as lib_db_resource_extend
 from neutron_lib.services import base as service_base
@@ -100,8 +101,16 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             return {}
         return self._make_net_partition_dict(net_partitioninst)
 
+    @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
-    def _validate_create_net_partition(self, net_part_name, session):
+    def _validate_create_net_partition(self, context, net_part_name):
+        """Sync net partition configuration between plugin and VSD"""
+        # About parallelism: This method could be executed in parallel
+        # by different neutron instances. The decorator
+        # retry_if_session_inactive makes sure that that the method will be
+        # retried when database transaction errors occur like deadlock and
+        # duplicate inserts.
+        session = context.session
         with session.begin(subtransactions=True):
             netpart_db = nuagedb.get_net_partition_by_name(session,
                                                            net_part_name)
@@ -233,8 +242,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     def _prepare_netpartitions(self):
         # prepare shared netpartition
         shared_netpart_name = constants.SHARED_INFRASTRUCTURE
-        self._validate_create_net_partition(shared_netpart_name,
-                                            lib_db_api.get_writer_session())
+        self._validate_create_net_partition(n_ctx.get_admin_context(),
+                                            shared_netpart_name)
         # prepare default netpartition
         default_netpart_name = cfg.CONF.RESTPROXY.default_net_partition_name
         l3template = cfg.CONF.RESTPROXY.default_l3domain_template
@@ -259,7 +268,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                                             l3shared)
         else:
             default_netpart = self._validate_create_net_partition(
-                default_netpart_name, lib_db_api.get_writer_session())
+                n_ctx.get_admin_context(),
+                default_netpart_name)
             self._default_np_id = default_netpart['id']
 
     @nuage_utils.handle_nuage_api_error
@@ -267,8 +277,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
-        return self._validate_create_net_partition(ent["name"],
-                                                   context.session)
+        return self._validate_create_net_partition(context, ent["name"])
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
