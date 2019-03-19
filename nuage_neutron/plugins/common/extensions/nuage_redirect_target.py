@@ -17,7 +17,6 @@ import netaddr
 from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import base
-from neutron.quota import resource_registry
 from neutron_lib.api import extensions as api_extensions
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as nexception
@@ -266,7 +265,6 @@ class Nuage_redirect_target(api_extensions.ExtensionDescriptor):
                               'nuage_redirect_target_vip']:
             collection_name = resource_name.replace('_', '-') + "s"
             params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-            resource_registry.register_resource_by_name(resource_name)
             controller = base.create_resource(collection_name,
                                               resource_name,
                                               plugin, params, allow_bulk=True)
