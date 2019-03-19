@@ -14,6 +14,8 @@
 
 import copy
 from logging import handlers
+import re
+
 import netaddr
 
 from oslo_config import cfg
@@ -81,6 +83,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
     def get_plugin_description(self):
         return "Plugin providing support for routers and floatingips."
+
+    @staticmethod
+    def _is_resource_name_ok(name):
+        if re.search(r'[\a,\b,\f,\n,\r,\t,\v]', name) is None:
+            return True
+        return False
 
     def init_fip_rate_log(self):
         self.def_fip_rate = cfg.CONF.FIPRATE.default_fip_rate
@@ -637,6 +645,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def create_router(self, context, router):
+        if 'name' in router['router']:
+            if not self._is_resource_name_ok(router['router']['name']):
+                msg = _('router name contains invalid characters.')
+                raise nuage_exc.NuageBadRequest(msg=msg)
+
         routing_mechanisms.update_routing_values(router['router'])
 
         req_router = copy.deepcopy(router['router'])
@@ -690,6 +703,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def update_router(self, context, id, router):
         updates = router['router']
+        if 'name' in updates:
+            if not self._is_resource_name_ok(updates['name']):
+                msg = _('router name contains invalid characters.')
+                raise nuage_exc.NuageBadRequest(msg=msg)
+
         original_router = self.get_router(context, id)
         self._validate_update_router(context, id, updates)
         routing_mechanisms.update_routing_values(updates, original_router)
