@@ -753,9 +753,16 @@ class NuageStaticRoute(NuageResource):
     def extra_headers_get(self):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "address IS '%s' and nextHopIp IS '%s'" %\
-                                    (self.create_params['address'],
-                                     self.create_params['nexthop'])
+        if self.create_params['ip_type'] == constants.IPV4_VERSION:
+            headers['X-Nuage-Filter'] = (
+                "address IS '{}' and nextHopIp IS '{}'".format(
+                    str(self.create_params['cidr'].ip),
+                    self.create_params['nexthop']))
+        else:
+            headers['X-Nuage-Filter'] = (
+                "IPv6Address IS '{}' and nextHopIp IS '{}'".format(
+                    str(self.create_params['cidr']),
+                    self.create_params['nexthop']))
         return headers
 
 
