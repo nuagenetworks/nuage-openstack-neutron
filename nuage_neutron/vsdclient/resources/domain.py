@@ -396,30 +396,23 @@ class NuageDomain(object):
                     static_route['nuage_static_route_id']), '')
 
     def get_nuage_static_route(self, params):
+        cidr = netaddr.IPNetwork(params['address'])
         req_params = {
-            'address': params['address'],
+            'cidr': cidr,
             'nexthop': params['nexthop'],
-            'domain_id': params['nuage_domain_id']
+            'domain_id': params['nuage_domain_id'],
+            'ip_type': cidr.ip.version
         }
 
         static_route = nuagelib.NuageStaticRoute(create_params=req_params)
-        nuage_extra_headers = static_route.extra_headers_get()
-
-        response = self.restproxy.rest_call(
-            'GET', static_route.get_resources_of_domain(), '',
-            extra_headers=nuage_extra_headers)
-
-        if not static_route.validate(response):
-            raise static_route.get_rest_proxy_error()
-
-        if len(response[3]) > 0:
-            ret = {
-                'nuage_zone_id': response[3][0]['ID'],
-                'nuage_static_route_id': response[3][0]['ID'],
-                'rd': response[3][0]['routeDistinguisher']
-            }
-
-            return ret
+        static_route = self.restproxy.get(
+            static_route.get_resources_of_domain(),
+            extra_headers=static_route.extra_headers_get())
+        return {
+            'nuage_zone_id': static_route[0]['ID'],
+            'nuage_static_route_id': static_route[0]['ID'],
+            'rd': static_route[0]['routeDistinguisher']
+        } if static_route else None
 
     def create_nuage_staticroute(self, params):
         ipv6_net = ipv4_net = None
