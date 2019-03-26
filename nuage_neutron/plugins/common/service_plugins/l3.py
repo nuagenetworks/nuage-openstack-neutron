@@ -625,7 +625,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         for route in router.get('routes', []):
             params = {
-                'address': route['destination'].split("/")[0],
+                'address': route['destination'],
                 'nexthop': route['nexthop'],
                 'nuage_domain_id': nuage_router['ID']
             }
@@ -799,10 +799,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         self.vsdclient.create_nuage_staticroute(params)
 
     def _delete_nuage_static_route(self, nuage_domain_id, route):
-        destaddr = route['destination']
-        cidr = destaddr.split('/')
         params = {
-            "address": cidr[0],
+            "address": route['destination'],
             "nexthop": route['nexthop'],
             "nuage_domain_id": nuage_domain_id
         }
