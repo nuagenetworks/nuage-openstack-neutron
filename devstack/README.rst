@@ -51,4 +51,3 @@ Add the following settings to your local.conf::
     enable_plugin networking-bgpvpn git://git.openstack.org/openstack/networking-bgpvpn.git
     NETWORKING_BGPVPN_DRIVER="BGPVPN:Nuage:nuage_neutron.bgpvpn.services.service_drivers.driver.NuageBGPVPNDriver:default"
 
-
