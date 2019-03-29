@@ -68,6 +68,7 @@
     sriov:
       jobs:
         - legacy-tempest-aio-sriov
+        - legacy-tempest-aio-sriov-allow-existing-flat-vlan
     agent:
       jobs:
         - legacy-tempest-aio-agent
@@ -189,6 +190,12 @@
       - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
       - openstack/tempest
+
+- job:
+    name: legacy-tempest-aio-sriov-allow-existing-flat-vlan
+    parent: legacy-tempest-aio-sriov
+    vars:
+      job_flavor: sriov-allow-existing-flat-vlan
 
 - job:
     name: legacy-tempest-aio-agent
