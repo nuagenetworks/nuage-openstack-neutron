@@ -92,29 +92,21 @@
         - legacy-tempest-aio-full:
             branches:
               - stable/newton
-              - stable/ocata
-              - stable/pike
               - stable/queens
               - stable/rocky
+              - stable/stein
+              - master
         - legacy-tempest-aio-legacy-pat:  # using legacy PAT model
             #                            -- hoped for to remove soon (6.0)
             branches:
               - stable/newton
-              - stable/queens  # limit to few branches
         - legacy-tempest-aio-upstream:
             branches:
               - stable/newton
-              - stable/ocata
-              - stable/pike
               - stable/queens
               - stable/rocky
-        - legacy-tempest-aio-full-vsp-0.0:
-            branches:
+              - stable/stein
               - master
-        - legacy-tempest-aio-upstream-vsp-0.0:
-            branches:
-              - master
-
 - job:
     name: legacy-tempest-aio-base
     parent: legacy-dsvm-base

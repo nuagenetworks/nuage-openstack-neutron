@@ -1,0 +1,8 @@
+[run]
+branch = True
+source = nuage_neutron
+omit = nuage_neutron/tests/*
+
+[report]
+ignore_errors = True
+
