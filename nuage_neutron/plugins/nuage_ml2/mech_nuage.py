@@ -26,6 +26,7 @@ from neutron._i18n import _
 from neutron.api import extensions as neutron_extensions
 from neutron.db import agents_db
 from neutron.db import db_base_plugin_v2
+from neutron.db import provisioning_blocks
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import port_security as portsecurity
@@ -33,6 +34,7 @@ from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as os_constants
+from neutron_lib import context as n_context
 from neutron_lib.exceptions import PortInUse
 from neutron_lib.exceptions import SubnetNotFound
 from neutron_lib.plugins.ml2 import api
@@ -1096,12 +1098,64 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         self._delete_gateway_port(db_context, context.nuage_ports)
 
+    def _is_port_provisioning_required(self, db_context, port, host):
+        vnic_type = port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)
+
+        if vnic_type not in self._supported_vnic_types():
+            LOG.debug('No provisioning block for port %(port_id)s due to '
+                      'unsupported vnic_type: %(vnic_type)s',
+                      {'port_id': port['id'], 'vnic_type': vnic_type})
+            return False
+
+        if port['status'] == os_constants.PORT_STATUS_ACTIVE:
+            LOG.debug('No provisioning block for port %s since it is active',
+                      port['id'])
+            return False
+
+        if not host:
+            LOG.debug('No provisioning block for port %s since it does not '
+                      'have a host', port['id'])
+            return False
+
+        if not self._is_port_vxlan_supported(port, db_context):
+            LOG.debug('No provisioning block for port %s since it will not '
+                      'be handled by driver', port['id'])
+            return False
+
+        return True
+
+    def _insert_port_provisioning_block(self, context, port_id):
+        # Insert a provisioning block to prevent the port from
+        # transitioning to active until Nuage driver reports back
+        # that the port is up.
+        provisioning_blocks.add_provisioning_component(
+            context, port_id, resources.PORT,
+            provisioning_blocks.L2_AGENT_ENTITY
+        )
+
+    def _notify_port_provisioning_complete(self, port_id):
+        """Notifies Neutron that the provisioning is complete for port."""
+        if provisioning_blocks.is_object_blocked(
+                n_context.get_admin_context(), port_id, resources.PORT):
+            provisioning_blocks.provisioning_complete(
+                n_context.get_admin_context(), port_id, resources.PORT,
+                provisioning_blocks.L2_AGENT_ENTITY)
+
+    @handle_nuage_api_errorcode
+    @utils.context_log
+    def create_port_precommit(self, context):
+        if self._is_port_provisioning_required(context._plugin_context,
+                                               context.current, context.host):
+            self._insert_port_provisioning_block(context._plugin_context,
+                                                 context.current['id'])
+
     @handle_nuage_api_errorcode
     @utils.context_log
     def create_port_postcommit(self, context):
         self._create_port(context._plugin_context,
                           context.current,
                           context.network)
+        self._notify_port_provisioning_complete(context.current['id'])
 
     def _create_port(self, db_context, port, network):
         is_network_external = network._network.get('router:external')
@@ -1118,6 +1172,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         del port[attribute]
             LOG.warn('no subnet_mapping')
             return
+
         nuage_vport = nuage_vm = np_name = None
         np_id = subnet_mapping['net_partition_id']
         nuage_subnet = self._find_vsd_subnet(db_context, subnet_mapping)
@@ -1190,6 +1245,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         port = context.current
         original = context.original
 
+        if self._is_port_provisioning_required(context._plugin_context,
+                                               port, context.host):
+            self._insert_port_provisioning_block(db_context,
+                                                 port['id'])
         is_network_external = context.network._network.get('router:external')
         self._check_fip_on_port_with_multiple_ips(db_context, port)
 
@@ -1303,6 +1362,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
                     rollback[0](*rollback[1], **rollback[2])
+
+    @handle_nuage_api_errorcode
+    @utils.context_log
+    def update_port_postcommit(self, context):
+        self._notify_port_provisioning_complete(context.current['id'])
 
     def rollback_deleted_vips(self, data, new_ipv4_ip, nuage_vip_dict,
                               nuage_vport, port, subnet_mapping):
@@ -1515,8 +1579,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             if self._check_segment(segment):
                 context.set_binding(segment[api.ID],
                                     portbindings.VIF_TYPE_OVS,
-                                    {portbindings.CAP_PORT_FILTER: False},
-                                    os_constants.PORT_STATUS_ACTIVE)
+                                    {portbindings.CAP_PORT_FILTER: False})
+                break
 
     @staticmethod
     def _network_no_action(original, update):
