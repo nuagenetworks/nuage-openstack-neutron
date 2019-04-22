@@ -89,24 +89,8 @@
         - legacy-tempest-aio-upstream
     periodic:
       jobs:
-        - legacy-tempest-aio-full:
-            branches:
-              - stable/newton
-              - stable/queens
-              - stable/rocky
-              - stable/stein
-              - master
-        - legacy-tempest-aio-legacy-pat:  # using legacy PAT model
-            #                            -- hoped for to remove soon (6.0)
-            branches:
-              - stable/newton
-        - legacy-tempest-aio-upstream:
-            branches:
-              - stable/newton
-              - stable/queens
-              - stable/rocky
-              - stable/stein
-              - master
+        - legacy-tempest-aio-full
+        - legacy-tempest-aio-upstream
 - job:
     name: legacy-tempest-aio-base
     parent: legacy-dsvm-base
