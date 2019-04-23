@@ -87,7 +87,7 @@ class NuageGatewayDriverBridge(base_plugin.RootNuagePlugin,
             params)
         LOG.debug("created vport: %(vport_dict)s",
                   {'vport_dict': vport})
-        if (vsd_port['personality'] == 'VSG' and
+        if (vsd_port['personality'] != 'VRSG' and
                 port.get(portsecurity.PORTSECURITY)):
             LOG.warn("Port %(port)s has %(attr)s set to True. But source "
                      "address spoofing will be allowed for the bridge "
