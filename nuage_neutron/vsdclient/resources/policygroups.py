@@ -1008,9 +1008,8 @@ class NuagePolicyGroups(object):
     def create_policygroup_default_allow_any_rule(self, l2dom_id, rtr_id,
                                                   neutron_subnet, gw_type,
                                                   pg_name=None):
-        sg_type = constants.SOFTWARE
-        if gw_type == "VSG":
-            sg_type = constants.HARDWARE
+        sg_type = (constants.SOFTWARE if gw_type in constants.SW_GW_TYPES
+                   else constants.HARDWARE)
         params = {
             'nuage_router_id': rtr_id,
             'nuage_l2dom_id': l2dom_id,
