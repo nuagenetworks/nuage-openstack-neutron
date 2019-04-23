@@ -41,6 +41,19 @@ class NuageGateway(object):
                                               policygroups)
         self.policygroup = policygroups
 
+    @staticmethod
+    def is_sw_gateway(gateway):
+        return gateway['personality'] in constants.SW_GW_TYPES
+
+    @staticmethod
+    def is_hw_gateway(gateway):
+        return gateway['personality'] not in constants.SW_GW_TYPES
+
+    @staticmethod
+    def get_personality_type(personality):
+        return (constants.SOFTWARE if personality in constants.SW_GW_TYPES
+                else constants.HARDWARE)
+
     def get_gateways(self, tenant_id, filters):
         extra_params = dict()
         extra_headers = dict()
@@ -74,8 +87,8 @@ class NuageGateway(object):
                 res_url = nuage_gw.get_resource()
             gws = self.restproxy.get(res_url, extra_headers=extra_headers)
             for gw in gws:
-                if gw and gw['personality'] == constants.GW_TYPE['VRSG'] and \
-                   (gw.get('redundancyGroupID') or gw.get('pending')):
+                if (gw and self.is_sw_gateway(gw) and
+                        (gw.get('redundancyGroupID') or gw.get('pending'))):
                     LOG.debug("Gateway %s is part of redundancy group"
                               " or in pending state",
                               gw['ID'])
@@ -105,19 +118,17 @@ class NuageGateway(object):
                 return [port]
 
         if 'id' in filters:
-            port = gw_helper.get_gateway_port(self.restproxy, filters['id'][
-                0])
-
+            port = gw_helper.get_gateway_port(self.restproxy, filters['id'][0])
             if not port:
                 return []
             else:
                 return [port]
 
         if 'gateway' in filters and 'gatewayport' in filters:
-            # We dont't need the gateway that is being passed in
+            # We don't need the gateway that is being passed in
             port = gw_helper.get_gateway_port(self.restproxy,
-                                              filters['gatewayport'][0])
-
+                                              filters['gatewayport'][0],
+                                              gw_id=filters['gateway'][0])
             if not port:
                 return []
             else:
@@ -326,8 +337,7 @@ class NuageGateway(object):
             gw_port_perm = gw_helper.get_ent_permission_on_port(
                 self.restproxy,
                 gw_port_id,
-                (gw['redundant'] and
-                 gw['personality'] == constants.GW_TYPE['VSG']))
+                self.is_hw_gateway(gw) and gw['redundant'])
             if gw_port_perm and (gw_port_perm['permittedEntityID'] !=
                                  netpart_id):
                 msg = (_("Non default enterprise %(ent)s has permission for "
@@ -345,9 +355,12 @@ class NuageGateway(object):
         # Confirm that the gatewayport belongs to the gateway
         gw_port = gw_helper.get_gateway_port(self.restproxy, gw_port_id, gw_id)
         if not gw_port:
-            msg = (_("Port %(port)s not found on gateway %(gw)s")
-                   % {'port': gw_port_id,
-                      'gw': gw_id})
+            if gw_id:
+                msg = (_("Port %(port)s not found on gateway %(gw)s")
+                       % {'port': gw_port_id,
+                          'gw': gw_id})
+            else:
+                msg = (_("Port %(port)s not found") % {'port': gw_port_id})
             raise restproxy.RESTProxyError(msg)
 
         if not gw_id:
@@ -461,7 +474,8 @@ class NuageGateway(object):
                 return True
 
         # Get ent permissions on gateway
-        gw_port = gw_helper.get_gateway_port(self.restproxy, gw_port_id)
+        gw_port = gw_helper.get_gateway_port(self.restproxy, gw_port_id,
+                                             gw_port['parentID'])
         if not gw_port:
             msg = (_("Port %s not found on gateway ", gw_port_id))  # noqa H702
             raise restproxy.RESTProxyError(msg)
@@ -709,12 +723,7 @@ class NuageGateway(object):
                                                     req_params, type)
 
         ret = resp
-        # Determine the vport_gw_type
-        if gw['personality'] == constants.GW_TYPE['VSG']:
-            ret['vport_gw_type'] = constants.HARDWARE
-        else:
-            ret['vport_gw_type'] = constants.SOFTWARE
-
+        ret['vport_gw_type'] = self.get_personality_type(gw['personality'])
         return ret
 
     def create_gateway_vport_no_usergroup(self, tenant_id, params,
@@ -748,7 +757,7 @@ class NuageGateway(object):
             # Give permissions for the enterprise
             self.add_ent_perm(tenant_id, params['gatewayinterface'],
                               params['np_id'])
-        ret = dict()
+
         if type == constants.BRIDGE_VPORT_TYPE:
             req_params[constants.PORTSECURITY] = True
             resp = gw_helper.create_vport_interface(self.restproxy,
@@ -777,12 +786,7 @@ class NuageGateway(object):
                                                     create_policy_group)
 
         ret = resp
-        # Determine the vport_gw_type
-        if params['personality'] == constants.GW_TYPE['VSG']:
-            ret['vport_gw_type'] = constants.HARDWARE
-        else:
-            ret['vport_gw_type'] = constants.SOFTWARE
-
+        ret['vport_gw_type'] = self.get_personality_type(params['personality'])
         return ret
 
     def _delete_policygroup(self, interface, policygroup_id):

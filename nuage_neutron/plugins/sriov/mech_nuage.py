@@ -386,11 +386,14 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 segmentation_id)
             if len(vports) == 0:
                 port_id = gwport['port_id']
+                any_hw_personality = 'VSG'  # don't care which,
+                #                             as long as it is a HW one
                 params = {
                     'gatewayport': port_id,
                     'value': segmentation_id,
                     'redundant': gwport['redundant'],
-                    'personality': 'VSG'
+                    'personality': any_hw_personality  # the actual one doesn't
+                    #                                    matter
                 }
                 vlan = self.vsdclient.create_gateway_vlan(params)
                 LOG.debug("created vlan: %(vlan_dict)s", {'vlan_dict': vlan})
@@ -404,7 +407,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     'nuage_managed_subnet':
                         port_dict['subnet_mapping']['nuage_managed_subnet'],
                     'port_security_enabled': False,
-                    'personality': 'VSG',
+                    'personality': any_hw_personality,
                     'type': nuage_const.BRIDGE_VPORT_TYPE
                 }
                 vsd_subnet = self.vsdclient \
