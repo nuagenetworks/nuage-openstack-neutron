@@ -38,11 +38,11 @@ def _create_policygroup_for_vport(gw_type, subn_id, rtr_id, neutron_subnet,
     if nuage_policygroup:
         nuage_policygroup_id = nuage_policygroup[0]
         if (nuage_policygroup[1] == constants.HARDWARE and
-                gw_type == constants.GW_TYPE['VSG']):
-            # policygroup for vsg already exists
+                gw_type not in constants.SW_GW_TYPES):
+            # policygroup for vsg/wbx already exists
             create_policygroup = False
         elif (nuage_policygroup[1] == constants.SOFTWARE and
-                gw_type == constants.GW_TYPE['VRSG']):
+                gw_type in constants.SW_GW_TYPES):
             # policygroup for vrsg already exists
             create_policygroup = False
 
@@ -76,9 +76,8 @@ def _add_policy_group_for_port_sec(gw_type, subn_id, rtr_id, pg_obj,
         'l2dom_id': subn_id,
         'rtr_id': rtr_id,
         'type': constants.HOST_VPORT_TYPE,
-        'sg_type': (constants.HARDWARE
-                    if gw_type == constants.GW_TYPE['VSG']
-                    else constants.SOFTWARE)
+        'sg_type': (constants.SOFTWARE if gw_type in constants.SW_GW_TYPES
+                    else constants.HARDWARE)
     }
     pg_id = pg_obj.create_nuage_sec_grp_for_port_sec(params)
     if pg_id:
@@ -265,13 +264,27 @@ def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
     if '/' in gw_port_id:
         return
 
-    req_params = {
-        'port_id': gw_port_id,
-        'personality': constants.GW_TYPE['VSG']
-    }
     parent_id = None
+    nuage_gw_port = None
+    response = None
+    any_hw_personality = 'VSG'  # don't care which, as long as it is a HW one
+
+    # -------------------------------------------------------------------------
+    # Below loop iterates over non-redundant or redundant gw ports.
+    #
+    # When non-redundant, endpoint is always /ports.
+    # When redundant, for HW, endpoint is /vsgredundantports, for SW it is
+    # /ports. Hence, when we set personality to HW and loop over both
+    # redundancy modes, we cover all cases.
+    #
+    # If this invariant ever changes, we need a nested loop, looping over
+    # personalities, and inside, loop over redundancy modes
+    # -------------------------------------------------------------------------
     for nuage_gw_port in [nuagelib.NuageGatewayPortBase.factory(
-            create_params=req_params,
+            create_params={
+                'port_id': gw_port_id,
+                'personality': any_hw_personality
+            },
             extra_params=None,
             redundant=redundant) for redundant in [False, True]]:
 
@@ -280,12 +293,16 @@ def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
         if nuage_gw_port.get_validate(response):
             parent_id = nuage_gw_port.get_response_parentid(response)
             break
-    if not parent_id:
-        err_code = nuage_gw_port.get_error_code(response)
-        if err_code == constants.RES_NOT_FOUND:
-            return []
 
-        raise nuage_gw_port.get_rest_proxy_error()
+    if not parent_id:
+        if not nuage_gw_port:
+            return []
+        else:
+            err_code = nuage_gw_port.get_error_code(response)
+            if err_code == constants.RES_NOT_FOUND:
+                return []
+            raise nuage_gw_port.get_rest_proxy_error()
+
     if gw_id:
         if parent_id == gw_id:
             return nuage_gw_port.get_response_obj(response)
