@@ -110,11 +110,8 @@ SOFTWARE = 'SOFTWARE'
 HARDWARE = 'HARDWARE'
 INTERCONNECT = 'INTERCONNECT'
 VPORT = 'VPORT'
-GW_TYPE = {
-    'VSG': 'VSG',
-    'VSA': 'VSA',
-    'VRSG': 'VRSG'
-}
+SW_GW_TYPES = ['VRSG', 'VRSB']
+# HW_GW_TYPES = ... all the rest, no need to hardcode here
 VSD_TUNNEL_TYPES = {
     'VXLAN': 'VXLAN',
     'GRE': 'GRE',
