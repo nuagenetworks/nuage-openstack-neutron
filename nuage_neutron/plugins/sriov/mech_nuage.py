@@ -387,11 +387,14 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 segmentation_id)
             if len(vports) == 0:
                 port_id = gwport['port_id']
+                any_hw_personality = 'VSG'  # don't care which,
+                #                             as long as it is a HW one
                 params = {
                     'gatewayport': port_id,
                     'value': segmentation_id,
                     'redundant': gwport['redundant'],
-                    'personality': 'VSG'
+                    'personality': any_hw_personality  # the actual one doesn't
+                    #                                    matter
                 }
                 try:
                     vlan = self.vsdclient.create_gateway_vlan(params)
@@ -399,7 +402,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                               {'vlan_dict': vlan})
                 except ResourceExistsException:
                     allow_flat = self.conf.nuage_sriov.allow_existing_flat_vlan
-                    if (segmentation_id == 0 and allow_flat):
+                    if segmentation_id == 0 and allow_flat:
                         LOG.info('Reusing existing vlan due to '
                                  'allow_existing_flat_vlan=%s', allow_flat)
                         return
@@ -415,7 +418,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     'nuage_managed_subnet':
                         port_dict['subnet_mapping']['nuage_managed_subnet'],
                     'port_security_enabled': False,
-                    'personality': 'VSG',
+                    'personality': any_hw_personality,
                     'type': nuage_const.BRIDGE_VPORT_TYPE
                 }
                 vsd_subnet = self.vsdclient \

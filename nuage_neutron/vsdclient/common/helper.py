@@ -39,7 +39,7 @@ VSD_RESP_OBJ = constants.VSD_RESP_OBJ
 
 LOG = logging.getLogger(__name__)
 
-# This is global defination of the local cache that we gonna keep
+# This is global definition of the local cache that we gonna keep
 cache = {}
 
 
