@@ -35,13 +35,15 @@ if [[ "$1" == "stack" ]]; then
         setup_develop $NUAGE_OPENSTACK_NEUTRON_DIR
 
     elif [[ "$2" == "post-config" ]]; then
-        mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
-        configure_neutron_nuage
-        configure_networking_sfc_policy
-        configure_nova_nuage
-        if [[ "${NUAGE_USE_SWITCHDEV}" == "True" ]]; then
-            cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_switchdev_policy.json $NEUTRON_CONF_DIR/policy.d
+        if is_service_enabled q-svc; then
+            mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
+            configure_neutron_nuage
+            configure_networking_sfc_policy
+            if [[ "${NUAGE_USE_SWITCHDEV}" == "True" ]]; then
+                cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_switchdev_policy.json $NEUTRON_CONF_DIR/policy.d
+            fi
         fi
+        configure_nova_nuage
         if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
             # Tweak the chain for nuage metadata proxy.
             sudo iptables -I openstack-INPUT 1 -i ${OVS_BRIDGE} -j ACCEPT || :
