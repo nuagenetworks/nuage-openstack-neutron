@@ -51,7 +51,7 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             msg = (_("No gateway port found %s")
                    % filters['name'][0])
             raise nuage_exc.NuageBadRequest(msg=msg)
-        return (gw_ports[0].get('gw_port_id'), gws[0]['gw_redundant'])
+        return gw_ports[0].get('gw_port_id'), gws[0]['gw_redundant']
 
     @log_helpers.log_method_call
     def create_switchport_mapping(self, context, switchport_mapping):
