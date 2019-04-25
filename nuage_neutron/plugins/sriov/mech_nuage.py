@@ -15,6 +15,7 @@
 import inspect
 import netaddr
 
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron._i18n import _
@@ -35,9 +36,18 @@ from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
 from nuage_neutron.plugins.sriov import trunk_driver
+from nuage_neutron.vsdclient.restproxy import ResourceExistsException
 
 
 LOG = logging.getLogger(__name__)
+
+driver_opts = [
+    cfg.BoolOpt('allow_existing_flat_vlan', default=False,
+                help=_("Set to true to enable driver to complete port "
+                       "binding on flat networks, when corresponding"
+                       "GW port has vlan 0 provisioned by external entity"))]
+
+cfg.CONF.register_opts(driver_opts, "nuage_sriov")
 
 
 class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
@@ -53,6 +63,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         self._wrap_vsdclient()
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         self.vif_details = {portbindings.CAP_PORT_FILTER: True}
+        self.conf = cfg.CONF
         LOG.debug('Initializing complete')
 
     def _wrap_vsdclient(self):
@@ -127,20 +138,13 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         original = context.original
         if not self.is_port_supported(port):
             return
-        host_added = host_removed = host_changed = False
-        if not original['binding:host_id'] and port['binding:host_id']:
-            host_added = True
-        elif original['binding:host_id'] and not port['binding:host_id']:
+        host_removed = host_changed = False
+        if original['binding:host_id'] and not port['binding:host_id']:
             host_removed = True
         elif original['binding:host_id'] != port['binding:host_id']:
             host_changed = True
-
         if host_removed or host_changed:
-            self._delete_port(port)
-        if host_added:
-            port_dict = self._make_port_dict(context)
-            if port_dict:
-                self._update_port(port_dict)
+                self._delete_port(context)
 
     @utils.context_log
     def delete_port_precommit(self, context):
@@ -148,7 +152,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         if not self.is_port_supported(context.current):
             return
         try:
-            self._delete_port(context.current)
+                self._delete_port(context)
         except Exception as e:
             LOG.error("Failed to delete vport from vsd {port id: %s}",
                       context.current['id'])
@@ -359,23 +363,6 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
             port_params,
             required=required)
 
-    def _create_nuage_vlan(self, port_dict):
-        """Create a vlan on VSD"""
-        tenant_id = port_dict['port'].tenant_id
-        gw_ports = port_dict['port']['link_info']
-        segmentation_id = port_dict['segmentation_id']
-        for gwport in gw_ports:
-            port_id = gwport['port_id']
-            gw_port = self.vsdclient.get_gateway_port(tenant_id,
-                                                      port_id)
-            LOG.debug("got gatewayport: %(gw_port)s", {'gw_port': gw_port})
-            params = {
-                'gatewayport': port_id,
-                'value': segmentation_id
-            }
-            vlan = self.vsdclient.create_gateway_port_vlan(params)
-            LOG.debug("created vlan: %(vlan)s", {'vlan': vlan})
-
     def _create_nuage_bridge_vport(self, port_dict):
         """Create a BRIDGE VPort on VSD"""
         port = port_dict['port']
@@ -407,8 +394,18 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     'redundant': gwport['redundant'],
                     'personality': 'VSG'
                 }
-                vlan = self.vsdclient.create_gateway_vlan(params)
-                LOG.debug("created vlan: %(vlan_dict)s", {'vlan_dict': vlan})
+                try:
+                    vlan = self.vsdclient.create_gateway_vlan(params)
+                    LOG.debug("created vlan: %(vlan_dict)s",
+                              {'vlan_dict': vlan})
+                except ResourceExistsException:
+                    allow_flat = self.conf.nuage_sriov.allow_existing_flat_vlan
+                    if (segmentation_id == 0 and allow_flat):
+                        LOG.info('Reusing existing vlan due to '
+                                 'allow_existing_flat_vlan=%s', allow_flat)
+                        return
+                    else:
+                        raise
                 # create dummy subnet - we need only id
                 params = {
                     'gatewayinterface': vlan['ID'],
@@ -461,22 +458,22 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
             return portbindings.VIF_TYPE_BINDING_FAILED
         return portbindings.VIF_TYPE_HW_VEB
 
-    def _delete_port(self, port):
+    def _delete_port(self, context):
         """delete_port. This call makes the REST request to VSD
 
         for un provision VLAN/VPort for the gateway port where
         sriov instance is connected.
         """
-
+        port = context.current
+        db_context = context._plugin_context
         LOG.debug("delete_port with port_id %(port_id)s",
                   {'port_id': port['id']})
-        ctx = neutron_context.get_admin_context()
         binding = ext_db.get_switchport_binding_by_neutron_port(
-            ctx, port['id'])
+            db_context, port['id'])
         if not binding:
             return
         bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
-            ctx, binding['switchport_uuid'],
+            db_context, binding['switchport_uuid'],
             binding['segmentation_id'])
         if len(bindings) == 1:
             vport = self.vsdclient.get_nuage_vport_by_id(
@@ -494,31 +491,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                               {'vlan': vport['VLANID']})
                     self.vsdclient.delete_gateway_port_vlan(
                         vport['VLANID'])
-        ext_db.delete_switchport_binding(ctx, port['id'],
+        ext_db.delete_switchport_binding(db_context, port['id'],
                                          binding['segmentation_id'])
-
-    def _update_port(self, port_map):
-        """update_port. This call makes the REST request to VSD
-
-        for (un)provision VLAN/VPort on gateway port where sriov instance
-        is connected.
-        """
-
-        LOG.debug("update_port with port dict %(port)s",
-                  {'port': port_map})
-        vport = self._get_nuage_vport(port_map, False)
-        # gridinv: will be called typically when ironic will
-        # update instance port in tenant network with proper binding
-        # at this point we will have a VM vport existing in VSD which
-        # needs to be cleaned up
-        if vport and vport['type'] == nuage_const.VM_VPORT:
-            try:
-                self.vsdclient.delete_nuage_vport(
-                    vport['ID'])
-            except Exception as e:
-                LOG.error("Failed to delete vport from vsd {vport id: %s}",
-                          vport['ID'])
-                raise e
 
     def check_vlan_transparency(self, context):
         """Nuage driver vlan transparency support."""

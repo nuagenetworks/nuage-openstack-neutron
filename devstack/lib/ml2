@@ -43,6 +43,10 @@ function configure_neutron_nuage {
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
 
+    # [nuage_sriov]
+    iniset $NUAGE_PLUGIN_CONF_FILE nuage_sriov allow_existing_flat_vlan $NUAGE_SRIOV_ALLOW_EXISTING_FLAT_VLAN
+
+
     if ! is_service_enabled q-dhcp ; then
         iniset $NEUTRON_CONF DEFAULT dhcp_agent_notification False
     fi
