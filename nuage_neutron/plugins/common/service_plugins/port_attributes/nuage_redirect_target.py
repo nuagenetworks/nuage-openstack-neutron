@@ -131,7 +131,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             res['ports'] = redirect_target['ports']
         if context:
             res['tenant_id'] = context.tenant_id
-        return self.core_plugin._fields(res, fields)
+        return self._fields(res, fields)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -180,7 +180,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
         }
         if context:
             res['tenant_id'] = context.tenant_id
-        return self.core_plugin._fields(res, fields)
+        return self._fields(res, fields)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -278,7 +278,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
         }
         if context:
             res['tenant_id'] = context.tenant_id
-        return self.core_plugin._fields(res, fields)
+        return self._fields(res, fields)
 
     @log_helpers.log_method_call
     def _validate_nuage_redirect_target_rule(self, rule):
