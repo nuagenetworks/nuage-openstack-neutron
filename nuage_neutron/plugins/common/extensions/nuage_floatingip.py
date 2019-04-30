@@ -22,12 +22,6 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 
 
-def convert_default_to_default_value(data):
-    if data in ['default', 'DEFAULT']:
-        return cfg.CONF.FIPRATE.default_fip_rate
-    return data
-
-
 def convert_egress_default_to_default_value(data):
     if data in ['default', 'DEFAULT']:
         return cfg.CONF.FIPRATE.default_egress_fip_rate_kbps
@@ -73,10 +67,6 @@ def fip_value_validator(fip_value, attribute, units='mbps'):
         raise nuage_exc.NuageBadRequest(msg=msg)
 
 
-def fip_rate_limit_validation(data, valid_values=None):
-    fip_value_validator(data, "nuage_fip_rate")
-
-
 def egress_limit_validation_kbps(data, valid_values=None):
     fip_value_validator(data, "nuage_egress_fip_rate_kbps", units='kbps')
 
@@ -85,7 +75,6 @@ def ingress_limit_validation_kbps(data, valid_values=None):
     fip_value_validator(data, "nuage_ingress_fip_rate_kbps", units='kbps')
 
 
-lib_validators.add_validator('type:fip_rate_valid', fip_rate_limit_validation)
 lib_validators.add_validator('type:egress_rate_valid_kbps',
                              egress_limit_validation_kbps)
 lib_validators.add_validator('type:ingress_rate_valid_kbps',
@@ -94,15 +83,6 @@ lib_validators.add_validator('type:ingress_rate_valid_kbps',
 
 EXTENDED_ATTRIBUTES_2_0 = {
     'floatingips': {
-        'nuage_fip_rate': {
-            'allow_post': True,
-            'allow_put': True,
-            'is_visible': True,
-            'default': lib_constants.ATTR_NOT_SPECIFIED,
-            'validate': {'type:fip_rate_valid': None},
-            'convert_to': convert_default_to_default_value,
-            'enforce_policy': True
-        },
         'nuage_ingress_fip_rate_kbps': {
             'allow_post': True,
             'allow_put': True,
