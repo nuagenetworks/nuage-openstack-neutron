@@ -84,13 +84,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return "Plugin providing support for routers and floatingips."
 
     def init_fip_rate_log(self):
-        self.def_fip_rate = cfg.CONF.FIPRATE.default_fip_rate
         self.def_ingress_rate_kbps = (
             cfg.CONF.FIPRATE.default_ingress_fip_rate_kbps)
         self.def_egress_rate_kbps = (
             cfg.CONF.FIPRATE.default_egress_fip_rate_kbps)
 
-        self._validate_fip_rate_value(self.def_fip_rate, 'default_fip_rate')
         self._validate_fip_rate_value(self.def_ingress_rate_kbps,
                                       'default_ingress_fip_rate_kbps',
                                       units='kbps')
@@ -111,11 +109,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         else:
             self.fip_rate_log = LOG
 
-    def _validate_fip_rate_value(self, fip_value, attribute, units='mbps'):
+    @staticmethod
+    def _validate_fip_rate_value(fip_value, attribute, units='mbps'):
         if fip_value < -1:
             raise cfg.ConfigFileValueError(_('%s can not be < -1') % attribute)
 
-        if self.def_fip_rate > constants.MAX_VSD_INTEGER:
+        if fip_value > constants.MAX_VSD_INTEGER:
             raise cfg.ConfigFileValueError(_('%(attr)s cannot be > %(max)s') %
                                            {'attr': attribute,
                                             'max': constants.MAX_VSD_INTEGER})
@@ -1055,20 +1054,14 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 nuage_fip_rate, nuage_vport['ID'],
                 neutron_fip['id'])
             for direction, value in six.iteritems(nuage_fip_rate):
-                if 'kbps' in direction:
-                    rate_unit = 'K'
-                    if 'ingress' in direction:
-                        neutron_fip['nuage_ingress_fip_rate_kbps'] = value
-                    else:
-                        neutron_fip['nuage_egress_fip_rate_kbps'] = value
+                if 'ingress' in direction:
+                    neutron_fip['nuage_ingress_fip_rate_kbps'] = value
                 else:
-                    rate_unit = 'M'
-                    neutron_fip['nuage_egress_fip_rate_kbps'] = float(
-                        value) * 1000 if float(value) != -1 else -1
+                    neutron_fip['nuage_egress_fip_rate_kbps'] = value
                 self.fip_rate_log.info(
                     'FIP %s (owned by tenant %s) %s updated to %s %sb/s'
                     % (neutron_fip['id'], neutron_fip['tenant_id'],
-                       direction, value, rate_unit))
+                       direction, value, 'K'))
 
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
@@ -1140,14 +1133,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
     def _get_values_for_fip_rate(self, fip, for_update=False):
         fip_rate_values = {}
-        egress_fip_rate_mbps = fip.get('nuage_fip_rate',
-                                       lib_constants.ATTR_NOT_SPECIFIED)
         ingress_fip_rate_kbps = fip.get('nuage_ingress_fip_rate_kbps',
                                         lib_constants.ATTR_NOT_SPECIFIED)
         egress_fip_rate_kbps = fip.get('nuage_egress_fip_rate_kbps',
                                        lib_constants.ATTR_NOT_SPECIFIED)
-        egress_fip_rate_mbps_configured = (egress_fip_rate_mbps is not
-                                           lib_constants.ATTR_NOT_SPECIFIED)
         egress_fip_rate_kbps_configured = (egress_fip_rate_kbps is not
                                            lib_constants.ATTR_NOT_SPECIFIED)
         ingress_fip_rate_kbps_configured = (ingress_fip_rate_kbps is not
@@ -1155,10 +1144,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         if egress_fip_rate_kbps_configured:
             fip_rate_values['egress_nuage_fip_rate_kbps'] = (
                 egress_fip_rate_kbps)
-            fip_rate_values['cli_configured'] = True
-        elif egress_fip_rate_mbps_configured:
-            fip_rate_values['egress_nuage_fip_rate_mbps'] = (
-                egress_fip_rate_mbps)
             fip_rate_values['cli_configured'] = True
         if ingress_fip_rate_kbps_configured:
             fip_rate_values['ingress_nuage_fip_rate_kbps'] = (
@@ -1169,14 +1154,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         return self._get_missing_rate_values(fip_rate_values)
 
     def _get_missing_rate_values(self, fip_rate_values):
-        if (fip_rate_values.get('egress_nuage_fip_rate_kbps') is None and
-                fip_rate_values.get('egress_nuage_fip_rate_mbps') is None):
+        if fip_rate_values.get('egress_nuage_fip_rate_kbps') is None:
             if self.def_egress_rate_kbps is not None:
                 fip_rate_values['egress_nuage_fip_rate_kbps'] = (
                     self.def_egress_rate_kbps)
-            elif self.def_fip_rate is not None:
-                fip_rate_values['egress_nuage_fip_rate_mbps'] = (
-                    self.def_fip_rate)
         if fip_rate_values.get('ingress_nuage_fip_rate_kbps') is None:
             fip_rate_values['ingress_nuage_fip_rate_kbps'] = (
                 self.def_ingress_rate_kbps)
@@ -1262,20 +1243,14 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 nuage_fip_rate, nuage_vport['ID'],
                 orig_fip['id'])
             for direction, value in six.iteritems(nuage_fip_rate):
-                if 'kbps' in direction:
-                    rate_unit = 'K'
-                    if 'ingress' in direction:
-                        neutron_fip['nuage_ingress_fip_rate_kbps'] = value
-                    else:
-                        neutron_fip['nuage_egress_fip_rate_kbps'] = value
+                if 'ingress' in direction:
+                    neutron_fip['nuage_ingress_fip_rate_kbps'] = value
                 else:
-                    rate_unit = 'M'
-                    neutron_fip['nuage_egress_fip_rate_kbps'] = float(
-                        value) * 1000 if float(value) != -1 else -1
+                    neutron_fip['nuage_egress_fip_rate_kbps'] = value
                 self.fip_rate_log.info(
                     'FIP %s (owned by tenant %s) %s updated to %s %sb/s'
                     % (orig_fip['id'], orig_fip['tenant_id'], direction, value,
-                       rate_unit))
+                       'K'))
             neutron_fip['nuage_fip_rate'] = orig_fip['nuage_fip_rate_values']
         elif not fip_rate_configured:
             neutron_fip = self.get_floatingip(context, id)

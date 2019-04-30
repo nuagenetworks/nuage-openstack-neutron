@@ -73,12 +73,6 @@ restproxy_opts = [
 
 fiprate_opts = [
     cfg.StrOpt('fip_rate_change_log', default=''),
-    cfg.IntOpt('default_fip_rate', default=-1,
-               help=_("FIP rate limit in egress direction in mbs. "
-                      "This option is deprecated in favor of "
-                      "default_egress_fip_rate_kbps and "
-                      "will be removed in a future release."),
-               deprecated_for_removal=True),
     cfg.IntOpt('default_ingress_fip_rate_kbps',
                help=_("FIP rate limit in ingress direction in kbs."),
                default=-1),
