@@ -13,6 +13,7 @@
 #    under the License.
 
 import logging
+
 import netaddr
 try:
     from neutron._i18n import _

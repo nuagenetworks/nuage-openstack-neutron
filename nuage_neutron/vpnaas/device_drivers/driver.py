@@ -15,6 +15,7 @@
 import abc
 import copy
 import os
+
 import oslo_messaging
 import six
 

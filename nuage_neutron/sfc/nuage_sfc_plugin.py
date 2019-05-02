@@ -15,6 +15,8 @@
 
 import binascii
 import copy
+import random
+
 from networking_sfc.services.sfc import plugin as sfc_plugin
 from neutron.services.trunk import constants as t_consts
 from nuage_neutron.plugins.common import base_plugin
@@ -26,7 +28,6 @@ from nuage_neutron.sfc import nuage_sfc_db
 from nuage_neutron.vsdclient.common import cms_id_helper
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
-import random
 
 LOG = logging.getLogger(__name__)
 
@@ -315,17 +316,17 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             msg = "Nuage only supports 'vlan' correlation for port chain."
             raise nuage_exc.NuageBadRequest(msg=msg)
         ppg_value_changed = (True if port_chain_dict.get(
-            'port_pair_groups') and port_chain_dict['port_pair_groups']
-            != original_port_chain['port_pair_groups'] else False)
+            'port_pair_groups') and port_chain_dict['port_pair_groups'] !=
+            original_port_chain['port_pair_groups'] else False)
         flws_value_changed = (True if port_chain_dict.get(
             'flow_classifiers') is not None and
-            port_chain_dict['flow_classifiers']
-            != original_port_chain['flow_classifiers'] else False)
+            port_chain_dict['flow_classifiers'] !=
+            original_port_chain['flow_classifiers'] else False)
         symtric_value_changed = (True if port_chain_dict.get(
             'chain_parameters') is not None and port_chain_dict.get(
             'chain_parameters').get('symmetric') is not None and
-            port_chain_dict['chain_parameters']['symmetric']
-            != original_port_chain['chain_parameters']['symmetric'] else False)
+            port_chain_dict['chain_parameters']['symmetric'] !=
+            original_port_chain['chain_parameters']['symmetric'] else False)
         if (not symtric_value_changed and
                 not flws_value_changed and not ppg_value_changed):
             return super(NuageSFCPlugin, self).update_port_chain(context,
@@ -685,14 +686,14 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                             if direction == 'forward':
                                 nuage_match_info['sourcePort'] = (
                                     str(flow_classifier.get(
-                                        'source_port_range_min'))
-                                    + "-" + str(flow_classifier.get(
+                                        'source_port_range_min')) +
+                                    "-" + str(flow_classifier.get(
                                         'source_port_range_max')))
                             else:
                                 nuage_match_info['sourcePort'] = (
                                     str(flow_classifier.get(
-                                        'destination_port_range_min'))
-                                    + "-" + str(flow_classifier.get(
+                                        'destination_port_range_min')) +
+                                    "-" + str(flow_classifier.get(
                                         'destination_port_range_max')))
                         elif nuage_match_info['protocol'].lower() != 'icmp':
                             nuage_match_info['sourcePort'] = '*'
@@ -700,14 +701,14 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                             if direction == 'forward':
                                 nuage_match_info['destinationPort'] = (
                                     str(flow_classifier.get(
-                                        'destination_port_range_min'))
-                                    + "-" + str(flow_classifier.get(
+                                        'destination_port_range_min')) +
+                                    "-" + str(flow_classifier.get(
                                         'destination_port_range_max')))
                             else:
                                 nuage_match_info['destinationPort'] = (
                                     str(flow_classifier.get(
-                                        'source_port_range_min'))
-                                    + "-" + str(flow_classifier.get(
+                                        'source_port_range_min')) +
+                                    "-" + str(flow_classifier.get(
                                         'source_port_range_max')))
                         elif nuage_match_info['protocol'].lower() != 'icmp':
                             nuage_match_info['destinationPort'] = '*'
@@ -919,8 +920,8 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                 old_nuage_port_ids = []
                 common_ports = ([i for i in new_ports for j
                                  in old_ports if i['id'] == j['id']])
-                if (len(common_ports) == len(new_ports)
-                        and len(common_ports) == len(old_ports)):
+                if (len(common_ports) == len(new_ports) and
+                        len(common_ports) == len(old_ports)):
                     return
                 if common_ports:
                     diff_new_ports = ([i for i in new_ports for j
@@ -1028,15 +1029,15 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         return ingress_ports, egress_ports, one_ingress_egress_port
 
     def _create_port_pair_policy_group(self, policy_group_details):
-            params = {
-                'externalID': policy_group_details['dir_ppg'],
-                'l2dom_id': policy_group_details['l2dom_id'],
-                'rtr_id': policy_group_details['rtr_id'],
-                'type': constants.VM_VPORT,
-                'sg_type': constants.SOFTWARE,
-                'name': policy_group_details['dir_ppg'],
-                'description': policy_group_details['dir_ppg']
-            }
-            nuage_sg_id = (self.vsdclient.
-                           create_nuage_sec_grp_for_sfc(params))
-            return nuage_sg_id
+        params = {
+            'externalID': policy_group_details['dir_ppg'],
+            'l2dom_id': policy_group_details['l2dom_id'],
+            'rtr_id': policy_group_details['rtr_id'],
+            'type': constants.VM_VPORT,
+            'sg_type': constants.SOFTWARE,
+            'name': policy_group_details['dir_ppg'],
+            'description': policy_group_details['dir_ppg']
+        }
+        nuage_sg_id = (self.vsdclient.
+                       create_nuage_sec_grp_for_sfc(params))
+        return nuage_sg_id

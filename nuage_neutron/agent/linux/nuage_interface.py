@@ -13,7 +13,6 @@
 #    under the License.
 #
 import errno
-import six
 import socket
 import sys
 import time
@@ -22,6 +21,7 @@ from neutron._i18n import _
 from neutron.agent.linux.interface import OVSInterfaceDriver
 from oslo_log import log as logging
 from oslo_serialization import jsonutils as json
+import six
 
 import nuage_neutron.agent.linux.exceptions as nuage_exc
 

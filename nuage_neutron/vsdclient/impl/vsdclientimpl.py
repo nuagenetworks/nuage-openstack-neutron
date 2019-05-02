@@ -12,10 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from eventlet.green import threading
 import logging
-import six
 from time import sleep
+
+from eventlet.green import threading
+import six
 
 from nuage_neutron.plugins.common import config as nuage_config
 from nuage_neutron.plugins.common import constants as plugin_constants

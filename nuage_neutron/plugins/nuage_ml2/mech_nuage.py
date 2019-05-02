@@ -13,9 +13,9 @@
 #    under the License.
 
 import inspect
-import netaddr
 import time
 
+import netaddr
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import helpers as log_helpers
@@ -894,8 +894,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                 subnet_info)
             return
 
-        if (self._is_l3(subnet_mapping) and 'gateway_ip' in updated_subnet
-                and not updated_subnet.get('gateway_ip')):
+        if (self._is_l3(subnet_mapping) and 'gateway_ip' in updated_subnet and
+                not updated_subnet.get('gateway_ip')):
             msg = ("Subnet attached to a router interface "
                    "must have a gateway IP")
             raise NuageBadRequest(resource='subnet', msg=msg)
@@ -1257,7 +1257,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     original, port) or
                 (self.needs_vport_creation(original.get('device_owner')) and
                  not self.needs_vport_creation(port.get('device_owner')))):
-                # TODO(Tom) Octavia
+            # TODO(Tom) Octavia
             # port no longer belongs to any subnet or dhcp port has regressed
             # to ipv6 only: delete vport.
             vsd_errors = [(vsd_constants.CONFLICT_ERR_CODE,
@@ -1272,7 +1272,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 (not self.needs_vport_creation(
                     original.get('device_owner')) and
                  self.needs_vport_creation(port.get('device_owner')))):
-                # TODO(Tom) Octavia
+            # TODO(Tom) Octavia
             # port didn't belong to any subnet yet, or dhcp port used to be
             # ipv6 only: create vport
             self._create_port(db_context, port, context.network)
