@@ -113,9 +113,9 @@ class NuageFlowClassifierPlugin(
             else:
                 subnet_ids = {port['fixed_ips'][0]['subnet_id']}
         if len(subnet_ids) != 1:
-                msg = ('Nuage only supports logical ports'
-                       ' belonging to one subnet.')
-                raise nuage_exc.NuageBadRequest(msg=msg)
+            msg = ('Nuage only supports logical ports'
+                   ' belonging to one subnet.')
+            raise nuage_exc.NuageBadRequest(msg=msg)
         return src_prt_details, dst_prt_details
 
     def _get_logical_port_details(self, context, logical_port,

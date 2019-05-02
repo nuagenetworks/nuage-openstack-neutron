@@ -16,9 +16,9 @@ import contextlib
 import functools
 import itertools
 import logging
-import netaddr
 import re
 
+import netaddr
 try:
     from neutron._i18n import _
 except ImportError:
@@ -151,8 +151,8 @@ def create_usergroup(restproxy_serv, tenant, net_partition_id,
                 "?responseChoice=1",
                 nuagegroup.update_data('externalID', tenant + '@openstack'))
         if tenant_name is not None and (not group_details['description'] or
-                                        group_details['description']
-                                        != tenant_name):
+                                        group_details['description'] !=
+                                        tenant_name):
             nuagegroup = nuagelib.NuageGroup()
             restproxy_serv.put(
                 nuagegroup.group_resource(group_details.get('ID')) +

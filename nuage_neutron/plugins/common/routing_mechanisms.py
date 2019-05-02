@@ -32,8 +32,8 @@ def check_routing_mechanisms_config():
 
     :raise Raises ConfigFileValueError when configuration is not correct
     """
-    if (cfg.CONF.RESTPROXY.nuage_underlay_default
-        != constants.NUAGE_UNDERLAY_OFF and
+    if (cfg.CONF.RESTPROXY.nuage_underlay_default !=
+            constants.NUAGE_UNDERLAY_OFF and
             cfg.CONF.RESTPROXY.nuage_pat !=
             constants.NUAGE_PAT_LEGACY_DISABLED):
         msg = ("It is not possible to configure both {} "
@@ -57,8 +57,8 @@ def is_legacy():
 
 
 def is_not_available():
-    return (cfg.CONF.RESTPROXY.nuage_underlay_default
-            == constants.NUAGE_UNDERLAY_NOT_AVAILABLE)
+    return (cfg.CONF.RESTPROXY.nuage_underlay_default ==
+            constants.NUAGE_UNDERLAY_NOT_AVAILABLE)
 
 
 def create_legacy_routing_values(router):
@@ -85,8 +85,8 @@ def validate_legacy_router(router):
     enable_snat = (router['external_gateway_info'].get('enable_snat')
                    if router.get('external_gateway_info') else None)
     nuage_pat = cfg.CONF.RESTPROXY.nuage_pat
-    if (nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE
-            and enable_snat is True):
+    if (nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE and
+            enable_snat is True):
         msg = _("nuage_pat config is set to 'not_available'. "
                 "Can't enable 'enable_snat'.")
         raise NuageBadRequest(resource='router', msg=msg)
@@ -124,9 +124,9 @@ def update_routing_values(router, old_router={}):
         # No update needed
         return
 
-    if ((nuage_underlay is None
-            or nuage_underlay == old_router.get(constants.NUAGE_UNDERLAY))
-            and ext_gw_info is None and old_router):
+    if ((nuage_underlay is None or
+            nuage_underlay == old_router.get(constants.NUAGE_UNDERLAY)) and
+            ext_gw_info is None and old_router):
         # No update needed as updated values are same as previous.
         return
 
@@ -162,15 +162,15 @@ def update_routing_values(router, old_router={}):
 
 
 def validate_updated_routing_values(nuage_underlay, enable_snat, msg):
-    if ((nuage_underlay != constants.NUAGE_UNDERLAY_NOT_AVAILABLE
-         and nuage_underlay != constants.NUAGE_UNDERLAY_OFF)
-            and is_not_available()):
+    if ((nuage_underlay != constants.NUAGE_UNDERLAY_NOT_AVAILABLE and
+         nuage_underlay != constants.NUAGE_UNDERLAY_OFF) and
+            is_not_available()):
         msg += ("\n"
                 "nuage_underlay is not available. Contact your "
                 "operator to explore options.")
         raise NuageBadRequest(resource='router', msg=msg)
-    if (enable_snat is True
-            and nuage_underlay != constants.NUAGE_UNDERLAY_OFF):
+    if (enable_snat is True and
+            nuage_underlay != constants.NUAGE_UNDERLAY_OFF):
         msg += ("\n"
                 "enable_snat cannot be enabled when "
                 " nuage_underlay is set.")

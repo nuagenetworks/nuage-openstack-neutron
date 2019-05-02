@@ -13,12 +13,12 @@
 #    under the License.
 
 import abc
-import six
 
 from neutron._i18n import _
 from neutron.api.v2 import resource_helper
 from neutron_lib.api import extensions
 from neutron_lib import exceptions as n_exc
+import six
 
 from nuage_neutron.plugins.common import constants
 

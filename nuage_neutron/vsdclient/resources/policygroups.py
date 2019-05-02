@@ -14,12 +14,12 @@
 
 import logging
 import random
-import six
 
 from neutron_lib import constants as lib_constants
 from neutron_lib.db import api as db_api
 from oslo_config import cfg
 from oslo_utils import excutils
+import six
 
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id

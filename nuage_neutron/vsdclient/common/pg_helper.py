@@ -14,6 +14,7 @@
 
 import ipaddress
 import logging
+
 import netaddr
 
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
