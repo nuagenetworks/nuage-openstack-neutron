@@ -14,9 +14,9 @@
 
 import copy
 import itertools
-import six
 
 from oslo_log import log as logging
+import six
 
 from neutron._i18n import _
 from neutron_lib.api import validators as lib_validators

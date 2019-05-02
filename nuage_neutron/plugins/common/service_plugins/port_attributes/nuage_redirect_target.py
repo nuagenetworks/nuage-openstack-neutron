@@ -12,11 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
 import re
 
-from oslo_log import helpers as log_helpers
-
+import netaddr
 from neutron._i18n import _
 from neutron.ipam import utils as ipam_utils
 from neutron_lib.api.validators import is_attr_set
@@ -24,6 +22,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
+from oslo_log import helpers as log_helpers
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants

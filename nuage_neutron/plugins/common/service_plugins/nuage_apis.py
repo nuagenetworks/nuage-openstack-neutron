@@ -13,20 +13,18 @@
 #    under the License.
 
 import functools
-import netaddr
 
+import netaddr
+from neutron._i18n import _
+from neutron.db import securitygroups_db as sg_db
+from neutron_lib import context as n_ctx
+from neutron_lib.db import api as lib_db_api
+from neutron_lib.db import resource_extend as lib_db_resource_extend
+from neutron_lib import exceptions as n_exc
+from neutron_lib.services import base as service_base
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
-
-from neutron._i18n import _
-from neutron.db import securitygroups_db as sg_db
-
-from neutron_lib.db import api as lib_db_api
-from neutron_lib import context as n_ctx
-from neutron_lib import exceptions as n_exc
-from neutron_lib.db import resource_extend as lib_db_resource_extend
-from neutron_lib.services import base as service_base
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants

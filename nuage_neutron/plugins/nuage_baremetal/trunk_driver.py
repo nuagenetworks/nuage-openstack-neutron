@@ -74,10 +74,10 @@ class NuageTrunkHandler(object):
                       updated_port.get('id'))
             return
         original_port = kwargs['original_port']
-        updated_host_id = (original_port['binding:host_id']
-                           and not updated_port['binding:host_id']
-                           or not original_port['binding:host_id']
-                           and updated_port['binding:host_id'])
+        updated_host_id = (original_port['binding:host_id'] and
+                           not updated_port['binding:host_id'] or
+                           not original_port['binding:host_id'] and
+                           updated_port['binding:host_id'])
         if not updated_host_id:
             return
 
@@ -218,7 +218,8 @@ class NuageTrunkHandler(object):
         if len(subports) != len(updated_ports):
             LOG.error("Updated: %(up)s, subports: %(sub)s",
                       {'up': len(updated_ports), 'sub': len(subports)})
-            self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
+            self.set_trunk_status(ctx, trunk_id,
+                                  t_consts.TRUNK_DEGRADED_STATUS)
 
     def _unset_sub_ports(self, trunk_id, subports):
         ctx = n_ctx.get_admin_context()

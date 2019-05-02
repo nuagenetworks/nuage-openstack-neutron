@@ -14,11 +14,11 @@
 #    under the License.
 
 import binascii
-import six
 
 from networking_sfc.db import sfc_db
 from nuage_neutron.flow_classifier import nuage_flowclassifier_db as fc_db
 from nuage_neutron.plugins.common import nuage_models
+import six
 
 
 class NuageSfcDbPlugin(sfc_db.SfcDbPlugin):

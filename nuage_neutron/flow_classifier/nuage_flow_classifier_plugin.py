@@ -13,8 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lib.db import api as db_api
 from neutron_lib import constants as lib_constants
+from neutron_lib.db import api as db_api
+
 # This loads in the extensions for flow classifier.
 from nuage_neutron.flow_classifier import extensions  # noqa
 from nuage_neutron.flow_classifier import nuage_flowclassifier_db
@@ -113,9 +114,9 @@ class NuageFlowClassifierPlugin(
             else:
                 subnet_ids = {port['fixed_ips'][0]['subnet_id']}
         if len(subnet_ids) != 1:
-                msg = ('Nuage only supports logical ports'
-                       ' belonging to one subnet.')
-                raise nuage_exc.NuageBadRequest(msg=msg)
+            msg = ('Nuage only supports logical ports'
+                   ' belonging to one subnet.')
+            raise nuage_exc.NuageBadRequest(msg=msg)
         return src_prt_details, dst_prt_details
 
     def _get_logical_port_details(self, context, logical_port,
