@@ -12,20 +12,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
 import re
-import six
 import socket
 import struct
 
-from oslo_config import cfg
-from oslo_log import helpers as log_helpers
-from oslo_log import log
-
+import netaddr
 from neutron._i18n import _
 from neutron.db import db_base_plugin_v2
-from neutron_lib.services.trunk import constants as t_consts
-
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
@@ -35,6 +28,11 @@ from neutron_lib.exceptions import PortNotFound
 from neutron_lib.plugins import constants as lib_plugins_constants
 from neutron_lib.plugins import directory
 from neutron_lib.plugins import utils as plugin_utils
+from neutron_lib.services.trunk import constants as t_consts
+from oslo_config import cfg
+from oslo_log import helpers as log_helpers
+from oslo_log import log
+import six
 
 from nuage_neutron.plugins.common import callback_manager
 from nuage_neutron.plugins.common.capabilities import Capabilities

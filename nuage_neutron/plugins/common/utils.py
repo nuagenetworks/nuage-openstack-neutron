@@ -12,18 +12,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from __future__ import print_function
 import contextlib
 import functools
 import inspect
-import netaddr
-import six
 import sys
 import time
 
-from oslo_log import log as logging
+import netaddr
+import six
 
 from neutron_lib import constants as lib_constants
+from oslo_log import log as logging
 
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.vsdclient.restproxy import RESTProxyError

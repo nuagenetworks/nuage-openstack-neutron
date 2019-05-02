@@ -66,10 +66,10 @@ VSD_NO_ATTR_CHANGES_TO_MODIFY_ERR_CODE = \
 
 VSD_RESP_OBJ = 3
 
-LIST_L2DOMAINS = re.compile('.*/l2domains(\?.*)?$')
-LIST_SUBNETS = re.compile('.*/subnets(\?.*)?$')
-GET_L2DOMAIN = re.compile('/l2domains/([0-9a-fA-F\-]+?)(\?.*)?$')
-GET_SUBNET = re.compile('/subnets/([0-9a-fA-F\-]+?)(\?.*)?$')
+LIST_L2DOMAINS = re.compile(r'.*/l2domains(\?.*)?$')
+LIST_SUBNETS = re.compile(r'.*/subnets(\?.*)?$')
+GET_L2DOMAIN = re.compile(r'/l2domains/([0-9a-fA-F\-]+?)(\?.*)?$')
+GET_SUBNET = re.compile(r'/subnets/([0-9a-fA-F\-]+?)(\?.*)?$')
 
 NUAGE_AUTH = None
 NUAGE_AUTH_RENEWING = True
@@ -463,8 +463,8 @@ class RESTProxyServer(object):
 
     @staticmethod
     def retrieve_by_ext_id_and_cidr(restproxy, resource, data):
-        if not (data.get('externalID') and (data.get('address')
-                                            or data.get('IPv6Address'))):
+        if not (data.get('externalID') and (data.get('address') or
+                                            data.get('IPv6Address'))):
             return None
         if data['IPType'] == constants.IPV4:
             headers = {

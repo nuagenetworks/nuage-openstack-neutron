@@ -13,6 +13,7 @@
 #    under the License.
 
 import itertools
+
 from oslo_log import log as logging
 import six
 

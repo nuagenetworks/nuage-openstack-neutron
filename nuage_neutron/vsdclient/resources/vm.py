@@ -13,11 +13,11 @@
 #    under the License.
 
 import logging
+
 from netaddr import IPAddress
 from netaddr import IPNetwork
 
 from nuage_neutron.plugins.common import utils
-
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper

@@ -13,6 +13,7 @@
 #    under the License.
 
 import inspect
+
 from oslo_config import cfg
 from oslo_log import log as logging
 import stevedore
@@ -21,9 +22,9 @@ from neutron._i18n import _
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
-from neutron_lib.services.trunk import constants as t_const
 from neutron_lib import constants as n_const
 from neutron_lib.plugins.ml2 import api
+from neutron_lib.services.trunk import constants as t_const
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import exceptions
@@ -209,17 +210,17 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         for segment in context.segments_to_bind:
             if self._check_segment(segment, context):
                 if self._can_bind(context):
-                        vif_binding = self.vif_details
-                        vif_binding['vlan'] = str(self._segmentation_id(
-                            db_context, context.current))
-                        context.set_binding(segment[api.ID],
-                                            portbindings.VIF_TYPE_OTHER,
-                                            vif_binding,
-                                            status=n_const.PORT_STATUS_ACTIVE)
-                        LOG.debug("port bind using segment for port %(port)s :"
-                                  " %(vif_type)s",
-                                  {'port': port_id,
-                                   'vif_type': portbindings.VIF_TYPE_OTHER})
+                    vif_binding = self.vif_details
+                    vif_binding['vlan'] = str(self._segmentation_id(
+                        db_context, context.current))
+                    context.set_binding(segment[api.ID],
+                                        portbindings.VIF_TYPE_OTHER,
+                                        vif_binding,
+                                        status=n_const.PORT_STATUS_ACTIVE)
+                    LOG.debug("port bind using segment for port %(port)s :"
+                              " %(vif_type)s",
+                              {'port': port_id,
+                               'vif_type': portbindings.VIF_TYPE_OTHER})
             else:
                 LOG.debug("Ignoring segment %(seg)s  for port %(port)s",
                           {'seg': segment,

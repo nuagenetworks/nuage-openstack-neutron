@@ -23,8 +23,8 @@ from neutron.db.models import securitygroup as securitygroups_db
 from neutron.db.models import segment as segments_db
 from neutron.db import models_v2
 from neutron.plugins.ml2 import models as ml2_models
-from neutron_lib.db import model_query
 from neutron_lib import constants as os_constants
+from neutron_lib.db import model_query
 
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import nuage_models

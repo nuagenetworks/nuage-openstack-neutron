@@ -13,6 +13,7 @@
 #    under the License.
 
 import logging
+
 import netaddr
 
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id

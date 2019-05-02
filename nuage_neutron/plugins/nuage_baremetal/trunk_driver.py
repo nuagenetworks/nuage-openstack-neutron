@@ -16,7 +16,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron.objects import trunk as trunk_objects
-from neutron_lib.services.trunk import constants as t_consts
 from neutron.services.trunk.drivers import base as trunk_base
 from neutron.services.trunk import exceptions as t_exc
 from neutron_lib.api.definitions import portbindings
@@ -26,6 +25,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import context as n_ctx
 from neutron_lib.db import api as db_api
 from neutron_lib.plugins import directory
+from neutron_lib.services.trunk import constants as t_consts
 
 from nuage_neutron.plugins.common import constants as p_consts
 from nuage_neutron.plugins.common import exceptions as nuage_exc
@@ -74,10 +74,10 @@ class NuageTrunkHandler(object):
                       updated_port.get('id'))
             return
         original_port = kwargs['original_port']
-        updated_host_id = (original_port['binding:host_id']
-                           and not updated_port['binding:host_id']
-                           or not original_port['binding:host_id']
-                           and updated_port['binding:host_id'])
+        updated_host_id = (original_port['binding:host_id'] and
+                           not updated_port['binding:host_id'] or
+                           not original_port['binding:host_id'] and
+                           updated_port['binding:host_id'])
         if not updated_host_id:
             return
 
@@ -220,7 +220,8 @@ class NuageTrunkHandler(object):
         if len(subports) != len(updated_ports):
             LOG.error("Updated: %(up)s, subports: %(sub)s",
                       {'up': len(updated_ports), 'sub': len(subports)})
-            self.set_trunk_status(ctx, trunk_id, t_consts.TRUNK_DEGRADED_STATUS)
+            self.set_trunk_status(ctx, trunk_id,
+                                  t_consts.TRUNK_DEGRADED_STATUS)
 
     def _unset_sub_ports(self, trunk_id, subports):
         ctx = n_ctx.get_admin_context()
