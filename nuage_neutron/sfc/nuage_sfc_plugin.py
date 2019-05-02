@@ -16,7 +16,7 @@
 import binascii
 import copy
 from networking_sfc.services.sfc import plugin as sfc_plugin
-from neutron.services.trunk import constants as t_consts
+from neutron_lib.services.trunk import constants as t_consts
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc

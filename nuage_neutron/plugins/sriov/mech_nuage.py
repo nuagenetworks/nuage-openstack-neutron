@@ -19,7 +19,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron._i18n import _
-from neutron.services.trunk import constants as t_consts
+from neutron_lib.services.trunk import constants as t_consts
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as os_constants
 from neutron_lib import context as neutron_context
@@ -95,7 +95,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         if segments:
             bad_segment = next(
                 (segment for segment in segments if
-                 segment.get('provider:network_type') == t_consts.VLAN and
+                 segment.get('provider:network_type') ==
+                 t_consts.SEGMENTATION_TYPE_VLAN and
                  trunk_db.vlan_in_use_by_subport(db_context.session,
                                                  segment)), None)
             if bad_segment:

@@ -19,7 +19,7 @@ from oslo_log import log as logging
 import six
 
 from neutron.objects import trunk as trunk_objects
-from neutron.services.trunk import constants as t_consts
+from neutron_lib.services.trunk import constants as t_consts
 from neutron.services.trunk.drivers import base as trunk_base
 from neutron.services.trunk import exceptions as t_exc
 from neutron_lib.api.definitions import portbindings
@@ -44,7 +44,7 @@ SUPPORTED_INTERFACES = (
 )
 
 SUPPORTED_SEGMENTATION_TYPES = (
-    t_consts.VLAN,
+    t_consts.SEGMENTATION_TYPE_VLAN,
 )
 
 
@@ -101,7 +101,8 @@ class NuageTrunkHandler(object):
             LOG.error("Updated: %(up)s, subports: %(sub)s",
                       {'up': len(updated_ports[trunk.id]),
                        'sub': len(trunk.sub_ports)})
-            self.set_trunk_status(context, trunk.id, t_consts.DEGRADED_STATUS)
+            self.set_trunk_status(context, trunk.id,
+                                  t_consts.TRUNK_DEGRADED_STATUS)
 
     def _update_subport_bindings(self, context, trunk_id, subports):
         el = context.elevated()
@@ -176,9 +177,9 @@ class NuageTrunkHandler(object):
         trunk_port = self.core_plugin.get_port(context, trunk_port_id)
         trunk_host = trunk_port.get(portbindings.HOST_ID)
         trunk_profile = trunk_port.get(portbindings.PROFILE)
-        trunk.update(status=t_consts.BUILD_STATUS)
-        trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_host else
-                              t_consts.DOWN_STATUS)
+        trunk.update(status=t_consts.TRUNK_BUILD_STATUS)
+        trunk_target_state = (t_consts.TRUNK_ACTIVE_STATUS if trunk_host else
+                              t_consts.TRUNK_DOWN_STATUS)
         for port in subports:
             try:
                 data = {'port': {portbindings.HOST_ID: trunk_host,
@@ -194,13 +195,13 @@ class NuageTrunkHandler(object):
                 updated_ports.append(updated_port)
             except t_exc.SubPortBindingError as e:
                 LOG.error("Failed to bind subport: %s", e)
-                trunk.update(status=t_consts.ERROR_STATUS)
+                trunk.update(status=t_consts.TRUNK_ERROR_STATUS)
                 return []
             except Exception as e:
                 LOG.error("Failed to bind subport: %s", e)
         if len(subports) != len(updated_ports):
             LOG.debug("Trunk: %s is degraded", trunk.id)
-            trunk.update(status=t_consts.DEGRADED_STATUS)
+            trunk.update(status=t_consts.TRUNK_DEGRADED_STATUS)
         else:
             trunk.update(status=trunk_target_state)
         return updated_ports
@@ -279,7 +280,8 @@ class NuageTrunkHandler(object):
                 _vsdclient.add_subport(trunk_id, port, data)
             except Exception as ex:
                 LOG.error("Failed to create subport: %s", ex)
-                self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
+                self.set_trunk_status(ctx, trunk_id,
+                                      t_consts.TRUNK_DEGRADED_STATUS)
         updated_ports = self._update_subport_bindings(ctx,
                                                       trunk_id,
                                                       subports)
@@ -287,14 +289,15 @@ class NuageTrunkHandler(object):
             LOG.error("Updated: %(up)s, subports: %(sub)s",
                       {'up': len(updated_ports[trunk_id]),
                        'sub': len(subports)})
-            self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
+            self.set_trunk_status(ctx, trunk_id,
+                                  t_consts.TRUNK_DEGRADED_STATUS)
 
     def _unset_sub_ports(self, trunk_id, trunk_port, subports):
         _vsdclient = self.plugin_driver.vsdclient
         ctx = n_ctx.get_admin_context()
         trunk_host = trunk_port.get(portbindings.HOST_ID)
-        trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_host else
-                              t_consts.DOWN_STATUS)
+        trunk_target_state = (t_consts.TRUNK_ACTIVE_STATUS if trunk_host else
+                              t_consts.TRUNK_DOWN_STATUS)
 
         updated_ports = []
         for port in subports:
@@ -316,11 +319,13 @@ class NuageTrunkHandler(object):
                 _vsdclient.remove_subport(updated_port, subnet_mapping)
             except t_exc.SubPortBindingError as e:
                 LOG.error("Failed to clear binding for subport: %s", e)
-                self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
+                self.set_trunk_status(ctx, trunk_id,
+                                      t_consts.TRUNK_DEGRADED_STATUS)
             except Exception as e:
                 LOG.error("Failed to clear binding for subport: %s", e)
         if len(subports) != len(updated_ports):
-            self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
+            self.set_trunk_status(ctx, trunk_id,
+                                  t_consts.TRUNK_DEGRADED_STATUS)
         else:
             self.set_trunk_status(ctx, trunk_id, trunk_target_state)
 
@@ -333,7 +338,7 @@ class NuageTrunkHandler(object):
             _vsdclient.create_trunk(trunk, subnet_mapping)
         except Exception as ex:
             LOG.error("Failed to create trunk: %s", ex)
-            trunk.update(status=t_consts.ERROR_STATUS)
+            trunk.update(status=t_consts.TRUNK_ERROR_STATUS)
             raise t_exc.TrunkInErrorState(trunk_id=trunk.id)
 
     def _unset_trunk(self, trunk):
@@ -345,7 +350,7 @@ class NuageTrunkHandler(object):
             _vsdclient.delete_trunk(trunk, subnet_mapping)
         except Exception as ex:
             LOG.error("Failed to delete trunk: %s", ex)
-            trunk.update(status=t_consts.ERROR_STATUS)
+            trunk.update(status=t_consts.TRUNK_ERROR_STATUS)
             raise t_exc.TrunkInErrorState(trunk_id=trunk.id)
 
     def trunk_created(self, trunk):
@@ -443,26 +448,26 @@ class NuageTrunkDriver(trunk_base.DriverBase):
         except cfg.NoSuchOptError:
             return False
 
-    @registry.receives(t_consts.TRUNK_PLUGIN, [events.AFTER_INIT])
+    @registry.receives(resources.TRUNK_PLUGIN, [events.AFTER_INIT])
     def register(self, resource, event, trigger, **kwargs):
         super(NuageTrunkDriver, self).register(
             resource, event, trigger, **kwargs)
         self._handler = NuageTrunkHandler(self.plugin_driver)
         for event in (events.AFTER_CREATE, events.AFTER_DELETE):
             registry.subscribe(self._handler.trunk_event,
-                               t_consts.TRUNK,
+                               resources.TRUNK,
                                event)
             registry.subscribe(self._handler.subport_event,
-                               t_consts.SUBPORTS,
+                               resources.SUBPORTS,
                                event)
         registry.subscribe(self._handler.trunk_validate,
-                           t_consts.TRUNK,
+                           resources.TRUNK,
                            events.PRECOMMIT_CREATE)
         registry.subscribe(self._handler._trunk_status_change,
                            resources.PORT,
                            events.AFTER_UPDATE)
         registry.subscribe(self._handler.subport_event,
-                           t_consts.SUBPORTS,
+                           resources.SUBPORTS,
                            events.PRECOMMIT_CREATE)
 
     @classmethod

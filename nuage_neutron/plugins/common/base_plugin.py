@@ -24,7 +24,7 @@ from oslo_log import log
 
 from neutron._i18n import _
 from neutron.db import db_base_plugin_v2
-from neutron.services.trunk import constants as t_consts
+from neutron_lib.services.trunk import constants as t_consts
 
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec

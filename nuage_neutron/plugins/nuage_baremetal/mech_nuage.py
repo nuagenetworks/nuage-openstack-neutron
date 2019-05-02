@@ -19,9 +19,9 @@ import stevedore
 
 from neutron._i18n import _
 from neutron.extensions import securitygroup as ext_sg
-from neutron.services.trunk import constants as t_const
 from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
+from neutron_lib.services.trunk import constants as t_const
 from neutron_lib import constants as n_const
 from neutron_lib.plugins.ml2 import api
 
