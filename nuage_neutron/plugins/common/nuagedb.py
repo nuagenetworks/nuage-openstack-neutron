@@ -437,26 +437,6 @@ def get_routerport_by_port_id(session, port_id):
     return query.filter_by(port_id=port_id).first()
 
 
-def add_network_binding(session, network_id, network_type, physical_network,
-                        vlan_id):
-    binding = nuage_models.ProviderNetBinding(
-        network_id=network_id, network_type=network_type,
-        physical_network=physical_network, vlan_id=vlan_id)
-    session.add(binding)
-    return binding
-
-
-def get_network_binding(session, network_id):
-    return (session.query(nuage_models.ProviderNetBinding).
-            filter_by(network_id=network_id).
-            first())
-
-
-def get_network_binding_with_lock(session, network_id):
-    return (session.query(nuage_models.ProviderNetBinding).
-            filter_by(network_id=network_id).with_lockmode('update').first())
-
-
 def get_ent_rtr_mapping_with_lock(session, rtrid):
     query = session.query(nuage_models.NetPartitionRouter)
     entrtr = query.filter_by(router_id=rtrid).with_lockmode('update').one()
@@ -510,22 +490,6 @@ def get_route_with_lock(session, dest, nhop):
     route_db = (query.filter_by(destination=dest).filter_by(nexthop=nhop)
                 .with_lockmode('update').one())
     return make_route_dict(route_db)
-
-
-def get_all_provider_nets(session):
-    provider_nets = session.query(nuage_models.ProviderNetBinding)
-    return make_provider_net_list(provider_nets)
-
-
-def make_provider_net_list(provider_nets):
-    return [make_provider_net_dict(pnet) for pnet in provider_nets]
-
-
-def make_provider_net_dict(provider_net):
-    return {'network_id': provider_net['network_id'],
-            'network_type': provider_net['network_type'],
-            'physical_network': provider_net['physical_network'],
-            'vlan_id': provider_net['vlan_id']}
 
 
 def make_ipalloc_dict(subnet_db):
