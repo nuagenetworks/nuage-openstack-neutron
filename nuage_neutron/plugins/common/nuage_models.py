@@ -13,9 +13,7 @@
 #    under the License.
 
 import sqlalchemy as sa
-from sqlalchemy import orm
 
-from neutron.db import models_v2
 from neutron_lib.db import model_base
 
 
@@ -40,23 +38,6 @@ class NetPartitionRouter(model_base.BASEV2):
     nuage_router_id = sa.Column(sa.String(36), unique=True)
     nuage_rtr_rt = sa.Column(sa.String(36))
     nuage_rtr_rd = sa.Column(sa.String(36))
-
-
-class ProviderNetBinding(model_base.BASEV2):
-    """Represents binding of virtual network to physical_network and vlan."""
-    __tablename__ = 'nuage_provider_net_bindings'
-
-    network_id = sa.Column(sa.String(36),
-                           sa.ForeignKey('networks.id', ondelete="CASCADE"),
-                           primary_key=True)
-    network_type = sa.Column(sa.String(32), nullable=False)
-    physical_network = sa.Column(sa.String(64), nullable=False)
-    vlan_id = sa.Column(sa.Integer, nullable=False)
-
-    network = orm.relationship(
-        models_v2.Network,
-        backref=orm.backref("pnetbinding", lazy='joined',
-                            uselist=False, cascade='delete'))
 
 
 class SubnetL2Domain(model_base.BASEV2):

@@ -127,7 +127,7 @@ class VsdClient(object):
         pass
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
-                                  ipv4_subnet_mapping, pnet_binding,
+                                  ipv4_subnet_mapping,
                                   subnet, ipv6_subnet_mapping):
         pass
 
@@ -246,11 +246,11 @@ class VsdClient(object):
     def delete_nuage_vport(self, vport_id):
         pass
 
-    def delete_domain_subnet(self, vsd_subnet_id, os_subnet_id, pnet_binding):
+    def delete_domain_subnet(self, vsd_subnet_id, os_subnet_id):
         pass
 
     def create_domain_subnet(self, vsd_zone, ipv4_subnet, ipv6_subnet,
-                             pnet_binding, network_name):
+                             network_name):
         pass
 
     def validate_create_domain_subnet(self, neutron_subn,
@@ -450,10 +450,10 @@ class VsdClient(object):
     def create_vport(self, params):
         pass
 
-    def nuage_vports_on_l2domain(self, l2dom_id, pnet_binding):
+    def nuage_vports_on_l2domain(self, l2dom_id):
         pass
 
-    def nuage_vports_on_subnet(self, subnet_id, pnet_binding):
+    def nuage_vports_on_subnet(self, subnet_id):
         pass
 
     def crt_or_updt_vport_dhcp_option(self, extra_dhcp_opt, resource_id,

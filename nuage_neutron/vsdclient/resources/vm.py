@@ -442,32 +442,16 @@ class NuageVM(object):
             vsd_parent.vm_vport_post_data(vport_params))
         return vsd_vport[0]
 
-    def nuage_vports_on_l2domain(self, l2dom_id, pnet_binding):
+    def nuage_vports_on_l2domain(self, l2dom_id):
         nuagel2dom = nuagelib.NuageL2Domain()
-        if pnet_binding:
-            response = self.restproxy.rest_call(
-                'GET',
-                nuagel2dom.get_all_vports(l2dom_id),
-                '',
-                extra_headers=(
-                    nuagel2dom.extra_headers_host_and_vm_vport_get()))
-        else:
-            response = self.restproxy.rest_call(
-                'GET', nuagel2dom.get_all_vports(l2dom_id), '')
+        response = self.restproxy.rest_call(
+            'GET', nuagel2dom.get_all_vports(l2dom_id), '')
         return nuagel2dom.get_validate(response)
 
-    def nuage_vports_on_subnet(self, nuage_subnet_id, pnet_binding):
+    def nuage_vports_on_subnet(self, nuage_subnet_id):
         nuagesubnet = nuagelib.NuageSubnet()
-        if pnet_binding:
-            response = self.restproxy.rest_call(
-                'GET',
-                nuagesubnet.get_all_vports(nuage_subnet_id),
-                '',
-                extra_headers=(
-                    nuagesubnet.extra_headers_host_and_vm_vport_get()))
-        else:
-            response = self.restproxy.rest_call(
-                'GET', nuagesubnet.get_all_vports(nuage_subnet_id), '')
+        response = self.restproxy.rest_call(
+            'GET', nuagesubnet.get_all_vports(nuage_subnet_id), '')
         return nuagesubnet.get_validate(response)
 
     @staticmethod
