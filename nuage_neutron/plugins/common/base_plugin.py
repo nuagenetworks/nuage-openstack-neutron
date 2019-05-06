@@ -330,7 +330,8 @@ class RootNuagePlugin(SubnetUtilsBase):
                                                  constants.MAX_SG_PER_PORT))
             raise NuageBadRequest(msg=msg)
 
-    def is_vxlan_network(self, network):
+    @staticmethod
+    def is_vxlan_network(network):
         net_type = 'provider:network_type'
         if str(network.get(net_type)).lower() == 'vxlan':
             return True

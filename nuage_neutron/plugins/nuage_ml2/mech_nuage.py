@@ -601,7 +601,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     @log_helpers.log_method_call
     def _create_nuage_subnet(self, context, neutron_subnet, netpart_id,
                              l2bridge):
-        pnet_binding = None
 
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
             context.session, neutron_subnet['id'])
@@ -623,10 +622,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self.check_if_subnet_is_attached_to_router(
                     context, dual_stack_subnet)
             if already_router_attached:
-                pnet_binding = nuagedb.get_network_binding(
-                    context.session,
-                    dual_stack_subnet['network_id'])
-                r_param['pnet_binding'] = pnet_binding
                 r_param['router_id'] = router_id
 
         if l2bridge and l2bridge['nuage_subnet_id']:
@@ -675,7 +670,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         params = {
             'netpart_id': netpart_id,
             'tenant_id': neutron_subnet['tenant_id'],
-            'pnet_binding': pnet_binding,
             'shared': network['shared'],
             'dhcp_ip': None,
             'dhcpv6_ip': None,

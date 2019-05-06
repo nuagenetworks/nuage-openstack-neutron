@@ -26,7 +26,6 @@ from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import gw_helper
 from nuage_neutron.vsdclient.common import helper
 from nuage_neutron.vsdclient.common import nuagelib
-from nuage_neutron.vsdclient.common import pnet_helper
 from nuage_neutron.vsdclient.resources import dhcpoptions
 from nuage_neutron.vsdclient.resources import domain
 from nuage_neutron.vsdclient.resources import fwaas
@@ -247,7 +246,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         req_params = {
             'tenant_id': subnet['tenant_id'],
             'netpart_id': subnet_mapping['net_partition_id'],
-            'pnet_binding': None,
             'shared': subnet['shared'],
             'network_name': subnet_mapping['network_name']
         }
@@ -259,30 +257,9 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             ipv4_subnet, ipv6_subnet, req_params)
 
     def move_l3subnet_to_l2domain(self, l3subnetwork_id, l2domain_id,
-                                  ipv4_subnet_mapping, pnet_binding,
+                                  ipv4_subnet_mapping,
                                   subnet, ipv6_subnet_mapping):
         self.domain.domainsubnet.move_to_l2(l3subnetwork_id, l2domain_id)
-        if pnet_binding:
-
-            pnet_params = helper.get_pnet_params(
-                pnet_binding,
-                ipv4_subnet_mapping['net_partition_id'],
-                l2domain_id,
-                subnet,
-            )
-            pnet_helper.process_provider_network(self.restproxy,
-                                                 self.policygroups,
-                                                 pnet_params)
-            if ipv6_subnet_mapping:
-                pnet_params = helper.get_pnet_params(
-                    pnet_binding,
-                    ipv6_subnet_mapping['net_partition_id'],
-                    l2domain_id,
-                    subnet,
-                )
-                pnet_helper.process_provider_network(self.restproxy,
-                                                     self.policygroups,
-                                                     pnet_params)
 
     def create_nuage_floatingip(self, params):
         return self.domain.create_nuage_floatingip(params)
@@ -470,15 +447,14 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def delete_nuage_vport(self, vport_id):
         helper.delete_nuage_vport(self.restproxy, vport_id)
 
-    def delete_domain_subnet(self, vsd_subnet_id, os_subnet_id, pnet_binding):
+    def delete_domain_subnet(self, vsd_subnet_id, os_subnet_id):
         self.domain.domainsubnet.delete_domain_subnet(vsd_subnet_id,
-                                                      os_subnet_id,
-                                                      pnet_binding)
+                                                      os_subnet_id)
 
     def create_domain_subnet(self, vsd_zone, ipv4_subnet, ipv6_subnet,
-                             pnet_binding, network_name):
+                             network_name):
         return self.domain.domainsubnet.create_domain_subnet(
-            vsd_zone, ipv4_subnet, ipv6_subnet, pnet_binding, network_name)
+            vsd_zone, ipv4_subnet, ipv6_subnet, network_name)
 
     def validate_create_domain_subnet(self, neutron_subn,
                                       nuage_subnet_id, nuage_rtr_id):
@@ -720,11 +696,11 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def create_vport(self, params):
         return self.vm.create_vport(params)
 
-    def nuage_vports_on_l2domain(self, l2dom_id, pnet_binding):
-        return self.vm.nuage_vports_on_l2domain(l2dom_id, pnet_binding)
+    def nuage_vports_on_l2domain(self, l2dom_id):
+        return self.vm.nuage_vports_on_l2domain(l2dom_id)
 
-    def nuage_vports_on_subnet(self, subnet_id, pnet_binding):
-        return self.vm.nuage_vports_on_subnet(subnet_id, pnet_binding)
+    def nuage_vports_on_subnet(self, subnet_id):
+        return self.vm.nuage_vports_on_subnet(subnet_id)
 
     def crt_or_updt_vport_dhcp_option(self, extra_dhcp_opt, resource_id,
                                       external_id):

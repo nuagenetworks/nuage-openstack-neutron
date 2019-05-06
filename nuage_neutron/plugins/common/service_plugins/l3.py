@@ -337,14 +337,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         if dhcp_port:
             self.delete_nuage_dhcp_port(context, dhcp_port[0]['id'])
 
-        pnet_binding = nuagedb.get_network_binding(context.session,
-                                                   subnet['network_id'])
         with nuage_utils.rollback() as on_exc:
             vsd_subnet = self.vsdclient.create_domain_subnet(
-                vsd_zone, ipv4_subnet, ipv6_subnet, pnet_binding, network_name)
+                vsd_zone, ipv4_subnet, ipv6_subnet, network_name)
 
             on_exc(self.vsdclient.delete_domain_subnet,
-                   vsd_subnet['ID'], subnet['id'], pnet_binding)
+                   vsd_subnet['ID'], subnet['id'])
 
             self.vsdclient.move_l2domain_to_l3subnet(
                 subnet_mapping['nuage_subnet_id'],
@@ -528,8 +526,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     if (ipv6_subnet
                             and fixed_ip['subnet_id'] == ipv6_subnet['id']):
                         ipv6_dhcp_ip = fixed_ip['ip_address']
-            pnet_binding = nuagedb.get_network_binding(
-                context.session, subnet['network_id'])
 
             self.vsdclient.confirm_router_interface_not_in_use(router_id,
                                                                subnet)
@@ -555,7 +551,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 nuage_subn_id,
                 vsd_l2domain['nuage_l2domain_id'],
                 ipv4_subnet_mapping,
-                pnet_binding,
                 subnet,
                 ipv6_subnet_mapping
             )
