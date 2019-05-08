@@ -108,7 +108,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         self._validate_config_for_nuage_driver(constants.NUAGE_ML2_DRIVER_NAME,
                                                service_plugins,
                                                extensions)
-        routing_mechanisms.check_routing_mechanisms_config()
 
     def _wrap_vsdclient(self):
         """Wraps nuageclient methods with try-except to ignore certain errors.

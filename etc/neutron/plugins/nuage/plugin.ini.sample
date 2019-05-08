@@ -66,13 +66,6 @@
 #
 #default_shared_zone = ''
 
-# (StrOpt) PAT setting of an l3domain. One of [not_available, default_enabled,
-#          default_disabled, legacy_disabled].
-#          This setting has been deprecated for removal.
-#          From Rocky release onwards, the legacy PAT model is disabled
-#          by default.
-#nuage_pat = legacy_disabled
-
 # (StrOpt) Default underlay setting of an l3domain, when no explicit option
 #          is given on router create. One of [snat, route, off, not_available]
 #nuage_underlay_default=off

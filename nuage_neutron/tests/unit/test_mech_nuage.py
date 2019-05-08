@@ -85,10 +85,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
                                            'nuage_port',
                                            'port_security'])
 
-        if config_type == ConfigTypes.NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG:
-            conf.config(group='RESTPROXY', nuage_pat='not_available')
-            conf.config(group='RESTPROXY',
-                        nuage_underlay_default='not_available')
         if config_type == ConfigTypes.NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK:
             conf.config(service_plugins=['NuagePortAttributes',
                                          'NuageL3', 'NuageAPI',
@@ -115,16 +111,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
         return vsd_client
 
     # NETWORK DRIVER INITIALIZATION CHECKS
-
-    def test_init_with_nuage_pat_and_nuage_underlay(self):
-        self.set_config_fixture(
-            ConfigTypes.NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG)
-        self.assertRaisesRegex(
-            oslo_config.cfg.ConfigFileValueError,
-            'It is not possible to configure both'
-            ' nuage_pat and nuage_underlay_default.'
-            ' Set nuage_pat to legacy_disabled.',
-            NuageMechanismDriver().initialize)
 
     def test_init_native_nmd_missing_service_plugin(self):
         self.set_config_fixture(ConfigTypes.MISSING_SERVICE_PLUGIN)
