@@ -425,6 +425,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         match, os_gw_ip, vsd_gw_ip = self._check_gateway_from_vsd(
             nuage_subnet, shared_subnet, subnet)
         if not match:
+            if not vsd_gw_ip:
+                vsd_gw_ip = 'not being present'
             msg = ("The specified gateway {} does not match with "
                    "gateway on VSD {}".format(os_gw_ip, vsd_gw_ip))
             raise NuageBadRequest(msg=msg)
@@ -1824,10 +1826,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         if is_l2:
             if is_v6:
-                # Always fine as we are not the dhcp provider we don't know
-                # which default route the vm will obtain.
-                # Hence we act as good, by acting as if vsd_gw_ip just equals
-                # the os_gw_ip. This will make the match check yield True.
+                # There is no concept of IPV6 gateway for L2domain on VSD as
+                # it's done through RA.
                 vsd_gw_ip = os_gw_ip
 
             else:  # v4
@@ -1835,18 +1835,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 # fetch option 3 from vsd
                 vsd_gw_ip = self.vsdclient.get_gw_from_dhcp_l2domain(
                     gateway_subnet['ID'])
-                dot_one_ip = netaddr.IPNetwork(subnet['cidr'])[1]
-
-                if not vsd_gw_ip and os_gw_ip:
-                    if self._is_equal_ip(os_gw_ip, dot_one_ip):
-                        # special case : tolerate but clear gw
-                        os_gw_ip = subnet['gateway_ip'] = None
-
-                    else:
-                        # improve the error message (better than 'None')
-                        vsd_gw_ip = 'not being present'
-
-                        # in other cases, default compare
 
         # l3
         elif is_v6:
