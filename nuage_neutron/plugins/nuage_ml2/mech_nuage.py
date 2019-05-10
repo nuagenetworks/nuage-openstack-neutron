@@ -215,7 +215,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 }
                 dhcp_ports = self.core_plugin.get_ports(db_context,
                                                         filters=filters)
-                self._delete_gateway_port(db_context, dhcp_ports)
+                if dhcp_ports:
+                    self.delete_nuage_dhcp_port(db_context,
+                                                dhcp_ports[0]['id'])
                 self._add_nuage_sharedresource(db_context, subn,
                                                constants.SR_TYPE_FLOATING,
                                                subnets)
@@ -856,7 +858,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 }
                 dhcp_ports = self.core_plugin.get_ports(db_context,
                                                         filters=filters)
-                self._delete_gateway_port(db_context, dhcp_ports)
+                if dhcp_ports:
+                    self.delete_nuage_dhcp_port(db_context,
+                                                dhcp_ports[0]['id'])
             dhcp_opts_changed = self._validate_dhcp_opts_changed(
                 original_subnet,
                 updated_subnet)
@@ -947,7 +951,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             'network_id': [subnet['network_id']],
             'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
         }
-        context.nuage_ports = self.core_plugin.get_ports(db_context, filters)
+        context.nuage_dhcp_ports = self.core_plugin.get_ports(db_context,
+                                                              filters)
 
     def _validate_ipv6_vips_in_use(self, db_context, subnet):
         nuage_ipv4_subnets = (
@@ -1093,8 +1098,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self._cleanup_group(db_context,
                                     mapping['net_partition_id'],
                                     mapping['nuage_subnet_id'], subnet)
-
-        self._delete_gateway_port(db_context, context.nuage_ports)
+        for nuage_dhcp_port in context.nuage_dhcp_ports:
+            if not nuage_dhcp_port.get('fixed_ips'):
+                self.delete_nuage_dhcp_port(db_context, nuage_dhcp_port['id'])
 
     @handle_nuage_api_errorcode
     @utils.context_log

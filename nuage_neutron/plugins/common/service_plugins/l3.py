@@ -336,8 +336,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
         }
         dhcp_ports = self.core_plugin.get_ports(context, filters=filters)
-        for port in dhcp_ports:
-            self.core_plugin.delete_port(context, port['id'])
+        if dhcp_ports:
+            self.delete_nuage_dhcp_port(context, dhcp_ports[0]['id'])
 
         pnet_binding = nuagedb.get_network_binding(context.session,
                                                    subnet['network_id'])
