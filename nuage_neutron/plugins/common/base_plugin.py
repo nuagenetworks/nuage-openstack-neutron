@@ -31,8 +31,6 @@ from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
-from neutron_lib.exceptions import PortNotFound
-from neutron_lib.plugins import constants as lib_plugins_constants
 from neutron_lib.plugins import directory
 from neutron_lib.plugins import utils as plugin_utils
 
@@ -284,6 +282,10 @@ class RootNuagePlugin(SubnetUtilsBase):
                           'for unmanaged subnet.'))
             return None
 
+    def delete_nuage_dhcp_port(self, context, port_id):
+        db_base_plugin_v2.NeutronDbPluginV2.delete_port(self.core_plugin,
+                                                        context, port_id)
+
     @staticmethod
     def _check_security_groups_per_port_limit(sgs_per_port):
         if len(sgs_per_port) > constants.MAX_SG_PER_PORT:
@@ -529,16 +531,6 @@ class RootNuagePlugin(SubnetUtilsBase):
                         "ports with vnic type {} on such a network.").format(
                     nuage_l2bridge, port.get(portbindings.VNIC_TYPE))
                 raise NuageBadRequest(resource='port', msg=msg)
-
-    @log_helpers.log_method_call
-    def _delete_gateway_port(self, context, ports):
-        for port in ports:
-            try:
-                db_base_plugin_v2.NeutronDbPluginV2.delete_port(
-                    self.core_plugin, context, port['id'])
-            except PortNotFound:
-                LOG.info("Port %s has been deleted concurrently",
-                         port['id'])
 
     @staticmethod
     def get_auto_create_port_owners():
