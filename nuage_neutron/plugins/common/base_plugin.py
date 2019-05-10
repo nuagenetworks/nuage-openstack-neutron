@@ -296,9 +296,13 @@ class RootNuagePlugin(SubnetUtilsBase):
         else:
             return None
 
+    @log_helpers.log_method_call
     def delete_nuage_dhcp_port(self, context, port_id):
-        db_base_plugin_v2.NeutronDbPluginV2.delete_port(self.core_plugin,
-                                                        context, port_id)
+        try:
+            db_base_plugin_v2.NeutronDbPluginV2.delete_port(
+                self.core_plugin, context, port_id)
+        except PortNotFound:
+            LOG.info("Port %s has been deleted concurrently", port_id)
 
     def update_nuage_port_dhcp_ip(self, context, neutron_subnet, dualstack,
                                   del_dhcp_ip=False):
@@ -558,16 +562,6 @@ class RootNuagePlugin(SubnetUtilsBase):
                         "ports with vnic type {} on such a network.").format(
                     nuage_l2bridge, port.get(portbindings.VNIC_TYPE))
                 raise NuageBadRequest(resource='port', msg=msg)
-
-    @log_helpers.log_method_call
-    def _delete_gateway_port(self, context, ports):
-        for port in ports:
-            try:
-                db_base_plugin_v2.NeutronDbPluginV2.delete_port(
-                    self.core_plugin, context, port['id'])
-            except PortNotFound:
-                LOG.info("Port %s has been deleted concurrently",
-                         port['id'])
 
     @staticmethod
     def get_auto_create_port_owners():

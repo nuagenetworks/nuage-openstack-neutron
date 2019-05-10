@@ -320,21 +320,21 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                     ipv4_subnet, ipv6_subnet, subnet,
                                     vsd_zone, ipv4_subnet_mapping,
                                     ipv6_subnet_mapping, network_name):
-        dhcp_port = None
+        dhcp_ports = None
         if ipv4_subnet:
             filters = {
                 'fixed_ips': {'subnet_id': [ipv4_subnet['id']]},
                 'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
             }
-            dhcp_port = self.core_plugin.get_ports(context, filters=filters)
-        if ipv6_subnet and not dhcp_port:
+            dhcp_ports = self.core_plugin.get_ports(context, filters=filters)
+        if ipv6_subnet and not dhcp_ports:
             filters = {
                 'fixed_ips': {'subnet_id': [ipv6_subnet['id']]},
                 'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
             }
-            dhcp_port = self.core_plugin.get_ports(context, filters=filters)
-        if dhcp_port:
-            self.delete_nuage_dhcp_port(context, dhcp_port[0]['id'])
+            dhcp_ports = self.core_plugin.get_ports(context, filters=filters)
+        if dhcp_ports:
+            self.delete_nuage_dhcp_port(context, dhcp_ports[0]['id'])
 
         with nuage_utils.rollback() as on_exc:
             vsd_subnet = self.vsdclient.create_domain_subnet(
