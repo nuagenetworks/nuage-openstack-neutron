@@ -110,7 +110,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @staticmethod
     def get_me_a_rest_proxy():
         vsd_client = RESTProxyServer(server='localhost:9876',
-                                     base_uri='/nuage/api/v6_0',
+                                     base_uri='/nuage/api/v6',
                                      serverssl=True,
                                      verify_cert='False',
                                      serverauth='1:1',
