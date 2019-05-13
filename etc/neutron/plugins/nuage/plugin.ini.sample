@@ -28,8 +28,7 @@
 
 # (StrOpt) Nuage provided base uri to reach out to VSD.
 #
-#base_uri = /nuage/api/v6_0
-
+#base_uri = /nuage/api/v6
 # (StrOpt) Nuage provided uri for initial authorization to access VSD
 #
 #auth_resource = /me
