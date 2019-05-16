@@ -33,7 +33,19 @@ RESOURCE_ATTRIBUTE_MAP = {
         'type': {'allow_post': False, 'allow_put': False,
                  'is_visible': True, },
         'net_partition_id': {'allow_post': False, 'allow_put': False,
-                             'is_visible': True, }
+                             'is_visible': True, },
+        'dhcp_managed': {'allow_post': False, 'allow_put': False,
+                         'is_visible': True},
+        'ip_type': {'allow_post': False, 'allow_put': False,
+                    'is_visible': True},
+        'cidr': {'allow_post': False, 'allow_put': False,
+                 'is_visible': True},
+        'ipv6_cidr': {'allow_post': False, 'allow_put': False,
+                      'is_visible': True},
+        'gateway': {'allow_post': False, 'allow_put': False,
+                    'is_visible': True},
+        'ipv6_gateway': {'allow_post': False, 'allow_put': False,
+                         'is_visible': True}
     },
     'vsd_zones': {
         'id': {'allow_post': False, 'allow_put': False,
