@@ -386,15 +386,20 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 gwport['port_id'],
                 segmentation_id)
             if len(vports) == 0:
+                filters = {'system_id': [gwport['switch_id']]}
+                gws = self.vsdclient.get_gateways(ctx.tenant_id, filters)
+                if len(gws) == 0:
+                    msg = (_("No gateway found %s")
+                           % filters['system_id'][0])
+                    raise exceptions.NuageBadRequest(msg=msg)
+                gw = gws[0]
+
                 port_id = gwport['port_id']
-                any_hw_personality = 'VSG'  # don't care which,
-                #                             as long as it is a HW one
                 params = {
                     'gatewayport': port_id,
                     'value': segmentation_id,
                     'redundant': gwport['redundant'],
-                    'personality': any_hw_personality  # the actual one doesn't
-                    #                                    matter
+                    'personality': gw['gw_type']
                 }
                 try:
                     vlan = self.vsdclient.create_gateway_vlan(params)
@@ -418,7 +423,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     'nuage_managed_subnet':
                         port_dict['subnet_mapping']['nuage_managed_subnet'],
                     'port_security_enabled': False,
-                    'personality': any_hw_personality,
+                    'personality': gw['gw_type'],
                     'type': nuage_const.BRIDGE_VPORT_TYPE
                 }
                 vsd_subnet = self.vsdclient \
@@ -426,9 +431,13 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                         port_dict['subnet_mapping']['nuage_subnet_id'])
                 params['vsd_subnet'] = vsd_subnet
 
+                # policy groups are not supported on netconf
+                # managed gateways
+                create_policy = 'NETCONF' not in gw['gw_type']
+
                 vport = self.vsdclient.create_gateway_vport_no_usergroup(
                     ctx.tenant_id,
-                    params, create_policy_group=True)
+                    params, create_policy_group=create_policy)
                 LOG.debug("created vport: %(vport_dict)s",
                           {'vport_dict': vport})
                 bridge_port_id = vport.get('vport').get('ID')
