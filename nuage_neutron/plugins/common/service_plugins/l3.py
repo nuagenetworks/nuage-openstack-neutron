@@ -666,19 +666,23 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                               nuage_router['rt'],
                                               nuage_router['rd'])
             neutron_router['net_partition'] = net_partition['id']
-            neutron_router['tunnel_type'] = nuage_router['tunnel_type']
             neutron_router['rd'] = nuage_router['rd']
             neutron_router['rt'] = nuage_router['rt']
-            neutron_router['ecmp_count'] = nuage_router['ecmp_count']
             neutron_router['nuage_backhaul_vnid'] = \
                 nuage_router['nuage_backhaul_vnid']
             neutron_router['nuage_backhaul_rd'] = \
                 nuage_router['nuage_backhaul_rd']
             neutron_router['nuage_backhaul_rt'] = \
                 nuage_router['nuage_backhaul_rt']
+            neutron_router['nuage_router_template'] = \
+                nuage_router['nuage_template_id']
+            neutron_router['tunnel_type'] = nuage_router['tunnel_type']
+            neutron_router['ecmp_count'] = nuage_router['ecmp_count']
+
             routing_mechanisms.update_nuage_router_parameters(
                 req_router, context, neutron_router['id']
             )
+        # adds Nuage_underlay attribute to neutron_router
         routing_mechanisms.add_nuage_router_attributes(context.session,
                                                        neutron_router)
         return neutron_router

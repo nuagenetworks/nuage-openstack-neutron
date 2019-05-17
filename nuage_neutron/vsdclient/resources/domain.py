@@ -132,13 +132,7 @@ class NuageDomain(object):
             'GET', nuagel3dom.get_all_resources_in_ent(), '')
         if not nuagel3dom.validate(response):
             raise nuagel3dom.get_rest_proxy_error()
-        res = []
-        for l3dom in nuagel3dom.get_response_objlist(response):
-            np_dict = dict()
-            np_dict['domain_name'] = l3dom['name']
-            np_dict['domain_id'] = l3dom['ID']
-            res.append(np_dict)
-        return res
+        return nuagel3dom.get_response_objlist(response)
 
     def get_fip_underlay_enabled_domain_by_netpart(self, netpart_id):
         nuagel3dom = nuagelib.NuageL3Domain({'net_partition_id': netpart_id})
@@ -218,6 +212,7 @@ class NuageDomain(object):
         router_dict['nuage_external_id'] = strip_cms_id(external_id)
         router_dict['nuage_parent_id'] = parent_id
         router_dict['nuage_domain_id'] = nuage_domain_id
+        router_dict['nuage_template_id'] = nuagel3domain.get('templateID')
         router_dict['rt'] = nuagel3domain.get('routeTarget')
         router_dict['rd'] = nuagel3domain.get('routeDistinguisher')
         router_dict['ecmp_count'] = nuagel3domain.get('ECMPCount')
