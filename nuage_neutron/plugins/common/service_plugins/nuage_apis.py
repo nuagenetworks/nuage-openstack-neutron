@@ -376,38 +376,58 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
     def get_vsd_domains(self, context, filters=None, fields=None):
-        if 'vsd_organisation_id' not in filters:
-            msg = _('vsd_organisation_id is a required filter parameter for '
-                    'this API.')
+
+        l3domains = []
+        l2domains = []
+
+        if 'vsd_organisation_id' in filters:
+            # get domains by enterprise id
+            l3domains.extend(self.vsdclient.get_routers_by_netpart(
+                filters['vsd_organisation_id'][0]))
+            l2domains.extend(self.vsdclient.get_subnet_by_netpart(
+                filters['vsd_organisation_id'][0]))
+        elif 'os_router_ids' in filters:
+            # get domain by Openstack router id
+            l3domains.extend(self.vsdclient.get_router_by_external(os_id)
+                             for os_id in filters['os_router_ids'])
+        else:
+            msg = _('vsd_organisation_id or os_router_ids is a required filter'
+                    ' parameter for this API.')
             raise n_exc.BadRequest(resource='vsd-domains', msg=msg)
-        vsd_domains = self.vsdclient.get_routers_by_netpart(
-            filters['vsd_organisation_id'][0])
-        vsd_l2domains = self.vsdclient.get_subnet_by_netpart(
-            filters['vsd_organisation_id'][0])
-        if vsd_domains:
-            vsd_domains = [self._update_dict(vsd_domain, 'type', 'L3')
-                           for vsd_domain in vsd_domains]
-        if vsd_l2domains:
-            vsd_l2domains = [self._update_dict(l2domain, 'type', 'L2')
-                             for l2domain in vsd_l2domains]
-        vsd_domains = (vsd_domains or []) + (vsd_l2domains or [])
-        vsd_domains = [self._update_dict(vsd_domain, 'net_partition_id',
-                                         filters['vsd_organisation_id'][0])
-                       for vsd_domain in vsd_domains]
+
+        # add type to the domains (used by horizon linkedselect)
+        for domain in l3domains:
+            domain.update({'type': 'L3'})
+        for domain in l2domains:
+            domain.update({'type': 'L2'})
 
         vsd_to_os = {
-            'domain_id': 'id',
-            'domain_name': 'name',
+            'ID': 'id',
+            'name': 'name',
             'type': 'type',
+
+            # L2
             'net_partition_id': 'net_partition_id',
             'dhcp_managed': 'dhcp_managed',
-            'ip_type': 'ip_type',
+            'IPType': 'ip_type',
             'ipv4_cidr': 'cidr',
-            'ipv6_cidr': 'ipv6_cidr',
+            'IPv6Address': 'ipv6_cidr',
             'ipv4_gateway': 'gateway',
-            'ipv6_gateway': 'ipv6_gateway'
+            'IPv6Gateway': 'ipv6_gateway',
+
+            # L3
+            'parentID': 'net_partition_id',
+            'routeDistinguisher': 'rd',
+            'routeTarget': 'rt',
+            'backHaulVNID': 'backhaul_vnid',
+            'backHaulRouteDistinguisher': 'backhaul_rd',
+            'backHaulRouteTarget': 'backhaul_rt',
+            'templateID': 'router_template_id',
+            'tunnelType': 'tunnel_type',
+            'ECMPCount': 'ecmp_count'
         }
-        return self._trans_vsd_to_os(vsd_domains, vsd_to_os, filters, fields)
+        return self._trans_vsd_to_os(l3domains + l2domains, vsd_to_os,
+                                     filters, fields)
 
     def _calc_cidr(self, subnet):
         if (not subnet['address']) and (
