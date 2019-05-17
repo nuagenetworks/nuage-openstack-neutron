@@ -13,20 +13,17 @@
 #    under the License.
 
 from abc import ABCMeta
-
-import six
+import uuid
 
 from oslo_serialization import jsonutils as json
+import six
 
 from nuage_neutron.plugins.common import config
 
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
-
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
-
-import uuid
 
 REST_SUCCESS_CODES = constants.REST_SUCCESS_CODES
 REST_NOT_FOUND = constants.RES_NOT_FOUND

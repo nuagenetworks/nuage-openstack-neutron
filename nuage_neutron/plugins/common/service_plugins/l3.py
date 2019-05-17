@@ -14,15 +14,8 @@
 
 import copy
 from logging import handlers
+
 import netaddr
-
-from oslo_config import cfg
-from oslo_log.formatters import ContextFormatter
-from oslo_log import helpers as log_helpers
-from oslo_log import log as logging
-from oslo_utils import excutils
-import six
-
 from neutron._i18n import _
 from neutron.db import api as db
 from neutron.db.common_db_mixin import CommonDbMixin
@@ -36,6 +29,12 @@ from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.plugins import directory
 from neutron_lib.services import base as service_base
 from neutron_lib.utils import helpers
+from oslo_config import cfg
+from oslo_log.formatters import ContextFormatter
+from oslo_log import helpers as log_helpers
+from oslo_log import log as logging
+from oslo_utils import excutils
+import six
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
@@ -518,10 +517,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             router_attached, r_id = self.check_if_subnet_is_attached_to_router(
                 context, dual_stack_subnet)
             if router_attached and not ('port_id' in interface_info):
-                    return super(NuageL3Plugin,
-                                 self).remove_router_interface(context,
-                                                               router_id,
-                                                               interface_info)
+                return super(NuageL3Plugin,
+                             self).remove_router_interface(context,
+                                                           router_id,
+                                                           interface_info)
         with nuage_utils.rollback() as on_exc:
             dhcp_port = self.create_dhcp_nuage_port(context, ipv4_subnet)
             dhcp_ip = None
@@ -717,12 +716,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                    {'router': copy.deepcopy(original_router)})
 
             if 'routes' in updates:
-                    self._update_nuage_router_static_routes(
-                        id, nuage_domain_id,
-                        old_routes,
-                        updates['routes'])
-                    on_exc(self._update_nuage_router_static_routes, id,
-                           nuage_domain_id, updates['routes'], old_routes)
+                self._update_nuage_router_static_routes(id,
+                                                        nuage_domain_id,
+                                                        old_routes,
+                                                        updates['routes'])
+                on_exc(self._update_nuage_router_static_routes, id,
+                       nuage_domain_id, updates['routes'], old_routes)
 
             if 'routes' in updates and len(updates) == 1:
                 pass

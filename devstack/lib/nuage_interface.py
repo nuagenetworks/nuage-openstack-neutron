@@ -15,13 +15,13 @@
 import argparse
 import errno
 import json
-import six
 import socket
 import sys
 import time
 
 from neutron.agent.linux.interface import OVSInterfaceDriver
 from neutron_lib import exceptions
+import six
 
 
 class NuageVMDriver(object):

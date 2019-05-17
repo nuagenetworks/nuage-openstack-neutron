@@ -13,17 +13,16 @@
 #    under the License.
 
 import inspect
+
 import netaddr
-
-from oslo_config import cfg
-from oslo_log import log as logging
-
 from neutron._i18n import _
 from neutron.services.trunk import constants as t_consts
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as os_constants
 from neutron_lib import context as neutron_context
 from neutron_lib.plugins.ml2 import api
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants as nuage_const
@@ -144,7 +143,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         elif original['binding:host_id'] != port['binding:host_id']:
             host_changed = True
         if host_removed or host_changed:
-                self._delete_port(context)
+            self._delete_port(context)
 
     @utils.context_log
     def delete_port_precommit(self, context):
@@ -152,7 +151,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         if not self.is_port_supported(context.current):
             return
         try:
-                self._delete_port(context)
+            self._delete_port(context)
         except Exception as e:
             LOG.error("Failed to delete vport from vsd {port id: %s}",
                       context.current['id'])

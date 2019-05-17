@@ -13,8 +13,8 @@
 #    under the License.
 
 import logging
-import netaddr
 
+import netaddr
 from neutron_lib import constants as lib_constants
 
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
