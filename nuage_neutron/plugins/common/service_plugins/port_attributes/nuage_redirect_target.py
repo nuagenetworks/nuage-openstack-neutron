@@ -66,11 +66,26 @@ class NuageRedirectTarget(BaseNuagePlugin):
         return self._make_redirect_target_dict(rtarget_resp, context=context,
                                                fields=fields)
 
+    def get_nuage_redirect_targets_by_port(self, port_id, context):
+        port_params = {'neutron_port_id': port_id}
+        vsd_mapping = nuagedb.get_subnet_l2dom_by_port_id(
+            context.session, port_id)
+        if vsd_mapping['nuage_l2dom_tmplt_id']:
+            port_params['l2dom_id'] = vsd_mapping['nuage_subnet_id']
+        else:
+            port_params['l3dom_id'] = vsd_mapping['nuage_subnet_id']
+        vport = self.vsdclient.get_nuage_vport_by_neutron_id(
+            port_params, required=True)
+        return self.vsdclient.get_nuage_vport_redirect_targets(
+            vport_id=vport['ID'], required=False) or []
+
     @log_helpers.log_method_call
     def get_nuage_redirect_targets(self, context, filters=None, fields=None):
-        # get all redirect targets
-        params = {}
+        rtargets = []
+
         if filters.get('subnet'):
+            params = {}
+
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                 context.session, filters['subnet'][0])
             if not subnet_mapping:
@@ -86,6 +101,9 @@ class NuageRedirectTarget(BaseNuagePlugin):
                     return []
             else:
                 params['parentID'] = subnet_mapping['nuage_subnet_id']
+
+            rtargets = self.vsdclient.get_nuage_redirect_targets(params)
+
         elif filters.get('router'):
             router_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
                 context.session, filters['router'][0])
@@ -93,15 +111,26 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 msg = (_("No router mapping found for router %s")
                        % filters['router'][0])
                 raise nuage_exc.NuageBadRequest(msg=msg)
-            params['parentID'] = router_mapping['nuage_router_id']
-        elif filters.get('id'):
-            params['ID'] = filters.get('id')[0]
-        elif filters.get('name'):
-            params['name'] = filters.get('name')[0]
 
-        rtargets = self.vsdclient.get_nuage_redirect_targets(params)
-        return [self._make_redirect_target_dict(rtarget, context, fields)
-                for rtarget in rtargets]
+            rtargets = self.vsdclient.get_nuage_redirect_targets(
+                {'parentID': router_mapping['nuage_router_id']})
+
+        elif filters.get('id'):
+            rtargets = self.vsdclient.get_nuage_redirect_targets(
+                {'ID': filters.get('id')[0]})
+
+        elif filters.get('name'):
+            rtargets = self.vsdclient.get_nuage_redirect_targets(
+                {'name': filters.get('name')[0]})
+
+        elif filters.get('ports'):
+            rtargets = (rtarget for port_id in filters['ports'] for rtarget in
+                        self.get_nuage_redirect_targets_by_port(port_id,
+                                                                context))
+
+        def formatter(rtarget):
+            return self._make_redirect_target_dict(rtarget, context, fields)
+        return map(formatter, rtargets)
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
@@ -559,7 +588,6 @@ class NuageRedirectTarget(BaseNuagePlugin):
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
-        l2dom_id = l3dom_id = None
         if subnet_mapping:
             l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
 
