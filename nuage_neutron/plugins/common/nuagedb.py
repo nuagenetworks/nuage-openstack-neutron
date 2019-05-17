@@ -213,12 +213,12 @@ def get_subnet_l2doms_by_subnet_ids(session, subnet_ids):
         )).all()
 
 
-def get_subnet_l2doms_by_subnet_ids_locking(session, subnet_ids):
+def get_subnet_l2dom_by_subnet_ids_locking(session, subnet_ids):
     return (
         session.query(nuage_models.SubnetL2Domain)
         .filter(
             nuage_models.SubnetL2Domain.subnet_id.in_(subnet_ids)
-        )).with_for_update(read=True).all()
+        )).with_for_update(read=True).first()
 
 
 def get_subnet_l2dom_by_port_id(session, port_id):
