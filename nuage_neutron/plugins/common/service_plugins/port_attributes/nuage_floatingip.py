@@ -27,6 +27,7 @@ from nuage_neutron.plugins.common.service_plugins \
     import vsd_passthrough_resource
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.common.validation import require
+from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 
 
@@ -42,7 +43,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         'assigned': 'assigned'
     }
     vsd_filterables = ['id', 'floating_ip_address', 'assigned']
-    extra_filters = ['for_port', 'for_subnet']
+    extra_filters = ['for_port', 'for_subnet', 'ports']
 
     def __init__(self):
         super(NuageFloatingip, self).__init__()
@@ -70,20 +71,42 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_floatingips(self, context, filters=None, fields=None):
-        if 'for_port' in filters and 'for_subnet' in filters:
-            msg = _("Can't combine both 'for_port' and 'for_subnet' filter")
+        if sum(key in filters for key in ['for_port', 'for_subnet',
+                                          'ports']) > 1:
+            msg = _("Can't combine both 'for_port', 'for_subnet' and "
+                    "'ports' filter")
             raise exceptions.NuageBadRequest(msg=msg)
 
         if 'for_port' in filters:
             getter = self.get_port_available_nuage_floatingips
         elif 'for_subnet' in filters:
             getter = self.get_subnet_available_nuage_floatingips
+        elif 'ports' in filters:
+            # Get the floating IP assigned to a specific OS port
+            getter = self.get_nuage_floatingip_assigned_to_port
         else:
             policy.enforce(context, 'get_nuage_floatingip_all', None)
             getter = self.get_all_nuage_floatingips
         floatingips = getter(context, filters=filters)
-        return [self.map_vsd_to_os(floatingip, fields=fields)
-                for floatingip in floatingips]
+
+        def formatter(floatingip):
+            return self.map_vsd_to_os(floatingip, fields=fields)
+        return map(formatter, floatingips)
+
+    def get_nuage_floatingip_assigned_to_port(self, context, filters=None):
+        port_id = filters['ports'][0]
+        vsd_mapping = nuagedb.get_subnet_l2dom_by_port_id(context.session,
+                                                          port_id)
+        if vsd_mapping['nuage_l2dom_tmplt_id']:
+            return []
+        vports = self.vsdclient.get_vports(
+            constants.L3SUBNET,
+            vsd_mapping['nuage_subnet_id'],
+            externalID=get_vsd_external_id(port_id))
+        fip_id = vports[0]['associatedFloatingIPID'] if vports else None
+
+        return (self.vsdclient.get_nuage_floatingips(required=True, ID=fip_id)
+                if fip_id else [])
 
     def get_port_available_nuage_floatingips(self, context, filters=None):
         port_id = filters.pop('for_port')[0]
@@ -146,6 +169,8 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
                 msg = _("Floatingip %s has externalID, it can't be used with "
                         "this API.") % floatingip['ID']
                 raise exceptions.NuageBadRequest(msg=msg)
+            request_port['nuage_floatingip'] = self.map_vsd_to_os(
+                floatingip, fields=['id', 'floating_ip_address'])
         if event == constants.AFTER_UPDATE:
             rollbacks.append(
                 (self.vsdclient.update_vport,
