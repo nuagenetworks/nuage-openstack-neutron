@@ -396,8 +396,12 @@ class TestNuageMechanismDriver(testtools.TestCase):
                        return_value=[{'id': 'subnet1', 'ip_version': 6},
                                      {'id': 'subnet2', 'ip_version': 6}])
     @mock.patch.object(NuageMechanismDriver, 'is_external', return_value=False)
+    @mock.patch.object(NuageMechanismDriver, 'check_dhcp_agent_alive',
+                       return_value=False)
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
+    @mock.patch.object(NuageMechanismDriver,
+                       '_create_openstack_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
     def test_create_two_v6_subnets_precommit(self, *_):
         nmd = self.get_me_a_nmd()
@@ -408,15 +412,39 @@ class TestNuageMechanismDriver(testtools.TestCase):
         subnet = {'id': '10',
                   'network_id': '1',
                   'ip_version': 6,
-                  'cidr': 'fee::/64'}
+                  'cidr': 'fef::/64'}
+
+        nmd.create_subnet_precommit(Context(network, subnet))
+
+    @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
+    @mock.patch.object(NuageMechanismDriver, 'get_subnets',
+                       return_value=[{'id': 'subnet1', 'ip_version': 6},
+                                     {'id': 'subnet2', 'ip_version': 6}])
+    @mock.patch.object(NuageMechanismDriver, 'is_external', return_value=False)
+    @mock.patch.object(NuageMechanismDriver, 'check_dhcp_agent_alive',
+                       return_value=True)
+    @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
+                       return_value=[])
+    @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids')
+    def test_create_two_v6_subnets_with_dhcp_agent_precommit(self, *_):
+        nmd = self.get_me_a_nmd()
+
+        network = {'id': '1',
+                   'provider:network_type': 'vxlan',
+                   'router:external': False}
+        subnet = {'id': '10',
+                  'network_id': '1',
+                  'ip_version': 6,
+                  'cidr': 'eef::/64'}
+
         try:
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('This is a negative test and was not meant to pass.')
 
         except NuageBadRequest as e:
-            self.assertEqual('Bad request: A network with an ipv6 subnet '
-                             'may only have maximum 1 ipv4 and 1 ipv6 '
-                             'subnet', str(e))
+            self.assertEqual('Bad request: A network with multiple ipv4 or '
+                             'ipv6 subnets is not allowed when '
+                             'neutron-dhcp-agent is enabled', str(e))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
@@ -464,9 +492,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.fail('This is a negative test and was not meant to pass.')
 
         except NuageBadRequest as e:
-            self.assertEqual('Bad request: A network with an ipv6 subnet '
-                             'may only have maximum 1 ipv4 and 1 ipv6 '
-                             'subnet', str(e))
+            self.assertEqual('Bad request: A network can only have maximum 1 '
+                             'ipv4 and 1 ipv6 subnet existing together', str(e)
+                             )
 
     @mock.patch.object(RESTProxyServer, 'generate_nuage_auth')
     @mock.patch.object(RESTProxyServer, '_rest_call',
@@ -504,9 +532,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.fail('This is a negative test and was not meant to pass.')
 
         except NuageBadRequest as e:
-            self.assertEqual('Bad request: A network with an ipv6 subnet '
-                             'may only have maximum 1 ipv4 and 1 ipv6 '
-                             'subnet', str(e))
+            self.assertEqual('Bad request: A network can only have maximum 1 '
+                             'ipv4 and 1 ipv6 subnet existing together', str(e)
+                             )
 
     # DEFAULT ALLOW NON IP CHECKS
 
