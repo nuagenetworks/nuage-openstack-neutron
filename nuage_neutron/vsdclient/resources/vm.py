@@ -154,8 +154,8 @@ class NuageVM(object):
             if not params['portOnSharedSubn']:
                 self._attach_reqd_perm_for_vm_boot(
                     params, vsd_subnet['parentID'], on_l2=False)
-
         elif vsd_subnet['type'] == constants.L2DOMAIN:
+            self._clear_vsd_unmanaged_l2_domain_vm_ip(vsd_subnet, req_params)
             if not params['portOnSharedSubn']:
                 self._attach_reqd_perm_for_vm_boot(
                     params, vsd_subnet['ID'], on_l2=True)
@@ -208,6 +208,7 @@ class NuageVM(object):
             self._attach_reqd_perm_for_vm_boot(
                 params, vsd_subnet['parentID'], on_l2=False)
         elif vsd_subnet['type'] == constants.L2DOMAIN:
+            self._clear_vsd_unmanaged_l2_domain_vm_ip(vsd_subnet, req_params)
             self._attach_reqd_perm_for_vm_boot(
                 params, vsd_subnet['ID'], on_l2=True)
 
@@ -222,11 +223,21 @@ class NuageVM(object):
                 'vport_id': nuagevmif.get_vport_id(response),
                 'vif_id': nuagevmif.get_vif_id(response)}
 
+    def _clear_vsd_unmanaged_l2_domain_vm_ip(self, domain, req_params):
+        shared_resource_id = domain['associatedSharedNetworkResourceID']
+        if (not domain['DHCPManaged']) and (not shared_resource_id):
+            req_params['ipv4'] = None
+            req_params['ipv6'] = None
+        elif shared_resource_id:
+            if not self.is_shared_l2_domain_managed(shared_resource_id):
+                req_params['ipv4'] = None
+                req_params['ipv6'] = None
+
     def is_shared_l2_domain_managed(self, shared_nuage_id):
         nuagel2dom = nuagelib.NuageL2Domain()
         response = self.restproxy.get(nuagel2dom.get_resource(shared_nuage_id),
                                       required=True)[0]
-        return response.get('enableDHCPv4'), response.get('enableDHCPv6')
+        return response['DHCPManaged']
 
     def create_vms(self, params):
         if params['no_of_ports'] > 1:
@@ -583,6 +594,10 @@ class NuageVM(object):
     @staticmethod
     def _check_if_same_subnet(params):
         nuage_subnet = params['vsd_subnet']
+
+        if not nuage_subnet.get('DHCPManaged', True):
+            return True
+
         vip = IPNetwork(params['vip'])
         if vip.version == 6:
             if not nuage_subnet['IPv6Address']:
