@@ -143,38 +143,37 @@ class RootNuagePlugin(SubnetUtilsBase):
 
     def _validate_cidr(self, subnet, nuage_subnet, shared_subnet):
         nuage_subnet = shared_subnet or nuage_subnet
-        if subnet['ip_version'] == 4:
-            subnet_validate = {'enable_dhcp': Is(nuage_subnet.get(
-                'enableDHCPv4', True))}
-            if nuage_subnet['IPType'] == constants.IP_TYPE_IPV6:
-                msg = (_("Subnet with ip_version %(ip_version)s can't be "
-                         "linked to vsd subnet with IPType %(ip_type)s.")
-                       % {'ip_version': subnet['ip_version'],
-                          'ip_type': nuage_subnet['IPType']})
-                raise NuageBadRequest(msg=msg)
-            nuage_cidr = (netaddr.IPNetwork(nuage_subnet['address'] + '/' +
-                                            nuage_subnet['netmask'])
-                          if nuage_subnet.get('address') else None)
-        else:
-            subnet_validate = {'enable_dhcp': Is(nuage_subnet.get(
-                'enableDHCPv6', False))}
-            if nuage_subnet['IPType'] == constants.IP_TYPE_IPV4:
-                msg = (_("Subnet with ip_version %(ip_version)s can't be "
-                         "linked to vsd subnet with IPType %(ip_type)s.")
-                       % {'ip_version': subnet['ip_version'],
-                          'ip_type': nuage_subnet['IPType']})
-                raise NuageBadRequest(msg=msg)
-            nuage_cidr = (netaddr.IPNetwork(nuage_subnet['IPv6Address'])
-                          if nuage_subnet.get('IPv6Address') else None)
+        if nuage_subnet.get('DHCPManaged', True):
+            if subnet['ip_version'] == 4:
+                subnet_validate = {'enable_dhcp': Is(nuage_subnet.get(
+                    'enableDHCPv4', True))}
+                if nuage_subnet['IPType'] == constants.IP_TYPE_IPV6:
+                    msg = (_("Subnet with ip_version %(ip_version)s can't be "
+                             "linked to vsd subnet with IPType %(ip_type)s.")
+                           % {'ip_version': subnet['ip_version'],
+                              'ip_type': nuage_subnet['IPType']})
+                    raise NuageBadRequest(msg=msg)
+                nuage_cidr = (netaddr.IPNetwork(nuage_subnet['address'] + '/' +
+                                                nuage_subnet['netmask'])
+                              if nuage_subnet.get('address') else None)
+            else:
+                subnet_validate = {'enable_dhcp': Is(nuage_subnet.get(
+                    'enableDHCPv6', False))}
+                if nuage_subnet['IPType'] == constants.IP_TYPE_IPV4:
+                    msg = (_("Subnet with ip_version %(ip_version)s can't be "
+                             "linked to vsd subnet with IPType %(ip_type)s.")
+                           % {'ip_version': subnet['ip_version'],
+                              'ip_type': nuage_subnet['IPType']})
+                    raise NuageBadRequest(msg=msg)
+                nuage_cidr = (netaddr.IPNetwork(nuage_subnet['IPv6Address'])
+                              if nuage_subnet.get('IPv6Address') else None)
 
-        if not nuage_cidr:
-            msg = (_("The nuage subnet is DHCP unmanaged. Only DHCP managed "
-                     "subnet is allowed to be linked."))
-            raise NuageBadRequest(msg=msg)
-        elif not self.compare_cidr(subnet['cidr'], nuage_cidr):
-            msg = 'OSP cidr %s and NuageVsd cidr %s do not match' % \
-                  (subnet['cidr'], nuage_cidr)
-            raise NuageBadRequest(msg=msg)
+            if not self.compare_cidr(subnet['cidr'], nuage_cidr):
+                msg = 'OSP cidr %s and NuageVsd cidr %s do not match' % \
+                      (subnet['cidr'], nuage_cidr)
+                raise NuageBadRequest(msg=msg)
+        else:
+            subnet_validate = {'enable_dhcp': Is(False)}
 
         validate("subnet", subnet, subnet_validate)
 
