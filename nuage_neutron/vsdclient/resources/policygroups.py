@@ -1017,11 +1017,7 @@ class NuagePolicyGroups(object):
                     (neutron_subnet['nuage_l2bridge'] or neutron_subnet['id']),
             'sg_id': None,
             'sg_type': sg_type,
-            # TODO(Kris) Remove deprecated code
-            # keep externalID to be subnet_id@cms_id because
-            # GW API will be deprecated.
-            'externalID': helper.get_external_id_based_on_subnet_id(
-                neutron_subnet)
+            'externalID': helper.get_subnet_external_id(neutron_subnet)
         }
 
         if pg_name:
@@ -1057,10 +1053,7 @@ class NuagePolicyGroups(object):
                     'policygroup': policygroup,
                     'neutron_sg_rule': neutron_sg_rule,
                     'sg_type': constants.HARDWARE,
-                    # TODO(Kris) Remove deprecated code
-                    # keep externalID to be subnet_id@cms_id because
-                    # GW API will be deprecated.
-                    'externalID': helper.get_external_id_based_on_subnet_id(
+                    'externalID': helper.get_subnet_external_id(
                         neutron_subnet),
                     'legacy': True
                 }
