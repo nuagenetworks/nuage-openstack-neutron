@@ -104,7 +104,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
       - openstack/tempest
 
@@ -122,7 +121,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
       - openstack/tempest
 
@@ -140,7 +138,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
       - openstack/tempest
 
@@ -159,7 +156,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
       - openstack/tempest
 
@@ -177,7 +173,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
       - openstack/tempest
 
@@ -195,7 +190,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-fwaas
       - openstack/neutron-tempest-plugin
       - openstack/tempest
@@ -215,7 +209,6 @@
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
       - OpenStack/nuage-octavia-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/octavia
       - openstack/octavia-tempest-plugin
       - openstack/tempest
@@ -235,7 +228,6 @@
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
       - OpenStack/nuage-octavia-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/octavia
       - openstack/octavia-tempest-plugin
       - openstack/tempest
@@ -254,7 +246,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-lbaas
       - openstack/neutron-tempest-plugin
       - openstack/tempest
@@ -273,7 +264,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/networking-sfc
       - openstack/neutron-tempest-plugin
       - openstack/tempest
@@ -291,7 +281,6 @@
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
-      - openstack-infra/devstack-gate
       - openstack/rally
       - openstack/rally-openstack
 
@@ -309,7 +298,6 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
       - openstack/tempest
 
@@ -327,6 +315,5 @@
       - OpenStack/nuage-openstack-neutron
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
-      - openstack-infra/devstack-gate
       - openstack/neutron-tempest-plugin
       - openstack/tempest
