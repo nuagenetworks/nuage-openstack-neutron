@@ -93,6 +93,7 @@
         - legacy-tempest-aio-full:
             branches:
               - stable/newton
+              - stable/ocata
               - stable/queens
               - stable/rocky
               - stable/stein
@@ -101,9 +102,11 @@
             #                            -- hoped for to remove soon (6.0)
             branches:
               - stable/newton
+              - stable/ocata
         - legacy-tempest-aio-upstream:
             branches:
               - stable/newton
+              - stable/ocata
               - stable/queens
               - stable/rocky
               - stable/stein
