@@ -16,12 +16,12 @@
           set -x
           cat > clonemap.yaml << EOF
           clonemap:
-            - name: openstack-infra/devstack-gate
+            - name: openstack/devstack-gate
               dest: devstack-gate
           EOF
           /usr/zuul-env/bin/zuul-cloner -m clonemap.yaml --cache-dir /opt/git \
-              git://git.openstack.org \
-              openstack-infra/devstack-gate
+          https://opendev.org \
+              openstack/devstack-gate
         executable: /bin/bash
         chdir: '{{ ansible_user_dir }}/workspace'
       environment: '{{ zuul | zuul_legacy_vars }}'
@@ -49,8 +49,8 @@
 
           # by default devstack-gate will include bunch of projects
           # we dont actually need. We ovewrite project list here
-          PROJECTS="openstack-infra/devstack-gate"
-          PROJECTS="openstack-dev/devstack $PROJECTS"
+          PROJECTS="openstack/devstack-gate"
+          PROJECTS="openstack/devstack $PROJECTS"
           PROJECTS="openstack/cinder $PROJECTS"
           PROJECTS="openstack/glance $PROJECTS"
           PROJECTS="openstack/keystone $PROJECTS"
