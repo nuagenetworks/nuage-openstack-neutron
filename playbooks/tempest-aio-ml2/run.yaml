@@ -37,6 +37,7 @@
           if [ "{{ python3 }}" == "True" ] ; then
               # Enable PYTHON 3
               export DEVSTACK_GATE_USE_PYTHON3=True
+              export DEVSTACK_GATE_CONFIGDRIVE=1
           fi
           export NUAGE_OS_RELEASE=${ZUUL_BRANCH#*/}
           export NODEPOOL_MIRROR_HOST={{ zuul_site_mirror_fqdn }}
