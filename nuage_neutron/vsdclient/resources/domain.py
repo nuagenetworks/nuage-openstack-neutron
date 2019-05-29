@@ -77,7 +77,8 @@ class NuageDomain(object):
             raise nuageobacl.get_rest_proxy_error()
         return nuageobacl.get_oacl_id(response)
 
-    def _calculate_pat_and_underlay(self, router):
+    @staticmethod
+    def _calculate_pat_and_underlay(router):
         underlay_routing = router.get(plugin_constants.NUAGE_UNDERLAY)
         if underlay_routing == plugin_constants.NUAGE_UNDERLAY_SNAT:
             nuage_pat = nuage_underlay = 'ENABLED'
@@ -849,8 +850,8 @@ class NuageDomainSubnet(object):
             self.restproxy.put(nuagel3domsub.put_resource(params['parent_id']),
                                updates)
 
-    def _calculate_pat_and_underlay(self, subnet):
-
+    @staticmethod
+    def _calculate_pat_and_underlay(subnet):
         underlay_routing = subnet.get(plugin_constants.NUAGE_UNDERLAY)
         if underlay_routing == plugin_constants.NUAGE_UNDERLAY_SNAT:
             nuage_pat = nuage_underlay = 'ENABLED'

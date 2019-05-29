@@ -27,91 +27,17 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 
 
-def check_routing_mechanisms_config():
-    """Validate nuage.ini configuration
-
-    :raise Raises ConfigFileValueError when configuration is not correct
-    """
-    if (cfg.CONF.RESTPROXY.nuage_underlay_default !=
-            constants.NUAGE_UNDERLAY_OFF and
-            cfg.CONF.RESTPROXY.nuage_pat !=
-            constants.NUAGE_PAT_LEGACY_DISABLED):
-        msg = ("It is not possible to configure both {} "
-               "and {}. Set {} to "
-               "{}.".format('nuage_pat',
-                            constants.NUAGE_UNDERLAY_INI,
-                            'nuage_pat',
-                            constants.NUAGE_PAT_LEGACY_DISABLED))
-        raise cfg.ConfigFileValueError(msg=msg)
-    elif (cfg.CONF.RESTPROXY.nuage_underlay_default is None and
-          cfg.CONF.RESTPROXY.nuage_pat == constants.NUAGE_PAT_LEGACY_DISABLED):
-        msg = ("It is compulsory to configure {} when "
-               "setting {} to {}.".format(constants.NUAGE_UNDERLAY_INI,
-                                          'nuage_pat',
-                                          constants.NUAGE_PAT_LEGACY_DISABLED))
-        raise cfg.ConfigFileValueError(msg=msg)
-
-
-def is_legacy():
-    return cfg.CONF.RESTPROXY.nuage_pat != constants.NUAGE_PAT_LEGACY_DISABLED
-
-
 def is_not_available():
     return (cfg.CONF.RESTPROXY.nuage_underlay_default ==
             constants.NUAGE_UNDERLAY_NOT_AVAILABLE)
 
 
-def create_legacy_routing_values(router):
-    validate_legacy_router(router)
-    enable_snat = router['external_gateway_info'].get('enable_snat')
-
-    if enable_snat is None:
-        config = cfg.CONF.RESTPROXY.nuage_pat
-        if config == constants.NUAGE_PAT_DEF_ENABLED:
-            router[constants.NUAGE_UNDERLAY] = constants.NUAGE_UNDERLAY_SNAT
-        else:
-            # default disabled or not_available
-            router[constants.NUAGE_UNDERLAY] = constants.NUAGE_UNDERLAY_OFF
-    elif enable_snat is True:
-        router[constants.NUAGE_UNDERLAY] = constants.NUAGE_UNDERLAY_SNAT
-    else:
-        router[constants.NUAGE_UNDERLAY] = constants.NUAGE_UNDERLAY_OFF
-
-    # Set enable_snat=False, since this signifies pat to overlay in non-legacy
-    router['external_gateway_info']['enable_snat'] = False
-
-
-def validate_legacy_router(router):
-    enable_snat = (router['external_gateway_info'].get('enable_snat')
-                   if router.get('external_gateway_info') else None)
-    nuage_pat = cfg.CONF.RESTPROXY.nuage_pat
-    if (nuage_pat == constants.NUAGE_PAT_NOT_AVAILABLE and
-            enable_snat is True):
-        msg = _("nuage_pat config is set to 'not_available'. "
-                "Can't enable 'enable_snat'.")
-        raise NuageBadRequest(resource='router', msg=msg)
-
-
 def update_routing_values(router, old_router={}):
     """Update routing values as per (updated) router
 
-    Defaults are applied as per nuage_pat (legacy behavior), nuage_underlay
-    and enable_snat_by_default
+    Defaults are applied as per nuage_underlay_default and
+     enable_snat_by_default
     """
-    if is_legacy():
-        if router.get(constants.NUAGE_UNDERLAY) is not None:
-            msg = _("To configure {} disable "
-                    "'nuage_pat' and configure "
-                    "{}.").format(constants.NUAGE_UNDERLAY,
-                                  constants.NUAGE_UNDERLAY_INI)
-            raise NuageBadRequest(resource='subnet', msg=msg)
-        if router.get('external_gateway_info') == {}:
-            # router-gateway-clear
-            router[constants.NUAGE_UNDERLAY] = constants.NUAGE_UNDERLAY_OFF
-            return
-        elif router.get('external_gateway_info'):
-            create_legacy_routing_values(router)
-            return
 
     # Current values
     ext_gw_info = router.get('external_gateway_info')
@@ -217,10 +143,6 @@ def add_nuage_router_attributes(session, router):
         nuage_underlay = nuage_underlay['parameter_value']
     router[constants.NUAGE_UNDERLAY] = nuage_underlay
 
-    if is_legacy() and router.get('external_gateway_info'):
-        router['external_gateway_info']['enable_snat'] = (
-            nuage_underlay == constants.NUAGE_UNDERLAY_SNAT)
-
 
 def validate_update_subnet(network_external, subnet_mapping, updated_subnet):
     """Validate nuage_underlay for updated subnet
@@ -234,12 +156,6 @@ def validate_update_subnet(network_external, subnet_mapping, updated_subnet):
                 " on a subnet when nuage_underlay is not available. "
                 "Contact your "
                 "operator to explore options").format(constants.NUAGE_UNDERLAY)
-        raise NuageBadRequest(resource='subnet', msg=msg)
-
-    if is_legacy() and updated_subnet.get(constants.NUAGE_UNDERLAY):
-        msg = _("It is not allowed to configure {}"
-                " on a subnet when 'nuage_pat' "
-                "is not legacy_disabled.").format(constants.NUAGE_UNDERLAY)
         raise NuageBadRequest(resource='subnet', msg=msg)
 
     if network_external and updated_subnet.get(constants.NUAGE_UNDERLAY):
@@ -262,8 +178,6 @@ def validate_update_subnet(network_external, subnet_mapping, updated_subnet):
 
 
 def update_nuage_subnet_parameters(context, subnet):
-    if is_legacy() or is_not_available():
-        return
     nuage_underlay = subnet.get(constants.NUAGE_UNDERLAY)
     if nuage_underlay is None:
         # no update

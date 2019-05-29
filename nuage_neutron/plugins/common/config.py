@@ -21,10 +21,6 @@ from nuage_neutron.plugins.common import constants
 
 LOG = log.getLogger(__name__)
 
-nuage_pat_choices = [constants.NUAGE_PAT_NOT_AVAILABLE,
-                     constants.NUAGE_PAT_DEF_ENABLED,
-                     constants.NUAGE_PAT_DEF_DISABLED,
-                     constants.NUAGE_PAT_LEGACY_DISABLED]
 underlay_routing_choices = [constants.NUAGE_UNDERLAY_SNAT,
                             constants.NUAGE_UNDERLAY_ROUTE,
                             constants.NUAGE_UNDERLAY_OFF,
@@ -65,15 +61,6 @@ restproxy_opts = [
     cfg.StrOpt('default_l2domain_template', default=''),
     cfg.StrOpt('default_isolated_zone', default=''),
     cfg.StrOpt('default_shared_zone', default=''),
-    cfg.StrOpt('nuage_pat',
-               choices=nuage_pat_choices,
-               default=constants.NUAGE_PAT_DEF_DISABLED,
-               deprecated_for_removal=True,
-               deprecated_reason=_("This option is replaced by {}."
-                                   "Please consult documentation on this "
-                                   "change.").format(
-                   constants.NUAGE_UNDERLAY_INI)
-               ),
     cfg.StrOpt(constants.NUAGE_UNDERLAY_INI,
                choices=underlay_routing_choices,
                default=constants.NUAGE_UNDERLAY_OFF),
