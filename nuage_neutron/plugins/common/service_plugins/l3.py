@@ -851,6 +851,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                       vsd_constants.VSD_VM_EXIST)]
             nuage_utils.retry_on_vsdclient_error(
                 self.vsdclient.delete_l3domain,
+                nr_attempts=cfg.CONF.RESTPROXY.
+                server_max_retries_on_domain_delete,
                 vsd_error_codes=vsd_retry_error_codes)(nuage_domain_id)
 
         super(NuageL3Plugin, self).delete_router(context, id)
