@@ -125,10 +125,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def create_net_partition(self, params):
         return self.net_part.create_net_partition(params)
 
-    def set_external_id_for_netpart_rel_elems(self, net_partition_dict):
-        return self.net_part.set_external_id_for_netpart_rel_elems(
-            net_partition_dict)
-
     def get_l2domain_fields_for_pg(self, parent_id, fields):
         return helper.get_l2domain_fields_for_pg(self.restproxy, parent_id,
                                                  fields)
