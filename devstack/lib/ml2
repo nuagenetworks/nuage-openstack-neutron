@@ -34,8 +34,10 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy auth_resource $NUAGE_VSD_AUTH_RESOURCE
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy default_net_partition_name $NUAGE_VSD_DEF_NETPART_NAME
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_fip_underlay $NUAGE_FIP_UNDERLAY
-    iniset $NEUTRON_CONF DEFAULT enable_snat_by_default False
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_underlay_default $NUAGE_UNDERLAY_DEFAULT
+    iniset $NUAGE_PLUGIN_CONF_FILE restproxy server_max_retries_on_domain_delete $NUAGE_SERVER_MAX_RETRIES_ON_DOMAIN_DELETE
+
+    iniset $NEUTRON_CONF DEFAULT enable_snat_by_default False
 
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
