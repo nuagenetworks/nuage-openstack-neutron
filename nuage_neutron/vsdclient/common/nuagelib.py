@@ -897,6 +897,7 @@ class NuageNetPartition(NuageResource):
         data = {
             'name': self.create_params['name'],
             'floatingIPsQuota': self.create_params['fp_quota'],
+            'externalID': self.create_params['externalID']
         }
         data.update(self.default_post_data())
         return data

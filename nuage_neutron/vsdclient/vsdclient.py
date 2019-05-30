@@ -49,9 +49,6 @@ class VsdClient(object):
     def get_l3domain_np_id(self, parent_id):
         pass
 
-    def set_external_id_for_netpart_rel_elems(self, net_partition_dict):
-        pass
-
     def delete_net_partition(self, id):
         pass
 
