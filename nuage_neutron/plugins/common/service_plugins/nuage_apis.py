@@ -82,15 +82,14 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def _create_net_partition(self, session, net_part_name):
         params = {
-            "name": net_part_name,
-            "fp_quota": str(cfg.CONF.RESTPROXY.default_floatingip_quota)
+            'name': net_part_name,
+            'fp_quota': str(cfg.CONF.RESTPROXY.default_floatingip_quota),
+            'externalID': net_part_name + '@openstack'
         }
         nuage_net_partition = self.vsdclient.create_net_partition(params)
         net_partitioninst = None
         if nuage_net_partition:
             with session.begin(subtransactions=True):
-                self.vsdclient.set_external_id_for_netpart_rel_elems(
-                    nuage_net_partition)
                 net_partitioninst = NuageApi._add_net_partition(
                     session,
                     nuage_net_partition,
