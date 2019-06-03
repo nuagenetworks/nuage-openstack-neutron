@@ -42,6 +42,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         super(NuageSecurityGroup, self).__init__()
         self._l2_plugin = None
         self.stateful = None
+        self.sg_name_before_update = None
 
     @property
     def core_plugin(self):
