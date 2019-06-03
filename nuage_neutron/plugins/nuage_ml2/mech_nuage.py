@@ -212,15 +212,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 # delete the neutron port that was reserved with IP of
                 # the dhcp server that is reserved.
                 # Now, this port is not reqd.
-                filters = {
-                    'fixed_ips': {'subnet_id': [subn['id']]},
-                    'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-                }
-                dhcp_ports = self.core_plugin.get_ports(db_context,
-                                                        filters=filters)
-                if dhcp_ports:
-                    self.delete_nuage_dhcp_port(db_context,
-                                                dhcp_ports[0]['id'])
+                self.delete_dhcp_nuage_port(db_context, subn)
                 self._add_nuage_sharedresource(db_context, subn,
                                                constants.SR_TYPE_FLOATING,
                                                subnets)
@@ -435,9 +427,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             context.tenant_name)
         try:
             with context.session.begin(subtransactions=True):
-                self.create_dhcp_nuage_port(
+                dual_stack_subnet = self.get_vsd_managed_dual_subnet(
+                    context, subnet, nuage_subnet_id)
+                self.create_update_dhcp_nuage_port(
                     context, subnet,
-                    nuage_subnet=shared_subnet or nuage_subnet)
+                    nuage_subnet=shared_subnet or nuage_subnet,
+                    dualstack=dual_stack_subnet)
                 l2dom_id = None
                 if nuage_subnet["type"] == constants.L2DOMAIN:
                     l2dom_id = nuage_subnet_id
@@ -618,7 +613,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                neutron_subnet['network_id'])
         is_ipv4 = self._is_ipv4(neutron_subnet)
         dual_stack_subnet = self.get_dual_stack_subnet(context, neutron_subnet)
-
         if dual_stack_subnet:
             # Subnet with different ip_version is already present and now check
             # if router interface is attached or not
@@ -659,7 +653,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         'nuage_groupid': mapping['nuage_group_id'],
                         'nuage_l2domain_id': mapping['nuage_subnet_id']
                     }
-                    self.create_dhcp_nuage_port(context, neutron_subnet)
+                    self.create_update_dhcp_nuage_port(
+                        context, neutron_subnet, dualstack=dual_stack_subnet)
                     self._create_subnet_mapping(context,
                                                 netpart_id,
                                                 neutron_subnet,
@@ -684,32 +679,22 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         }
 
         if not already_router_attached:
-            if (dual_stack_subnet and
-                    neutron_subnet['network_id'] ==
-                    dual_stack_subnet['network_id']):
-                filters = {
-                    'fixed_ips': {'subnet_id': [dual_stack_subnet['id']]},
-                    'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-                }
-                dhcp_ports = self.core_plugin.get_ports(context,
-                                                        filters=filters)
-                if neutron_subnet.get('enable_dhcp') and dhcp_ports:
-                    dhcp_port = self.update_nuage_port_dhcp_ip(
-                        context, neutron_subnet, dual_stack_subnet)
+            if neutron_subnet['enable_dhcp']:
+                if (dual_stack_subnet and neutron_subnet['network_id'] ==
+                        dual_stack_subnet['network_id']):
+                    dhcp_port = self.create_update_dhcp_nuage_port(
+                        context, neutron_subnet, dualstack=dual_stack_subnet)
                 else:
-                    dhcp_port = self.create_dhcp_nuage_port(context,
-                                                            neutron_subnet)
-            else:
-                dhcp_port = self.create_dhcp_nuage_port(context,
-                                                        neutron_subnet)
-            if dhcp_port:
-                for dhcp_ip in dhcp_port['fixed_ips']:
-                    if (ipv4_subnet
-                            and dhcp_ip['subnet_id'] == ipv4_subnet['id']):
-                        params['dhcp_ip'] = dhcp_ip['ip_address']
-                    if (ipv6_subnet
-                            and dhcp_ip['subnet_id'] == ipv6_subnet['id']):
-                        params['dhcpv6_ip'] = dhcp_ip['ip_address']
+                    dhcp_port = self.create_update_dhcp_nuage_port(
+                        context, neutron_subnet)
+                if dhcp_port:
+                    for dhcp_ip in dhcp_port['fixed_ips']:
+                        if (ipv4_subnet and
+                                dhcp_ip['subnet_id'] == ipv4_subnet['id']):
+                            params['dhcp_ip'] = dhcp_ip['ip_address']
+                        if (ipv6_subnet and
+                                dhcp_ip['subnet_id'] == ipv6_subnet['id']):
+                            params['dhcpv6_ip'] = dhcp_ip['ip_address']
 
         if dual_stack_subnet:
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
@@ -848,31 +833,15 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             True if curr_enable_dhcp != updated_enable_dhcp else False)
         if self._is_l2(subnet_mapping):
             if not curr_enable_dhcp and updated_enable_dhcp:
-                if dual_stack_subnet and dual_stack_subnet.get('enable_dhcp'):
-                    dhcp_port = self.update_nuage_port_dhcp_ip(
-                        db_context, updated_subnet, dual_stack_subnet)
-                    for dhcp_ip in dhcp_port['fixed_ips']:
-                        if dhcp_ip['subnet_id'] == updated_subnet['id']:
-                            params['dhcp_ip'] = dhcp_ip['ip_address']
-                else:
-                    dhcp_port = self.create_dhcp_nuage_port(db_context,
-                                                            updated_subnet)
-                    params['dhcp_ip'] = dhcp_port['fixed_ips'][0]['ip_address']
+                dhcp_port = self.create_update_dhcp_nuage_port(
+                    db_context, updated_subnet, dualstack=dual_stack_subnet)
+                for dhcp_ip in dhcp_port['fixed_ips']:
+                    if dhcp_ip['subnet_id'] == updated_subnet['id']:
+                        params['dhcp_ip'] = dhcp_ip['ip_address']
             elif curr_enable_dhcp and not updated_enable_dhcp:
-                if dual_stack_subnet and dual_stack_subnet.get('enable_dhcp'):
-                    self.update_nuage_port_dhcp_ip(
-                        db_context, updated_subnet, dual_stack_subnet,
-                        del_dhcp_ip=True)
-                else:
-                    filters = {
-                        'fixed_ips': {'subnet_id': [updated_subnet['id']]},
-                        'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-                    }
-                    dhcp_ports = self.core_plugin.get_ports(db_context,
-                                                            filters=filters)
-                    if dhcp_ports:
-                        self.delete_nuage_dhcp_port(db_context,
-                                                    dhcp_ports[0]['id'])
+                self.delete_dhcp_nuage_port(
+                    context=db_context, neutron_subnet=updated_subnet,
+                    dualstack=dual_stack_subnet)
                 params['dhcp_ip'] = None
             params['net'] = netaddr.IPNetwork(original_subnet['cidr'])
             self.vsdclient.update_subnet(updated_subnet, params)
@@ -955,13 +924,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return
         if self._is_l3(context.nuage_mapping) and self._is_ipv6(subnet):
             self._validate_ipv6_vips_in_use(db_context, subnet)
-
-        filters = {
-            'network_id': [subnet['network_id']],
-            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-        }
-        context.nuage_dhcp_ports = self.core_plugin.get_ports(db_context,
-                                                              filters)
 
     def _validate_ipv6_vips_in_use(self, db_context, subnet):
         nuage_ipv4_subnets = (
@@ -1097,9 +1059,16 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self._cleanup_group(db_context,
                                     mapping['net_partition_id'],
                                     mapping['nuage_subnet_id'], subnet)
-        for nuage_dhcp_port in context.nuage_dhcp_ports:
+
+        filters = {
+            'network_id': [subnet['network_id']],
+            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+        }
+        nuage_dhcp_ports = self.core_plugin.get_ports(db_context, filters)
+        for nuage_dhcp_port in nuage_dhcp_ports:
             if not nuage_dhcp_port.get('fixed_ips'):
-                self.delete_nuage_dhcp_port(db_context, nuage_dhcp_port['id'])
+                self.delete_dhcp_nuage_port_by_id(db_context,
+                                                  nuage_dhcp_port['id'])
 
     def _is_port_provisioning_required(self, db_context, port, host):
         vnic_type = port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)

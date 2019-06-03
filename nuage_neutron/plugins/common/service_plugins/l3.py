@@ -321,21 +321,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                     ipv4_subnet, ipv6_subnet, subnet,
                                     vsd_zone, ipv4_subnet_mapping,
                                     ipv6_subnet_mapping, network_name):
-        dhcp_ports = None
-        if ipv4_subnet:
-            filters = {
-                'fixed_ips': {'subnet_id': [ipv4_subnet['id']]},
-                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-            }
-            dhcp_ports = self.core_plugin.get_ports(context, filters=filters)
-        if ipv6_subnet and not dhcp_ports:
-            filters = {
-                'fixed_ips': {'subnet_id': [ipv6_subnet['id']]},
-                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-            }
-            dhcp_ports = self.core_plugin.get_ports(context, filters=filters)
-        if dhcp_ports:
-            self.delete_nuage_dhcp_port(context, dhcp_ports[0]['id'])
+        if ipv4_subnet and ipv4_subnet['enable_dhcp']:
+            self.delete_dhcp_nuage_port(context, ipv4_subnet)
+        elif ipv6_subnet and ipv6_subnet['enable_dhcp']:
+            self.delete_dhcp_nuage_port(context, ipv6_subnet)
 
         with nuage_utils.rollback() as on_exc:
             vsd_subnet = self.vsdclient.create_domain_subnet(
@@ -514,11 +503,14 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                             subnet_mapping, dss_mapping)
 
         with nuage_utils.rollback() as on_exc:
-            dhcp_port = self.create_dhcp_nuage_port(
-                context, subnet, dualstack=dual_stack_subnet)
+            dhcp_port = self.create_update_dhcp_nuage_port(context, subnet)
+            if dual_stack_subnet:
+                dhcp_port = self.create_update_dhcp_nuage_port(
+                    context, dual_stack_subnet, dualstack=subnet)
             ipv4_dhcp_ip = ipv6_dhcp_ip = None
             if dhcp_port:
-                on_exc(self.delete_nuage_dhcp_port, context, dhcp_port['id'])
+                on_exc(self.delete_dhcp_nuage_port_by_id, context,
+                       dhcp_port['id'])
                 for fixed_ip in dhcp_port['fixed_ips']:
                     if (ipv4_subnet
                             and fixed_ip['subnet_id'] == ipv4_subnet['id']):
