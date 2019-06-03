@@ -38,7 +38,11 @@ RES_POLICYGROUPS = constants.RES_POLICYGROUPS
 NOTHING_TO_UPDATE_ERR_CODE = constants.VSD_NO_ATTR_CHANGES_TO_MODIFY_ERR_CODE
 MIN_SG_PRI = 0
 MAX_SG_PRI = 1000000000
-STATEFUL_ICMP_TYPES = [8, 13, 15, 17]
+ICMP_PROTOCOL_NUMS = [PROTO_NAME_TO_NUM['icmp'],
+                      PROTO_NAME_TO_NUM['ipv6-icmp'],
+                      PROTO_NAME_TO_NUM['icmpv6']]
+STATEFUL_ICMP_V4_TYPES = [8, 13, 15, 17]
+STATEFUL_ICMP_V6_TYPES = [128]
 
 ANY_IPV4_IP = constants.ANY_IPV4_IP
 ANY_IPV6_IP = constants.ANY_IPV6_IP
@@ -196,9 +200,9 @@ class NuagePolicyGroups(object):
                     if value == "ANY":
                         continue
                     proto = str(value)
-                    if proto == 'icmp' \
-                            and sg_rule['ethertype'] == constants.OS_IPV6:
-                        proto = 'icmpv6'
+                    if (proto == 'icmp' and
+                            sg_rule['ethertype'] == constants.OS_IPV6):
+                        proto = 'ipv6-icmp'  # change 1 into 58
                     nuage_match_info['protocol'] = PROTO_NAME_TO_NUM[proto]
                     if value in ['tcp', 'udp']:
                         nuage_match_info['sourcePort'] = '*'
@@ -241,13 +245,18 @@ class NuagePolicyGroups(object):
                     port_str = port_str + '-' + max_port
                 nuage_match_info['sourcePort'] = '*'
                 nuage_match_info['destinationPort'] = port_str
-        if nuage_match_info['protocol'] in [PROTO_NAME_TO_NUM['icmp']]:
+        if nuage_match_info['protocol'] in ICMP_PROTOCOL_NUMS:
             if min_port:
                 nuage_match_info['ICMPType'] = min_port
             if max_port:
                 nuage_match_info['ICMPCode'] = max_port
-            if ((not min_port and not max_port) or
-                    int(min_port) not in STATEFUL_ICMP_TYPES):
+            if not min_port and not max_port:
+                nuage_match_info['stateful'] = False
+            elif (sg_rule['ethertype'] == constants.OS_IPV4 and
+                    int(min_port) not in STATEFUL_ICMP_V4_TYPES):
+                nuage_match_info['stateful'] = False
+            elif (sg_rule['ethertype'] == constants.OS_IPV6 and
+                    int(min_port) not in STATEFUL_ICMP_V6_TYPES):
                 nuage_match_info['stateful'] = False
         return nuage_match_info
 
@@ -395,6 +404,7 @@ class NuagePolicyGroups(object):
 
     def _create_nuage_sgrule_process(self, params):
         sg_rule = params['neutron_sg_rule']
+        reverse = False
         if params.get('sg_type') == constants.HARDWARE:
             if not params.get('legacy', False):
                 if not sg_rule.get('remote_ip_prefix'):
@@ -414,32 +424,42 @@ class NuagePolicyGroups(object):
             if not sg_rule.get('protocol'):
                 sg_rule['protocol'] = "ANY"
 
-            # As VSP does not support stateful icmp with ICMPtype not in
+            # As VSP does not support stateful icmp with ICMPv4 type not in
             # [8,13,15,17], to be compatible with upstream openstack, create 2
             # non stateful icmp rules in egress and ingress direction for such
-            # type; for valid icmp types create single stateful icmp rule
-            if sg_rule.get('protocol') == 'icmp':
+            # type; for valid icmp types create single stateful icmp rule.
+            # Same for ICMPv6 echo (128) type.
+
+            if 'icmp' in sg_rule.get('protocol'):  # both v4 and v6
                 port_min = sg_rule.get('port_range_min')  # type
                 port_max = sg_rule.get('port_range_max')  # code
                 sg_id = sg_rule['security_group_id']
                 stateful = self.get_sg_stateful_value(sg_id)
-                if stateful and (not port_min and not port_max or
-                                 port_min not in STATEFUL_ICMP_TYPES):
-                    # first create configured rule
-                    self._create_nuage_sgrule(params)
-                    # then create reverse rule (must be 2nd as data is altered)
-                    if sg_rule['direction'] == 'ingress':
-                        sg_rule['direction'] = 'egress'
-                        params['direction'] = 'egress'
-                        self._create_nuage_sgrule(params)
-                    elif sg_rule['direction'] == 'egress':
-                        sg_rule['direction'] = 'ingress'
-                        params['direction'] = 'ingress'
-                        self._create_nuage_sgrule(params)
-                    return
+                # reverse = stateful AND no-can-do-stateful
+                reverse = (stateful and
+                           (  # no-can-do as unspecified ~ wildcard
+                              not port_min and not port_max or
+                              # no-can-do as icmpv4 type no-can-do stateful
+                              sg_rule['ethertype'] == constants.OS_IPV4 and
+                              port_min not in STATEFUL_ICMP_V4_TYPES or
+                              # no-can-do as icmpv6 type no-can-do stateful
+                              sg_rule['ethertype'] == constants.OS_IPV6 and
+                              port_min not in STATEFUL_ICMP_V6_TYPES
+                           ))
 
         # create the configured rule
         self._create_nuage_sgrule(params)
+
+        if reverse:
+            # create reverse rule (must be done secondly as data is altered)
+            if sg_rule['direction'] == 'ingress':
+                sg_rule['direction'] = 'egress'
+                params['direction'] = 'egress'
+                self._create_nuage_sgrule(params)
+            elif sg_rule['direction'] == 'egress':
+                sg_rule['direction'] = 'ingress'
+                params['direction'] = 'ingress'
+                self._create_nuage_sgrule(params)
 
     def _create_nuage_sgrule(self, params):
         # neutron ingress is nuage egress and vice versa
@@ -513,7 +533,12 @@ class NuagePolicyGroups(object):
             sg_id = rule['security_group_id']
             stateful = self.get_sg_stateful_value(sg_id)
             if (rule.get('protocol') == 'icmp' and stateful and
-                    rule.get('port_range_min') not in STATEFUL_ICMP_TYPES):
+                    ((rule['ethertype'] == constants.OS_IPV4 and
+                      rule.get('port_range_min')
+                      not in STATEFUL_ICMP_V4_TYPES) or
+                     (rule['ethertype'] == constants.OS_IPV6 and
+                      rule.get('port_range_min')
+                      not in STATEFUL_ICMP_V6_TYPES))):
                 if rule['direction'] == 'egress':
                     params = {
                         'rule_id': rule['id'],
