@@ -47,17 +47,7 @@ class NuageNetPartition(object):
         l2dom_id = \
             helper.get_l2domid_for_netpartition(self.restproxy, np_id,
                                                 params['l2template'])
-        return (np_id, l3dom_id, l2dom_id)
-
-    def set_external_id_for_netpart_rel_elems(self, net_partition_dict):
-        # set external-ID for Enterprise on VSD.
-        params = {"netpart_id": net_partition_dict['np_id']}
-        nuagenet_partition = nuagelib.NuageNetPartition(create_params=params)
-        response = helper.set_external_id_with_openstack(
-            self.restproxy, nuagenet_partition.get_resource_by_id(),
-            net_partition_dict['np_id'])
-        if not nuagenet_partition.validate(response):
-            raise nuagenet_partition.get_rest_proxy_error()
+        return np_id, l3dom_id, l2dom_id
 
     def create_net_partition(self, params):
         nuagenet_partition = nuagelib.NuageNetPartition(create_params=params)
@@ -92,7 +82,7 @@ class NuageNetPartition(object):
             else:
                 return
         details_on_nuage = nuagenet_partition.get_response_obj(resp)
-        if details_on_nuage.get('externalID') == id + '@openstack':
+        if details_on_nuage.get('externalID', '').endswith('@openstack'):
             nuagenet_partition = nuagelib.NuageNetPartition()
             response = self.restproxy.rest_call(
                 'DELETE', nuagenet_partition.delete_resource(id), '')
