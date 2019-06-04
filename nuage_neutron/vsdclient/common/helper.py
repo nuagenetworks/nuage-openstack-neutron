@@ -593,7 +593,7 @@ def get_domain_subnet_by_ext_id_and_cidr(restproxy_serv, neutron_subnet):
         msg = ("Cannot find subnet with externalID {} and cidr {}"
                " in L3domains on VSD").format(params['externalID'],
                                               params['cidr'])
-        raise restproxy.ResourceNotFoundException(message=msg)
+        raise restproxy.ResourceNotFoundException(msg)
 
 
 def _get_nuage_domain_id_from_subnet(restproxy_serv, nuage_subnet_id):

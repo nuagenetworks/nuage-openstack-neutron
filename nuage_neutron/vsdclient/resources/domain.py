@@ -317,7 +317,7 @@ class NuageDomain(object):
             self.delete_l3domain(created_domain['ID'])
             msg = ("Cannot find zone under the created domain {} on VSD. "
                    "Delete the created domain".format(created_domain['ID']))
-            raise restproxy.ResourceNotFoundException(message=msg)
+            raise restproxy.ResourceNotFoundException(msg)
         return created_domain, zone_list
 
     def update_router(self, nuage_domain_id, router, updates):
