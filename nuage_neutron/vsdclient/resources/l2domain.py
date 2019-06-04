@@ -248,7 +248,7 @@ class NuageL2Domain(object):
             msg = ("Cannot find subnet with externalID {} and cidr {}"
                    " in L2domains on VSD").format(params['externalID'],
                                                   params['cidr'])
-            raise restproxy.ResourceNotFoundException(message=msg)
+            raise restproxy.ResourceNotFoundException(msg)
 
     def delete_subnet(self, l2dom_id, mapping):
         nuagel2domain = nuagelib.NuageL2Domain()
