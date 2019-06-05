@@ -724,8 +724,7 @@ class NuageDomainSubnet(object):
         description = helper.get_subnet_description(subnet)
         extra_params = {'description': description,
                         'entityState': 'UNDER_CONSTRUCTION',
-                        'dynamicIpv4Address': False,
-                        'dynamicIpv6Address': False}
+                        'dualStackDynamicIPAllocation': False}
         if ipv4_subnet:
             extra_params.update({
                 'address': str(net.ip),
