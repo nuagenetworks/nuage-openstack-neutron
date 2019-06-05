@@ -103,8 +103,7 @@ class NuageL2Domain(object):
         ext_params = {
             'externalID': helper.get_subnet_external_id(subnet),
             'DHCPManaged': True,
-            'dynamicIpv4Address': False,
-            'dynamicIpv6Address': False
+            'dualStackDynamicIPAllocation': False
         }
 
         if ipv4_subnet:
