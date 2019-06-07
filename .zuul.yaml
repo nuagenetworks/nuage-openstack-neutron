@@ -142,7 +142,7 @@
       job_flavor: full
       python3: False
       branch_override: default
-    timeout: 14400
+    timeout: 18000
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
@@ -160,7 +160,7 @@
       job_flavor: legacy-pat  # legacy PAT model
       python3: False
       branch_override: default
-    timeout: 14400
+    timeout: 18000
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
@@ -202,7 +202,7 @@
       job_flavor: agent-nv
       python3: False
       branch_override: default
-    timeout: 14400
+    timeout: 18000
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
@@ -259,7 +259,7 @@
       job_flavor: octavia-standby
       branch_override: default
       tempest_concurrency: 1
-    timeout: 14400
+    timeout: 18000
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
@@ -407,7 +407,7 @@
       job_flavor: ml2-full
       python3: True
       branch_override: default
-    timeout: 14400
+    timeout: 18000
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
