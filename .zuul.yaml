@@ -140,14 +140,14 @@
     parent: legacy-tempest-aio-base
     vars:
       job_flavor: full
-    timeout: 14400
+    timeout: 18000
 
 - job:
     name: legacy-tempest-aio-legacy-pat
     parent: legacy-tempest-aio-base
     vars:
       job_flavor: legacy-pat  # legacy PAT model
-    timeout: 14400
+    timeout: 18000
 
 - job:
     name: legacy-tempest-aio-sriov
@@ -180,7 +180,7 @@
     parent: legacy-tempest-aio-base
     vars:
       job_flavor: agent-nv
-    timeout: 14400
+    timeout: 18000
 
 - job:
     name: legacy-tempest-aio-octavia
@@ -214,7 +214,7 @@
       job_flavor: octavia-standby
       branch_override: default
       tempest_concurrency: 1
-    timeout: 14400
+    timeout: 18000
     required-projects:
       - OpenStack/nuage-gate-utils
       - OpenStack/nuage-openstack-neutron
@@ -330,7 +330,7 @@
     vars:
       job_flavor: ml2-full
       python3: True
-    timeout: 14400
+    timeout: 18000
 
 - job:
     name: legacy-tempest-aio-ml2-vsp-0.0
@@ -344,7 +344,7 @@
     vars:
       vsp_release: "0.0"
       job_flavor: full
-    timeout: 14400
+    timeout: 18000
 
 - job:
     name: legacy-tempest-aio-upstream-vsp-0.0
@@ -352,4 +352,3 @@
     vars:
       vsp_release: "0.0"
       job_flavor: neutron
-
