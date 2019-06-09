@@ -81,6 +81,28 @@ class NuageDhcpOptions(object):
                                             network_type,
                                             opt)
 
+    def clear_nuage_dhcp_for_ip_version(self, ip_version, parent_id,
+                                        network_type):
+        """Function: clear_nuage_dhcp_for_ip_version
+
+        Clears the dhcp options for the specified ip_version on the l2domain
+        or l3 subnet.
+
+        :param ip_version: 4 or 6
+        :param parent_id: l2domain_id or domainsubnet_id
+        :param network_type: NETWORK_TYPE_L2 or NETWORK_TYPE_L3
+        :return: None
+        """
+        nuage_dhcp_options = nuagelib.NuageDhcpOptions(ip_version)
+        if network_type == constants.NETWORK_TYPE_L2:
+            resource = nuage_dhcp_options.resource_by_l2domainid(parent_id)
+        else:
+            resource = nuage_dhcp_options.resource_by_subnetid(parent_id)
+        dhcptions = self.restproxy.get(resource)
+        for option in dhcptions:
+            self.restproxy.delete(
+                nuage_dhcp_options.dhcp_resource(option['ID']))
+
     def update_nuage_dhcp(self, subnet, parent_id=None,
                           network_type=None):
         """Function:  update_nuage_dhcp
