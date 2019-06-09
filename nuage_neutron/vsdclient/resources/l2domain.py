@@ -210,6 +210,17 @@ class NuageL2Domain(object):
             data = helper.get_subnet_update_data(
                 ipv4_subnet, ipv6_subnet, params=None)
             self.update_l2domain_for_stack_exchange(mapping, **data)
+            # Delete dhcp options:
+            nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
+            if ipv4_subnet:
+                # Delete ipv6 dhcp options
+                nuagedhcpoptions.clear_nuage_dhcp_for_ip_version(
+                    constants.IPV6_VERSION, mapping['nuage_subnet_id'],
+                    constants.NETWORK_TYPE_L2)
+            else:
+                nuagedhcpoptions.clear_nuage_dhcp_for_ip_version(
+                    constants.IPV4_VERSION, mapping['nuage_subnet_id'],
+                    constants.NETWORK_TYPE_L2)
         except restproxy.RESTProxyError as e:
             if e.code != constants.RES_NOT_FOUND:
                 raise
