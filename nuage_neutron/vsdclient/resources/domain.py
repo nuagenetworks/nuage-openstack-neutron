@@ -23,7 +23,6 @@ from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper
 from nuage_neutron.vsdclient.common import nuagelib
-from nuage_neutron.vsdclient.common import pnet_helper
 from nuage_neutron.vsdclient.resources import dhcpoptions
 from nuage_neutron.vsdclient import restproxy
 
@@ -714,7 +713,7 @@ class NuageDomainSubnet(object):
         return nuage_subnet
 
     def create_domain_subnet(self, vsd_zone, ipv4_subnet, ipv6_subnet,
-                             pnet_binding, network_name):
+                             network_name):
         subnet = ipv4_subnet or ipv6_subnet
         net = netaddr.IPNetwork(subnet['cidr'])
         req_params = {
@@ -763,21 +762,6 @@ class NuageDomainSubnet(object):
                 ipv6_subnet,
                 parent_id=vsd_subnet['ID'],
                 network_type=constants.NETWORK_TYPE_L3)
-
-        if pnet_binding:
-            # Get netpart id needed in process_provider_network to check the
-            # gateway port enterprise permissions
-            req_params = {'domain_id': vsd_zone['parentID']}
-            nuage_l3domain = nuagelib.NuageL3Domain(create_params=req_params)
-            domain = self.restproxy.get(nuage_l3domain.get_resource())[0]
-            np_id = helper.get_l3domain_np_id(self.restproxy, domain['ID'])
-
-            if ipv4_subnet:
-                self._process_provider_network(pnet_binding, vsd_subnet['ID'],
-                                               np_id, ipv4_subnet['id'])
-            if ipv6_subnet:
-                self._process_provider_network(pnet_binding, vsd_subnet['ID'],
-                                               np_id, ipv6_subnet['id'])
         return vsd_subnet
 
     def _create_subnet(self, req_params, extra_params):
@@ -791,14 +775,6 @@ class NuageDomainSubnet(object):
             nuagel3domsub.post_data(),
             on_res_exists=self.restproxy.retrieve_by_ext_id_and_cidr,
             ignore_err_codes=ignore_error_codes)[0]
-
-    def _process_provider_network(
-            self, pnet_binding, vsd_subnet_id, np_id, subnet):
-        pnet_params = helper.get_pnet_params(
-            pnet_binding, vsd_subnet_id, np_id, subnet)
-        pnet_helper.process_provider_network(self.restproxy,
-                                             self.policygroups,
-                                             pnet_params)
 
     def update_domain_subnet(self, neutron_subnet, params):
         if params.get('dhcp_opts_changed'):
@@ -863,14 +839,8 @@ class NuageDomainSubnet(object):
             nuagel3domsub.put_resource(nuage_id),
             req_params)
 
-    def delete_domain_subnet(self, nuage_subn_id, neutron_subn_id,
-                             pnet_binding):
+    def delete_domain_subnet(self, nuage_subn_id, neutron_subn_id):
         nuagel3domsub = nuagelib.NuageSubnet()
-        if pnet_binding:
-            pnet_helper.delete_resources_created_for_domainsubnet_providernet(
-                self.restproxy, self.policygroups, nuage_subn_id,
-                neutron_subn_id)
-
         # Delete domain_subnet
         self.restproxy.rest_call('DELETE',
                                  nuagel3domsub.delete_resource(nuage_subn_id),

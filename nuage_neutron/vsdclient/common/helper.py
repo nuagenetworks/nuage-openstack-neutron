@@ -1002,16 +1002,6 @@ def get_subnet_update_data(ipv4_subnet, ipv6_subnet, params):
         return dual_stack_data
 
 
-def get_pnet_params(pnet_binding, vsd_subnet_id, np_id, subnet):
-    pnet_params = {
-        'pnet_binding': pnet_binding,
-        'nuage_subnet_id': vsd_subnet_id,
-        'netpart_id': np_id,
-        'neutron_subnet': subnet,
-    }
-    return pnet_params
-
-
 def get_external_id_based_on_subnet_id(subnet):
     if not subnet:
         raise restproxy.ResourceConflictException(

@@ -20,7 +20,6 @@ from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper
 from nuage_neutron.vsdclient.common import nuagelib
-from nuage_neutron.vsdclient.common import pnet_helper
 from nuage_neutron.vsdclient.resources import dhcpoptions
 from nuage_neutron.vsdclient import restproxy
 
@@ -203,22 +202,6 @@ class NuageL2Domain(object):
         self._create_nuage_def_l2domain_adv_fwd_template(l2domain_id,
                                                          subnet)
 
-        pnet_binding = params.get('pnet_binding', None)
-        if pnet_binding:
-            pnet_params = {
-                'pnet_binding': pnet_binding,
-                'netpart_id': params['netpart_id'],
-                'l2domain_id': l2domain_id,
-                'neutron_subnet_id': subnet,
-            }
-            try:
-                pnet_helper.process_provider_network(self.restproxy,
-                                                     self.policygroups,
-                                                     pnet_params)
-            except Exception:
-                self.delete_subnet(subnet['id'], {})
-                raise
-
         return subnet_dict
 
     def delete_subnet_from_dualstack(self, mapping, ipv4_subnet=None,
@@ -259,10 +242,6 @@ class NuageL2Domain(object):
                 nuagel2domtemplate.get_resource(template_id))[0]
             l2domain_id = l2dom['ID']
 
-            # Delete bridge_interface and bridge vport if it is subnet
-            # created for providernet
-            pnet_helper.delete_resources_created_for_l2dom_providernet(
-                self.restproxy, l2domain_id)
             # delete subnet
             self.restproxy.delete(nuagel2domain.delete_resource(l2domain_id))
 
