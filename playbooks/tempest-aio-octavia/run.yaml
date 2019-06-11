@@ -76,12 +76,11 @@
           # add own ip and VSD to no_proxy
           export no_proxy=$no_proxy,${PRIMARY_IP},${VSD_SERVER%%:*}
 
-          # get own ip and derrive cidr for public net from it,
+          # get random cidr for public net,
           # to avoid overlap on VSD by multiple gate hosts
-          group=$(echo ${PRIMARY_IP} | awk -F.  '{print $3}')
-          GW="172.${group}.${PRIMARY_IP##*.}.1"
-          export DEVSTACK_GATE_FLOATING_RANGE="172.${group}.${PRIMARY_IP##*.}.0/24"
-          export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
+          FIP_RANGE="172.{{ 255 | random }}.{{ 255 | random }}"
+          export DEVSTACK_GATE_FLOATING_RANGE="${FIP_RANGE}.0/24"
+          export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${FIP_RANGE}.1"
 
           # add octavia amphora images to avoid building it on the fly
           export IMAGE_URLS+=http://{{ mirror_fqdn }}/octavia/amphora-x64-haproxy.qcow2
