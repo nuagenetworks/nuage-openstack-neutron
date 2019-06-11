@@ -71,12 +71,11 @@
           # add own ip and VSD to no_proxy
           export no_proxy=$no_proxy,${PRIMARY_IP},${VSD_SERVER%%:*}
 
-          # get own ip and derrive cidr for public net from it,
+          # get random cidr for public net,
           # to avoid overlap on VSD by multiple gate hosts
-          group=$(echo ${PRIMARY_IP} | awk -F.  '{print $3}')
-          GW="172.${group}.${PRIMARY_IP##*.}.1"
-          export DEVSTACK_GATE_FLOATING_RANGE="172.${group}.${PRIMARY_IP##*.}.0/24"
-          export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${GW}"
+          FIP_RANGE="172.{{ 255 | random }}.{{ 255 | random }}"
+          export DEVSTACK_GATE_FLOATING_RANGE="${FIP_RANGE}.0/24"
+          export DEVSTACK_GATE_PUBLIC_NETWORK_GATEWAY="${FIP_RANGE}.1"
 
           function gate_hook {
               bash -xe $BASE/new/nuage-gate-utils/gate_hook.sh {{ job_flavor }}
