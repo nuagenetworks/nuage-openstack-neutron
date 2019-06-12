@@ -34,7 +34,7 @@ class NuageAddressRequestFactory(AddressRequestFactory):
         """
 
         if (port['device_owner'] == constants.DEVICE_OWNER_DHCP_NUAGE and
-                not ip_dict.get('ip_address')):
+                not ip_dict.get('ip_address')):  # OPENSTACK-2593
             return PreferNextAddressRequest()
         else:
             return super(NuageAddressRequestFactory, cls).get_request(
