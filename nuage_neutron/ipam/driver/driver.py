@@ -33,7 +33,8 @@ class NuageAddressRequestFactory(AddressRequestFactory):
         :return: returns prepared AddressRequest (specific or any)
         """
 
-        if port['device_owner'] == constants.DEVICE_OWNER_DHCP_NUAGE:
+        if (port['device_owner'] == constants.DEVICE_OWNER_DHCP_NUAGE and
+                not ip_dict.get('ip_address')):
             return PreferNextAddressRequest()
         else:
             return super(NuageAddressRequestFactory, cls).get_request(
