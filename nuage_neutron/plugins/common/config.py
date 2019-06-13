@@ -42,6 +42,8 @@ restproxy_opts = [
                help=_("VSD server invocation timeout")),
     cfg.IntOpt('server_max_retries', default=5,
                help=_("Number of retries invoking VSD server")),
+    cfg.IntOpt('server_max_retries_on_domain_delete', default=5,
+               help=_("Number of retries deleting domain")),
     cfg.StrOpt('base_uri', default='/nuage/api/v6',
                help=_("Nuage provided base uri to reach out to VSD")),
     cfg.StrOpt('organization', default='csp',
@@ -54,8 +56,7 @@ restproxy_opts = [
                default='OpenStackDefaultNetPartition',
                help=_("Default Network partition in which VSD will "
                       "orchestrate network resources using openstack")),
-    cfg.IntOpt('default_floatingip_quota',
-               default=254,
+    cfg.IntOpt('default_floatingip_quota', default=254,
                help=_("Per netpartition quota of floating ips")),
     cfg.StrOpt('default_l3domain_template', default=''),
     cfg.StrOpt('default_l2domain_template', default=''),

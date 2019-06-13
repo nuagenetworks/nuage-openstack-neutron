@@ -46,6 +46,10 @@
 #
 #server_max_retries = 5
 
+# (IntOpt) VSD server domain delete retries.
+#
+#server_max_retries_on_domain_delete = 5
+
 # (IntOpt) Per netpartition quota of floating ips.
 #
 #default_floatingip_quota = 254
