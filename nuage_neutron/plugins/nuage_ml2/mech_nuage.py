@@ -1225,15 +1225,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         is_network_external = context.network._network.get('router:external')
         self._check_fip_on_port_with_multiple_ips(db_context, port)
 
-        # TODO(Lina) After support pure ipv6 port, here need to be changed
         if (len(port['fixed_ips']) == 0 and len(original['fixed_ips']) != 0 or
-                self._ipv4_addr_removed_from_dualstack_dhcp_port(
-                    original, port) or
                 (self.needs_vport_creation(original.get('device_owner')) and
                  not self.needs_vport_creation(port.get('device_owner')))):
             # TODO(Tom) Octavia
-            # port no longer belongs to any subnet or dhcp port has regressed
-            # to ipv6 only: delete vport.
+            # port no longer belongs to any subnet
             vsd_errors = [(vsd_constants.CONFLICT_ERR_CODE,
                            vsd_constants.VSD_VM_EXISTS_ON_VPORT)]
             utils.retry_on_vsdclient_error(
@@ -1242,13 +1238,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return
 
         if (len(port['fixed_ips']) != 0 and len(original['fixed_ips']) == 0 or
-                self._ip4_addr_added_to_dualstack_dhcp_port(original, port) or
                 (not self.needs_vport_creation(
                     original.get('device_owner')) and
                  self.needs_vport_creation(port.get('device_owner')))):
             # TODO(Tom) Octavia
-            # port didn't belong to any subnet yet, or dhcp port used to be
-            # ipv6 only: create vport
+            # port didn't belong to any subnet yet
             self._create_port(db_context, port, context.network)
             return
 
@@ -1421,36 +1415,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             subnet_mapping['nuage_subnet_id'] = vsd_subnet['ID']
             subnet_mapping['nuage_l2dom_tmplt_id'] = vsd_subnet['templateID']
         return subnet_mapping
-
-    def _ip4_addr_added_to_dualstack_dhcp_port(self, original, port):
-        original_fixed_ips = original['fixed_ips']
-        current_fixed_ips = port['fixed_ips']
-        device_owner = port.get('device_owner')
-        if device_owner != os_constants.DEVICE_OWNER_DHCP:
-            return False  # not a dhcp port
-
-        ipv4s, ipv6s = self.count_fixed_ips_per_version(
-            current_fixed_ips)
-        original_ipv4s, original_ipv6s = self.count_fixed_ips_per_version(
-            original_fixed_ips)
-
-        return (ipv4s == 1 and
-                original_ipv4s == 0 and original_ipv6s == 1)
-
-    def _ipv4_addr_removed_from_dualstack_dhcp_port(self, original, port):
-        original_fixed_ips = original['fixed_ips']
-        current_fixed_ips = port['fixed_ips']
-        device_owner = port.get('device_owner')
-        if device_owner != os_constants.DEVICE_OWNER_DHCP:
-            return False  # not a dhcp port
-
-        ipv4s, ipv6s = self.count_fixed_ips_per_version(
-            current_fixed_ips)
-        original_ipv4s, original_ipv6s = self.count_fixed_ips_per_version(
-            original_fixed_ips)
-
-        return (ipv4s == 0 and ipv6s == 1 and
-                original_ipv4s == 1)
 
     def _port_device_change(self, context, db_context, nuage_vport, original,
                             port, subnet_mapping,
