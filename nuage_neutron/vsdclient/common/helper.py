@@ -941,7 +941,6 @@ def get_subnet_update_data(ipv4_subnet, ipv6_subnet, params):
     # get the parameters to create single stack or update dualstack to single
     if ipv4_subnet and not ipv6_subnet:
         return {
-            'name': get_subnet_name(ipv4_subnet),
             'description': get_subnet_description(ipv4_subnet),
             'IPv6Address': None,
             'IPType': constants.IPV4,
@@ -950,7 +949,6 @@ def get_subnet_update_data(ipv4_subnet, ipv6_subnet, params):
         }
     elif ipv6_subnet and not ipv4_subnet:
         return {
-            'name': get_subnet_name(ipv6_subnet),
             'description': get_subnet_description(ipv6_subnet),
             'address': None,
             'IPType': constants.IPV6,
@@ -995,8 +993,6 @@ def get_subnet_update_data(ipv4_subnet, ipv6_subnet, params):
             if params.get('dhcpv6_ip'):
                 dual_stack_data['IPv6Gateway'] = params['dhcpv6_ip']
         dual_stack_data['IPType'] = constants.DUALSTACK
-        dual_stack_data['name'] = get_subnet_name(
-            ipv4_subnet, params['network_id'])
         dual_stack_data['description'] = get_subnet_description(
             ipv4_subnet, params['network_name'])
         return dual_stack_data
@@ -1018,8 +1014,13 @@ def get_subnet_external_id(subnet):
     return get_vsd_external_id(neutron_id)
 
 
-def get_subnet_name(subnet, network_id=None):
-    return subnet['nuage_l2bridge'] or network_id or subnet['id']
+def get_subnet_name_for_pg(subnet):
+    return subnet['nuage_l2bridge'] or subnet['id']
+
+
+def get_subnet_name(subnet):
+    return subnet['nuage_l2bridge'] or (subnet['network_id'] + '_' +
+                                        subnet['id'])
 
 
 def get_subnet_description(subnet, network_name=None):
