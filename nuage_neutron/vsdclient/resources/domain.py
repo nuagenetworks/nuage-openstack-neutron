@@ -751,7 +751,6 @@ class NuageDomainSubnet(object):
                       'network_id': subnet['network_id']}
             data = helper.get_subnet_update_data(ipv4_subnet, ipv6_subnet,
                                                  params)
-            req_params['name'] = data.pop('name')
             extra_params.update(data)
 
         vsd_subnet = self._create_subnet(req_params, extra_params)
