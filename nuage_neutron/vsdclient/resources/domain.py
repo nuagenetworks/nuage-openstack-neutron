@@ -692,6 +692,16 @@ class NuageDomainSubnet(object):
                                              params=None)
         self.update_domain_subnet_for_stack_exchange(
             mapping['nuage_subnet_id'], **data)
+        nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
+        if ipv4_subnet:
+            # Delete ipv6 dhcp options
+            nuagedhcpoptions.clear_nuage_dhcp_for_ip_version(
+                constants.IPV6_VERSION, mapping['nuage_subnet_id'],
+                constants.NETWORK_TYPE_L3)
+        else:
+            nuagedhcpoptions.clear_nuage_dhcp_for_ip_version(
+                constants.IPV4_VERSION, mapping['nuage_subnet_id'],
+                constants.NETWORK_TYPE_L3)
 
     def delete_l3domain_subnet(self, vsd_id):
         vsd_subnet = nuagelib.NuageSubnet()
