@@ -55,8 +55,9 @@ def _create_policygroup_for_vport(gw_type, subn_id, rtr_id, neutron_subnet,
     if create_policygroup:
         # Add the vport type to the gateway type, because when we need a way
         # to distinguish policygroups for bridge/host vport on the same subnet.
-        pg_name = _get_policygroup_name(gw_type, vport['type'],
-                                        helper.get_subnet_name(neutron_subnet))
+        pg_name = _get_policygroup_name(
+            gw_type, vport['type'],
+            helper.get_subnet_name_for_pg(neutron_subnet))
         nuage_policygroup_id = (
             pg_obj.create_policygroup_default_allow_any_rule(
                 subn_id, rtr_id, neutron_subnet, gw_type,
@@ -447,8 +448,9 @@ def get_policygroup_for_interface(restproxy_serv, neutron_subnet, gw_type,
                                   vport_type, subn_type):
 
     nuage_policygroup = nuagelib.NuagePolicygroup()
-    pg_name = _get_policygroup_name(gw_type, vport_type,
-                                    helper.get_subnet_name(neutron_subnet))
+    pg_name = _get_policygroup_name(
+        gw_type, vport_type,
+        helper.get_subnet_name_for_pg(neutron_subnet))
     policygroups = restproxy_serv.get(
         nuage_policygroup.get_all_resources(),
         extra_headers=nuage_policygroup.extra_header_filter(name=pg_name))
