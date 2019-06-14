@@ -88,14 +88,13 @@ class NuageL2Domain(object):
         self.restproxy.put(
             nuagel2domtmplt.put_resource(mapping['nuage_l2dom_tmplt_id']),
             data)
-        # update the name/descrition for l2domain
+        # update the description for l2domain
         nuagel2dom = nuagelib.NuageL2Domain()
-        l2dom_data = {'name': data['name']}
         if data.get('description'):
-            l2dom_data['description'] = data['description']
-        self.restproxy.put(
-            nuagel2dom.put_resource(mapping['nuage_subnet_id']),
-            l2dom_data)
+            l2dom_data = {'description': data['description']}
+            self.restproxy.put(
+                nuagel2dom.put_resource(mapping['nuage_subnet_id']),
+                l2dom_data)
 
     def create_subnet(self, ipv4_subnet, ipv6_subnet, params):
         subnet = ipv4_subnet or ipv6_subnet
@@ -131,7 +130,6 @@ class NuageL2Domain(object):
                 helper.get_subnet_update_data(ipv4_subnet=ipv4_subnet,
                                               ipv6_subnet=ipv6_subnet,
                                               params=params))
-            req_params['name'] = ext_params.pop('name')
             description = ext_params.pop('description')
 
         nuagel2domtmplt = nuagelib.NuageL2DomTemplate(create_params=req_params,
@@ -274,7 +272,7 @@ class NuageL2Domain(object):
                 neutron_subnet, parent_id=params['parent_id'],
                 network_type=constants.NETWORK_TYPE_L2)
 
-        if params['dhcp_enable_changed']:
+        if params.get('dhcp_enable_changed'):
             if params.get('ip_type') == constants.IPV4:
                 data = {
                     "enableDHCPv4": neutron_subnet.get('enable_dhcp')
