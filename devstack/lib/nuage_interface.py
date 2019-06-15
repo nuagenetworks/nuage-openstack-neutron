@@ -14,13 +14,13 @@
 #
 import argparse
 import errno
-import json
 import socket
 import sys
 import time
 
 from neutron.agent.linux.interface import OVSInterfaceDriver
 from neutron_lib import exceptions
+from oslo_serialization import jsonutils as json
 import six
 
 
@@ -45,7 +45,7 @@ class NuageVMDriver(object):
         print("echo sending ovsdb-query as: %s \n", msg)
         try:
             sock = cls.get_connected_socket()
-            sock.sendall(msg)
+            sock.sendall(msg.encode())
             sock.shutdown(socket.SHUT_RDWR)
             if recv_msg:
                 resp = sock.recv(4096)
