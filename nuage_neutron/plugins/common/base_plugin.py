@@ -263,66 +263,87 @@ class RootNuagePlugin(SubnetUtilsBase):
         return found_resource
 
     @log_helpers.log_method_call
-    def create_dhcp_nuage_port(self, context, neutron_subnet,
-                               nuage_subnet=None, dualstack=None):
+    def create_update_dhcp_nuage_port(self, context, neutron_subnet,
+                                      nuage_subnet=None, dualstack=None):
         fixed_ips = []
-        if nuage_subnet and nuage_subnet.get('DHCPManaged', True):
-            if self._is_ipv4(neutron_subnet) and nuage_subnet.get(
-                    'enableDHCPv4'):
-                fixed_ips = [{'ip_address': nuage_subnet['gateway'],
-                              'subnet_id': neutron_subnet['id']}]
-            if self._is_ipv6(neutron_subnet) and nuage_subnet.get(
-                    'enableDHCPv6'):
-                fixed_ips = [{'ip_address': nuage_subnet['IPv6Gateway'],
-                              'subnet_id': neutron_subnet['id']}]
-        else:
-            if neutron_subnet.get('enable_dhcp'):
-                fixed_ips = [{'subnet_id': neutron_subnet['id']}]
-            if dualstack and dualstack.get('enable_dhcp'):
-                fixed_ips.append({'subnet_id': dualstack['id']})
-
-        if fixed_ips:
-            p_data = {
-                'network_id': neutron_subnet['network_id'],
-                'tenant_id': neutron_subnet['tenant_id'],
-                'fixed_ips': fixed_ips,
-                'device_owner': constants.DEVICE_OWNER_DHCP_NUAGE
+        dhcp_ports = None
+        if dualstack and dualstack['enable_dhcp']:
+            filters = {
+                'fixed_ips': {'subnet_id': [dualstack['id']]},
+                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
             }
-            port = plugin_utils._fixup_res_dict(context,
-                                                port_def.COLLECTION_NAME,
-                                                p_data)
-            port['status'] = lib_constants.PORT_STATUS_ACTIVE
-            return self.core_plugin._create_port_db(context, {'port': port})[0]
+            dhcp_ports = self.core_plugin.get_ports(context, filters=filters)
+            fixed_ips = dhcp_ports[0]['fixed_ips']
+
+        if nuage_subnet and nuage_subnet.get('DHCPManaged', True):
+            if self._is_ipv4(neutron_subnet) and nuage_subnet['enableDHCPv4']:
+                fixed_ips.append({'ip_address': nuage_subnet['gateway'],
+                                  'subnet_id': neutron_subnet['id']})
+            if self._is_ipv6(neutron_subnet) and nuage_subnet['enableDHCPv6']:
+                fixed_ips.append({'ip_address': nuage_subnet['IPv6Gateway'],
+                                  'subnet_id': neutron_subnet['id']})
+        else:
+            if neutron_subnet['enable_dhcp']:
+                fixed_ips.append({'subnet_id': neutron_subnet['id']})
+        if fixed_ips:
+            if dhcp_ports:
+                return db_base_plugin_v2.NeutronDbPluginV2.update_port(
+                    self.core_plugin, context, dhcp_ports[0]['id'],
+                    {'port': {'fixed_ips': fixed_ips}})
+            else:
+                p_data = {
+                    'network_id': neutron_subnet['network_id'],
+                    'tenant_id': neutron_subnet['tenant_id'],
+                    'fixed_ips': fixed_ips,
+                    'device_owner': constants.DEVICE_OWNER_DHCP_NUAGE
+                }
+                port = plugin_utils._fixup_res_dict(context,
+                                                    port_def.COLLECTION_NAME,
+                                                    p_data)
+                port['status'] = lib_constants.PORT_STATUS_ACTIVE
+                return self.core_plugin._create_port_db(context,
+                                                        {'port': port})[0]
         else:
             return None
 
     @log_helpers.log_method_call
-    def delete_nuage_dhcp_port(self, context, port_id):
+    def delete_dhcp_nuage_port(self, context, neutron_subnet, dualstack=None):
+        if dualstack and dualstack['enable_dhcp']:
+            filters = {
+                'fixed_ips': {'subnet_id': [dualstack['id']]},
+                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+            }
+            dhcp_ports = self.core_plugin.get_ports(context,
+                                                    filters=filters)
+            original_fixed_ips = dhcp_ports[0]['fixed_ips']
+            # Remove DHCP ip for neutron subnet
+            fixed_ips = [fixed_ip for fixed_ip in original_fixed_ips
+                         if fixed_ip['subnet_id'] != neutron_subnet['id']]
+            db_base_plugin_v2.NeutronDbPluginV2.update_port(
+                self.core_plugin, context, dhcp_ports[0]['id'],
+                {'port': {'fixed_ips': fixed_ips}})
+        else:
+            filters = {
+                'fixed_ips': {'subnet_id': [neutron_subnet['id']]},
+                'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+            }
+            dhcp_ports = self.core_plugin.get_ports(context,
+                                                    filters=filters)
+            if dhcp_ports:
+                try:
+                    db_base_plugin_v2.NeutronDbPluginV2.delete_port(
+                        self.core_plugin, context, dhcp_ports[0]['id'])
+                except PortNotFound:
+                    LOG.info("Port %s has been deleted concurrently",
+                             dhcp_ports[0]['id'])
+
+    @log_helpers.log_method_call
+    def delete_dhcp_nuage_port_by_id(self, context, port_id):
         try:
             db_base_plugin_v2.NeutronDbPluginV2.delete_port(
                 self.core_plugin, context, port_id)
         except PortNotFound:
             LOG.info("Port %s has been deleted concurrently", port_id)
-
-    def update_nuage_port_dhcp_ip(self, context, neutron_subnet, dualstack,
-                                  del_dhcp_ip=False):
-        filters = {
-            'fixed_ips': {'subnet_id': [dualstack['id']]},
-            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-        }
-        dhcp_port = self.core_plugin.get_ports(context, filters=filters)[0]
-        fixed_ips = dhcp_port['fixed_ips']
-        if del_dhcp_ip:
-            # Remove DHCP ip for neutron subnet
-            fixed_ips = [fixed_ip for fixed_ip in fixed_ips if
-                         fixed_ip['subnet_id'] != neutron_subnet['id']]
-        else:
-            # Add DHCP ip for neutron subnet
-            fixed_ips.append({'subnet_id': neutron_subnet['id']})
-        # Add another fixed ip to DHCP port under subnet creation transaction
-        return db_base_plugin_v2.NeutronDbPluginV2.update_port(
-            self.core_plugin, context, dhcp_port['id'],
-            {'port': {'fixed_ips': fixed_ips}})
 
     @staticmethod
     def _check_security_groups_per_port_limit(sgs_per_port):
@@ -418,24 +439,29 @@ class RootNuagePlugin(SubnetUtilsBase):
         except n_exc.PortNotFound:
             return None
 
-    # CAUTION : this method is dangerous as we are about to support multiple
-    #           vsd mgd dualstack combo's soon.
-    #           - TODO(team) this needs refactoring
-    def _get_any_other_subnet_in_network(self, context, subnet):
-        subnets = self.core_plugin.get_subnets(
-            context,
-            filters={'network_id': [subnet['network_id']]})
-        other_subnets = (s for s in subnets if s['id'] != subnet['id'])
-        return next(other_subnets, None)
-
     @log_helpers.log_method_call
-    def get_dual_stack_subnet(self, context, neutron_subnet):
-        # TODO(team) CAUTION : this is dangerous code
-        any_other_subnet = self._get_any_other_subnet_in_network(
-            context, neutron_subnet)
-        if (any_other_subnet and any_other_subnet['ip_version'] !=
-                neutron_subnet['ip_version']):
-            return any_other_subnet
+    def get_dual_stack_subnet(self, context, neutron_subnet,
+                              vsd_managed=False):
+        subnets = self.core_plugin.get_subnets(
+            context, filters={'network_id': [neutron_subnet['network_id']]})
+        dual_subnets = []
+        for subnet in subnets:
+            if (subnet['id'] != neutron_subnet['id'] and
+                    subnet['ip_version'] != neutron_subnet['ip_version']):
+                if vsd_managed:
+                    dual_subnets.append(subnet)
+                else:
+                    return subnet
+        return dual_subnets
+
+    def get_vsd_managed_dual_subnet(self, context, subnet, nuage_subnet_id):
+        dual_stack_subnets = self.get_dual_stack_subnet(context, subnet,
+                                                        vsd_managed=True)
+        for dual_stack_subnet in dual_stack_subnets:
+            dual_subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
+                context.session, dual_stack_subnet['id'])
+            if dual_subnet_mapping['nuage_subnet_id'] == nuage_subnet_id:
+                return dual_stack_subnet
         return None
 
     @log_helpers.log_method_call
