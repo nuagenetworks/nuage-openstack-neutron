@@ -51,7 +51,7 @@ class NuageVMDriver(object):
         sock = None
         try:
             sock = cls.get_connected_socket()
-            sock.sendall(msg)
+            sock.sendall(msg.encode())
             if recv_msg:
                 resp = sock.recv(4096)
                 LOG.debug(_("response from ovsdb-query was: %s"), resp)
