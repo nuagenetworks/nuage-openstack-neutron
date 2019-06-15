@@ -181,7 +181,7 @@ function configure_octavia_nuage {
         MGMT_PORT_ID=${id_and_mac[0]}
         MGMT_PORT_MAC=${id_and_mac[1]}
         echo "plugging Octavia healthmanager port"
-        $(python $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_interface.py --mac $MGMT_PORT_MAC --port_id $MGMT_PORT_ID)
+        $($PYTHON $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_interface.py --mac $MGMT_PORT_MAC --port_id $MGMT_PORT_ID)
         echo "obtaining IP for Octavia Healthmanager port"
         $(sudo dhclient -r)
         $(sudo dhclient o-hm0)
@@ -195,7 +195,7 @@ function stop_octavia_nuage {
         id_and_mac=$(timeout 20 openstack port show octavia-health-manager-standalone-listen-port| awk '/ id | mac_address / {print $4}')
         id_and_mac=($id_and_mac)
         MGMT_PORT_ID=${id_and_mac[0]}
-        $(python $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_interface.py --unplug True --port_id $MGMT_PORT_ID)
+        $($PYTHON $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_interface.py --unplug True --port_id $MGMT_PORT_ID)
 
     fi
 
