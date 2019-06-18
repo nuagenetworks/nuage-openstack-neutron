@@ -1872,9 +1872,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 db_context.session, subnet_ids)
             l2dom = next((subnet for subnet in subnet_mappings
                           if self._is_l2(subnet)), None)
-            if l2dom and not self.get_subnet(
+            if l2dom and l2dom['nuage_managed_subnet'] and not self.get_subnet(
                     db_context, l2dom['subnet_id'])['enable_dhcp']:
-                return False
+                nuage_subnet, shared_subnet = self._get_nuage_subnet(
+                    l2dom['nuage_subnet_id'], subnet_type=constants.L2DOMAIN)
+                vsd_l2dom = shared_subnet or nuage_subnet
+                return vsd_l2dom['DHCPManaged']
         return vm_if_update
 
     @staticmethod
