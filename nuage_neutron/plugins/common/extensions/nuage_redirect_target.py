@@ -77,6 +77,8 @@ class RedirectTargetNoDomainOrL2Domain(nexception.BadRequest):
 
 
 def convert_to_list_or_none(value_list):
+    if isinstance(value_list, list):
+        return value_list
     if value_list == 'None':
         return []
     if value_list:
