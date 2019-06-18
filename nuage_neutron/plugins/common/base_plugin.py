@@ -177,6 +177,22 @@ class RootNuagePlugin(SubnetUtilsBase):
             subnet_validate = {'enable_dhcp': Is(False)}
 
         validate("subnet", subnet, subnet_validate)
+        if nuage_subnet["type"] == constants.L2DOMAIN:
+            if subnet['enable_dhcp']:
+                if ((subnet['ip_version'] == 4 and
+                     not nuage_subnet['gateway']) or
+                        (subnet['ip_version'] == 6 and
+                         not nuage_subnet['IPv6Gateway'])):
+                    msg = (_("DHCP enabled subnet can't be linked to vsd "
+                             "L2Domain without DHCP server IP"))
+                    raise NuageBadRequest(msg=msg)
+            elif nuage_subnet['DHCPManaged']:
+                if ((subnet['ip_version'] == 4 and nuage_subnet['gateway']) or
+                        (subnet['ip_version'] == 6 and
+                         nuage_subnet['IPv6Gateway'])):
+                    msg = (_("DHCP disabled subnet can't be linked to vsd "
+                             "L2Domain with DHCP server IP"))
+                    raise NuageBadRequest(msg=msg)
 
     def _validate_allocation_pools(self, context, subnet, subnet_info):
         if not subnet_info:
