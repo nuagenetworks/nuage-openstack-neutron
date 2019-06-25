@@ -1,9 +1,9 @@
 - project:
     templates:
+      - openstack-python-jobs
       - openstack-python35-jobs
     check:
       jobs:
-        - openstack-tox-pep8
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
@@ -14,7 +14,6 @@
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
     gate:
       jobs:
-        - openstack-tox-pep8
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
