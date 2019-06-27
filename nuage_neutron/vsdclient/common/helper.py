@@ -991,7 +991,7 @@ def get_subnet_update_data(ipv4_subnet, ipv6_subnet, params):
                 'IPv6Gateway': ipv6_subnet['gateway_ip'],
                 'enableDHCPv6': ipv6_subnet['enable_dhcp']}
             # For creating l2domain when detaching router
-            if params.get('dhcpv6_ip'):
+            if 'dhcpv6_ip' in params:
                 dual_stack_data['IPv6Gateway'] = params['dhcpv6_ip']
         dual_stack_data['IPType'] = constants.DUALSTACK
         dual_stack_data['description'] = get_subnet_description(
