@@ -129,6 +129,24 @@
       - openstack/tempest
 
 - job:
+    name: legacy-tempest-aio-fwaas
+    parent: legacy-dsvm-base
+    run: playbooks/tempest-aio-fwaas/run.yaml
+    post-run: playbooks/tempest-aio-fwaas/post.yaml
+    vars:
+      job_flavor: fwaas
+      branch_override: default
+    timeout: 9000
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack/neutron-fwaas
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
+
+- job:
     name: legacy-tempest-aio-client  # used by nuage-openstack-neutronclient
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-ml2/run.yaml
