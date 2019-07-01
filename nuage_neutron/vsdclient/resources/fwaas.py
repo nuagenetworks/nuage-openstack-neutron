@@ -149,6 +149,15 @@ class NuageFwaasMapper(NuageFwaasBase):
                 'locationType': 'ANY',
                 'DSCP': '*'
             })
+
+        # VSD expects a different field name for source address of a firewall
+        # rule if it is IPv6
+        original_field_name = 'addressOverride'
+        patched_field_name = 'IPv6AddressOverride'
+        address = vsd_dict.get(original_field_name)
+        if address and netaddr.IPNetwork(address).version == 6:
+            vsd_dict[patched_field_name] = vsd_dict.pop(original_field_name)
+
         return vsd_dict
 
     def map_policy_os_to_vsd(self, enterprise_id, os_policy, post=False):
