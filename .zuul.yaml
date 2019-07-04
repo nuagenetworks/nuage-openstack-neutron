@@ -52,7 +52,6 @@
         - legacy-tempest-aio-full:
             branches:
               - stable/newton
-              - stable/ocata
         - tempest-full-py3:
             branches:
               - master
@@ -64,7 +63,6 @@
         - legacy-tempest-aio-upstream:
             branches:
               - stable/newton
-              - stable/ocata
 
 - job:
     name: networking-nuage-rally-task
