@@ -1,46 +1,54 @@
 - project:
     templates:
       - openstack-python-jobs
-      - openstack-python35-jobs
+      - openstack-python36-jobs
     check:
       jobs:
         - networking-nuage-tempest-smoke:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
         - networking-nuage-tempest-smoke-py3:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
     gate:
       jobs:
         - networking-nuage-tempest-smoke:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
         - networking-nuage-tempest-smoke-py3:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
     full:
       jobs:
         - networking-nuage-tempest-full:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
     sriov:
       jobs:
         - networking-nuage-tempest-sriov:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-sriov-flat-vlan:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
@@ -50,10 +58,12 @@
     octavia:
       jobs:
         - networking-nuage-octavia:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/octavia-tempest-plugin /opt/stack/nuage-octavia-tempest-plugin"'
         - networking-nuage-octavia-standby:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/octavia-tempest-plugin /opt/stack/nuage-octavia-tempest-plugin"'
@@ -62,26 +72,31 @@
         - legacy-tempest-aio-sfc
     rally:
       jobs:
-        - networking-nuage-rally-task
+        - networking-nuage-rally-task:
+            nodeset: openstack-single-node-xenial
     switchdev:
       jobs:
         - networking-nuage-tempest-sriov-switchdev:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
     upstream:
       jobs:
         - tempest-full-py3:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
     periodic:
       jobs:
         - networking-nuage-tempest-full-py3:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
         - tempest-full-py3:
+            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
@@ -91,6 +106,7 @@
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-sfc/run.yaml
     post-run: playbooks/tempest-aio-sfc/post.yaml
+    nodeset: openstack-single-node-xenial
     vars:
       job_flavor: sfc
       branch_override: default
@@ -111,6 +127,7 @@
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-fwaas/run.yaml
     post-run: playbooks/tempest-aio-fwaas/post.yaml
+    nodeset: openstack-single-node-xenial
     vars:
       job_flavor: fwaas
       branch_override: default
@@ -129,6 +146,7 @@
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-ml2/run.yaml
     post-run: playbooks/tempest-aio-ml2/post.yaml
+    nodeset: openstack-single-node-xenial
     vars:
       job_flavor: neutronclient
       python3: False
