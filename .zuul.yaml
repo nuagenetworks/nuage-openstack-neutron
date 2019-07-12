@@ -41,28 +41,8 @@
             nodeset: openstack-single-node-rhel7
     periodic:
       jobs:
-        - networking-nuage-tempest-full-py3:
-            branches:
-              - master
-              - stable/rocky
-              - stable/stein
-        - networking-nuage-tempest-full:
-            branches:
-              - stable/queens
-        - legacy-tempest-aio-full:
-            branches:
-              - stable/newton
-        - tempest-full-py3:
-            branches:
-              - master
-              - stable/rocky
-              - stable/stein
-        - tempest-full:
-            branches:
-              - stable/queens
-        - legacy-tempest-aio-upstream:
-            branches:
-              - stable/newton
+        - networking-nuage-tempest-full-py3
+        - tempest-full-py3
 
 - job:
     name: networking-nuage-rally-task
