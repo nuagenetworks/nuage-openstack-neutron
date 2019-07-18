@@ -127,7 +127,7 @@
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-sfc/run.yaml
     post-run: playbooks/tempest-aio-sfc/post.yaml
-    nodeset: openstack-single-node-xenial
+    nodeset: devstack-single-node
     vars:
       job_flavor: sfc
       branch_override: default
@@ -147,7 +147,7 @@
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-fwaas/run.yaml
     post-run: playbooks/tempest-aio-fwaas/post.yaml
-    nodeset: openstack-single-node-xenial
+    nodeset: devstack-single-node
     vars:
       job_flavor: fwaas
       branch_override: default
@@ -166,7 +166,7 @@
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-ml2/run.yaml
     post-run: playbooks/tempest-aio-ml2/post.yaml
-    nodeset: openstack-single-node-xenial
+    nodeset: devstack-single-node
     vars:
       job_flavor: neutronclient
       python3: False
