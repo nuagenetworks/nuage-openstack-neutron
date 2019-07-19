@@ -87,10 +87,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def verify_cms(self, cms_id):
         cms = nuagelib.NuageCms(create_params={'cms_id': cms_id})
-        response = self.restproxy.rest_call('GET', cms.get_resource(), '')
-        if not cms.get_validate(response):
-            LOG.error('CMS with id %s not found on vsd', cms_id)
-            raise restproxy.ResourceNotFoundException(cms.error_msg)
+        self.restproxy.get(cms.get_resource(), required=True)
 
     def get_usergroup(self, tenant, net_partition_id):
         return helper.get_usergroup(self.restproxy, tenant, net_partition_id)
@@ -103,22 +100,14 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         if id is None:
             return
         nuageuser = nuagelib.NuageUser()
-        response = self.restproxy.rest_call('DELETE',
-                                            nuageuser.delete_resource(id), '')
-        if not nuageuser.delete_validate(response):
-            LOG.error('Error in deleting user %s', id)
-            raise nuageuser.get_rest_proxy_error()
+        self.restproxy.delete(nuageuser.delete_resource(id))
         LOG.debug('User %s deleted from VSD', id)
 
     def delete_group(self, id):
         if id is None:
             return
         nuagegroup = nuagelib.NuageGroup()
-        response = self.restproxy.rest_call('DELETE',
-                                            nuagegroup.delete_resource(id), '')
-        if not nuagegroup.delete_validate(response):
-            LOG.error('Error in deleting group %s', id)
-            raise nuagegroup.get_rest_proxy_error()
+        self.restproxy.delete(nuagegroup.delete_resource(id))
         LOG.debug('Group %s deleted from VSD', id)
 
     def create_net_partition(self, params):
@@ -371,14 +360,9 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             'domain_id': router_id
         }
         nuage_l3_domain = nuagelib.NuageL3Domain(create_params=req_params)
-        response = self.restproxy.rest_call(
-            'GET', nuage_l3_domain.get_resource(), '')
-
-        if not nuage_l3_domain.validate(response):
-            raise nuage_l3_domain.get_rest_proxy_error()
-
-        if response[3]:
-            return response[3][0]['parentID']
+        l3_doms = self.restproxy.get(nuage_l3_domain.get_resource(),
+                                     required=True)
+        return l3_doms[0]['parentID'] if l3_doms else None
 
     def create_shared_subnet(self, vsd_zone_id, subnet, params):
         return self.domain.domainsubnet.create_shared_subnet(
