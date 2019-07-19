@@ -257,7 +257,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             context, vip_port['id'],
             {'port':
                 {'device_id': redirect_target['redirect_target_id']}})
-        return self._make_redirect_target_vip_dict(vip_resp[3][0],
+        return self._make_redirect_target_vip_dict(vip_resp[0],
                                                    context=context)
 
     @log_helpers.log_method_call

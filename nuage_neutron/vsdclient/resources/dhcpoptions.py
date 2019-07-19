@@ -177,7 +177,6 @@ class NuageDhcpOptions(object):
         option_number = extra_dhcp_opt['opt_name']
         option_value = extra_dhcp_opt['opt_value']
 
-        nuage_dhcp_options = nuagelib.NuageDhcpOptions(ip_version)
         external_id = cms_id_helper.get_vsd_external_id(external_id)
         length = 0
         opt_value = ""
@@ -202,26 +201,18 @@ class NuageDhcpOptions(object):
         else:
             data = self._get_extra_dhcp_template(option_value,
                                                  option_number, external_id)
-        resp = self._set_nuage_dhcp_options(parent_id, ip_version, data,
+        return self._set_nuage_dhcp_options(parent_id, ip_version, data,
                                             dhcp_id, constants.VPORT)
-        if not nuage_dhcp_options.validate(resp):
-            if (nuage_dhcp_options.vsd_error_code !=
-                    constants.VSD_NO_ATTR_CHANGES_TO_MODIFY_ERR_CODE):
-                raise nuage_dhcp_options.get_rest_proxy_error()
-            return data
-        return resp
 
     def delete_nuage_extra_dhcp_option(self, dhcp_id, ip_version, on_rollback):
         nuage_dhcp_options = nuagelib.NuageDhcpOptions(ip_version)
-        resp = self.restproxy.rest_call('DELETE',
-                                        nuage_dhcp_options.
-                                        dhcp_resource(dhcp_id), '')
-        if not nuage_dhcp_options.validate(resp):
-            exc = nuage_dhcp_options.get_rest_proxy_error()
+        try:
+            self.restproxy.delete(nuage_dhcp_options.dhcp_resource(dhcp_id))
+        except restproxy.RESTProxyError as e:
             if on_rollback:
-                exc.message = ("Rollback also failed due to the exception: " +
-                               exc.message)
-            raise exc
+                e.message = ("Rollback also failed due to the exception: " +
+                             e.message)
+            raise
 
     def _create_nuage_dhcp_options(self, subnet, resource_id,
                                    resource_type, dhcp_option):
@@ -265,12 +256,8 @@ class NuageDhcpOptions(object):
             raise Exception("Unknown DHCP option")
 
         data['externalID'] = helper.get_external_id_based_on_subnet_id(subnet)
-        resp = self._set_nuage_dhcp_options(resource_id, ip_version, data,
-                                            dhcp_id, resource_type)
-
-        if (resp[0] not in restproxy.REST_SUCCESS_CODES and
-                resp[0] not in [409]):
-            raise restproxy.RESTProxyError(str(resp[2]), resp[0])
+        self._set_nuage_dhcp_options(resource_id, ip_version, data,
+                                     dhcp_id, resource_type)
 
     def _set_nuage_dhcp_options(self, resource_id, ip_version,
                                 data, dhcp_id=False, resource_type=None):
@@ -291,29 +278,28 @@ class NuageDhcpOptions(object):
                 # dhcp option already set for this l2domain. We do a PUT
                 # operation with the new data
                 del data["externalID"]
-                return self.restproxy.rest_call(
-                    'PUT', nuage_dhcp_options.dhcp_resource(dhcp_id), data)
+                return self.restproxy.put(
+                    nuage_dhcp_options.dhcp_resource(dhcp_id),
+                    data)
             else:
                 if resource_type == constants.VPORT:
                     # POST the dhcp options for the Vport
-                    return self.restproxy.rest_call(
-                        'POST', nuage_dhcp_options.resource_by_vportid(
-                            resource_id), data)
+                    return self.restproxy.post(
+                        nuage_dhcp_options.resource_by_vportid(resource_id),
+                        data)
                 elif resource_type == constants.NETWORK_TYPE_L2:
                     # POST the dhcp options for the l2only domain
-                    return self.restproxy.rest_call(
-                        'POST', nuage_dhcp_options.resource_by_l2domainid(
-                            resource_id),
+                    return self.restproxy.post(
+                        nuage_dhcp_options.resource_by_l2domainid(resource_id),
                         data)
                 else:
                     # POST the dhcp options for the domain/subnet
-                    return self.restproxy.rest_call(
-                        'POST', nuage_dhcp_options.resource_by_subnetid(
-                            resource_id),
+                    return self.restproxy.post(
+                        nuage_dhcp_options.resource_by_subnetid(resource_id),
                         data)
         elif resource_type != constants.VPORT:
-            return self.restproxy.rest_call(
-                'DELETE', nuage_dhcp_options.dhcp_resource(dhcp_id), '')
+            return self.restproxy.delete(
+                nuage_dhcp_options.dhcp_resource(dhcp_id))
 
     def _delete_nuage_dhcp_option(self, subnet_id, isl2dom, ip_version,
                                   dhcp_type):
@@ -333,11 +319,8 @@ class NuageDhcpOptions(object):
         dhcp_id = self._check_dhcp_option_exists(subnet_id, isl2dom,
                                                  ip_version, dhcp_type)
         if dhcp_id:
-            nuage_dhcp_options = nuagelib.NuageDhcpOptions(ip_version)
-            resp = self.restproxy.rest_call(
-                'DELETE', nuage_dhcp_options.dhcp_resource(dhcp_id), '')
-            if not nuage_dhcp_options.validate(resp):
-                raise nuage_dhcp_options.get_rest_proxy_error()
+            nuage_dhcp_options = nuagelib.NuageDhcpOptions()
+            self.restproxy.delete(nuage_dhcp_options.dhcp_resource(dhcp_id))
 
     def _check_dhcp_option_exists(self, resource_id, resource_type,
                                   ip_version, dhcp_type):
@@ -353,28 +336,24 @@ class NuageDhcpOptions(object):
         LOG.debug('_check_dhcp_option_exists() for resource %s', resource_id)
         nuage_dhcp_options = nuagelib.NuageDhcpOptions(ip_version)
         if resource_type == constants.VPORT:
-            resp = self.restproxy.rest_call(
-                'GET', nuage_dhcp_options.resource_by_vportid(
-                    resource_id), '')
-            return NuageDhcpOptions._is_option_already_present(resp, dhcp_type)
+            dhcp_options = self.restproxy.get(
+                nuage_dhcp_options.resource_by_vportid(resource_id))
         elif resource_type == constants.NETWORK_TYPE_L2:
-            resp = self.restproxy.rest_call(
-                'GET', nuage_dhcp_options.resource_by_l2domainid(
-                    resource_id), '')
-            return NuageDhcpOptions._is_option_already_present(resp, dhcp_type)
+            dhcp_options = self.restproxy.get(
+                nuage_dhcp_options.resource_by_l2domainid(resource_id))
         else:
-            resp = self.restproxy.rest_call(
-                'GET', nuage_dhcp_options.resource_by_subnetid(
-                    resource_id), '')
-            return NuageDhcpOptions._is_option_already_present(resp, dhcp_type)
+            dhcp_options = self.restproxy.get(
+                nuage_dhcp_options.resource_by_subnetid(resource_id))
+        return NuageDhcpOptions._is_option_already_present(dhcp_options,
+                                                           dhcp_type)
 
     @staticmethod
-    def _is_option_already_present(resp, dhcp_type):
-        if resp[3]:
-            # we need to verify that there is a same option already present.
-            for dhcp_item in resp[3]:
-                if dhcp_item['type'] == dhcp_type:
-                    return dhcp_item['ID']
+    def _is_option_already_present(dhcpoptions, dhcp_type):
+        # we need to verify that there is a same option already present.
+        for dhcp_item in dhcpoptions:
+            if dhcp_item['type'] == dhcp_type:
+                return dhcp_item['ID']
+        return None
 
     def _get_dns_tmpl(self, ip_version, dns_list):
         _dns_length = format(4 * len(dns_list), '02x')
