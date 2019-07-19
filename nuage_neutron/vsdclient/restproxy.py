@@ -418,6 +418,9 @@ class RESTProxyServer(object):
     def get(self, resource, data='', extra_headers=None, required=False):
         response = self.rest_call('GET', resource, data,
                                   extra_headers=extra_headers)
+        # in case of resource with child, eg: /enterprises/%s/l2domaintemplates
+        # required parameter only makes sures that the parent resource exists
+        # if there is no child, emtpy string will be returned.
         if response[0] in REST_SUCCESS_CODES:
             headers = response[4]
             data = response[3]
@@ -438,7 +441,7 @@ class RESTProxyServer(object):
                         self.raise_error_response(response)
             return data
         elif response[0] == REST_NOT_FOUND and not required:
-            return ''
+            return []
         else:
             self.raise_error_response(response)
 
@@ -576,12 +579,12 @@ class RESTProxyServer(object):
                 return
             self.raise_error_response(response)
 
-    def delete(self, resource, data='', extra_headers=None, required=False):
+    def delete(self, resource, data='', extra_headers=None):
         response = self.rest_call('DELETE', resource, data,
                                   extra_headers=extra_headers)
         if response[0] in REST_SUCCESS_CODES:
             return response[3]
-        elif response[0] == REST_NOT_FOUND and not required:
+        elif response[0] == REST_NOT_FOUND:
             return None
         else:
             self.raise_error_response(response)

@@ -67,10 +67,9 @@ class NuageTrunkBase(object):
         return self.restproxy.put(resource.put_url() % id, data,
                                   extra_headers=extra_headers)
 
-    def delete(self, resource, id, extra_headers=None, required=False):
+    def delete(self, resource, id, extra_headers=None):
         return self.restproxy.delete(resource.delete_url() % id,
-                                     extra_headers=extra_headers,
-                                     required=required)
+                                     extra_headers=extra_headers)
 
 
 class NuageTrunk(NuageTrunkBase):

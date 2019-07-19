@@ -681,13 +681,13 @@ class NuageZone(NuageResource):
     def zone_list(self, response):
         return response[3]
 
-    def get_isolated_zone_id(self, response):
-        for zone in self.zone_list(response):
+    def get_isolated_zone_id(self, zones):
+        for zone in zones:
             if '-pub-' not in zone['name']:
                 return zone['ID']
 
-    def get_shared_zone_id(self, response):
-        for zone in self.zone_list(response):
+    def get_shared_zone_id(self, zones):
+        for zone in zones:
             if '-pub-' in zone['name']:
                 return zone['ID']
 
