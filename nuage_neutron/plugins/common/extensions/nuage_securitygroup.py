@@ -24,6 +24,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'is_visible': True,
             'default': True,
             'convert_to': converters.convert_to_boolean,
+            'enforce_policy': True
         },
     },
 }
