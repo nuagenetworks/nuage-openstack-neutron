@@ -63,61 +63,122 @@ SWITCHPORT_BINDINGS = '%ss' % SWITCHPORT_BINDING
 
 RESOURCE_ATTRIBUTE_MAP = {
     SWITCHPORT_MAPPINGS: {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
-        'switch_info': {'allow_post': True, 'allow_put': True,
-                        'validate': {'type:string': None},
-                        'required': False,
-                        'default': '',
-                        'is_visible': True},
-        'switch_id': {'allow_post': True, 'allow_put': True,
-                      'validate': {'type:string': None},
-                      'is_visible': True},
-        'port_id': {'allow_post': True, 'allow_put': True,
-                    'validate': {'type:string': None},
-                    'is_visible': True},
-        'port_uuid': {'allow_post': False, 'allow_put': False,
-                      'validate': {'type:string': None},
-                      'is_visible': True},
-        'host_id': {'allow_post': True, 'allow_put': True,
-                    'validate': {'type:string': None},
-                    'is_visible': True},
-        'pci_slot': {'allow_post': True, 'allow_put': True,
-                     'validate': {'type:string': None},
-                     'is_visible': True},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': False},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True
+        },
+        'switch_info': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'required': False,
+            'default': '',
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'switch_id': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+
+        },
+        'port_id': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+
+        },
+        'port_uuid': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+
+        },
+        'host_id': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'pci_slot': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': False
+        },
     },
     SWITCHPORT_BINDINGS: {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
-        'neutron_port_id': {'allow_post': False, 'allow_put': False,
-                            'validate': {'type:string': None},
-                            'is_visible': True},
-        'switch_id': {'allow_post': False, 'allow_put': False,
-                      'validate': {'type:string': None},
-                      'is_visible': True},
-        'port_id': {'allow_post': True, 'allow_put': True,
-                    'validate': {'type:string': None},
-                    'is_visible': True},
-        'port_uuid': {'allow_post': False, 'allow_put': False,
-                      'validate': {'type:string': None},
-                      'is_visible': True},
-        'nuage_vport_id': {'allow_post': False, 'allow_put': False,
-                           'validate': {'type:string': None},
-                           'is_visible': True},
-        'segmentation_id': {'allow_post': False, 'allow_put': False,
-                            'validate': {'type:string': None},
-                            'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True
+        },
+        'neutron_port_id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'switch_id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'port_id': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'port_uuid': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'nuage_vport_id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'segmentation_id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
     }
 }
 
 
 class Net_topology(extensions.ExtensionDescriptor):
     """Extension class supporting net-topology."""
+
     @classmethod
     def get_name(cls):
         return "net-topology"
@@ -158,7 +219,6 @@ class Net_topology(extensions.ExtensionDescriptor):
 
 @six.add_metaclass(abc.ABCMeta)
 class NuageNetTopologyPluginBase(object):
-
     path_prefix = NET_TOPOLOGY_PREFIX
 
     @abc.abstractmethod

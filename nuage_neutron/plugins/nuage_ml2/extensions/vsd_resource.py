@@ -17,6 +17,8 @@ from neutron_lib.api import extensions as api_extensions
 
 from nuage_neutron.plugins.common import constants
 
+READONLY = {'allow_post': False, 'allow_put': False,
+            'is_visible': True, 'enforce_policy': True}
 
 RESOURCE_ATTRIBUTE_MAP = {
     'vsd_organisations': {
