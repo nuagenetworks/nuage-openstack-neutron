@@ -28,27 +28,50 @@ from nuage_neutron.plugins.common import exceptions as nuage_exc
 # Attribute Map
 RESOURCE_ATTRIBUTE_MAP = {
     'nuage_l2bridges': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True,
-               'primary_key': True},
-        'name': {'allow_post': True, 'allow_put': True,
-                 'is_visible': True, 'default': '',
-                 'validate': {'type:name_not_default': None}},
-        'nuage_subnet_id': {'allow_post': False, 'allow_put': False,
-                            'is_visible': True, 'default': ''},
-        'networks': {'allow_post': False, 'allow_put': False,
-                     'is_visible': True, 'default': ''},
-        'physnets': {'allow_post': True, 'allow_put': True,
-                     'default': lib_constants.ATTR_NOT_SPECIFIED,
-                     'convert_list_to':
-                         lib_converters.convert_kvp_list_to_dict,
-                     'validate': {'type:physnets': None},
-                     'enforce_policy': True,
-                     'is_visible': True},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True}
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'primary_key': True
+        },
+        'name': {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:name_not_default': None},
+            'enforce_policy': True
+        },
+        'nuage_subnet_id': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'enforce_policy': True
+        },
+        'networks': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'enforce_policy': True
+        },
+        'physnets': {
+            'allow_post': True,
+            'allow_put': True,
+            'default': lib_constants.ATTR_NOT_SPECIFIED,
+            'convert_list_to': lib_converters.convert_kvp_list_to_dict,
+            'validate': {'type:physnets': None},
+            'enforce_policy': True,
+            'is_visible': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        }
     }
 }
 
