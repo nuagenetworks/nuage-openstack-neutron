@@ -75,53 +75,120 @@ def convert_validate_port_value(port):
 # Attribute Map
 RESOURCE_ATTRIBUTE_MAP = {
     'nuage_external_security_groups': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True,
-               'primary_key': True},
-        'name': {'allow_post': True, 'allow_put': False,
-                 'is_visible': True, 'default': '',
-                 'validate': {'type:name_not_default': None}},
-        'description': {'allow_post': True, 'allow_put': False,
-                        'is_visible': True, 'default': '',
-                        'validate': {'type:string_or_none': None}},
-        'extended_community_id': {'allow_post': True, 'allow_put': False,
-                                  'is_visible': True, 'default': None,
-                                  'validate': {'type:string': None}},
-        'subnet_id': {'allow_post': True, 'allow_put': False,
-                      'is_visible': True, 'default': None,
-                      'validate': {'type:uuid_or_none': None}},
-        'router_id': {'allow_post': True, 'allow_put': False,
-                      'is_visible': True, 'default': None,
-                      'validate': {'type:uuid_or_none': None}},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'primary_key': True
+        },
+        'name': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:name_not_default': None},
+            'enforce_policy': True
+        },
+        'description': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:string_or_none': None},
+            'enforce_policy': True
+        },
+        'extended_community_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:string': None},
+            'enforce_policy': True
+        },
+        'subnet_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:uuid_or_none': None},
+            'enforce_policy': True
+        },
+        'router_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:uuid_or_none': None},
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
     },
     'nuage_external_security_group_rules': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True,
-               'primary_key': True},
-        'direction': {'allow_post': True, 'allow_put': True,
-                      'is_visible': True,
-                      'validate': {'type:values': ['ingress', 'egress']}},
-        'remote_external_group_id': {'allow_post': True, 'allow_put': False,
-                                     'default': None, 'is_visible': True},
-        'origin_group_id': {'allow_post': True, 'allow_put': False,
-                            'default': None, 'is_visible': True},
-        'protocol': {'allow_post': True, 'allow_put': False,
-                     'is_visible': True, 'default': None,
-                     'convert_to': convert_protocol},
-        'port_range_min': {'allow_post': True, 'allow_put': False,
-                           'convert_to': convert_validate_port_value,
-                           'default': None, 'is_visible': True},
-        'port_range_max': {'allow_post': True, 'allow_put': False,
-                           'convert_to': convert_validate_port_value,
-                           'default': None, 'is_visible': True},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'primary_key': True
+        },
+        'direction': {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'validate': {'type:values': ['ingress', 'egress']},
+            'enforce_policy': True
+        },
+        'remote_external_group_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'origin_group_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'protocol': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'convert_to': convert_protocol,
+            'enforce_policy': True
+        },
+        'port_range_min': {
+            'allow_post': True,
+            'allow_put': False,
+            'convert_to': convert_validate_port_value,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'port_range_max': {
+            'allow_post': True,
+            'allow_put': False,
+            'convert_to': convert_validate_port_value,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True,
+            'enforce_policy': True
+        },
     }
 }
 

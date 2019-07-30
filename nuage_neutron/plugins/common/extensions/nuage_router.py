@@ -139,7 +139,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': True,
             'is_visible': True,
             'default': None,
-            'validate': {'type:string_or_none': None}
+            'validate': {'type:string_or_none': None},
+            'enforce_policy': True
         },
         'rd': {
             'allow_post': True,
@@ -211,7 +212,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': True,
             'is_visible': True,
             'default': None,
-            'convert_to': convert_nuage_underlay
+            'convert_to': convert_nuage_underlay,
+            'enforce_policy': True
         },
     },
 }
