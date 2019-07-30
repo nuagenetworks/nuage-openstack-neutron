@@ -41,24 +41,55 @@ lib_validators.add_validator('type:validate_port_policy_groups',
 NUAGE_POLICY_GROUPS = 'nuage_policy_groups'
 RESOURCE_ATTRIBUTE_MAP = {
     NUAGE_POLICY_GROUPS: {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True,
-               'primary_key': True},
-        'name': {'allow_post': False, 'allow_put': False,
-                 'is_visible': True},
-        'description': {'allow_post': False, 'allow_put': False,
-                        'is_visible': True},
-        'type': {'allow_post': False, 'allow_put': False,
-                 'is_visible': True},
-        'scope': {'allow_post': False, 'allow_put': False,
-                  'is_visible': True},
-        'evpn_tag': {'allow_post': False, 'allow_put': False,
-                     'is_visible': True},
-        'pg_id': {'allow_post': False, 'allow_put': False,
-                  'is_visible': True},
-        'ports': {'allow_post': False, 'allow_put': False,
-                  'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'primary_key': True
+        },
+        'name': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'description': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'type': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'scope': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'evpn_tag': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'pg_id': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'ports': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
     },
 }
 EXTENDED_ATTRIBUTES_2_0 = {
@@ -70,6 +101,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'convert_to': lib_converters.convert_none_to_empty_list,
             'default': lib_constants.ATTR_NOT_SPECIFIED,
             'validate': {'type:validate_port_policy_groups': None},
+            'enforce_policy': True
         }
     }
 }
