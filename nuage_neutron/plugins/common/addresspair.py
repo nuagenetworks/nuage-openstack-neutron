@@ -152,7 +152,7 @@ class NuageAddressPair(BaseNuagePlugin):
                 self.vsdclient.update_mac_spoofing_on_vport(
                     nuage_vport['ID'],
                     constants.ENABLED if enable_spoofing else
-                    constants.INHERITED)
+                    constants.DISABLED)
             except Exception:
                 if not self._get_port_from_neutron(context, port):
                     return
