@@ -719,7 +719,7 @@ class NuageDomainSubnet(object):
         if params.get('dhcp_opts_changed'):
             nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
             nuagedhcpoptions.update_nuage_dhcp(
-                neutron_subnet, parent_id=params['parent_id'],
+                neutron_subnet, parent_id=params['nuage_subnet_id'],
                 network_type=constants.NETWORK_TYPE_L3)
 
         updates = {}
@@ -729,18 +729,13 @@ class NuageDomainSubnet(object):
             else:
                 updates['enableDHCPv6'] = neutron_subnet.get('enable_dhcp')
 
-        new_name = helper.get_subnet_description(neutron_subnet,
-                                                 params.get('network_name'))
-        if new_name:
-            # update the description on the VSD for this subnet if required
-            # If a subnet is updated from horizon, we get the name of the
-            # subnet as well in the subnet dict for update.
-            nuagesubn = nuagelib.NuageSubnet()
-            subn = self.restproxy.get(
-                nuagesubn.get_resource(params['parent_id']),
-                required=True)[0]
-            if subn['description'] != new_name and not params.get('dualstack'):
-                updates['description'] = new_name
+        if params.get('dualstack'):
+            if params.get('network_name'):
+                updates['description'] = params['network_name']
+        else:
+            if params.get('subnet_name'):
+                updates['description'] = params['subnet_name']
+
         if neutron_subnet.get(plugin_constants.NUAGE_UNDERLAY):
             nuage_pat, nuage_underlay = self._calculate_pat_and_underlay(
                 neutron_subnet)
@@ -748,8 +743,8 @@ class NuageDomainSubnet(object):
             updates['underlayEnabled'] = nuage_underlay
         if updates:
             nuagel3domsub = nuagelib.NuageSubnet()
-            self.restproxy.put(nuagel3domsub.put_resource(params['parent_id']),
-                               updates)
+            self.restproxy.put(nuagel3domsub.put_resource(
+                params['nuage_subnet_id']), updates)
 
     @staticmethod
     def _calculate_pat_and_underlay(subnet):
