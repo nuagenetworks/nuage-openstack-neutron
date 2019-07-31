@@ -111,7 +111,7 @@ class RootNuagePlugin(SubnetUtilsBase):
             'neutron_id': port['fixed_ips'][0]['subnet_id'],
             'description': description,
             'vsd_subnet': vsd_subnet,
-            'address_spoof': (constants.INHERITED
+            'address_spoof': (constants.DISABLED
                               if port.get(psec.PORTSECURITY, True)
                               else constants.ENABLED)
         }

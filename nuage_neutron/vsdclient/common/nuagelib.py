@@ -339,7 +339,7 @@ class NuageL2Domain(NuageResource):
         if params.get('type') == constants.BRIDGE_VPORT_TYPE:
             data['addressSpoofing'] = constants.ENABLED
         else:
-            data['addressSpoofing'] = constants.INHERITED
+            data['addressSpoofing'] = constants.DISABLED
         return data
 
     def vm_vport_post_data(self, params):
@@ -465,7 +465,7 @@ class NuageSubnet(NuageResource):
         if params.get('type') == constants.BRIDGE_VPORT_TYPE:
             data['addressSpoofing'] = constants.ENABLED
         else:
-            data['addressSpoofing'] = constants.INHERITED
+            data['addressSpoofing'] = constants.DISABLED
 
         return data
 
@@ -1392,7 +1392,7 @@ class NuageVPort(NuageResource):
             data['addressSpoofing'] = constants.ENABLED
         else:
             data['addressSpoofing'] = \
-                (constants.INHERITED if
+                (constants.DISABLED if
                  self.extra_params[constants.PORTSECURITY]
                  else constants.ENABLED)
 
