@@ -150,12 +150,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """delete_port_precommit."""
         if not self.is_port_supported(context.current):
             return
-        try:
-            self._delete_port(context)
-        except Exception as e:
-            LOG.error("Failed to delete vport from vsd {port id: %s}",
-                      context.current['id'])
-            raise e
+        self._delete_port(context)
 
     @utils.context_log
     def bind_port(self, context):
@@ -236,9 +231,10 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """Find or allocate new segment suitable for Hw VTEP
 
         """
-        segment = next(item for item in context.segments_to_bind if
+        segment = next((item for item in context.segments_to_bind if
                        item[api.NETWORK_TYPE] in [os_constants.TYPE_FLAT,
-                                                  os_constants.TYPE_VLAN])
+                                                  os_constants.TYPE_VLAN]),
+                       None)
         if not segment:
             binding_profile = self._get_binding_profile(context.current)
             segment = context.allocate_dynamic_segment(
