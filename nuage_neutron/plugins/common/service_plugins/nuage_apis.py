@@ -16,9 +16,12 @@ import functools
 
 import netaddr
 from neutron._i18n import _
+from neutron.db import _model_query as model_query
+from neutron.db import _utils as db_utils
 from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db as sg_db
+from neutron_lib.api import validators
 from neutron_lib import context as n_ctx
 from neutron_lib import exceptions as n_exc
 from neutron_lib.services import base as service_base
@@ -31,6 +34,7 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import externalsg
 from nuage_neutron.plugins.common import gateway
+from nuage_neutron.plugins.common import nuage_models
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
@@ -64,7 +68,6 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     def get_default_np_id(self):
         return self._default_np_id
 
-    @log_helpers.log_method_call
     def _make_net_partition_dict(self, net_partition,
                                  context=None, fields=None):
         res = {
@@ -74,6 +77,16 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             'l2dom_tmplt_id': net_partition['l2dom_tmplt_id'],
             'isolated_zone': net_partition['isolated_zone'],
             'shared_zone': net_partition['shared_zone']
+        }
+        if context:
+            res['tenant_id'] = context.tenant_id
+        return self._fields(res, fields)
+
+    def _make_project_net_partition_mapping(self, context, mapping,
+                                            fields=None):
+        res = {
+            'project': mapping['project'],
+            'net_partition_id': mapping['net_partition_id'],
         }
         if context:
             res['tenant_id'] = context.tenant_id
@@ -316,7 +329,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         if not net_partition:
             raise nuage_exc.NuageNotFound(resource='net_partition',
                                           resource_id=id)
-        return self._make_net_partition_dict(net_partition, context=context)
+        return self._make_net_partition_dict(net_partition, context=context,
+                                             fields=fields)
 
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
@@ -326,6 +340,79 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                                                     fields=fields)
         return [self._make_net_partition_dict(net_partition, context, fields)
                 for net_partition in net_partitions]
+
+    @db.retry_if_session_inactive()
+    @log_helpers.log_method_call
+    def create_project_net_partition_mapping(self, context,
+                                             project_net_partition_mapping):
+        session = context.session
+        p2n = project_net_partition_mapping['project_net_partition_mapping']
+        project = p2n['project']
+        net_partition_id = p2n['net_partition_id']
+
+        err = validators.validate_uuid(project)
+        if err:
+            raise nuage_exc.NuageBadRequest(resource='net_partition', msg=err)
+        # Validate netpartition
+        netpart = nuagedb.get_net_partition_by_id(session, net_partition_id)
+        if not netpart:
+            msg = _('Net partition {} is not a valid netpartition '
+                    'ID.').format(net_partition_id)
+            raise nuage_exc.NuageBadRequest(resource='net_partition', msg=msg)
+
+        with session.begin(subtransactions=True):
+            existing_mapping = nuagedb.get_project_net_partition_mapping(
+                session, project)
+            if existing_mapping:
+                session.delete(existing_mapping)
+            mapping = nuagedb.add_project_net_partition_mapping(
+                session, net_partition_id, project)
+        return self._make_project_net_partition_mapping(context, mapping)
+
+    @db.retry_if_session_inactive()
+    @log_helpers.log_method_call
+    def delete_project_net_partition_mapping(self, context,
+                                             project_id):
+        session = context.session
+        err = validators.validate_uuid(project_id)
+        if err:
+            raise nuage_exc.NuageBadRequest(resource='net_partition', msg=err)
+        with session.begin(subtransactions=True):
+            existing_mapping = nuagedb.get_project_net_partition_mapping(
+                session, project_id)
+            if existing_mapping:
+                session.delete(existing_mapping)
+            else:
+                msg = _('Project {} does not currently '
+                        'have a default net-partition associated.').format(
+                    project_id)
+                raise nuage_exc.NuageBadRequest(resource='net_partition',
+                                                msg=msg)
+
+    @db.retry_if_session_inactive()
+    @log_helpers.log_method_call
+    def get_project_net_partition_mapping(self, context, id, fields=None):
+        mapping = nuagedb.get_project_net_partition_mapping(context.session,
+                                                            id)
+        if not mapping:
+            raise nuage_exc.NuageNotFound(resource='net_partition',
+                                          resource_id=id)
+        return self._make_project_net_partition_mapping(context, mapping,
+                                                        fields)
+
+    @db.retry_if_session_inactive()
+    @log_helpers.log_method_call
+    def get_project_net_partition_mappings(
+            self, context, filters=None, fields=None, sorts=None,
+            limit=None, marker=None, page_reverse=False):
+        marker_obj = db_utils.get_marker_obj(
+            self, context, 'project_net_partition_mapping', limit, marker)
+        return model_query.get_collection(
+            context, nuage_models.NetPartitionProject,
+            functools.partial(self._make_project_net_partition_mapping,
+                              context),
+            filters=filters, fields=fields, sorts=sorts,
+            limit=limit, marker_obj=marker_obj, page_reverse=page_reverse)
 
     @nuage_utils.handle_nuage_api_error
     @db.retry_if_session_inactive()
@@ -451,16 +538,6 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         if shared_id:
             subnet = self.vsdclient.get_nuage_subnet_by_id(shared_id)
         return subnet.get('IPv6Address')
-
-    @log_helpers.log_method_call
-    def _get_default_net_partition(self, context):
-        def_net_part = cfg.CONF.RESTPROXY.default_net_partition_name
-        net_partition = nuagedb.get_net_partition_by_name(context.session,
-                                                          def_net_part)
-        if not net_partition:
-            msg = _("Default net_partition is not created at the start")
-            raise n_exc.BadRequest(resource='netpartition', msg=msg)
-        return net_partition
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call

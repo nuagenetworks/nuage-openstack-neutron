@@ -84,6 +84,23 @@ def get_net_partition_with_lock(session, netpart_id):
     return netpart_db
 
 
+def get_net_partition_for_project(session, project_id):
+    return session.query(nuage_models.NetPartition).join(
+        nuage_models.NetPartitionProject).filter_by(
+        project=project_id).first()
+
+
+def get_project_net_partition_mapping(session, project_id):
+    return session.query(nuage_models.NetPartitionProject).get(project_id)
+
+
+def add_project_net_partition_mapping(session, net_partition_id, project_id):
+    net_part_proj = nuage_models.NetPartitionProject(
+        net_partition_id=net_partition_id, project=project_id)
+    session.add(net_part_proj)
+    return net_part_proj
+
+
 def get_subnet_with_lock(session, sub_id):
     query = session.query(models_v2.Subnet)
     subnet_db = query.filter_by(id=sub_id).with_lockmode('update').one()
@@ -474,8 +491,8 @@ def get_all_routes(session):
 
 def is_network_external(session, net_id):
     try:
-        session.query(external_net_db.ExternalNetwork)\
-            .filter_by(network_id=net_id).one()
+        session.query(external_net_db.ExternalNetwork).filter_by(
+            network_id=net_id).one()
         return True
     except sql_exc.NoResultFound:
         return False
