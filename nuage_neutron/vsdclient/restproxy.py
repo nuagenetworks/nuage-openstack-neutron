@@ -161,11 +161,13 @@ class RESTProxyServer(object):
         self.api_count = 0
 
     @staticmethod
-    def raise_rest_error(msg, exc=None, log_as_error=True):
+    def raise_rest_error(msg, exc=None, log_as_error=True, log_message=None):
+        if not log_message:
+            log_message = msg
         if log_as_error:
-            LOG.error(_('RESTProxy: %s'), msg)
+            LOG.error(_('RESTProxy: %s'), log_message)
         else:
-            LOG.debug(_('RESTProxy: %s'), msg)
+            LOG.debug(_('RESTProxy: %s'), log_message)
         if exc:
             raise exc
         else:
@@ -184,12 +186,15 @@ class RESTProxyServer(object):
         try:
             errors = json.loads(response[3])
             log_as_error = False
+            log_message = None
             if response[0] == REST_SERV_UNAVAILABLE_CODE:
                 log_as_error = True
                 msg = 'VSD temporarily unavailable, ' + str(errors['errors'])
             else:
                 msg = str(
                     errors['errors'][0]['descriptions'][0]['description'])
+                log_message = '{}: {}'.format(
+                    errors['errors'][0]['descriptions'][0]['title'], msg)
 
             if response[0] == REST_NOT_FOUND:
                 e = ResourceNotFoundException(msg)
@@ -197,7 +202,8 @@ class RESTProxyServer(object):
                 vsd_code = str(errors.get('internalErrorCode'))
                 e = RESTProxyError(msg, error_code=response[0],
                                    vsd_code=vsd_code)
-            RESTProxyServer.raise_rest_error(msg, e, log_as_error)
+            RESTProxyServer.raise_rest_error(msg, e, log_as_error,
+                                             log_message=log_message)
 
         except (TypeError, ValueError):
             if response[3]:
