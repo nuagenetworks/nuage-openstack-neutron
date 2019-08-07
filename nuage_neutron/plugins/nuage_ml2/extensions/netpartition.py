@@ -12,19 +12,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import abc
-
-from neutron.api import extensions
-from neutron.api.v2 import base
-from neutron.quota import resource_registry
+from neutron.api.v2 import resource_helper
 from neutron_lib.api import extensions as api_extensions
-from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants
 
+NET_PARTITIONS = 'net_partitions'
+PROJECT_NET_PARTITIONS = 'project_net_partition_mappings'
+
 # Attribute Map
 RESOURCE_ATTRIBUTE_MAP = {
-    'net_partitions': {
+    NET_PARTITIONS: {
         'id': {
             'allow_post': False,
             'allow_put': False,
@@ -54,6 +52,37 @@ RESOURCE_ATTRIBUTE_MAP = {
             'is_visible': True
         },
     },
+    PROJECT_NET_PARTITIONS: {
+        # Project acts as implicit id here
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': False
+        },
+        'project': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:string': None},
+            'enforce_policy': True
+        },
+        'net_partition_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:string': None},
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': False
+        },
+    }
 }
 
 
@@ -83,40 +112,9 @@ class Netpartition(api_extensions.ExtensionDescriptor):
     @classmethod
     def get_resources(cls):
         """Returns Ext Resources."""
-        exts = []
-        plugin = directory.get_plugin(constants.NUAGE_APIS)
-        resource_name = 'net_partition'
-        collection_name = resource_name.replace('_', '-') + "s"
-        params = RESOURCE_ATTRIBUTE_MAP.get(resource_name + "s", dict())
-        resource_registry.register_resource_by_name(resource_name)
-        controller = base.create_resource(collection_name,
-                                          resource_name,
-                                          plugin, params, allow_bulk=True)
-        ex = extensions.ResourceExtension(collection_name,
-                                          controller)
-        exts.append(ex)
-
-        return exts
-
-
-class NetPartitionPluginBase(object):
-
-    @abc.abstractmethod
-    def create_net_partition(self, context, router):
-        pass
-
-    @abc.abstractmethod
-    def update_net_partition(self, context, id, router):
-        pass
-
-    @abc.abstractmethod
-    def get_net_partition(self, context, id, fields=None):
-        pass
-
-    @abc.abstractmethod
-    def delete_net_partition(self, context, id):
-        pass
-
-    @abc.abstractmethod
-    def get_net_partitions(self, context, filters=None, fields=None):
-        pass
+        plural_mappings = resource_helper.build_plural_mappings(
+            {}, RESOURCE_ATTRIBUTE_MAP)
+        return resource_helper.build_resource_info(plural_mappings,
+                                                   RESOURCE_ATTRIBUTE_MAP,
+                                                   constants.NUAGE_APIS,
+                                                   translate_name=True)
