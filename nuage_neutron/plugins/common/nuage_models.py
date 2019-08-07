@@ -40,6 +40,14 @@ class NetPartitionRouter(model_base.BASEV2):
     nuage_rtr_rd = sa.Column(sa.String(36))
 
 
+class NetPartitionProject(model_base.BASEV2):
+    __tablename__ = "nuage_project_net_partition_mapping"
+    project = sa.Column(sa.String(64), primary_key=True)
+    net_partition_id = sa.Column(sa.String(36),
+                                 sa.ForeignKey('nuage_net_partitions.id',
+                                 ondelete="CASCADE"))
+
+
 class SubnetL2Domain(model_base.BASEV2):
     __tablename__ = 'nuage_subnet_l2dom_mapping'
     subnet_id = sa.Column(sa.String(36),
