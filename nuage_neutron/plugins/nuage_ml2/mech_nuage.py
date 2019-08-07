@@ -251,7 +251,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         prefixlen = netaddr.IPNetwork(subnet['cidr']).prefixlen
         nuagenet_set = lib_validators.is_attr_set(subnet.get('nuagenet'))
         net_part_set = lib_validators.is_attr_set(subnet.get('net_partition'))
-        vsd_managed = nuagenet_set and net_part_set
 
         if not self.is_vxlan_network(network):
             if nuagenet_set or net_part_set:
@@ -263,20 +262,20 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 return  # Not for us
 
         with db_context.session.begin(subtransactions=True):
-            self._create_nuage_subnet_precommit(db_context, net_part_set,
-                                                network, nuagenet_set,
-                                                prefixlen, subnet, vsd_managed)
+            self._create_nuage_subnet_precommit(db_context,
+                                                network,
+                                                prefixlen, subnet,
+                                                nuagenet_set)
 
-    def _create_nuage_subnet_precommit(self, db_context, net_part_set, network,
-                                       nuagenet_set, prefixlen, subnet,
-                                       vsd_managed):
+    def _create_nuage_subnet_precommit(self, db_context, network, prefixlen,
+                                       subnet, vsd_managed):
         l2bridge = None
         l2bridge_id = subnet.get('nuage_l2bridge')
         if l2bridge_id:
             l2bridge = nuagedb.get_nuage_l2bridge_blocking(db_context.session,
                                                            l2bridge_id)
 
-        self._validate_create_subnet(db_context, net_part_set, nuagenet_set,
+        self._validate_create_subnet(db_context,
                                      network, prefixlen, subnet, vsd_managed,
                                      l2bridge)
         if vsd_managed:
@@ -290,16 +289,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if 'underlay' not in subnet:
             subnet['underlay'] = None
 
-    def _validate_create_subnet(self, db_context, net_part_set, nuagenet_set,
+    def _validate_create_subnet(self, db_context,
                                 network, prefixlen, subnet, vsd_managed,
                                 l2bridge):
         if self._is_ipv6(subnet) and (prefixlen < 64 or prefixlen > 128):
             msg = _("Invalid IPv6 netmask. Netmask can only be "
                     "between a minimum 64 and maximum 128 length.")
-            raise NuageBadRequest(resource='subnet', msg=msg)
-        if nuagenet_set and not net_part_set:
-            msg = _("Parameter net-partition required when "
-                    "passing nuagenet")
             raise NuageBadRequest(resource='subnet', msg=msg)
         for attribute in ('ipv6_ra_mode', 'ipv6_address_mode'):
             if not lib_validators.is_attr_set(subnet.get(attribute)):
@@ -380,6 +375,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     def _create_vsd_managed_subnet(self, context, subnet):
         nuage_subnet_id = subnet['nuagenet']
+        if not subnet.get('net_partition'):
+            subnet['net_partition'] = self._get_net_partition_for_entity(
+                context, subnet)['id']
         nuage_np_id = self._validate_net_partition(
             subnet['net_partition'], context)['id']
         if not self.vsdclient.check_if_l2_dom_in_correct_ent(
@@ -1142,7 +1140,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 n_context.get_admin_context(), port_id, resources.PORT,
                 provisioning_blocks.L2_AGENT_ENTITY)
 
-
     @handle_nuage_api_errorcode
     @utils.context_log
     def create_port_precommit(self, context):
@@ -1250,7 +1247,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if self._is_port_provisioning_required(context._plugin_context,
                                                port, context.host):
             self._insert_port_provisioning_block(db_context,
-                                             port['id'])
+                                                 port['id'])
         is_network_external = context.network._network.get('router:external')
         self._check_fip_on_port_with_multiple_ips(db_context, port)
 
@@ -1724,8 +1721,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     @staticmethod
     def _validate_create_vsd_managed_subnet(network, subnet):
-        subnet_validate = {'net_partition': IsSet(),
-                           'nuagenet': IsSet()}
+        subnet_validate = {'nuagenet': IsSet()}
         validate("subnet", subnet, subnet_validate)
         net_validate = {'router:external': Is(False)}
         validate("network", network, net_validate)
