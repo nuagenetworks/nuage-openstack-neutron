@@ -146,7 +146,7 @@
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-ml2/run.yaml
     post-run: playbooks/tempest-aio-ml2/post.yaml
-    nodeset: openstack-single-node-xenial
+    nodeset: devstack-single-node
     vars:
       job_flavor: neutronclient
       python3: False
