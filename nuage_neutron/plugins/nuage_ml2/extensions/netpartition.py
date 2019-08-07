@@ -22,22 +22,37 @@ from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants
 
-
 # Attribute Map
 RESOURCE_ATTRIBUTE_MAP = {
     'net_partitions': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
-        'name': {'allow_post': True, 'allow_put': False,
-                 'is_visible': True, 'default': '',
-                 'validate': {'type:name_not_default': None}},
-        'description': {'allow_post': True, 'allow_put': False,
-                        'is_visible': True, 'default': '',
-                        'validate': {'type:string_or_none': None}},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True
+        },
+        'name': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:name_not_default': None},
+            'enforce_policy': True
+        },
+        'description': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:string_or_none': None},
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
     },
 }
 
