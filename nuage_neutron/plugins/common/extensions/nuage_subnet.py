@@ -48,14 +48,16 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': True,
             'is_visible': True,
             'default': None,
-            'validate': {'type:string_or_none': None}
+            'validate': {'type:string_or_none': None},
+            'enforce_policy': True
         },
         'nuagenet': {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
             'default': None,
-            'validate': {'type:uuid_or_none': None}
+            'validate': {'type:uuid_or_none': None},
+            'enforce_policy': True
         },
         'underlay': {
             'allow_post': True,
@@ -63,6 +65,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'is_visible': True,
             'default': lib_constants.ATTR_NOT_SPECIFIED,
             'convert_to': converters.convert_to_boolean_if_not_none,
+            'enforce_policy': True
         },
         'vsd_managed': {
             'allow_post': False,
@@ -75,7 +78,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': False,
             'is_visible': True,
             'default': None,
-            'validate': {'type:uuid_or_none': None}
+            'validate': {'type:uuid_or_none': None},
+            'enforce_policy': True
         },
         'vsd_id': {
             'allow_post': False,

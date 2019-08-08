@@ -41,126 +41,278 @@ def convert_validate_vlan_value(vlan):
 # Attribute Map
 RESOURCE_ATTRIBUTE_MAP = {
     'nuage_gateways': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
-        'name': {'allow_post': True, 'allow_put': False,
-                 'is_visible': True, 'default': '',
-                 'validate': {'type:name_not_default': None}},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
-        'type': {'allow_post': False, 'allow_put': False,
-                 'validate': {'type:string': None},
-                 'is_visible': True},
-        'status': {'allow_post': False, 'allow_put': False,
-                   'validate': {'type:string': None},
-                   'is_visible': True},
-        'template': {'allow_post': False, 'allow_put': False,
-                     'validate': {'type:string': None},
-                     'is_visible': True},
-        'systemid': {'allow_post': False, 'allow_put': False,
-                     'validate': {'type:string': None},
-                     'is_visible': True},
-        'redundant': {'allow_post': False, 'allow_put': False,
-                      'validate': {'type:string': None},
-                      'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True
+        },
+        'name': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:name_not_default': None},
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
+        'type': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'status': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'template': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'systemid': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'redundant': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
     },
     'nuage_gateway_ports': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
-        'name': {'allow_post': True, 'allow_put': False,
-                 'is_visible': True, 'default': '',
-                 'validate': {'type:name_not_default': None}},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
-        'vlan': {'allow_post': False, 'allow_put': False,
-                 'validate': {'type:string': None},
-                 'is_visible': True},
-        'status': {'allow_post': False, 'allow_put': False,
-                   'validate': {'type:string': None},
-                   'is_visible': True},
-        'usermnemonic': {'allow_post': False, 'allow_put': False,
-                         'validate': {'type:string': None},
-                         'is_visible': True},
-        'physicalname': {'allow_post': False, 'allow_put': False,
-                         'validate': {'type:string': None},
-                         'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True
+        },
+        'name': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:name_not_default': None},
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
+        'vlan': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'status': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'usermnemonic': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'physicalname': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
     },
     'nuage_gateway_vlans': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
-        'value': {'allow_post': True, 'allow_put': False,
-                  'convert_to': convert_validate_vlan_value,
-                  'default': None, 'is_visible': True},
-        'action': {'allow_post': True, 'allow_put': True,
-                   'is_visible': True, 'default': None,
-                   'validate': {'type:values': [None, 'assign', 'unassign']}},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
-        'gateway': {'allow_post': True, 'allow_put': False,
-                    'required_by_policy': True, 'default': None,
-                    'is_visible': True},
-        'gatewayport': {'allow_post': True, 'allow_put': False,
-                        'required_by_policy': True,
-                        'is_visible': True},
-        'tenant': {'allow_post': False, 'allow_put': True,
-                   'validate': {'type:string': None},
-                   'is_visible': True},
-        'vport': {'allow_post': False, 'allow_put': False,
-                  'validate': {'type:uuid': None},
-                  'is_visible': True},
-        'status': {'allow_post': False, 'allow_put': False,
-                   'validate': {'type:string': None},
-                   'is_visible': True},
-        'usermnemonic': {'allow_post': False, 'allow_put': False,
-                         'validate': {'type:string': None},
-                         'is_visible': True},
-        'assigned': {'allow_post': False, 'allow_put': False,
-                     'validate': {'type:string': None},
-                     'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True
+        },
+        'value': {
+            'allow_post': True,
+            'allow_put': False,
+            'convert_to': convert_validate_vlan_value,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'action': {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:values': [None, 'assign', 'unassign']},
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
+        'gateway': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'gatewayport': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
+        'tenant': {
+            'allow_post': False,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'vport': {
+
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'status': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'usermnemonic': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True
+        },
+        'assigned': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
     },
     'nuage_gateway_vports': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True},
-        'type': {'allow_post': False, 'allow_put': False,
-                 'validate': {'type:string': None},
-                 'is_visible': True},
-        'interface': {'allow_post': False, 'allow_put': False,
-                      'validate': {'type:uuid': None},
-                      'is_visible': True},
-        'gatewayvlan': {'allow_post': True, 'allow_put': False,
-                        'validate': {'type:uuid': None},
-                        'is_visible': True},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
-        'subnet': {'allow_post': True, 'allow_put': False,
-                   'validate': {'type:uuid_or_none': None}, 'default': None,
-                   'is_visible': True},
-        'port': {'allow_post': True, 'allow_put': False,
-                 'validate': {'type:uuid_or_none': None}, 'default': None,
-                 'is_visible': True},
-        'tenant': {'allow_post': True, 'allow_put': False,
-                   'validate': {'type:string': None},
-                   'is_visible': True},
-        'gateway': {'allow_post': False, 'allow_put': False,
-                    'required_by_policy': True, 'default': None,
-                    'is_visible': True},
-        'gatewayport': {'allow_post': False, 'allow_put': False,
-                        'required_by_policy': True,
-                        'is_visible': True},
-        'vlan': {'allow_post': False, 'allow_put': False,
-                 'validate': {'type:string': None},
-                 'default': None, 'is_visible': True},
-        'name': {'allow_post': False, 'allow_put': False,
-                 'validate': {'type:string': None},
-                 'default': None, 'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True
+        },
+        'type': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'interface': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'gatewayvlan': {
+            'allow_post': True,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
+        'subnet': {
+            'allow_post': True,
+            'allow_put': False,
+            'validate': {'type:uuid_or_none': None},
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'port': {
+            'allow_post': True,
+            'allow_put': False,
+            'validate': {'type:uuid_or_none': None},
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'tenant': {
+            'allow_post': True,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'gateway': {
+            'allow_post': False,
+            'allow_put': False,
+            'required_by_policy': True,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'gatewayport': {
+            'allow_post': False, 'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'vlan': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'name': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
     }
 }
 
