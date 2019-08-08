@@ -20,20 +20,30 @@ from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common import constants as nuage_constants
 
-
 NUAGE_FLOATINGIP = 'nuage_floatingip'
 NUAGE_FLOATINGIPS = '%ss' % NUAGE_FLOATINGIP
 RESOURCE_ATTRIBUTE_MAP = {
     NUAGE_FLOATINGIPS: {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True,
-               'primary_key': True},
-        'floating_ip_address': {'allow_post': False, 'allow_put': False,
-                                'is_visible': True},
-        'assigned': {'allow_post': False, 'allow_put': False,
-                     'convert_to': lib_converters.convert_to_boolean,
-                     'is_visible': True}
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'primary_key': True
+        },
+        'floating_ip_address': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'assigned': {
+            'allow_post': False,
+            'allow_put': False,
+            'convert_to': lib_converters.convert_to_boolean,
+            'is_visible': True,
+            'enforce_policy': True
+        }
     },
 }
 EXTENDED_ATTRIBUTES_2_0 = {
@@ -42,7 +52,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
-            'default': None
+            'default': None,
+            'enforce_policy': True
         }
     }
 }

@@ -138,86 +138,195 @@ def convert_ip_prefix_to_cidr(ip_prefix):
 # Attribute Map
 RESOURCE_ATTRIBUTE_MAP = {
     'nuage_redirect_targets': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True,
-               'primary_key': True},
-        'name': {'allow_post': True, 'allow_put': False,
-                 'is_visible': True, 'default': '',
-                 'validate': {'type:name_not_default': None}},
-        'description': {'allow_post': True, 'allow_put': False,
-                        'is_visible': True, 'default': '',
-                        'validate': {'type:string_or_none': None}},
-        'redundancy_enabled': {'allow_post': True, 'allow_put': False,
-                               'is_visible': True, 'default': '',
-                               'validate': {'type:boolean': None}},
-        'insertion_mode': {'allow_post': True, 'allow_put': False,
-                           'is_visible': True, 'default': None,
-                           'validate': {'type:string': None}},
-        'subnet_id': {'allow_post': True, 'allow_put': False,
-                      'is_visible': True, 'default': None,
-                      'validate': {'type:uuid_or_none': None}},
-        'router_id': {'allow_post': True, 'allow_put': False,
-                      'is_visible': True, 'default': None,
-                      'validate': {'type:uuid_or_none': None}},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
-        'ports': {'allow_post': False, 'allow_put': False,
-                  'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'primary_key': True
+        },
+        'name': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:name_not_default': None},
+            'enforce_policy': True
+        },
+        'description': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': '',
+            'validate': {'type:string_or_none': None},
+            'enforce_policy': True
+        },
+        'redundancy_enabled': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True, 'default': '',
+            'validate': {'type:boolean': None},
+            'enforce_policy': True
+        },
+        'insertion_mode': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True, 'default': None,
+            'validate': {'type:string': None},
+            'enforce_policy': True
+        },
+        'subnet_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:uuid_or_none': None},
+            'enforce_policy': True
+        },
+        'router_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:uuid_or_none': None},
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
+        'ports': {
+            'allow_post': False,
+            'allow_put': False,
+            'is_visible': True,
+            'enforce_policy': True
+        },
     },
     'nuage_redirect_target_vips': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True,
-               'primary_key': True},
-        'virtual_ip_address': {'allow_post': True, 'allow_put': False,
-                               'is_visible': True, 'default': None,
-                               'validate': {'type:ip_address': None}},
-        'subnet_id': {'allow_post': True, 'allow_put': False,
-                      'is_visible': True, 'default': None,
-                      'validate': {'type:uuid': None}},
-        'redirect_target_id': {'allow_post': True, 'allow_put': False,
-                               'is_visible': True, 'default': None,
-                               'validate': {'type:uuid': None}},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'primary_key': True
+        },
+        'virtual_ip_address': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:ip_address': None},
+            'enforce_policy': True
+        },
+        'subnet_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:uuid': None},
+            'enforce_policy': True
+        },
+        'redirect_target_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:uuid': None},
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
     },
     'nuage_redirect_target_rules': {
-        'id': {'allow_post': False, 'allow_put': False,
-               'validate': {'type:uuid': None},
-               'is_visible': True,
-               'primary_key': True},
-        'redirect_target_id': {'allow_post': True, 'allow_put': False,
-                               'is_visible': True, 'default': None,
-                               'validate': {'type:uuid': None}},
-        'remote_group_id': {'allow_post': True, 'allow_put': False,
-                            'default': None, 'is_visible': True},
-        'origin_group_id': {'allow_post': True, 'allow_put': False,
-                            'default': None, 'is_visible': True},
-        'protocol': {'allow_post': True, 'allow_put': False,
-                     'is_visible': True, 'default': None,
-                     'convert_to': convert_protocol},
-        'priority': {'allow_post': True, 'allow_put': False,
-                     'is_visible': True, 'default': None},
-        'action': {'allow_post': True, 'allow_put': False,
-                   'is_visible': True, 'default': None},
-        'port_range_min': {'allow_post': True, 'allow_put': False,
-                           'convert_to': convert_validate_port_value,
-                           'default': None, 'is_visible': True},
-        'port_range_max': {'allow_post': True, 'allow_put': False,
-                           'convert_to': convert_validate_port_value,
-                           'default': None, 'is_visible': True},
-        'remote_ip_prefix': {'allow_post': True, 'allow_put': False,
-                             'default': None, 'is_visible': True,
-                             'convert_to': convert_ip_prefix_to_cidr},
-        'tenant_id': {'allow_post': True, 'allow_put': False,
-                      'required_by_policy': True,
-                      'is_visible': True},
+        'id': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:uuid': None},
+            'is_visible': True,
+            'primary_key': True
+        },
+        'redirect_target_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'validate': {'type:uuid': None},
+            'enforce_policy': True
+        },
+        'remote_group_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'origin_group_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'protocol': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'convert_to': convert_protocol,
+            'enforce_policy': True
+        },
+        'priority': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'enforce_policy': True
+        },
+        'action': {
+            'allow_post': True,
+            'allow_put': False,
+            'is_visible': True,
+            'default': None,
+            'enforce_policy': True
+        },
+        'port_range_min': {
+            'allow_post': True,
+            'allow_put': False,
+            'convert_to': convert_validate_port_value,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'port_range_max': {
+            'allow_post': True,
+            'allow_put': False,
+            'convert_to': convert_validate_port_value,
+            'default': None,
+            'is_visible': True,
+            'enforce_policy': True
+        },
+        'remote_ip_prefix': {
+            'allow_post': True,
+            'allow_put': False,
+            'default': None,
+            'is_visible': True,
+            'convert_to': convert_ip_prefix_to_cidr,
+            'enforce_policy': True
+        },
+        'tenant_id': {
+            'allow_post': True,
+            'allow_put': False,
+            'required_by_policy': True,
+            'is_visible': True
+        },
     }
 }
-
 
 REDIRECTTARGETS = 'nuage_redirect_targets'
 NOREDIRECTTARGETS = 'no_nuage_redirect_targets'
@@ -228,7 +337,8 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_put': True,
             'is_visible': True,
             'convert_to': convert_to_list_or_none,
-            'default': lib_constants.ATTR_NOT_SPECIFIED
+            'default': lib_constants.ATTR_NOT_SPECIFIED,
+            'enforce_policy': True
         }
     }
 }
