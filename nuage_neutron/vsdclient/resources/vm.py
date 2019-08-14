@@ -614,7 +614,7 @@ class NuageVM(object):
             self.restproxy, params['subnet_mapping'])
         _, action = self._find_vip_action(params)
         if action == ACTION_MACSPOOFING or action == ACTION_VIP:
-            self.update_mac_spoofing_on_vport(params, constants.INHERITED)
+            self.update_mac_spoofing_on_vport(params, constants.DISABLED)
 
     def update_mac_spoofing_on_vport(self, params, status):
         req_params = {'vport_id': params['vport_id']}
