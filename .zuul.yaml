@@ -9,13 +9,23 @@
       jobs:
         - openstack-tox-pep8
         - networking-nuage-tempest-smoke-py3
-    full:
+    virtio:
       jobs:
-        - networking-nuage-tempest-full
+        - networking-nuage-tempest-virtio-py3
     sriov:
       jobs:
         - networking-nuage-tempest-sriov
         - networking-nuage-tempest-sriov-flat-vlan
+    baremetal:
+      jobs:
+        - networking-nuage-tempest-baremetal
+    full:
+      jobs:
+        - networking-nuage-tempest-virtio-py3
+        - networking-nuage-tempest-sriov
+        - networking-nuage-tempest-sriov-flat-vlan
+        - networking-nuage-tempest-baremetal
+        - networking-nuage-tempest-scenario
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp
@@ -32,6 +42,18 @@
     switchdev:
       jobs:
         - networking-nuage-tempest-sriov-switchdev
+    cli:
+      jobs:
+        - networking-nuage-tempest-cli
+    aggregateflows:
+      jobs:
+        - networking-nuage-tempest-aggregateflows
+    scenario:
+      jobs:
+        - networking-nuage-tempest-scenario
+    scale:
+      jobs:
+        - networking-nuage-tempest-scale
     upstream:
       jobs:
         - tempest-full-py3
@@ -41,7 +63,8 @@
             nodeset: openstack-single-node-rhel7
     periodic:
       jobs:
-        - networking-nuage-tempest-full-py3
+        - networking-nuage-tempest-virtio-py3
+        - networking-nuage-tempest-scenario
         - tempest-full-py3
 
 - job:
