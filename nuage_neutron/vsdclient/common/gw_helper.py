@@ -39,11 +39,8 @@ def _add_policy_group_for_no_port_sec(gw_type, subn_id, rtr_id, pg_obj,
                     else constants.HARDWARE)
     }
     pg_id = pg_obj.create_nuage_sec_grp_for_no_port_sec(params)
-    if pg_id:
-        params['sg_id'] = pg_id
-        pg_obj.create_nuage_sec_grp_rule_for_no_port_sec(params)
-        policy_group_list.append(pg_id)
-        pg_obj.update_vport_policygroups(nuage_vport_id, policy_group_list)
+    policy_group_list.append(pg_id)
+    pg_obj.update_vport_policygroups(nuage_vport_id, policy_group_list)
 
 
 def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,

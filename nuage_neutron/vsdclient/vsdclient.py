@@ -396,9 +396,6 @@ class VsdClient(object):
     def get_policygroup_vport_mapping_by_port_id(self, vport_id):
         pass
 
-    def create_nuage_sec_grp_rule_for_no_port_sec(self, params):
-        pass
-
     def get_nuage_external_security_group(self, ext_sg_id):
         pass
 
