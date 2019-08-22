@@ -74,9 +74,14 @@ class NuageNetPartition(object):
             if e.code != constants.RES_NOT_FOUND:
                 raise restproxy.RESTProxyError(nuagenet_partition.error_msg)
             return
-        if enterprise.get('externalID', '') == id + '@openstack':
+
+        external_id = enterprise.get('externalID')
+        if external_id and external_id.endswith('@openstack'):
             nuagenet_partition = nuagelib.NuageNetPartition()
             self.restproxy.delete(nuagenet_partition.delete_resource(id))
+        else:
+            logging.warning("Enterprise {} is not deleted!".format(
+                enterprise['name']))
 
     def _create_default_l3template_for_netpart(self, np_id, name):
         req_params = {
