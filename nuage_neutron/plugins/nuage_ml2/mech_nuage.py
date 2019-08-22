@@ -2104,14 +2104,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         else:
                             sg_id = (self.vsdclient.
                                      create_nuage_sec_grp_for_port_sec(params))
-                            if sg_id:
-                                params['sg_id'] = sg_id
-                                (self.vsdclient.
-                                 create_nuage_sec_grp_rule_for_port_sec(params)
-                                 )
-                                policygroup_ids.append(sg_id)
-                                self.vsdclient.update_vport_policygroups(
-                                    nuage_vport_id, policygroup_ids)
+                            policygroup_ids.append(sg_id)
+                            self.vsdclient.update_vport_policygroups(
+                                nuage_vport_id, policygroup_ids)
                         successful = True
                     except restproxy.RESTProxyError as e:
                         LOG.debug("Policy group retry %s times.", attempt)

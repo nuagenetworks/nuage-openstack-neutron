@@ -63,7 +63,7 @@ class NuagePolicyGroups(object):
             prefix = ''
         return get_vsd_external_id(prefix + id)
 
-    def _create_nuage_secgroup(self, params):
+    def _create_nuage_secgroup(self, params, raise_on_pg_exists=False):
         rtr_id = params['nuage_router_id']
         l2dom_id = params['nuage_l2dom_id']
         sg_id = params.get('sg_id')
@@ -88,12 +88,14 @@ class NuagePolicyGroups(object):
             response = self.restproxy.post(
                 nuage_policygroup.post_resource(),
                 nuage_policygroup.post_data(),
-                ignore_err_codes=[restproxy.REST_PG_EXISTS_ERR_CODE])
+                ignore_err_codes=(None if raise_on_pg_exists else
+                                  [restproxy.REST_PG_EXISTS_ERR_CODE]))
         elif l2dom_id:
             response = self.restproxy.post(
                 nuage_policygroup.post_resource_l2dom(),
                 nuage_policygroup.post_data(),
-                ignore_err_codes=[restproxy.REST_PG_EXISTS_ERR_CODE])
+                ignore_err_codes=(None if raise_on_pg_exists else
+                                  [restproxy.REST_PG_EXISTS_ERR_CODE]))
         return response[0]['ID']
 
     def delete_nuage_policy_group(self, nuage_policy_id):
@@ -1336,7 +1338,30 @@ class NuagePolicyGroups(object):
                       '_' + append_str),
             'sg_type': params['sg_type']
         }
-        return self._create_nuage_secgroup(params_sg)
+        to_rollback = []
+        try:
+            params['sg_id'] = self._create_nuage_secgroup(
+                params_sg, raise_on_pg_exists=True)
+            rollback_resource = {
+                'resource': RES_POLICYGROUPS,
+                'resource_id': params['sg_id']
+            }
+            to_rollback.append(rollback_resource)
+        except restproxy.RESTProxyError as e:
+            if (e.code == restproxy.REST_CONFLICT and
+                    e.vsd_code == restproxy.REST_PG_EXISTS_ERR_CODE):
+                policygroup = self.get_sg_policygroup_by_external_id(
+                    sg_id=params_sg['sg_id'], sg_type=params_sg['sg_type'],
+                    required=True)
+                return policygroup[0]['ID']
+            else:
+                raise
+        try:
+            self.create_nuage_sec_grp_rule_for_port_sec(params)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                helper.process_rollback(self.restproxy, to_rollback)
+        return params['sg_id']
 
     def create_nuage_sec_grp_for_sfc(self, params):
         l2dom_id = params['l2dom_id']
@@ -1357,17 +1382,6 @@ class NuagePolicyGroups(object):
         pg_id = params['sg_id']
         l2dom_id = params['l2dom_id']
         rtr_id = params['rtr_id']
-        sg_type = params.get('sg_type', constants.SOFTWARE)
-        in_parameters = {
-            'rule_id': None,
-            'direction': 'ingress',
-            'sg_type': sg_type
-        }
-        out_parameters = {
-            'rule_id': None,
-            'direction': 'egress',
-            'sg_type': sg_type
-        }
         if l2dom_id:
             nuage_ibacl_details = pg_helper.get_inbound_acl_details(
                 self.restproxy, l2dom_id, type=constants.L2DOMAIN)
@@ -1380,35 +1394,26 @@ class NuagePolicyGroups(object):
                 self.restproxy, rtr_id)
         nuage_ibacl_id = nuage_ibacl_details.get('ID')
         external_id = nuage_ibacl_details.get('externalID')
-        if external_id:
-            in_parameters['rule_id'] = external_id.split('@')[0]
-            out_parameters['rule_id'] = external_id.split('@')[0]
-        in_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(in_parameters,
-                                                             locationID=pg_id)
-        out_sec_rule = self.get_sgrule_acl_mapping_for_ruleid(out_parameters,
-                                                              locationID=pg_id)
         req_params = {'acl_id': nuage_ibacl_id}
         extra_params = {'locationID': pg_id,
                         'externalID': external_id,
                         'flowLoggingEnabled': self.flow_logging_enabled,
                         'statsLoggingEnabled': self.stats_collection_enabled}
-        if len(in_sec_rule) == 0:
-            for ethertype in constants.NUAGE_SUPPORTED_ETHERTYPES_IN_HEX:
-                extra_params['etherType'] = ethertype
-                nuage_ib_aclrule = nuagelib.NuageACLRule(
-                    create_params=req_params,
-                    extra_params=extra_params)
-                self.restproxy.post(nuage_ib_aclrule.in_post_resource(),
-                                    nuage_ib_aclrule.post_data_for_spoofing())
+        for ethertype in constants.NUAGE_SUPPORTED_ETHERTYPES_IN_HEX:
+            extra_params['etherType'] = ethertype
+            nuage_ib_aclrule = nuagelib.NuageACLRule(
+                create_params=req_params,
+                extra_params=extra_params)
+            self.restproxy.post(nuage_ib_aclrule.in_post_resource(),
+                                nuage_ib_aclrule.post_data_for_spoofing())
         req_params = {'acl_id': nuage_obacl_id}
-        if len(out_sec_rule) == 0:
-            for ethertype in constants.NUAGE_SUPPORTED_ETHERTYPES_IN_HEX:
-                extra_params['etherType'] = ethertype
-                nuage_ob_aclrule = nuagelib.NuageACLRule(
-                    create_params=req_params,
-                    extra_params=extra_params)
-                self.restproxy.post(nuage_ob_aclrule.eg_post_resource(),
-                                    nuage_ob_aclrule.post_data_for_spoofing())
+        for ethertype in constants.NUAGE_SUPPORTED_ETHERTYPES_IN_HEX:
+            extra_params['etherType'] = ethertype
+            nuage_ob_aclrule = nuagelib.NuageACLRule(
+                create_params=req_params,
+                extra_params=extra_params)
+            self.restproxy.post(nuage_ob_aclrule.eg_post_resource(),
+                                nuage_ob_aclrule.post_data_for_spoofing())
 
     def get_policy_group(self, id, required=False, **filters):
         policy_group = nuagelib.NuagePolicygroup()
