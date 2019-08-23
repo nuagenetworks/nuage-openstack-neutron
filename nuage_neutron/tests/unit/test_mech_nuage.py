@@ -258,6 +258,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
                        return_value=[])
+    @mock.patch.object(NuageMechanismDriver, '_create_vsd_managed_subnet')
     @mock.patch.object(nuagedb, 'get_subnet_l2dom_by_network_id',
                        return_value=[])
     @mock.patch.object(nuagedb, 'get_subnet_l2doms_by_subnet_ids',
@@ -273,12 +274,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
                   'nuagenet': '0x100',
                   'ip_version': 4,
                   'cidr': '10.0.0.0/24'}
-        try:
-            nmd.create_subnet_precommit(Context(network, subnet))
-            self.fail('Subnet precommit should not have succeeded')
-        except NuageBadRequest as e:
-            self.assertEqual('Bad request: Parameter net-partition required '
-                             'when passing nuagenet', str(e))
+        nmd.create_subnet_precommit(Context(network, subnet))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',

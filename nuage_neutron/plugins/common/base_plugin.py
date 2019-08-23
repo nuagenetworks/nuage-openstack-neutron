@@ -432,13 +432,17 @@ class RootNuagePlugin(SubnetUtilsBase):
             else:
                 raise
 
-    def _get_default_partition(self, session):
-        net_partition = nuagedb.get_net_partition_by_id(session,
-                                                        self.default_np_id)
+    def _get_default_net_partition_for_current_project(self, context):
+        session = context.session
+        net_partition = nuagedb.get_net_partition_for_project(
+            session, context.project_id)
         if not net_partition:
-            msg = _('Default net_partition was not created at '
-                    'system startup.')
-            raise NuageBadRequest(resource='subnet', msg=msg)
+            net_partition = nuagedb.get_net_partition_by_id(session,
+                                                            self.default_np_id)
+            if not net_partition:
+                msg = _('Default net_partition was not created at '
+                        'system startup.')
+                raise NuageBadRequest(resource='subnet', msg=msg)
         return net_partition
 
     @staticmethod
@@ -488,7 +492,7 @@ class RootNuagePlugin(SubnetUtilsBase):
                 raise NuageBadRequest(resource='subnet', msg=msg)
             return np
         else:
-            return self._get_default_partition(context.session)
+            return self._get_default_net_partition_for_current_project(context)
 
     @log_helpers.log_method_call
     def calculate_vips_for_port_ips(self, context, port):

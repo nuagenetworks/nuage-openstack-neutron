@@ -11,5 +11,8 @@
     "delete_switchport_mapping": "rule:admin_only",
     "create_nuage_l2bridge": "rule:admin_only",
     "update_nuage_l2bridge": "rule:admin_only",
-    "delete_nuage_l2bridge": "rule:admin_only"
+    "delete_nuage_l2bridge": "rule:admin_only",
+    "get_project_net_partition_mapping": "rule:admin_only or project_id:%(project)s",
+    "create_project_net_partition_mapping": "rule:admin_only",
+    "delete_project_net_partition_mapping": "rule:admin_only"
 }
