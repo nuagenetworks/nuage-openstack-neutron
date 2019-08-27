@@ -360,7 +360,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         if not netpart:
             msg = _('Net partition {} is not a valid netpartition '
                     'ID.').format(net_partition_id)
-            raise nuage_exc.NuageBadRequest(resource='net_partition', msg=msg)
+            raise nuage_exc.NuageBadRequest(
+                resource='project_net_partition_mapping', msg=msg)
 
         with session.begin(subtransactions=True):
             existing_mapping = nuagedb.get_project_net_partition_mapping(
@@ -378,7 +379,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         session = context.session
         err = validators.validate_uuid(project_id)
         if err:
-            raise nuage_exc.NuageBadRequest(resource='net_partition', msg=err)
+            raise nuage_exc.NuageBadRequest(
+                resource='project_net_partition_mapping', msg=err)
         with session.begin(subtransactions=True):
             existing_mapping = nuagedb.get_project_net_partition_mapping(
                 session, project_id)
@@ -388,8 +390,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                 msg = _('Project {} does not currently '
                         'have a default net-partition associated.').format(
                     project_id)
-                raise nuage_exc.NuageBadRequest(resource='net_partition',
-                                                msg=msg)
+                raise nuage_exc.NuageBadRequest(
+                    resource='project_net_partition_mapping', msg=msg)
 
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
@@ -397,8 +399,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         mapping = nuagedb.get_project_net_partition_mapping(context.session,
                                                             id)
         if not mapping:
-            raise nuage_exc.NuageNotFound(resource='net_partition',
-                                          resource_id=id)
+            raise nuage_exc.NuageNotFound(
+                resource='project_net_partition_mapping', resource_id=id)
         return self._make_project_net_partition_mapping(context, mapping,
                                                         fields)
 
