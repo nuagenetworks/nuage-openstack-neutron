@@ -319,7 +319,7 @@ class NuageDhcpOptions(object):
         dhcp_id = self._check_dhcp_option_exists(subnet_id, isl2dom,
                                                  ip_version, dhcp_type)
         if dhcp_id:
-            nuage_dhcp_options = nuagelib.NuageDhcpOptions()
+            nuage_dhcp_options = nuagelib.NuageDhcpOptions(ip_version)
             self.restproxy.delete(nuage_dhcp_options.dhcp_resource(dhcp_id))
 
     def _check_dhcp_option_exists(self, resource_id, resource_type,
