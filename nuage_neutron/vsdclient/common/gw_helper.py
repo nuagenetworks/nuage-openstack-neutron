@@ -285,7 +285,7 @@ def get_nuage_vport(restproxy_serv, nuage_vport_id):
     }
     nuage_vport = nuagelib.NuageVPort(create_params=req_params)
     try:
-        vports = restproxy_serv.get(nuage_vport.get_resource())
+        vports = restproxy_serv.get(nuage_vport.get_resource(), required=True)
         return vports[0]
     except restproxy.RESTProxyError as e:
         if e.code == constants.RES_NOT_FOUND:
