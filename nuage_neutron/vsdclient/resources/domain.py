@@ -715,19 +715,19 @@ class NuageDomainSubnet(object):
             on_res_exists=self.restproxy.retrieve_by_ext_id_and_cidr,
             ignore_err_codes=ignore_error_codes)[0]
 
-    def update_domain_subnet(self, neutron_subnet, params):
-        if params.get('dhcp_opts_changed'):
-            nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
-            nuagedhcpoptions.update_nuage_dhcp(
-                neutron_subnet, parent_id=params['nuage_subnet_id'],
-                network_type=constants.NETWORK_TYPE_L3)
+    def update_domain_subnet_dhcp_options(self, nuage_subnet_id,
+                                          neutron_subnet):
+        dhcpoptions.NuageDhcpOptions(self.restproxy).update_nuage_dhcp(
+            neutron_subnet, parent_id=nuage_subnet_id,
+            network_type=constants.NETWORK_TYPE_L3)
 
+    def update_domain_subnet(self, nuage_subnet_id, params):
         updates = {}
         if params.get('dhcp_enable_changed'):
             if params.get('ip_type') == constants.IPV4:
-                updates['enableDHCPv4'] = neutron_subnet.get('enable_dhcp')
+                updates['enableDHCPv4'] = params["subnet_enable_dhcp"]
             else:
-                updates['enableDHCPv6'] = neutron_subnet.get('enable_dhcp')
+                updates['enableDHCPv6'] = params["subnet_enable_dhcp"]
 
         if params.get('dualstack'):
             if params.get('network_name'):
@@ -735,20 +735,18 @@ class NuageDomainSubnet(object):
         else:
             if params.get('subnet_name'):
                 updates['description'] = params['subnet_name']
-
-        if neutron_subnet.get(plugin_constants.NUAGE_UNDERLAY):
+        if params.get("subnet_nuage_underlay"):
             nuage_pat, nuage_underlay = self._calculate_pat_and_underlay(
-                neutron_subnet)
+                params["subnet_nuage_underlay"])
             updates['PATEnabled'] = nuage_pat
             updates['underlayEnabled'] = nuage_underlay
         if updates:
             nuagel3domsub = nuagelib.NuageSubnet()
             self.restproxy.put(nuagel3domsub.put_resource(
-                params['nuage_subnet_id']), updates)
+                nuage_subnet_id), updates)
 
     @staticmethod
-    def _calculate_pat_and_underlay(subnet):
-        underlay_routing = subnet.get(plugin_constants.NUAGE_UNDERLAY)
+    def _calculate_pat_and_underlay(underlay_routing):
         if underlay_routing == plugin_constants.NUAGE_UNDERLAY_SNAT:
             nuage_pat = nuage_underlay = 'ENABLED'
         elif underlay_routing == plugin_constants.NUAGE_UNDERLAY_ROUTE:
