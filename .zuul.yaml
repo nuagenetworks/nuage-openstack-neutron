@@ -157,7 +157,7 @@
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
-        - networking-nuage-tempest-scenario-py3:
+        - networking-nuage-tempest-scenario:
             nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
