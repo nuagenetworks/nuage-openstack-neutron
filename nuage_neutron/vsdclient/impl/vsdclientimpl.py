@@ -181,18 +181,27 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                 self.domain.domainsubnet.update_domain_subnet_to_single_stack(
                     mapping, ipv4_subnet, ipv6_subnet)
 
-    def update_subnet(self, neutron_subnet, params):
-        self.l2domain.update_subnet(neutron_subnet, params)
+    def update_l2domain_dhcp_options(self, nuage_subnet_id,
+                                     neutron_subnet):
+        self.l2domain.update_l2domain_dhcp_options(
+            nuage_subnet_id, neutron_subnet)
 
-    def update_subnet_description(self, nuage_id, new_description):
-        try:
-            self.l2domain.update_subnet_description(nuage_id, new_description)
-        except restproxy.ResourceNotFoundException:
-            raise
+    def update_l2domain_template(self, nuage_l2dom_tmplt_id, **kwargs):
+        self.l2domain.update_l2domain_template(
+            nuage_l2dom_tmplt_id=nuage_l2dom_tmplt_id, **kwargs)
 
-    def update_domain_subnet(self, neutron_subnet, params):
+    def update_l2domain(self, nuage_l2dom_id, **kwargs):
+        self.l2domain.update_l2domain(
+            nuage_l2dom_id=nuage_l2dom_id, **kwargs)
+
+    def update_domain_subnet_dhcp_options(self, nuage_subnet_id,
+                                          neutron_subnet):
+        self.domain.domainsubnet.update_domain_subnet_dhcp_options(
+            nuage_subnet_id, neutron_subnet)
+
+    def update_domain_subnet(self, nuage_subnet_id, params):
         self.domain.domainsubnet.update_domain_subnet(
-            neutron_subnet, params
+            nuage_subnet_id, params
         )
 
     def update_nuage_subnet(self, nuage_id, params):
