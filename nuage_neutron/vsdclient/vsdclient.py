@@ -251,6 +251,9 @@ class VsdClient(object):
     def get_vports(self, parent, parent_id, **filters):
         pass
 
+    def get_vports_by_external_ids(self, parent, parent_id, external_ids):
+        pass
+
     def delete_nuage_vport(self, vport_id):
         pass
 

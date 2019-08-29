@@ -1328,6 +1328,9 @@ class NuageFloatingIP(NuageResource):
 class NuageVPort(NuageResource):
     resource = 'vports'
 
+    def get_url(self, parent, parent_id):
+        return '/%s/%s/%s' % (parent, parent_id, self.resource)
+
     def get_vport_id(self, response):
         return self.get_response_objid(response)
 
