@@ -1016,12 +1016,12 @@ def _chunked_extra_header_match_any_filter(field, values,
                        field, '","'.join(chunk))}
 
 
-def get_by_field_values(restproxy_serv, vsd_resource, field_name, field_values,
+def get_by_field_values(restproxy_serv, resource, field_name, field_values,
                         **kwargs):
     """Get objects which have field_name IN(field_values)
 
     :param restproxy_serv: RESTProxy
-    :param vsd_resource: The resource to get
+    :param resource: The resource to get
     :param field_name: The name of the field used for filtering
     :param field_values: The values used for filtering
     :param kwargs: arguments for vsd_resource.get_url
@@ -1029,7 +1029,7 @@ def get_by_field_values(restproxy_serv, vsd_resource, field_name, field_values,
     """
     chunked_headers = _chunked_extra_header_match_any_filter(field_name,
                                                              field_values)
-    url = vsd_resource.get_url(**kwargs)
+    url = resource.get_url(**kwargs)
     iterators = (restproxy_serv.get(url, extra_headers=header, required=True)
                  for header in chunked_headers if header)
     return itertools.chain.from_iterable(iterators)
