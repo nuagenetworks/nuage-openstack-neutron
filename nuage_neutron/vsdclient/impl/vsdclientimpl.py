@@ -437,6 +437,17 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
         return helper.get_vports(self.restproxy, parent, parent_id, **filters)
 
+    def get_vports_by_external_ids(self, parent, parent_id, external_ids):
+        if parent == constants.L2DOMAIN:
+            parent = nuagelib.NuageL2Domain.resource
+        elif parent == constants.SUBNET:
+            parent = nuagelib.NuageSubnet.resource
+        nuage_vport = nuagelib.NuageVPort()
+        return helper.get_by_field_values(
+            self.restproxy, resource=nuage_vport,
+            field_name='externalID', field_values=external_ids, parent=parent,
+            parent_id=parent_id)
+
     def delete_nuage_vport(self, vport_id):
         helper.delete_nuage_vport(self.restproxy, vport_id)
 
