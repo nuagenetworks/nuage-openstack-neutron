@@ -27,6 +27,7 @@ from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 
 LOG = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ class NuageAddressPair(BaseNuagePlugin):
                     self.vsdclient.delete_vips(nuage_vport['ID'],
                                                nuage_vip_dict,
                                                nuage_vip_dict)
-        if port[portsecurity.PORTSECURITY] is not False:
+        if port[portsecurity.PORTSECURITY]:
             try:
                 self.vsdclient.update_mac_spoofing_on_vport(
                     nuage_vport['ID'],
@@ -341,19 +342,22 @@ class NuageAddressPair(BaseNuagePlugin):
         vsd_subnet_id = subnet_mapping.nuage_subnet_id
 
         filters = {'fixed_ips': {'subnet_id': [subnet_id]}}
-        ports = self.core_plugin.get_ports(context,
-                                           filters=filters)
-        vports = self.vsdclient.get_vports(subnet_type,
-                                           vsd_subnet_id)
-        vports_by_port_id = dict([(vport['externalID'].split('@')[0], vport)
-                                  for vport in vports])
-
-        for port in ports:
-            vport = vports_by_port_id.get(port['id'])
-            LOG.debug("Process address pairs for port: %s", port)
-            if vport:
-                self.calculate_vips_for_port_ips(context,
-                                                 port)
+        ports = self.core_plugin.get_ports(context, filters=filters)
+        ports_to_process = [p for p in ports if
+                            (p['allowed_address_pairs'] or
+                             len(p['fixed_ips']) > 1) and
+                            self.needs_vport_creation(p['device_owner'])]
+        if ports_to_process:
+            external_ids = [get_vsd_external_id(port['id']) for port in
+                            ports_to_process]
+            vports = self.vsdclient.get_vports_by_external_ids(
+                subnet_type, vsd_subnet_id, external_ids)
+            vports_by_port_id = dict([(vport['externalID'].split('@')[0],
+                                       vport) for vport in vports])
+            for port in ports_to_process:
+                LOG.debug("Process address pairs for port: %s", port)
+                vport = vports_by_port_id.get(port['id'])
+                self.calculate_vips_for_port_ips(context, port)
                 self.create_allowed_address_pairs(context, port, vport)
 
     def post_port_create_addresspair(self, resource, event, plugin, **kwargs):
