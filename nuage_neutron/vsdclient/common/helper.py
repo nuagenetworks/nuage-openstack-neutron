@@ -79,8 +79,8 @@ def get_l3domid_for_netpartition(restproxy_serv, np_id, name):
     l3_template = restproxy_serv.get(
         nuagel3domtemplate.list_resource(),
         extra_headers=nuagel3domtemplate.extra_headers_get(),
-        required=True)[0]
-    return l3_template['ID']
+        required=True)
+    return l3_template[0]['ID'] if l3_template else None
 
 
 def get_l2domid_for_netpartition(restproxy_serv, np_id, name):
@@ -92,8 +92,8 @@ def get_l2domid_for_netpartition(restproxy_serv, np_id, name):
     l2_template = restproxy_serv.get(
         nuagel2domtemplate.list_resource(),
         extra_headers=nuagel2domtemplate.extra_headers_get(),
-        required=True)[0]
-    return l2_template['ID']
+        required=True)
+    return l2_template[0]['ID'] if l2_template else None
 
 
 def create_nuage_l2dom_ingress_tmplt(restproxy_serv, id, neutron_subnet):
@@ -332,10 +332,11 @@ def get_l3dom_by_router_id(restproxy_serv, rtr_id):
         'externalID': get_vsd_external_id(rtr_id)
     }
     nuage_l3_domain = nuagelib.NuageL3Domain(create_params=req_params)
-    return restproxy_serv.get(
+    l3domain = restproxy_serv.get(
         nuage_l3_domain.get_all_resources(),
         extra_headers=nuage_l3_domain.extra_headers_get(),
-        required=True)[0]
+        required=True)
+    return l3domain[0] if l3domain else None
 
 
 def get_l3domid_by_router_id(restproxy_serv, rtr_id):
@@ -415,8 +416,7 @@ def get_nuage_vport_by_neutron_id(restproxy_serv, params, required=True):
     if not vports and required:
         raise restproxy.ResourceNotFoundException(
             "vport for port '%s' not found" % params['neutron_port_id'])
-    if vports:
-        return vports[0]
+    return vports[0] if vports else None
 
 
 def get_vports(restproxy_serv, parent, parent_id, headers=None, **filters):
@@ -591,12 +591,12 @@ def get_in_adv_fwd_policy(restproxy_serv, parent_type, parent_id):
     if parent_type == constants.L2DOMAIN:
         template = restproxy_serv.get(
             nuageadvfwdtmplt.get_resource_l2(parent_id),
-            required=True)[0]
+            required=True)
     elif parent_type == constants.DOMAIN:
         template = restproxy_serv.get(
             nuageadvfwdtmplt.get_resource_l3(parent_id),
-            required=True)[0]
-    return template['ID']
+            required=True)
+    return template[0]['ID'] if template else None
 
 
 def get_in_adv_fwd_policy_by_cmsid(restproxy_serv, parent_type, parent_id):
