@@ -197,13 +197,13 @@ def create_usergroup(restproxy_serv, tenant, net_partition_id,
             LOG.debug('Group %s already exists in VSD', group_id)
 
             # Group exists, so add the user to the existing user list
-            ext_user_list = get_user_list(restproxy_serv, group_id,
-                                          net_partition_id)
-            if ext_user_list:
+            ext_userid_list = get_user_id_list(restproxy_serv, group_id,
+                                               net_partition_id)
+            if ext_userid_list:
                 LOG.debug('Group %(grp)s has users %(usr)s associated',
                           {'grp': group_id,
-                           'usr': ext_user_list})
-                nuage_userid_list.extend(ext_user_list)
+                           'usr': ext_userid_list})
+                nuage_userid_list.extend(ext_userid_list)
         else:
             group_id = nuagegroup.get_groupid(group_resp)
             LOG.debug('Group %s created in VSD', group_id)
@@ -211,7 +211,7 @@ def create_usergroup(restproxy_serv, tenant, net_partition_id,
         # Add user to the group
         nuageuser.set_group_id(group_id)
         data = nuage_userid_list
-        restproxy_serv.rest_call('PUT', nuageuser.group_post_resource(), data)
+        restproxy_serv.put(nuageuser.group_post_resource(), data)
 
         return user_id, group_id
 
@@ -242,16 +242,14 @@ def delete_in_adv_fwd_policy_template(rest_proxy, tmplt_id, required=False):
         tmplt_id) + '?responseChoice=1', required)
 
 
-def get_user_list(restproxy_serv, group_id, net_partition_id):
+def get_user_id_list(restproxy_serv, group_id, net_partition_id):
     req_params = {
         'group_id': group_id,
         'net_partition_id': net_partition_id
     }
     nuageuser = nuagelib.NuageUser(create_params=req_params)
-    user_resp = restproxy_serv.rest_call('GET',
-                                         nuageuser.group_post_resource(),
-                                         '')
-    return nuageuser.user_list(user_resp)
+    users_in_group = restproxy_serv.get(nuageuser.group_post_resource())
+    return [user_detail['ID'] for user_detail in users_in_group]
 
 
 def get_user_id(restproxy_serv, tenant, group_id, net_partition_id,
