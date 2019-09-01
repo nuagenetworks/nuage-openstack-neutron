@@ -29,7 +29,27 @@
                 override-checkout: stable/queens
     full:
       jobs:
-        - networking-nuage-tempest-full-5.4:
+        - networking-nuage-tempest-virtio-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+        - networking-nuage-tempest-sriov-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+        - networking-nuage-tempest-sriov-flat-vlan-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens'
+        - networking-nuage-tempest-baremetal-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+        - networking-nuage-tempest-scenario-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
@@ -41,7 +61,6 @@
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/queens
-
     agent:
       jobs:
         - legacy-tempest-aio-agent
