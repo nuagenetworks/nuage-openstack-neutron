@@ -89,7 +89,12 @@
                 override-checkout: 5.4/queens
     periodic:
       jobs:
-        - networking-nuage-tempest-full-5.4:
+        - networking-nuage-tempest-virtio-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+        - networking-nuage-tempest-scenario-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
