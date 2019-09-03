@@ -160,7 +160,7 @@ def get_inbound_acl_details(restproxy_serv, dom_id, type=constants.SUBNET):
 def get_remote_policygroup_id(restproxy_serv, sg_id, resourcetype,
                               resource_id, sg_name):
     ext_id = (get_vsd_external_id('hw:' + sg_id) if
-              str(sg_name).endswith('_HW') else
+              str(sg_name).endswith('_' + constants.HARDWARE) else
               get_vsd_external_id(sg_id))
     req_params = {
         'name': sg_name,
