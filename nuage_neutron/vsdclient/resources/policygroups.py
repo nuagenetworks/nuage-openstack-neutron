@@ -1221,13 +1221,15 @@ class NuagePolicyGroups(object):
     def create_nuage_sec_grp_for_no_port_sec(self, params):
         l2dom_id = params['l2dom_id']
         rtr_id = params['rtr_id']
+        sg_type = params['sg_type']
+        append_str = ('' if sg_type == constants.SOFTWARE else
+                      '_' + constants.HARDWARE)
         params_sg = {
             'nuage_l2dom_id': l2dom_id,
             'nuage_router_id': rtr_id,
-            'description': constants.NUAGE_PLCY_GRP_ALLOW_ALL,
-            'name': constants.NUAGE_PLCY_GRP_ALLOW_ALL,
+            'name': constants.NUAGE_PLCY_GRP_ALLOW_ALL + append_str,
             'sg_id': constants.NUAGE_PLCY_GRP_ALLOW_ALL,
-            'sg_type': params['sg_type']
+            'sg_type': sg_type
         }
         to_rollback = []
         try:
