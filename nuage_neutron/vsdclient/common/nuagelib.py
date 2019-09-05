@@ -1496,28 +1496,20 @@ class NuagePolicygroup(NuageResource):
         if self.create_params.get('sg_id'):
             sg_type = self.create_params.get('sg_type', constants.SOFTWARE)
             if sg_type == constants.HARDWARE:
-                return "{}_{}".format(self.create_params.get('sg_id'), 'HW')
+                return "{}_{}".format(self.create_params.get('sg_id'), sg_type)
             return self.create_params.get('sg_id')
         else:
             return self.create_params.get('name')
 
-    def _get_description(self):
-        sg_type = self.create_params.get('sg_type', constants.SOFTWARE)
-        if self.create_params.get('sg_id') and sg_type == constants.HARDWARE:
-            return "{}_{}".format(self.create_params.get('sg_id'), 'HW')
-        return self.create_params['name']
-
     def post_data(self):
         sg_type = self.create_params.get('sg_type', constants.SOFTWARE)
         data = {
-            'description': self._get_description(),
+            'description': self.create_params['name'],
             'name': self._get_name(),
             'externalID': get_vsd_external_id(
                 self.create_params['externalID']),
             'type': sg_type
         }
-        if not data['name']:
-            data['name'] = self.create_params['name']
         if self.extra_params:
             data.update(self.extra_params)
         return data
