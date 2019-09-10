@@ -64,20 +64,19 @@
     periodic:
       jobs:
         - networking-nuage-tempest-virtio-py3
+        - networking-nuage-tempest-sriov
+        - networking-nuage-tempest-baremetal
         - networking-nuage-tempest-scenario
+        - networking-nuage-tempest-cli
         - tempest-full-py3
     periodic-saturday:
       jobs:
-        - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-cli
-        - networking-nuage-tempest-sriov
+        - networking-nuage-tempest-qdhcp
         - networking-nuage-tempest-sriov-flat-vlan
     periodic-sunday:
       jobs:
-        - networking-nuage-tempest-qdhcp
         - networking-nuage-tempest-aggregateflows
         - networking-nuage-tempest-scale
-
 
 - job:
     name: networking-nuage-rally-task
