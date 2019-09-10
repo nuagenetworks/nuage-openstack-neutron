@@ -61,13 +61,9 @@ class NuageNetPartition(object):
 
     def create_net_partition(self, params):
         nuagenet_partition = nuagelib.NuageNetPartition(create_params=params)
-        response = self.restproxy.rest_call('POST',
-                                            nuagenet_partition.post_resource(),
-                                            nuagenet_partition.post_data())
-        if not nuagenet_partition.validate(response):
-            raise nuagenet_partition.get_rest_proxy_error()
-        net_partition_dict = {
-            'np_id': nuagenet_partition.get_net_partition_id(response)}
+        enterprise = self.restproxy.post(nuagenet_partition.post_resource(),
+                                         nuagenet_partition.post_data())[0]
+        net_partition_dict = {'np_id': enterprise['ID']}
 
         l3_tmplt_name = params['name'] + DEF_L3DOM_TEMPLATE_PFIX
         l3dom_tid = self._create_default_l3template_for_netpart(
