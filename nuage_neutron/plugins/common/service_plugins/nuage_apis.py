@@ -121,6 +121,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         # retry_if_session_inactive makes sure that that the method will be
         # retried when database transaction errors occur like deadlock and
         # duplicate inserts.
+        self._validate_net_partition_name(net_part_name)
         session = context.session
         with session.begin(subtransactions=True):
             netpart_db = nuagedb.get_net_partition_by_name(session,
@@ -174,6 +175,14 @@ class NuageApi(base_plugin.BaseNuagePlugin,
 
                 # Net-partition does not exist in neutron and VSD
                 return self._create_net_partition(session, net_part_name)
+
+    @staticmethod
+    def _validate_net_partition_name(name):
+        try:
+            name.encode('ascii')
+        except UnicodeEncodeError:
+            msg = _('Invalid netpartition name: Only ascii names are allowed')
+            raise n_exc.BadRequest(resource='net_partition', msg=msg)
 
     @staticmethod
     @log_helpers.log_method_call
@@ -288,7 +297,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
-        return self._validate_create_net_partition(context, ent["name"])
+        return self._validate_create_net_partition(context, ent['name'])
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
