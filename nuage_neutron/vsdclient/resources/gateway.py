@@ -197,7 +197,7 @@ class NuageGateway(object):
         gw_vlans = self.restproxy.get(resource_url,
                                       extra_headers=extra_headers,
                                       required=True)
-        return gw_vlans if gw_vlans else None
+        return gw_vlans if gw_vlans else []
 
     def get_gateway_port_vlans(self, tenant_id, netpart_id, filters):
         if 'gateway' in filters and 'gatewayport' in filters:
@@ -299,7 +299,7 @@ class NuageGateway(object):
                 gw_port_vlans.extend(
                     self._get_gateway_port_vlans(tenant_id, req_params))
 
-        return gw_port_vlans
+        return gw_port_vlans if gw_port_vlans else []
 
     def _get_ent_permissions(self, vlan_id):
         req_params = {
@@ -472,7 +472,7 @@ class NuageGateway(object):
                           {'gw': gw_id,
                            'ent': ent_id})
                 return True
-        return None
+        return False
 
     def remove_ent_perm(self, vlan_id):
         req_params = {
