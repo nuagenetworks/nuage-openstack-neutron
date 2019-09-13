@@ -162,11 +162,19 @@ class NuageL2BridgePlugin(BaseNuagePlugin, common_db_mixin.CommonDbMixin):
                 physnets = nuagedb.get_nuage_l2bridge_physnet_mappings(
                     context.session, l2bridge_id=current['id'])
 
-            if nuage_l2bridge.get('name'):
+            if (nuage_l2bridge.get('name') and
+                    current['name'] != nuage_l2bridge['name']):
                 current['name'] = nuage_l2bridge['name']
                 if current['nuage_subnet_id']:
-                    self.vsdclient.update_subnet_description(
-                        current['nuage_subnet_id'], nuage_l2bridge['name'])
+                    subnet_mapping = nuagedb.get_subnet_l2doms_by_nuage_id(
+                        context.session, current['nuage_subnet_id'])[0]
+                    self.vsdclient.update_l2domain_template(
+                        nuage_l2dom_tmplt_id=(
+                            subnet_mapping["nuage_l2dom_tmplt_id"]),
+                        description=nuage_l2bridge['name'])
+                    self.vsdclient.update_l2domain(
+                        nuage_l2dom_id=current['nuage_subnet_id'],
+                        description=nuage_l2bridge['name'])
         current['physnets'] = self._make_physnet_mapping_dict(physnets)
         return current
 

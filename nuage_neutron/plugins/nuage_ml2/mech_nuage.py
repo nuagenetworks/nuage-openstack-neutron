@@ -239,14 +239,20 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     db_context.session, subnet['id'])
                 params = {
                     'dualstack': True,
-                    'network_name': updated_network['name'],
-                    'nuage_subnet_id': subnet_mapping['nuage_subnet_id'],
-                    'nuage_l2dom_tmplt_id': subnet_mapping[
-                        'nuage_l2dom_tmplt_id']}
+                    'network_name': updated_network['name']
+                }
                 if self._is_l2(subnet_mapping):
-                    self.vsdclient.update_subnet(subnet, params)
+                    self.vsdclient.update_l2domain_template(
+                        subnet_mapping['nuage_l2dom_tmplt_id'], **params)
+                    self.vsdclient.update_l2domain(
+                        subnet_mapping['nuage_subnet_id'], **params)
                 else:
-                    self.vsdclient.update_domain_subnet(subnet, params)
+                    params.update({
+                        "subnet_nuage_underlay":
+                            subnet.get(constants.NUAGE_UNDERLAY)
+                    })
+                    self.vsdclient.update_domain_subnet(
+                        subnet_mapping['nuage_subnet_id'], params)
 
     def check_dhcp_agent_alive(self, context):
         get_dhcp_agent = self.get_agents(
@@ -812,26 +818,23 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if network_external:
             return self._update_ext_network_subnet(nuage_subnet_id,
                                                    updated_subnet)
-        params = {
-            'nuage_l2dom_tmplt_id': subnet_mapping['nuage_l2dom_tmplt_id'],
-            'nuage_subnet_id': nuage_subnet_id
-        }
-        if dual_stack_subnet:
-            params['dualstack'] = True
 
         dhcp_opts_changed = self._validate_dhcp_opts_changed(
             original_subnet,
             updated_subnet)
-        params['dhcp_opts_changed'] = dhcp_opts_changed
-        if self._is_ipv4(updated_subnet):
-            params['ip_type'] = constants.IP_TYPE_IPV4
-        else:
-            params['ip_type'] = constants.IP_TYPE_IPV6
+
         curr_enable_dhcp = original_subnet.get('enable_dhcp')
         updated_enable_dhcp = updated_subnet.get('enable_dhcp')
-        params['dhcp_enable_changed'] = curr_enable_dhcp != updated_enable_dhcp
-        if original_subnet.get('name') != updated_subnet.get('name'):
-            params['subnet_name'] = updated_subnet['name']
+
+        params = {
+            "dhcp_enable_changed": curr_enable_dhcp != updated_enable_dhcp,
+            "subnet_enable_dhcp": updated_subnet.get('enable_dhcp'),
+            "dualstack": True if dual_stack_subnet else False,
+            "ip_type": constants.IP_TYPE_IPV4 if self._is_ipv4(
+                updated_subnet) else constants.IP_TYPE_IPV6,
+            "subnet_name": updated_subnet['name'] if original_subnet.get(
+                'name') != updated_subnet.get('name') else None
+        }
 
         if self._is_l2(subnet_mapping):
             if not curr_enable_dhcp and updated_enable_dhcp:
@@ -845,10 +848,28 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     context=db_context, neutron_subnet=updated_subnet,
                     dualstack=dual_stack_subnet)
                 params['dhcp_ip'] = None
-            params['net'] = netaddr.IPNetwork(original_subnet['cidr'])
-            self.vsdclient.update_subnet(updated_subnet, params)
+            if dhcp_opts_changed:
+                self.vsdclient.update_l2domain_dhcp_options(
+                    nuage_subnet_id, updated_subnet)
+            # Update l2domain Template
+            self.vsdclient.update_l2domain_template(
+                nuage_l2dom_tmplt_id=(
+                    subnet_mapping["nuage_l2dom_tmplt_id"]), **params)
+            # Update l2domain
+            self.vsdclient.update_l2domain(
+                nuage_l2dom_id=nuage_subnet_id, **params)
         else:
-            self.vsdclient.update_domain_subnet(updated_subnet, params)
+            params.update({
+                "subnet_nuage_underlay":
+                    updated_subnet.get(constants.NUAGE_UNDERLAY),
+                "subnet_enable_dhcp": updated_subnet.get('enable_dhcp')
+            })
+            if dhcp_opts_changed:
+                self.vsdclient.update_domain_subnet_dhcp_options(
+                    nuage_subnet_id, updated_subnet)
+            # Update l3domain subnet
+            self.vsdclient.update_domain_subnet(nuage_subnet_id,
+                                                params)
             routing_mechanisms.update_nuage_subnet_parameters(db_context,
                                                               updated_subnet)
 
