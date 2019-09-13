@@ -86,13 +86,21 @@ class VsdClient(object):
                       ipv4_subnet=None, ipv6_subnet=None):
         pass
 
-    def update_subnet(self, neutron_subnet, params):
+    def update_l2domain_dhcp_options(self, nuage_subnet_id,
+                                     neutron_subnet):
         pass
 
-    def update_subnet_description(self, nuage_id, new_description):
+    def update_l2domain_template(self, nuage_l2dom_tmplt_id, **kwargs):
         pass
 
-    def update_domain_subnet(self, neutron_subnet, params):
+    def update_l2domain(self, nuage_l2dom_id, **kwargs):
+        pass
+
+    def update_domain_subnet_dhcp_options(self, nuage_subnet_id,
+                                          neutron_subnet):
+        pass
+
+    def update_domain_subnet(self, nuage_subnet_id, params):
         pass
 
     def update_nuage_subnet(self, nuage_id, params):
