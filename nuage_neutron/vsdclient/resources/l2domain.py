@@ -121,14 +121,14 @@ class NuageL2Domain(object):
                 'IPType': constants.IPV6,
                 'enableDHCPv6': ipv6_subnet['enable_dhcp']
             })
-        description = None
         if ipv4_subnet and ipv6_subnet:
             params.update({'network_id': subnet['network_id']})
             ext_params.update(
                 helper.get_subnet_update_data(ipv4_subnet=ipv4_subnet,
                                               ipv6_subnet=ipv6_subnet,
                                               params=params))
-            description = ext_params.pop('description')
+        if not ext_params.get('description'):
+            ext_params['description'] = helper.get_subnet_description(subnet)
 
         nuagel2domtmplt = nuagelib.NuageL2DomTemplate(create_params=req_params,
                                                       extra_params=ext_params)
@@ -142,12 +142,10 @@ class NuageL2Domain(object):
         req_params['template'] = l2dom_tmplt_id
         req_params['externalID'] = ext_params['externalID']
 
-        if not description:
-            description = helper.get_subnet_description(subnet)
         ext_params = {
             'address': ext_params.get('address'),
             'IPv6Address': ext_params.get('IPv6Address'),
-            'description': description,
+            'description': ext_params['description'],
             'IPType': ext_params['IPType']
         }
         nuagel2domain = nuagelib.NuageL2Domain(create_params=req_params,
@@ -263,56 +261,54 @@ class NuageL2Domain(object):
                 nuagel2domtemplate.delete_resource(
                     mapping['nuage_l2dom_tmplt_id']))
 
-    def update_subnet(self, neutron_subnet, params):
-        if params.get('dhcp_opts_changed'):
-            nuagedhcpoptions = dhcpoptions.NuageDhcpOptions(self.restproxy)
-            nuagedhcpoptions.update_nuage_dhcp(
-                neutron_subnet, parent_id=params['nuage_subnet_id'],
-                network_type=constants.NETWORK_TYPE_L2)
+    def update_l2domain_dhcp_options(self, nuage_subnet_id,
+                                     neutron_subnet):
+        dhcpoptions.NuageDhcpOptions(self.restproxy).update_nuage_dhcp(
+            neutron_subnet, parent_id=nuage_subnet_id,
+            network_type=constants.NETWORK_TYPE_L2)
 
+    @staticmethod
+    def _gen_payload_l2domain_and_template(
+            subnet_enable_dhcp=False, dhcp_enable_changed=False,
+            dhcp_ip=None, network_name=None, dualstack=False, subnet_name=None,
+            description=None, ip_type=None):
+        # Generate payload for update l2domain and l2domain template
         data = {}
-        if params.get('dhcp_enable_changed'):
-            if params.get('ip_type') == constants.IPV4:
-                data["enableDHCPv4"] = neutron_subnet.get('enable_dhcp')
-
-                if neutron_subnet.get('enable_dhcp'):
-                    data["gateway"] = params['dhcp_ip']
-                else:
-                    data["gateway"] = None
+        if dhcp_enable_changed:
+            if ip_type == constants.IPV4:
+                data.update({
+                    'enableDHCPv4': subnet_enable_dhcp,
+                    'gateway': dhcp_ip if subnet_enable_dhcp else None
+                })
             else:
-                data = {
-                    'enableDHCPv6': neutron_subnet.get('enable_dhcp')
-                }
-                if neutron_subnet.get('enable_dhcp'):
-                    data["IPv6Gateway"] = params['dhcp_ip']
-                else:
-                    data["IPv6Gateway"] = None
+                data.update({
+                    'enableDHCPv6': subnet_enable_dhcp,
+                    'IPv6Gateway': dhcp_ip if subnet_enable_dhcp else None
+                })
+        if (description or (network_name and dualstack) or
+                (subnet_name and not dualstack)):
+            data.update({
+                'description': description or (
+                    network_name if dualstack else subnet_name)
+            })
+        return data
 
-        if params.get('dualstack'):
-            if params.get('network_name'):
-                data['description'] = params['network_name']
-        else:
-            if params.get('subnet_name'):
-                data['description'] = params['subnet_name']
-
+    def update_l2domain_template(self, nuage_l2dom_tmplt_id, **kwargs):
+        # Generate payload for the update
+        data = self._gen_payload_l2domain_and_template(**kwargs)
         if data:
-            nuagel2domtemplate = nuagelib.NuageL2DomTemplate()
+            nuage_l2domain_template = nuagelib.NuageL2DomTemplate()
             self.restproxy.put(
-                nuagel2domtemplate.put_resource(
-                    params['nuage_l2dom_tmplt_id']), data)
-            nuagel2domain = nuagelib.NuageL2Domain()
-            self.restproxy.put(
-                nuagel2domain.put_resource(params['nuage_subnet_id']), data)
+                nuage_l2domain_template.put_resource(
+                    nuage_l2dom_tmplt_id), data)
 
-    def update_subnet_description(self, nuage_id, new_description):
-        nuagel2domain = nuagelib.NuageL2Domain()
-        l2domain = self.restproxy.get(
-            nuagel2domain.get_resource(nuage_id),
-            required=True)[0]
-        if l2domain['description'] != new_description:
+    def update_l2domain(self, nuage_l2dom_id, **kwargs):
+        # Generate payload for the update
+        data = self._gen_payload_l2domain_and_template(**kwargs)
+        if data:
+            nuage_l2domain = nuagelib.NuageL2Domain()
             self.restproxy.put(
-                nuagel2domain.put_resource(nuage_id),
-                {'description': new_description})
+                nuage_l2domain.put_resource(nuage_l2dom_id), data)
 
     def _attach_nuage_group_to_l2domain(self, nuage_groupid,
                                         nuage_subnetid, nuage_npid,
