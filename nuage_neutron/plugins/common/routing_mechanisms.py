@@ -26,6 +26,8 @@ import nuagedb
 
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 
+UNDEFINED = object()
+
 
 def check_routing_mechanisms_config():
     """Validate nuage.ini configuration
@@ -105,7 +107,8 @@ def update_routing_values(router, old_router={}):
                     "{}.").format(constants.NUAGE_UNDERLAY,
                                   constants.NUAGE_UNDERLAY_INI)
             raise NuageBadRequest(resource='subnet', msg=msg)
-        if router.get('external_gateway_info') == {}:
+        ext_gw_info = router.get('external_gateway_info', UNDEFINED)
+        if ext_gw_info == {} or ext_gw_info is None:
             # router-gateway-clear
             router[constants.NUAGE_UNDERLAY] = constants.NUAGE_UNDERLAY_OFF
             return
