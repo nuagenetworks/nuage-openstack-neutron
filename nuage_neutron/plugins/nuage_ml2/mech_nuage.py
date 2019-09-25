@@ -980,7 +980,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         if self._is_os_mgd(mapping):
             dual_stack_subnet = self.get_dual_stack_subnet(db_context, subnet)
-            if network['nuage_l2bridge']:
+            if network.get('nuage_l2bridge'):
                 with db_context.session.begin(subtransactions=True):
                     l2bridge = nuagedb.get_nuage_l2bridge_blocking(
                         db_context.session, network['nuage_l2bridge'])
