@@ -943,28 +943,33 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         db_context = context._plugin_context
         context.nuage_mapping = nuagedb.get_subnet_l2dom_by_id(
             db_context.session, subnet['id'])
+        context.dual_stack_subnet = self.get_dual_stack_subnet(db_context,
+                                                               subnet)
         if not context.nuage_mapping:
             return
-        if self._is_l3(context.nuage_mapping) and self._is_ipv6(subnet):
-            self._validate_ipv6_vips_in_use(db_context, subnet)
+        if self._is_l3(context.nuage_mapping) and context.dual_stack_subnet:
+            self._validate_vips_in_use(db_context, subnet)
 
-    def _validate_ipv6_vips_in_use(self, db_context, subnet):
-        nuage_ipv4_subnets = (
+    def _validate_vips_in_use(self, db_context, subnet):
+        other_version = 4 if self._is_ipv6(subnet) else 6
+        nuage_subnets = (
             nuagedb.get_subnet_mapping_by_network_id_and_ip_version(
-                db_context.session, subnet['network_id'], ip_version=4))
-        for nuage_mapping in nuage_ipv4_subnets:
+                db_context.session, subnet['network_id'],
+                ip_version=other_version))
+        for nuage_mapping in nuage_subnets:
             vip_filters = {
                 'fixed_ips': {'subnet_id': [nuage_mapping['subnet_id']]}
             }
             ports = self.core_plugin.get_ports(db_context,
                                                filters=vip_filters,
                                                fields='allowed_address_pairs')
-            for port in ports:
+            ports_with_aap = [p for p in ports if p['allowed_address_pairs']]
+            for port in ports_with_aap:
                 for aap in port['allowed_address_pairs']:
                     if (netaddr.IPNetwork(aap['ip_address']).size == 1 and
                             netaddr.IPAddress(aap['ip_address']) in
                             netaddr.IPNetwork(subnet['cidr'])):
-                        msg = _('IPV6 IP %s is in use for nuage VIP,'
+                        msg = _('IP %s is in use for nuage VIP,'
                                 ' hence cannot delete the'
                                 ' subnet.') % aap['ip_address']
                         raise NuageBadRequest(msg=msg)
@@ -975,11 +980,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         subnet = context.current
         network = context.network.current
         mapping = context.nuage_mapping
+        dual_stack_subnet = context.dual_stack_subnet
         if not mapping:
             return
 
         if self._is_os_mgd(mapping):
-            dual_stack_subnet = self.get_dual_stack_subnet(db_context, subnet)
             if network.get('nuage_l2bridge'):
                 with db_context.session.begin(subtransactions=True):
                     l2bridge = nuagedb.get_nuage_l2bridge_blocking(
