@@ -128,9 +128,8 @@ class NuageRedirectTarget(BaseNuagePlugin):
                         self.get_nuage_redirect_targets_by_port(port_id,
                                                                 context))
 
-        def formatter(rtarget):
-            return self._make_redirect_target_dict(rtarget, context, fields)
-        return map(formatter, rtargets)
+        return [self._make_redirect_target_dict(rtarget, context, fields)
+                for rtarget in rtargets]
 
     @nuage_utils.handle_nuage_api_error
     @log_helpers.log_method_call
