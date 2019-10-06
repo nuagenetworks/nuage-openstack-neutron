@@ -44,6 +44,7 @@
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/rocky
+
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp-5.4:
@@ -52,6 +53,24 @@
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/rocky
         - networking-nuage-tempest-sriov-flat-vlan-5.4:
+            override-checkout: stable/rocky
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/rocky
+
+    periodic-sunday:
+      jobs:
+        - networking-nuage-tempest-sriov-5.4:
+            override-checkout: stable/rocky
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/rocky
+        - networking-nuage-tempest-baremetal-5.4:
+            override-checkout: stable/rocky
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/rocky
+        - networking-nuage-tempest-cli-5.4:
             override-checkout: stable/rocky
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
