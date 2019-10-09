@@ -75,3 +75,11 @@
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/rocky
+
+    periodic-sunday:
+      jobs:
+        - networking-nuage-tempest-lbaas-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
