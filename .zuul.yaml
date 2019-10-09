@@ -1,4 +1,5 @@
 - project:
+
     check:
       jobs:
         - openstack-tox-pep8:
@@ -13,6 +14,7 @@
             required-projects:
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/queens
+
     gate:
       jobs:
         - openstack-tox-pep8:
@@ -27,9 +29,25 @@
             required-projects:
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/queens
+
     periodic:
       jobs:
         - networking-nuage-tempest-virtio-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+        - networking-nuage-tempest-sriov-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+        - networking-nuage-tempest-baremetal-5.4:
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+        - networking-nuage-tempest-cli-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
