@@ -15,6 +15,7 @@
 import base64
 import calendar
 import logging
+import math
 import re
 import time
 
@@ -433,7 +434,7 @@ class RESTProxyServer(object):
             response_size = int(headers.get('X-Nuage-Count', 0))
             if page_size and response_size > page_size:
                 # handle pagination
-                num_pages = response_size // page_size + 1
+                num_pages = int(math.ceil(float(response_size) / page_size))
                 for page in range(1, num_pages):
                     headers = extra_headers or dict()
                     headers['X-Nuage-Page'] = str(page)
