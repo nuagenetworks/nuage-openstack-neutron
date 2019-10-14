@@ -7,14 +7,8 @@
 NU_XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
-Q_ML2_PLUGIN_MECHANISM_DRIVERS=${Q_ML2_PLUGIN_MECHANISM_DRIVERS:-nuage}
-Q_ML2_PLUGIN_TYPE_DRIVERS=${Q_ML2_PLUGIN_TYPE_DRIVERS:-vxlan}
-Q_SERVICE_PLUGIN_CLASSES=${Q_SERVICE_PLUGIN_CLASSES:-NuagePortAttributes,NuageAPI,NuageNetTopology,trunk,NuageL2Bridge,segments,$EXTRA_SERVICE_PLUGIN_CLASSES}
-ML2_L3_PLUGIN=nuage_neutron.plugins.common.service_plugins.l3.NuageL3Plugin
-
 function configure_neutron_nuage {
     echo "Configuring ML2 for Nuage"
-    OVS_BRIDGE=${OVS_BRIDGE:-alubr0}
     NUAGE_PLUGIN_CONF_DIR=$NEUTRON_CONF_DIR/plugins/nuage
     NUAGE_PLUGIN_CONF_FILE=$NUAGE_PLUGIN_CONF_DIR/plugin.ini
 
@@ -37,7 +31,12 @@ function configure_neutron_nuage {
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy nuage_underlay_default $NUAGE_UNDERLAY_DEFAULT
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy server_max_retries_on_domain_delete $NUAGE_SERVER_MAX_RETRIES_ON_DOMAIN_DELETE
 
-    iniset $NEUTRON_CONF DEFAULT enable_snat_by_default False
+    if ! is_service_enabled q-agt; then
+        iniset $NEUTRON_CONF DEFAULT enable_snat_by_default False
+    fi
+    if is_service_enabled q-meta && ! [ -z "${NUAGE_METADATA_SHARED_SECRET}" ]; then
+        iniset $Q_META_CONF_FILE DEFAULT metadata_proxy_shared_secret $NUAGE_METADATA_SHARED_SECRET
+    fi
 
     create_or_retrieve_cms cms_id
     iniset $NUAGE_PLUGIN_CONF_FILE restproxy cms_id $cms_id
