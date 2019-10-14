@@ -9,6 +9,9 @@
       jobs:
         - openstack-tox-pep8
         - networking-nuage-tempest-smoke-py3
+    experimental:
+      jobs:
+        - networking-nuage-vtep-vxlan
     virtio:
       jobs:
         - networking-nuage-tempest-virtio-py3
@@ -26,6 +29,8 @@
         - networking-nuage-tempest-sriov-flat-vlan
         - networking-nuage-tempest-baremetal
         - networking-nuage-tempest-scenario
+        - networking-nuage-vtep-vlan-upstream
+        - networking-nuage-vtep-vlan-nuage
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp
@@ -63,10 +68,6 @@
     upstream:
       jobs:
         - tempest-full-py3
-    experimental:
-      jobs:
-        - networking-nuage-tempest-smoke-py3:
-            nodeset: openstack-single-node-rhel7
     periodic:
       jobs:
         - networking-nuage-tempest-virtio-py3
@@ -76,11 +77,14 @@
         - networking-nuage-tempest-cli
         - tempest-full-py3
         - networking-nuage-tempest-api-switchdev
+        - networking-nuage-vtep-vlan-upstream
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp
         - networking-nuage-tempest-sriov-flat-vlan
         - networking-nuage-rally-task
+        - networking-nuage-vtep-vxlan
+        - networking-nuage-vtep-vlan-nuage
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows
@@ -188,4 +192,3 @@
     vars:
       job_flavor: neutronclient
     timeout: 9000
-
