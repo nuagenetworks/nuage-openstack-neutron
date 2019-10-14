@@ -21,8 +21,16 @@ source $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/functions
 if [[ "$1" == "stack" ]]; then
     source $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/$Q_PLUGIN
     if [[ "$2" == "install" ]]; then
-        echo_summary "Configuring Nuage VRS"
-        configure_vrs_nuage
+
+        if is_service_enabled q-agt; then
+            echo "Not installing Nuage VRS as Openvswitch is used"
+        else
+            echo_summary "Installing Nuage VRS"
+            install_vrs
+            echo_summary "Configuring Nuage VRS"
+            configure_vrs_nuage
+        fi
+
         echo_summary "Installing Nuage plugin"
         setup_develop $NUAGE_OPENSTACK_NEUTRON_DIR
 
@@ -43,6 +51,10 @@ if [[ "$1" == "stack" ]]; then
     elif [[ "$2" == "test-config" ]]; then
         #must run after Octavia is running.
         configure_octavia_nuage
+        # Configure Hardware VTEP if applicable
+        if is_service_enabled q-agt; then
+            create_fake_gateway_for_hw_vtep
+        fi
     fi
 
 elif [[ "$1" == "unstack" ]]; then

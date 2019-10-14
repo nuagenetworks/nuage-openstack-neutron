@@ -18,6 +18,14 @@
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
             required-projects: *required-projects-rocky
+    experimental:
+      jobs:
+        - networking-nuage-vtep-vxlan:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+            required-projects: *required-projects-rocky
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -88,6 +96,18 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
+        - networking-nuage-vtep-vlan-upstream:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+            required-projects: *required-projects-rocky
+        - networking-nuage-vtep-vlan-nuage:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
             required-projects: *required-projects-rocky
     agent:
       jobs:
@@ -240,6 +260,12 @@
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
+        - networking-nuage-vtep-vlan-upstream:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+            required-projects: *required-projects-rocky
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -269,6 +295,18 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
+        - networking-nuage-vtep-vxlan:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+            required-projects: *required-projects-rocky
+        - networking-nuage-vtep-vlan-nuage:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
             required-projects: *required-projects-rocky
     periodic-sunday:
       jobs:
@@ -389,4 +427,3 @@
       - OpenStack/nuage-tempest-plugin
       - openstack/neutron-tempest-plugin
       - openstack/tempest
-
