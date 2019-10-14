@@ -53,7 +53,18 @@ function is_neutron_ovs_base_plugin {
 }
 
 function neutron_plugin_install_agent_packages {
-   :
+   if is_service_enabled q-agt; then
+       _neutron_ovs_base_install_agent_packages
+   fi
+}
+
+function install_vrs {
+    if is_ubuntu; then
+        install_package nuage-openvswitch-switch
+    else
+        install_package nuage-openvswitch
+    fi
+    install_package nuage-metadata-agent
 }
 
 function configure_vrs_nuage {
@@ -109,19 +120,19 @@ function neutron_plugin_configure_dhcp_agent {
 function neutron_plugin_setup_interface_driver {
     local conf_file=$1
     OVS_BRIDGE=${OVS_BRIDGE:-alubr0}
-    iniset $conf_file DEFAULT interface_driver nuagevrs
+    iniset $conf_file DEFAULT interface_driver $NEUTRON_AGENT
     iniset $conf_file DEFAULT ovs_integration_bridge $OVS_BRIDGE
 }
 
 function configure_nova_nuage {
     iniset $NOVA_CONF neutron ovs_bridge $OVS_BRIDGE
-    if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
+    if ! [ -z "${NUAGE_METADATA_SHARED_SECRET}" ]; then
         iniset $NOVA_CONF neutron service_metadata_proxy "True"
         iniset $NOVA_CONF neutron metadata_proxy_shared_secret $NUAGE_METADATA_SHARED_SECRET
     fi
     if is_service_enabled n-cell; then
         iniset $NOVA_CELLS_CONF neutron ovs_bridge $OVS_BRIDGE
-        if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
+	if ! [ -z "${NUAGE_METADATA_SHARED_SECRET}" ]; then
             iniset $NOVA_CELLS_CONF neutron service_metadata_proxy "True"
             iniset $NOVA_CELLS_CONF neutron metadata_proxy_shared_secret $NUAGE_METADATA_SHARED_SECRET
         fi
@@ -223,6 +234,88 @@ function configure_networking_sfc_policy {
 
     echo "configured policy for networking_sfc."
 }
+
+function create_fake_gateway_for_hw_vtep(){
+    username=$( echo "${NUAGE_VSD_SERVER_AUTH}" | cut -d ':' -f 1)
+
+    upper_ssl=${NUAGE_VSD_SERVER_SSL^^}
+    if [[ "$upper_ssl" = "TRUE" ]]; then
+        base_url="https://"
+    else
+        base_url="http://"
+    fi
+    base_url+="$NUAGE_VSD_SERVERS"
+    base_url+="$NUAGE_VSD_BASE_URI"
+    url="$base_url$NUAGE_VSD_AUTH_RESOURCE"
+
+    echo "Connecting to VSD"
+    result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$NUAGE_VSD_SERVER_AUTH" "$url")
+    regex='"APIKey":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    apikey="${BASH_REMATCH[1]}"
+    echo "Connected"
+
+    # Name of GW is based on machine id
+    machine_id=$(cat /etc/machine-id)
+    name="OS_CI_$machine_id"
+    echo "Creating fake gateway for HW VTEP"
+    echo "Trying to find Hw VTEP GW with name: $name"
+    url=$base_url'/gateways'
+    result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url")
+    regex=".*(\{[^\}]*\"name\":.?\"$name\"[^\}]*\}).*"
+    if [[ ${result} =~ $regex ]]; then
+        cms="${BASH_REMATCH[1]}"
+        regex='"ID":.?"([^"]*)"'
+        if [[ ${cms} =~ $regex ]]; then
+            GW_ID="${BASH_REMATCH[1]}"
+        fi
+    fi
+
+    if [[ ${GW_ID} ]]; then
+      echo "Found gateway: $GW_ID"
+      echo "Trying to find GW_PORT"
+      url=$base_url'/gateways/$GW/ports'
+      result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url")
+      regex=".*(\{[^\}]*\"name\":.?\"$name\"[^\}]*\}).*"
+      if [[ ${result} =~ $regex ]]; then
+          cms="${BASH_REMATCH[1]}"
+          regex='"ID":.?"([^"]*)"'
+          if [[ ${cms} =~ $regex ]]; then
+              PORT_ID="${BASH_REMATCH[1]}"
+              echo "Found GW_PORT: $PORT_ID"
+
+          fi
+      fi
+    else
+      echo "Could not find existing GW with name: $name"
+      echo "Creating GWtemplate"
+      url=$base_url'/gatewaytemplates'
+      result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"NUAGE_210_WBX_48_S\"}")
+      regex='"ID":.?"([^"]*)"'
+      [[ ${result} =~ $regex ]]
+      GW_TMPLT_ID="${BASH_REMATCH[1]}"
+      echo "Created GWTemplate with id: $GW_TMPLT_ID"
+
+      echo "Creating GW"
+      url=$base_url'/gateways'
+      result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"NUAGE_210_WBX_48_S\", \"systemID\":\"$machine_id\", \"templateID\":\"$GW_TMPLT_ID\"}")
+      regex='"ID":.?"([^"]*)"'
+      [[ ${result} =~ $regex ]]
+      GW_ID="${BASH_REMATCH[1]}"
+      echo "Created GW with id: $GW_ID"
+
+      url=$base_url'/gateways/'$GW_ID'/ports'
+      result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"VLANRange\":\"0-4095\", \"physicalName\":\"$name\", \"portType\":\"ACCESS\"}")
+      regex='"ID":.?"([^"]*)"'
+      [[ ${result} =~ $regex ]]
+      PORT_ID="${BASH_REMATCH[1]}"
+      echo "Created GWPort with id: $PORT_ID"
+
+    fi
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$machine_id" --port-id "$name" --host-id $(hostname) --pci-slot $PUBLIC_BRIDGE | grep ' id ' | get_field 2)
+    echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
+}
+
 
 # Restore xtrace
 $NU_XTRACE
