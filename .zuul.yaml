@@ -130,6 +130,28 @@
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects
+        - networking-nuage-vtep-vlan-upstream:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '6.0'
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: *remove-mpls-driver-tempest
+            required-projects: *required-projects
+        - networking-nuage-vtep-vlan-nuage:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '6.0'
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: *remove-mpls-driver-tempest
+            required-projects: *required-projects
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -302,6 +324,17 @@
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects
+        - networking-nuage-vtep-vlan-upstream:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '6.0'
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: *remove-mpls-driver-tempest
+            required-projects: *required-projects
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -327,6 +360,27 @@
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects
+        - networking-nuage-vtep-vxlan:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '6.0'
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: *remove-mpls-driver-tempest
+            required-projects: *required-projects
+        - networking-nuage-vtep-vlan-nuage:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '6.0'
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: *remove-mpls-driver-tempest
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
