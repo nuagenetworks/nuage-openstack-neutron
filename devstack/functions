@@ -84,8 +84,9 @@ function configure_vrs_nuage {
        iniset_shell -sudo $meta_conf_file NOVA_OS_PASSWORD "$SERVICE_PASSWORD"
        iniset_shell -sudo $meta_conf_file NOVA_REGION_NAME "$REGION_NAME"
     fi
-    sudo /usr/bin/ovs-vsctl --timeout=5 --id=@manager -- create Manager "target=\"ptcp:6640:127.0.0.1\"" -- add Open_vSwitch . manager_options @manager || true
     restart_service $VRS_SERVICE_NAME
+    sudo /usr/bin/ovs-vsctl --timeout=5 --id=@manager -- create Manager "target=\"ptcp:6640:127.0.0.1\"" -- add Open_vSwitch . manager_options @manager || true
+
 }
 
 function neutron_plugin_configure_dhcp_agent {
@@ -183,7 +184,7 @@ function configure_octavia_nuage {
         echo "plugging Octavia healthmanager port"
         $($PYTHON $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_interface.py --mac $MGMT_PORT_MAC --port_id $MGMT_PORT_ID)
         echo "obtaining IP for Octavia Healthmanager port"
-        $(sudo dhclient -r)
+        $(sudo dhclient -r o-hm0)
         $(sudo dhclient o-hm0)
         $(sudo service devstack@o-hm restart)
     fi
