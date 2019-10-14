@@ -16,6 +16,7 @@ import functools
 
 import netaddr
 from neutron._i18n import _
+from neutron.api import extensions as neutron_extensions
 from neutron.db import securitygroups_db as sg_db
 from neutron_lib.api import validators
 from neutron_lib import context as n_ctx
@@ -37,6 +38,7 @@ from nuage_neutron.plugins.common import gateway
 from nuage_neutron.plugins.common import nuage_models
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
+from nuage_neutron.plugins.nuage_ml2 import extensions
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
 LOG = logging.getLogger(__name__)
@@ -56,6 +58,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         super(NuageApi, self).__init__()
         # Prepare default and shared netpartitions
         self._prepare_netpartitions()
+        neutron_extensions.append_api_extensions_path(extensions.__path__)
         lib_db_resource_extend.register_funcs('security_groups',
                                               [self._extend_resource_dict])
 
