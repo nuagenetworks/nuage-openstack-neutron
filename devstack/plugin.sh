@@ -48,6 +48,7 @@ if [[ "$1" == "stack" ]]; then
             # Tweak the chain for nuage metadata proxy.
             sudo iptables -I openstack-INPUT 1 -i ${OVS_BRIDGE} -j ACCEPT || :
         fi
+        configure_nova_vmware
     elif [[ "$2" == "test-config" ]]; then
         #must run after Octavia is running.
         configure_octavia_nuage

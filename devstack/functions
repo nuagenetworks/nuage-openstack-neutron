@@ -202,6 +202,16 @@ function stop_octavia_nuage {
 
 }
 
+function configure_nova_vmware {
+    if [[ "${VIRT_DRIVER}" == "vsphere" ]]; then
+        # Configure nova with monkey patch for using esxi hosts with nuage.
+        iniset $NOVA_CONF vmware insecure "$VMWAREAPI_INSECURE"
+        iniset $NOVA_CONF vmware datastore_regex "$VMWARE_DATASTORE_REGEX"
+        iniset $NOVA_CONF DEFAULT monkey_patch_modules "nova.virt.vmwareapi.vif:nuage_nova_esxi.nova.virt.vmwareapi.vif.decorator"
+        iniset $NOVA_CONF DEFAULT monkey_patch true
+    fi
+}
+
 function configure_networking_sfc_policy {
     echo "configuring policy for networking_sfc"
     policy_conf_file="/etc/neutron/policy.d/nuage_policy.json"
