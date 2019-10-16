@@ -313,9 +313,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     def _validate_create_subnet(self, db_context,
                                 network, prefixlen, subnet, vsd_managed,
                                 l2bridge):
-        if self._is_ipv6(subnet) and (prefixlen < 64 or prefixlen > 128):
-            msg = _("Invalid IPv6 netmask. Netmask can only be "
-                    "between a minimum 64 and maximum 128 length.")
+        if self._is_ipv6(subnet) and prefixlen != 64:
+            msg = _('Invalid IPv6 prefix length. '
+                    'Only prefix length 64 is supported.')
             raise NuageBadRequest(resource='subnet', msg=msg)
         for attribute in ('ipv6_ra_mode', 'ipv6_address_mode'):
             if not lib_validators.is_attr_set(subnet.get(attribute)):
