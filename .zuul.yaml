@@ -269,6 +269,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+        - networking-nuage-tempest-smoke-multiversion
 
 - job:
     name: legacy-tempest-aio-sfc
@@ -328,3 +329,23 @@
       - openstack/neutron-tempest-plugin
       - openstack/tempest
 
+- job:
+    name: networking-nuage-tempest-smoke-multiversion
+    parent: networking-nuage-tempest-smoke
+    vars:
+      vsp_release: 5.4
+      ci_vsp_name: ci-vsp-multiversion
+      devstack_localrc:
+        TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
+      devstack_local_conf:
+        test-config:
+          $TEMPEST_CONFIG:
+            nuage_sut:
+              nuage_pat_legacy: disabled
+      tempest_test_regex: '^(nuage_tempest_plugin|tempest\.api\.network|neutron_tempest_plugin\.(api|scenario))\..*\[(?=.*smoke)'
+      tempest_test_blacklist: "{{devstack_base_dir}}/nuage-tempest-plugin/tempest-blacklist.txt"
+    required-projects:
+      - name: OpenStack/nuage-openstack-neutron
+        override-checkout: '5.4/queens'
+      - name: OpenStack/nuage-tempest-plugin
+        override-checkout: '5.4'
