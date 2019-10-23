@@ -270,6 +270,16 @@
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-smoke-multiversion
+        - networking-nuage-octavia:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+        - networking-nuage-octavia-standby:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
 
 - job:
     name: legacy-tempest-aio-sfc
