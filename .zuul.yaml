@@ -77,6 +77,8 @@
       jobs:
         - networking-nuage-tempest-aggregateflows
         - networking-nuage-tempest-scale
+        - networking-nuage-octavia
+        - networking-nuage-octavia-standby
 
 - job:
     name: legacy-tempest-aio-base
