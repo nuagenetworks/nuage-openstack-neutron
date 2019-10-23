@@ -206,6 +206,10 @@
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+        - networking-nuage-octavia:
+            nodeset: openstack-single-node-xenial
+        - networking-nuage-octavia-standby:
+            nodeset: openstack-single-node-xenial
 
 - job:
     name: legacy-tempest-aio-sfc
