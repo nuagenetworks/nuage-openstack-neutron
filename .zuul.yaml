@@ -73,6 +73,7 @@
       jobs:
         - networking-nuage-tempest-qdhcp
         - networking-nuage-tempest-sriov-flat-vlan
+        - networking-nuage-rally-task
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows
@@ -101,6 +102,7 @@
       - ^tools/.*$
       - ^tox.ini$
     vars:
+      use_pypi: true
       nuage_fip_range: "172.{{ 255 | random }}.{{ 255 | random }}"
       devstack_plugins:
         rally-openstack: https://opendev.org/openstack/rally-openstack
