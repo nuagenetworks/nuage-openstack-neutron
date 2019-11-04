@@ -89,9 +89,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
             getter = self.get_all_nuage_floatingips
         floatingips = getter(context, filters=filters)
 
-        def formatter(floatingip):
-            return self.map_vsd_to_os(floatingip, fields=fields)
-        return map(formatter, floatingips)
+        return [self.map_vsd_to_os(fip, fields=fields) for fip in floatingips]
 
     def get_nuage_floatingip_assigned_to_port(self, context, filters=None):
         port_id = filters['ports'][0]
