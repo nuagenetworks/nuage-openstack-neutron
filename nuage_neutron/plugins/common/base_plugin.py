@@ -31,6 +31,7 @@ from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import constants as lib_plugins_constants
 from neutron_lib.plugins import directory
 from neutron_lib.plugins import utils as plugin_utils
 
