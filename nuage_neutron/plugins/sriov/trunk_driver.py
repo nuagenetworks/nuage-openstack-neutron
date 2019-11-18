@@ -78,7 +78,7 @@ class NuageTrunkHandler(object):
                       " %s due to unsupported VNIC type",
                       updated_port.get('id'))
 
-        if not self.plugin_driver.is_port_supported(updated_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(updated_port):
             LOG.debug("Ignoring trunk status change for port "
                       "due to unsupported vnic_type: %s with "
                       "switchdev capability", portbindings.VNIC_DIRECT)
@@ -320,7 +320,7 @@ class NuageTrunkHandler(object):
         # handle trunk with parent port supported by
         # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         LOG.debug('trunk_created: %(trunk)s', {'trunk': trunk})
         if trunk.sub_ports:
@@ -331,7 +331,7 @@ class NuageTrunkHandler(object):
         # handle trunk with parent port supported by
         # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         LOG.debug('trunk_deleted: %(trunk)s', {'trunk': trunk})
         self._unset_sub_ports(trunk.id, trunk_port, trunk.sub_ports)
@@ -341,7 +341,7 @@ class NuageTrunkHandler(object):
                   {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         self._validate_subports_vnic_type(context, trunk,
                                           trunk_port, subports)
@@ -361,7 +361,7 @@ class NuageTrunkHandler(object):
                   {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         self._set_sub_ports(trunk.id, subports)
 
@@ -370,7 +370,7 @@ class NuageTrunkHandler(object):
                   {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         self._unset_sub_ports(trunk.id, trunk_port, subports)
 
