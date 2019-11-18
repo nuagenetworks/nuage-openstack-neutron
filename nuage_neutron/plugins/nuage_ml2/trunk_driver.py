@@ -79,7 +79,7 @@ class NuageTrunkHandler(object):
                       " %s due to unsupported VNIC type",
                       updated_port.get('id'))
             return
-        if not self.plugin_driver.is_port_supported(updated_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(updated_port):
             LOG.debug("Ignoring trunk status change for port "
                       "due to unsupported vnic_type: %s with "
                       "no switchdev capability", portbindings.VNIC_DIRECT)
@@ -341,7 +341,7 @@ class NuageTrunkHandler(object):
         # handle trunk with parent port supported by
         # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         LOG.debug('trunk_created callback: %(trunk)s', {'trunk': trunk})
         self._set_trunk(trunk)
@@ -353,7 +353,7 @@ class NuageTrunkHandler(object):
         # handle trunk with parent port supported by
         # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         LOG.debug('trunk_deleted callback: %(trunk)s', {'trunk': trunk})
         self._unset_sub_ports(trunk.id, trunk_port, trunk.sub_ports)
@@ -364,7 +364,7 @@ class NuageTrunkHandler(object):
                   {'trunk': trunk, 'sp': subports})
         ctx = n_ctx.get_admin_context()
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         trunk_subports = self._validate_subports_vlan(context, trunk)
         self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
@@ -378,7 +378,7 @@ class NuageTrunkHandler(object):
         # handle trunk with parent port supported by
         # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         LOG.debug('subport_added callback: %(trunk)s subports : %(sp)s',
                   {'trunk': trunk, 'sp': subports})
@@ -389,7 +389,7 @@ class NuageTrunkHandler(object):
         # handle trunk with parent port supported by
         # mech driver only
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         LOG.debug('subport_deleted callback: %(trunk)s subports : %(sp)s',
                   {'trunk': trunk, 'sp': subports})
@@ -405,7 +405,7 @@ class NuageTrunkHandler(object):
         ctx = n_ctx.get_admin_context()
         trunk = payload.current_trunk
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
-        if not self.plugin_driver.is_port_supported(trunk_port):
+        if not self.plugin_driver.is_port_vnic_type_supported(trunk_port):
             return
         self._validate_port_fixedip(trunk_port)
 
