@@ -46,8 +46,6 @@ from nuage_neutron.plugins.common.exceptions import \
     NuageDualstackSubnetNotFound
 from nuage_neutron.plugins.common.exceptions import NuagePortBound
 from nuage_neutron.plugins.common import extensions
-from nuage_neutron.plugins.common.extensions import nuage_redirect_target
-from nuage_neutron.plugins.common.extensions import nuagefloatingip
 from nuage_neutron.plugins.common.extensions import nuagepolicygroup
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import routing_mechanisms
@@ -1159,20 +1157,24 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     def _create_port(self, db_context, port, network):
         is_network_external = network._network.get('router:external')
-        subnet_mapping = self._validate_port(db_context, port,
-                                             constants.BEFORE_CREATE,
-                                             is_network_external)
-        if not subnet_mapping:
-            if len(port['fixed_ips']) == 0:
-                nuage_attributes = (nuage_redirect_target.REDIRECTTARGETS,
-                                    nuagepolicygroup.NUAGE_POLICY_GROUPS,
-                                    nuagefloatingip.NUAGE_FLOATINGIP)
-                for attribute in nuage_attributes:
-                    if attribute in port:
-                        del port[attribute]
-            LOG.warn('no subnet_mapping')
+        # Validate port
+        subnet_ids = [ip['subnet_id'] for ip in port['fixed_ips']]
+        subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
+            db_context.session, subnet_ids)
+        if not subnet_mappings:
+            LOG.warn('No VSD subnet found for port.')
+            return
+        if not self._should_act_on_port(port, is_network_external):
+            LOG.warn('Port not applicable for Nuage.')
             return
 
+        self._validate_port(db_context, port,
+                            is_network_external, subnet_mappings)
+        self.nuage_callbacks.notify(resources.PORT, constants.BEFORE_CREATE,
+                                    self, context=db_context,
+                                    request_port=port)
+
+        subnet_mapping = subnet_mappings[0]
         nuage_vport = nuage_vm = np_name = None
         np_id = subnet_mapping['net_partition_id']
         nuage_subnet = self._find_vsd_subnet(db_context, subnet_mapping)
@@ -1252,11 +1254,16 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         is_network_external = context.network._network.get('router:external')
         self._check_fip_on_port_with_multiple_ips(db_context, port)
 
-        if (len(port['fixed_ips']) == 0 and len(original['fixed_ips']) != 0 or
-                (self.needs_vport_creation(original.get('device_owner')) and
-                 not self.needs_vport_creation(port.get('device_owner')))):
-            # TODO(Tom) Octavia
-            # port no longer belongs to any subnet
+        currently_actionable = self._should_act_on_port(port,
+                                                        is_network_external)
+        previously_actionable = self._should_act_on_port(original,
+                                                         is_network_external)
+        subnet_ids = [ip['subnet_id'] for ip in port['fixed_ips']]
+        subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
+            db_context.session, subnet_ids)
+
+        if not currently_actionable and previously_actionable:
+            # Port no longer needed
             vsd_errors = [(vsd_constants.CONFLICT_ERR_CODE,
                            vsd_constants.VSD_VM_EXISTS_ON_VPORT)]
             utils.retry_on_vsdclient_error(
@@ -1264,22 +1271,17 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                                original)
             return
 
-        if (len(port['fixed_ips']) != 0 and len(original['fixed_ips']) == 0 or
-                (not self.needs_vport_creation(
-                    original.get('device_owner')) and
-                 self.needs_vport_creation(port.get('device_owner')))):
-            # TODO(Tom) Octavia
-            # port didn't belong to any subnet yet
+        elif currently_actionable and not previously_actionable:
+            # Port creation needed
             self._create_port(db_context, port, context.network)
             return
-
-        subnet_mapping = self._validate_port(db_context,
-                                             port,
-                                             constants.BEFORE_UPDATE,
-                                             is_network_external)
-        if not subnet_mapping:
+        elif not currently_actionable or not subnet_mappings:
             return
-
+        self._validate_port(db_context, port, is_network_external,
+                            subnet_mappings)
+        # We only need the VSD properties of the subnet mapping, this is equal
+        # for all subnet_mappings.
+        subnet_mapping = subnet_mappings[0]
         self._check_subport_in_use(original, port)
         vm_if_update_required = self._check_vm_if_update(
             db_context, original, port)
@@ -1532,7 +1534,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             LOG.debug("Refusing to bind due to unsupported vnic_type: %s",
                       vnic_type)
             return
-        if not self.is_port_supported(context.current):
+        if not self.is_port_vnic_type_supported(context.current):
             LOG.debug("Refusing to bind due to unsupported vnic_type: %s with "
                       "no switchdev capability", portbindings.VNIC_DIRECT)
             return
@@ -1898,22 +1900,37 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     "to it.").format(port['id'], fips[0]['id'])
             raise NuageBadRequest(msg=msg)
 
-    def _validate_port(self, db_context, port, event,
-                       is_network_external=False):
-        """_validate_port : validating neutron port
+    def _should_act_on_port(self, port, is_network_external=False):
+        # Should Nuage create vport for this port
 
-        :rtype: dict
-        """
-        fixed_ips = port.get('fixed_ips', [])
+        if not port.get('fixed_ips'):
+            return False
         device_owner = port.get('device_owner')
         is_dhcp_port = device_owner == os_constants.DEVICE_OWNER_DHCP
+        is_nuage_dhcp_port = device_owner == constants.DEVICE_OWNER_DHCP_NUAGE
         is_router_gw = device_owner == os_constants.DEVICE_OWNER_ROUTER_GW
         is_router_int = device_owner == os_constants.DEVICE_OWNER_ROUTER_INTF
-        if len(fixed_ips) == 0:
-            return False
+
         if is_router_gw or is_router_int:
             # Router can be attached to multiple subnets.
             return False
+        if not self.needs_vport_creation(device_owner):
+            return False
+        if is_dhcp_port and is_network_external:
+            return False
+        if not self.is_port_vnic_type_supported(port):
+            return False
+        if is_nuage_dhcp_port:
+            return False
+
+        return True
+
+    def _validate_port(self, db_context, port, is_network_external,
+                       subnet_mappings):
+        """_validate_port : validating neutron port
+
+        """
+        fixed_ips = port.get('fixed_ips', [])
         subnet_list = {4: [], 6: []}
         for fixed_ip in fixed_ips:
             subnet_list[netaddr.IPAddress(
@@ -1926,28 +1943,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             msg = "Port can't have multiple IPv6 IPs of different subnets"
             raise NuageBadRequest(msg=msg)
 
-        if not self.needs_vport_creation(device_owner):
-            return False
-
-        if is_dhcp_port and is_network_external:
-            return False
-
         if is_network_external:
             msg = "Cannot create port in a FIP pool Subnet"
             raise NuageBadRequest(resource='port', msg=msg)
 
-        if not self.is_port_supported(port):
-            return False
         self._validate_nuage_l2bridges(db_context, port)
-        # No update required on port with "network:dhcp:nuage"
-        if port.get('device_owner') == constants.DEVICE_OWNER_DHCP_NUAGE:
-            return False
-
-        uniq_subnet_ids = set(ip["subnet_id"] for ip in fixed_ips)
-
-        subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
-            db_context.session,
-            uniq_subnet_ids)
 
         nuage_managed = []
         vsd_subnet_ids = set()
@@ -1955,9 +1955,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         for mapping in subnet_mappings:
             nuage_managed.append(mapping['nuage_managed_subnet'])
             vsd_subnet_ids.add(mapping['nuage_subnet_id'])
-
-        if not subnet_mappings:
-            return False
 
         if len(vsd_subnet_ids) > 1 and all(nuage_managed):
             msg = _("Port has fixed ips for multiple vsd subnets.")
@@ -1968,13 +1965,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             msg = ("Cannot use VSP policy groups on OS managed subnets,"
                    " use neutron security groups instead.")
             raise NuageBadRequest(resource='port', msg=msg)
-
-        # It's okay to just return the first mapping because it's only 1 vport
-        # on 1 subnet on VSD that has to be made.
-        self.nuage_callbacks.notify(resources.PORT, event,
-                                    self, context=db_context,
-                                    request_port=port)
-        return subnet_mappings[0]
 
     @staticmethod
     def get_subnet_mapping_by_port(db_context, port):
@@ -2150,7 +2140,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                             raise
 
     def _is_port_vxlan_supported(self, port, db_context):
-        if not self.is_port_supported(port):
+        if not self.is_port_vnic_type_supported(port):
             return False
         return self.is_vxlan_network_by_id(db_context, port.get('network_id'))
 
@@ -2267,7 +2257,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 'switchdev' in capabilities)
 
     @staticmethod
-    def is_port_supported(port):
+    def is_port_vnic_type_supported(port):
         return (NuageMechanismDriver._direct_vnic_supported(port) or
                 port.get(portbindings.VNIC_TYPE, '') ==
                 portbindings.VNIC_NORMAL)

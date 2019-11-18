@@ -107,7 +107,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
     def create_port_precommit(self, context):
         port = context.current
         db_context = context._plugin_context
-        if not self.is_port_supported(port):
+        if not self.is_port_vnic_type_supported(port):
             return
         self._validate_nuage_l2bridges(db_context, port)
         self._validate_port_request_attributes(context.current)
@@ -125,7 +125,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """update_port_precommit."""
         port = context.current
         original = context.original
-        if not self.is_port_supported(port):
+        if not self.is_port_vnic_type_supported(port):
             return
         self._validate_port_request_attributes(port, original=original)
 
@@ -135,7 +135,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """update_port_postcommit."""
         port = context.current
         original = context.original
-        if not self.is_port_supported(port):
+        if not self.is_port_vnic_type_supported(port):
             return
         host_removed = host_changed = False
         if original['binding:host_id'] and not port['binding:host_id']:
@@ -148,7 +148,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
     @utils.context_log
     def delete_port_precommit(self, context):
         """delete_port_precommit."""
-        if not self.is_port_supported(context.current):
+        if not self.is_port_vnic_type_supported(context.current):
             return
         self._delete_port(context)
 
@@ -314,7 +314,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
             LOG.debug("Refusing to bind due to unsupported vnic_type: %s",
                       vnic_type)
             return False
-        if not self.is_port_supported(context.current):
+        if not self.is_port_vnic_type_supported(context.current):
             LOG.debug("Refusing to bind due to unsupported vnic_type: %s "
                       "with switchdev capability", portbindings.VNIC_DIRECT)
             return False
@@ -528,7 +528,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                                'vnic': self._supported_vnic_types()})
 
     @staticmethod
-    def is_port_supported(port):
+    def is_port_vnic_type_supported(port):
         return (NuageSriovMechanismDriver._direct_vnic_supported(port) or
                 port.get(portbindings.VNIC_TYPE, '') ==
                 portbindings.VNIC_DIRECT_PHYSICAL)
