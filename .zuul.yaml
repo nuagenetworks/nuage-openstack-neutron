@@ -5,30 +5,39 @@
       jobs:
         - openstack-tox-pep8
         - networking-nuage-tempest-smoke-py3
+        - networking-nuage-tempest-smoke-py3-vsdipam
     gate:
       jobs:
         - openstack-tox-pep8
         - networking-nuage-tempest-smoke-py3
+        - networking-nuage-tempest-smoke-py3-vsdipam
     experimental:
       jobs:
         - networking-nuage-vtep-vxlan
     virtio:
       jobs:
         - networking-nuage-tempest-virtio-py3
+        - networking-nuage-tempest-virtio-py3-vsdipam
     sriov:
       jobs:
         - networking-nuage-tempest-sriov
         - networking-nuage-tempest-sriov-flat-vlan
+        - networking-nuage-tempest-sriov-vsdipam
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal
+        - networking-nuage-tempest-baremetal-vsdipam
     full:
       jobs:
         - networking-nuage-tempest-virtio-py3
+        - networking-nuage-tempest-virtio-py3-vsdipam
         - networking-nuage-tempest-sriov
+        - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-sriov-flat-vlan
         - networking-nuage-tempest-baremetal
+        - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario
+        - networking-nuage-tempest-scenario-vsdipam
         - networking-nuage-vtep-vlan-upstream
         - networking-nuage-vtep-vlan-nuage
     agent:
@@ -62,12 +71,14 @@
     scenario:
       jobs:
         - networking-nuage-tempest-scenario
+        - networking-nuage-tempest-scenario-vsdipam
     scale:
       jobs:
         - networking-nuage-tempest-scale
     upstream:
       jobs:
         - tempest-full-py3
+        - tempest-full-py3-vsdipam
     periodic:
       jobs:
         - networking-nuage-tempest-virtio-py3

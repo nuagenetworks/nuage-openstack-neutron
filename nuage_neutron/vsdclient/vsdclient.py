@@ -567,6 +567,23 @@ class VsdClient(object):
     def update_mac_spoofing_on_vport(self, nuage_vport_id, status):
         pass
 
+    def create_vm_ip_reservation(self, is_l2, parent_id, ip_type,
+                                 ipv4_address=None, ipv6_address=None,
+                                 allocation_pools=None):
+        pass
+
+    def update_vm_ip_reservation_state(self, vmipreservation_id,
+                                       target_state=''):
+        pass
+
+    def delete_vm_ip_reservation(self, is_l2, parent_id,
+                                 ipv4_address=None, ipv6_address=None):
+        pass
+
+    def get_vm_ip_reservation(self, is_l2, parent_id, ipv4_address=None,
+                              ipv6_address=None):
+        pass
+
     def get_nuage_zone_by_id(self, zone_id):
         pass
 
