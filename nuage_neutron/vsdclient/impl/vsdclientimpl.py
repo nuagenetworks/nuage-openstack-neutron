@@ -35,6 +35,7 @@ from nuage_neutron.vsdclient.resources import netpartition
 from nuage_neutron.vsdclient.resources import policygroups
 from nuage_neutron.vsdclient.resources import trunk
 from nuage_neutron.vsdclient.resources import vm
+from nuage_neutron.vsdclient.resources import vmipreservation
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient import VsdClient
 
@@ -75,6 +76,8 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                                             self.policygroups)
         self.fwaas = fwaas.NuageFwaas(self.restproxy)
         self.trunk = trunk.NuageTrunk(self.restproxy)
+        self.vm_ipreservations = vmipreservation.NuageVMIpReservation(
+            self.restproxy)
 
     def _auth_key_renewal(self, api_key_info):
         """Sleep until the renewal window, renew the key, and sleep again.
@@ -877,6 +880,33 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def update_mac_spoofing_on_vport(self, nuage_vport_id, status):
         self.vm.update_mac_spoofing_on_vport({'vport_id': nuage_vport_id},
                                              status)
+
+    # VM IP Reservations
+
+    def create_vm_ip_reservation(self, is_l2, parent_id, ip_type,
+                                 ipv4_address=None, ipv6_address=None,
+                                 allocation_pools=None):
+        return self.vm_ipreservations.create_vm_ip_reservation(
+            is_l2, parent_id, ip_type, ipv4_address, ipv6_address,
+            allocation_pools)
+
+    def update_vm_ip_reservation_state(self, vmipreservation_id,
+                                       target_state=''):
+        return self.vm_ipreservations.update_vm_ip_reservation_state(
+            vmipreservation_id, target_state)
+
+    def delete_vm_ip_reservation(self, is_l2, parent_id,
+                                 ipv4_address=None, ipv6_address=None):
+        return self.vm_ipreservations.delete_vm_ip_reservation(is_l2,
+                                                               parent_id,
+                                                               ipv4_address,
+                                                               ipv6_address)
+
+    def get_vm_ip_reservation(self, is_l2, parent_id, ipv4_address=None,
+                              ipv6_address=None):
+        return self.vm_ipreservations.get_vm_ip_reservation(is_l2, parent_id,
+                                                            ipv4_address,
+                                                            ipv6_address)
 
     def get_nuage_zone_by_id(self, zone_id):
         return helper.get_nuage_zone_by_id(self.restproxy, zone_id)
