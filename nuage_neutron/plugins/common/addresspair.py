@@ -370,7 +370,7 @@ class NuageAddressPair(BaseNuagePlugin):
         context = kwargs.get('context')
         configure_vips = (port.get(constants.VIPS_FOR_PORT_IPS) or
                           port.get("allowed_address_pairs"))
-        if not self.is_port_supported(port) or not configure_vips:
+        if not self.is_port_vnic_type_supported(port) or not configure_vips:
             # If there are no allowed_address_pair in the request
             # port_security_enabled False and allowed address pairs are
             # mutually exclusive in Neutron
@@ -385,7 +385,7 @@ class NuageAddressPair(BaseNuagePlugin):
     def post_port_update_addresspair(self, resource, event, plugin, context,
                                      port, original_port, vport, rollbacks,
                                      **kwargs):
-        if self.is_port_supported(port):
+        if self.is_port_vnic_type_supported(port):
             self.update_allowed_address_pairs(context, port,
                                               original_port, vport)
             rollbacks.append((self.update_allowed_address_pairs,
@@ -418,7 +418,7 @@ class NuageAddressPair(BaseNuagePlugin):
                 'switchdev' in capabilities)
 
     @staticmethod
-    def is_port_supported(port):
+    def is_port_vnic_type_supported(port):
         return (NuageAddressPair._direct_vnic_supported(port) or
                 port.get(portbindings.VNIC_TYPE, '') ==
                 portbindings.VNIC_NORMAL)
