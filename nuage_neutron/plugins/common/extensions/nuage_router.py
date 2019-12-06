@@ -129,6 +129,23 @@ def convert_nuage_underlay(value):
     return value
 
 
+def convert_nuage_aggregate_flows(value):
+    try:
+        value = value.lower()
+        assert value in [constants.AGGREGATE_FLOWS_OFF,
+                         constants.AGGREGATE_FLOWS_PBR,
+                         constants.AGGREGATE_FLOWS_ROUTE]
+    except Exception:
+        msg = "Possible values for {} are: {}, {}, {}.".format(
+            constants.AGGREGATE_FLOWS,
+            constants.AGGREGATE_FLOWS_OFF,
+            constants.AGGREGATE_FLOWS_PBR,
+            constants.AGGREGATE_FLOWS_ROUTE
+        )
+        raise nuage_exc.NuageBadRequest(msg=msg)
+    return value
+
+
 validators.add_validator('type:ecmp_count', ecmp_count_validation)
 validators.add_validator('type:boolean_or_none', boolean_or_none_validation)
 
@@ -213,6 +230,14 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'is_visible': True,
             'default': None,
             'convert_to': convert_nuage_underlay,
+            'enforce_policy': True
+        },
+        constants.AGGREGATE_FLOWS: {
+            'allow_post': True,
+            'allow_put': True,
+            'is_visible': True,
+            'default': constants.AGGREGATE_FLOWS_OFF,
+            'convert_to': convert_nuage_aggregate_flows,
             'enforce_policy': True
         },
     },
