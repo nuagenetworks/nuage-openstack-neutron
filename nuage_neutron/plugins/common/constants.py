@@ -149,6 +149,11 @@ NUAGE_UNDERLAY_FIP = 'fip'
 NUAGE_UNDERLAY = 'nuage_underlay'
 NUAGE_UNDERLAY_INI = 'nuage_underlay_default'
 
+AGGREGATE_FLOWS = 'nuage_aggregate_flows'
+AGGREGATE_FLOWS_OFF = 'off'
+AGGREGATE_FLOWS_PBR = 'pbr'
+AGGREGATE_FLOWS_ROUTE = 'route'
+
 RES_NOT_FOUND = 404
 RES_CONFLICT = 409
 
