@@ -180,6 +180,7 @@ class NuageDomain(object):
         if ('nuage_backhaul_rt' in router and
                 router['nuage_backhaul_rt']):
             extra_params['backHaulRouteTarget'] = router['nuage_backhaul_rt']
+        self._assign_aggregate_flows(extra_params, router)
 
         # PATEnabled & UnderlayEnabled
         pat_enabled, underlay_enabled = self._calculate_pat_and_underlay(
@@ -312,6 +313,7 @@ class NuageDomain(object):
             'backHaulRouteDistinguisher': router.get('nuage_backhaul_rd'),
             'backHaulRouteTarget': router.get('nuage_backhaul_rt')
         }
+        self._assign_aggregate_flows(update_dict, updates)
 
         underlay_routing = updates.get(plugin_constants.NUAGE_UNDERLAY)
         if underlay_routing is not None:
@@ -323,6 +325,22 @@ class NuageDomain(object):
         nuagel3domain = nuagelib.NuageL3Domain()
         self.restproxy.put(nuagel3domain.put_resource(nuage_domain_id),
                            update_dict)
+
+    @staticmethod
+    def _assign_aggregate_flows(vsd_dict, router):
+        if plugin_constants.AGGREGATE_FLOWS in router:
+            if (router[plugin_constants.AGGREGATE_FLOWS] ==
+                    plugin_constants.AGGREGATE_FLOWS_OFF):
+                vsd_dict['aggregateFlowsEnabled'] = False
+                vsd_dict['aggregationFlowType'] = None
+            else:
+                vsd_dict['aggregateFlowsEnabled'] = True
+                if (router[plugin_constants.AGGREGATE_FLOWS] ==
+                        plugin_constants.AGGREGATE_FLOWS_PBR):
+                    vsd_dict['aggregationFlowType'] = 'PBR_BASED'
+                elif (router[plugin_constants.AGGREGATE_FLOWS] ==
+                      plugin_constants.AGGREGATE_FLOWS_ROUTE):
+                    vsd_dict['aggregationFlowType'] = 'ROUTE_BASED'
 
     def _make_nuage_zone_shared(self, nuage_netpartid, nuage_zoneid,
                                 neutron_tenant_id):
