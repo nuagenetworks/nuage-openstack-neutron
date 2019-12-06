@@ -591,14 +591,23 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                                          fields, sorts, limit,
                                                          marker, page_reverse)
         for router in routers:
-            routing_mechanisms.add_nuage_router_attributes(context.session,
-                                                           router)
+            self._add_nuage_router_attributes(context.session, router)
             self._fields(router, fields)
         return routers
 
-    def _add_nuage_router_attributes(self, session, router, nuage_router):
+    def _add_nuage_router_attributes(self, session, router, nuage_router=None):
+        # Local db:
+        aggregate_flows_param = nuagedb.get_router_parameter(
+            session, router['id'], constants.AGGREGATE_FLOWS)
+        router[constants.AGGREGATE_FLOWS] = (
+            aggregate_flows_param['parameter_value'] if
+            aggregate_flows_param else constants.AGGREGATE_FLOWS_OFF)
+
+        routing_mechanisms.add_nuage_router_attributes(session, router)
+
         if not nuage_router:
             return
+        # VSD params
         ent_rtr_mapping = nuagedb.get_ent_rtr_mapping_by_rtrid(
             session, router['id'])
         router['net_partition'] = ent_rtr_mapping['net_partition_id']
@@ -611,7 +620,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         router['nuage_backhaul_rd'] = (nuage_router.get(
             'backHaulRouteDistinguisher'))
         router['nuage_backhaul_rt'] = nuage_router.get('backHaulRouteTarget')
-
         for route in router.get('routes', []):
             params = {
                 'address': route['destination'],
@@ -621,8 +629,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             nuage_route = self.vsdclient.get_nuage_static_route(params)
             if nuage_route:
                 route['rd'] = nuage_route['rd']
-
-        routing_mechanisms.add_nuage_router_attributes(session, router)
 
     @nuage_utils.handle_nuage_api_error
     @lib_db_api.retry_if_session_inactive()
@@ -655,6 +661,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                               nuage_router['nuage_domain_id'],
                                               nuage_router['rt'],
                                               nuage_router['rd'])
+                routing_mechanisms.update_nuage_router_parameters(
+                    req_router, context, neutron_router['id']
+                )
+                self._update_nuage_router_aggregate_flows(context, req_router,
+                                                          neutron_router['id'])
             neutron_router['net_partition'] = net_partition['id']
             neutron_router['rd'] = nuage_router['rd']
             neutron_router['rt'] = nuage_router['rt']
@@ -668,13 +679,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 nuage_router['nuage_template_id']
             neutron_router['tunnel_type'] = nuage_router['tunnel_type']
             neutron_router['ecmp_count'] = nuage_router['ecmp_count']
-
-            routing_mechanisms.update_nuage_router_parameters(
-                req_router, context, neutron_router['id']
-            )
-        # adds Nuage_underlay attribute to neutron_router
-        routing_mechanisms.add_nuage_router_attributes(context.session,
-                                                       neutron_router)
+            neutron_router[constants.AGGREGATE_FLOWS] = \
+                req_router[constants.AGGREGATE_FLOWS]
+            # adds Nuage_underlay attribute to neutron_router
+            routing_mechanisms.add_nuage_router_attributes(context.session,
+                                                           neutron_router)
         return neutron_router
 
     def _validate_create_router(self, context, netpart_name, router):
@@ -686,7 +695,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             msg = _("ecmp_count can only be set by an admin user.")
             raise nuage_exc.NuageNotAuthorized(resource='router', msg=msg)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def update_router(self, context, id, router):
@@ -729,14 +738,17 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                           ent_rtr_mapping)
                 on_exc(self._update_nuage_router, nuage_domain_id, updates,
                        curr_router, ent_rtr_mapping)
-
-            nuage_router = self.vsdclient.get_router_by_external(id)
-            self._add_nuage_router_attributes(context.session,
-                                              router_updated, nuage_router)
             routing_mechanisms.update_nuage_router_parameters(
                 updates, context, curr_router['id'])
             on_exc(routing_mechanisms.update_nuage_router_parameters,
                    original_router, context, original_router['id'])
+            self._update_nuage_router_aggregate_flows(context, updates,
+                                                      original_router['id'])
+            on_exc(self._update_nuage_router_aggregate_flows,
+                   context, original_router, original_router['id'])
+            nuage_router = self.vsdclient.get_router_by_external(id)
+            self._add_nuage_router_attributes(context.session,
+                                              router_updated, nuage_router)
 
             rollbacks = []
             try:
@@ -750,8 +762,6 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 with excutils.save_and_reraise_exception():
                     for rollback in reversed(rollbacks):
                         rollback[0](*rollback[1], **rollback[2])
-            routing_mechanisms.add_nuage_router_attributes(context.session,
-                                                           router_updated)
             return router_updated
 
     def _validate_update_router(self, context, id, router):
@@ -784,6 +794,23 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             for route in routes_removed:
                 self._add_nuage_static_route(id, nuage_domain_id, route)
             raise e
+
+    def _update_nuage_router_aggregate_flows(self, context, updates,
+                                             router_id):
+        if updates.get(constants.AGGREGATE_FLOWS):
+            if (updates[constants.AGGREGATE_FLOWS] !=
+                    constants.AGGREGATE_FLOWS_OFF):
+                nuagedb.add_router_parameter(
+                    context.session, router_id, constants.AGGREGATE_FLOWS,
+                    updates[constants.AGGREGATE_FLOWS])
+            else:
+                param = nuagedb.get_router_parameter(
+                    context.session,
+                    router_id,
+                    constants.AGGREGATE_FLOWS)
+                if param:
+                    nuagedb.delete_router_parameter(context.session,
+                                                    param)
 
     def _add_nuage_static_route(self, router_id, nuage_domain_id, route):
         params = {
