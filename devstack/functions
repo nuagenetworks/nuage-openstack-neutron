@@ -67,8 +67,18 @@ function configure_vrs_nuage {
     local meta_conf_file="/etc/default/nuage-metadata-agent"
     local conf_file=$VRS_CONF_FILE
     iniset_shell -sudo $conf_file ACTIVE_CONTROLLER $NUAGE_VSC_SERVER
-    if [ "$NUAGE_CREATE_FAKE_UPLINK" == "True" ]; then
-        iniset_shell -sudo $conf_file NETWORK_UPLINK_INTF fake_interface
+    # Set actual first nic as public interface
+    # Also give this interface the ip of the gateway.
+    GUEST_INTERFACE_DEFAULT=$(ip link \
+        | grep 'state UP' \
+        | awk '{print $2}' \
+        | sed 's/://' \
+        | grep ^[ep] \
+        | head -1)
+    iniset_shell -sudo $conf_file NETWORK_UPLINK_INTF $GUEST_INTERFACE_DEFAULT
+    # Only set when there is no CONTROLLER_IP defined, as the gateway_ip must only be set on controller
+    if [ -z "$CONTROLLER_IP" ]; then
+        sudo ip a add "$PUBLIC_NETWORK_GATEWAY/$UPLINK_PREFIX_LEN" dev $GUEST_INTERFACE_DEFAULT
     fi
     if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
        iniset_shell -sudo $meta_conf_file NUAGE_METADATA_AGENT_START_WITH_OVS "true"
