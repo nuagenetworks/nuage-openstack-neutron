@@ -21,14 +21,6 @@ source $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/functions
 if [[ "$1" == "stack" ]]; then
     source $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/$Q_PLUGIN
     if [[ "$2" == "install" ]]; then
-        if [ "$NUAGE_CREATE_FAKE_UPLINK" == "True" ]; then
-            echo_summary "Creating fake uplink itf"
-            if ! ip addr show fake_interface; then
-                sudo ip link add fake_interface type dummy
-                sudo ip link set fake_interface up
-            fi
-            sudo ip addr add $PUBLIC_NETWORK_GATEWAY/$UPLINK_PREFIX_LEN dev fake_interface
-        fi
         echo_summary "Configuring Nuage VRS"
         configure_vrs_nuage
         echo_summary "Installing Nuage plugin"
@@ -55,7 +47,11 @@ if [[ "$1" == "stack" ]]; then
 
 elif [[ "$1" == "unstack" ]]; then
         stop_octavia_nuage
-        if [ "$NUAGE_CREATE_FAKE_UPLINK" == "True" ]; then
-            sudo ip link delete fake_interface
-        fi
+        GUEST_INTERFACE_DEFAULT=$(ip link \
+            | grep 'state UP' \
+            | awk '{print $2}' \
+            | sed 's/://' \
+            | grep ^[ep] \
+            | head -1)
+        sudo ip a del "$PUBLIC_NETWORK_GATEWAY/$UPLINK_PREFIX_LEN" dev $GUEST_INTERFACE_DEFAULT
 fi
