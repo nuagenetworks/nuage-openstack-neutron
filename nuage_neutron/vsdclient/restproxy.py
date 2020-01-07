@@ -294,7 +294,7 @@ class RESTProxyServer(object):
                 ret = (response.status_code, response.reason, response.text,
                        resp_data, response.headers, headers['Authorization'])
             except requests.exceptions.RequestException as e:
-                LOG.error(_('ServerProxy: request failed: {}'.format(e)))
+                LOG.error(_('ServerProxy: request failed: {}').format(e))
             else:
                 if response.status_code != REST_SERV_UNAVAILABLE_CODE:
                     return ret
