@@ -14,7 +14,6 @@
 
 import inspect
 
-import netaddr
 from neutron._i18n import _
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as os_constants
@@ -159,8 +158,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         if context.binding_levels:
             return  # we've already got a top binding
 
-        subnet_mapping = self._validate_port(context._plugin_context,
-                                             context.current)
+        subnet_mapping = self._get_subnet_mapping(context._plugin_context,
+                                                  context.current)
         if not subnet_mapping:
             return
 
@@ -253,8 +252,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
             port = context.current
         port_id = port['id']
         network_id = port['network_id']
-        subnet_mapping = self._validate_port(context._plugin_context,
-                                             port)
+        subnet_mapping = self._get_subnet_mapping(context._plugin_context,
+                                                  port)
         if not subnet_mapping:
             LOG.warning("_make_port_dict can not get subnet_mapping"
                         " for port %(port)s",
@@ -336,17 +335,11 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 portbindings.VNIC_DIRECT and
                 'switchdev' not in capabilities)
 
-    def _validate_port(self, db_context, port):
-        if 'fixed_ips' not in port or len(port.get('fixed_ips', [])) == 0:
-            return False
+    def _get_subnet_mapping(self, db_context, port):
         for fixed_ip in port.get('fixed_ips', []):
-            if netaddr.IPAddress(fixed_ip['ip_address']).version == 4:
-                subnet_id = port['fixed_ips'][0]['subnet_id']
-                break
-        else:
-            return False
-        return nuagedb.get_subnet_l2dom_by_id(db_context.session,
-                                              subnet_id)
+            return nuagedb.get_subnet_l2dom_by_id(db_context.session,
+                                                  fixed_ip['subnet_id'])
+        return None
 
     def _get_nuage_vport(self, port, required=True):
         subnet_id = port['port'].get('fixed_ips')[0]['subnet_id']
