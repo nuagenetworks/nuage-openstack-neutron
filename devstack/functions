@@ -184,6 +184,9 @@ function configure_octavia_nuage {
         echo "plugging Octavia healthmanager port"
         $($PYTHON $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_interface.py --mac $MGMT_PORT_MAC --port_id $MGMT_PORT_ID)
         echo "obtaining IP for Octavia Healthmanager port"
+        # Clear gateway for hm0 subnet to prevent default route to be set
+        $(openstack subnet set lb-mgmt-subnet --gateway none)
+
         $(sudo dhclient -r o-hm0)
         $(sudo dhclient o-hm0)
         $(sudo service devstack@o-hm restart)
