@@ -705,6 +705,9 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         curr_router = self.get_router(context, id)
         old_routes = self._get_extra_routes_by_router_id(context, id)
+        # Replace routes in curr_router with old_routes as the curr_router
+        # contains also rd which disrupts rollback
+        original_router['routes'] = old_routes
         with nuage_utils.rollback() as on_exc:
             router_updated = super(NuageL3Plugin, self).update_router(
                 context,
