@@ -11,7 +11,6 @@
             required-projects:
               opendev.org/openstack/neutron
         - networking-nuage-tempest-smoke:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
@@ -27,14 +26,12 @@
             required-projects:
               opendev.org/openstack/neutron
         - networking-nuage-tempest-smoke:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -43,14 +40,12 @@
     sriov:
       jobs:
         - networking-nuage-tempest-sriov:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-sriov-flat-vlan:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -59,7 +54,6 @@
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -68,35 +62,30 @@
     full:
       jobs:
         - networking-nuage-tempest-virtio:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-sriov:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-sriov-flat-vlan:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-baremetal:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-scenario:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -105,7 +94,6 @@
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -117,7 +105,6 @@
     octavia:
       jobs:
         - networking-nuage-octavia:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -125,7 +112,6 @@
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/octavia-tempest-plugin /opt/stack/nuage-octavia-tempest-plugin"'
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/queens/amphora-x64-haproxy.qcow2"
         - networking-nuage-octavia-standby:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -138,7 +124,6 @@
     rally:
       jobs:
         - networking-nuage-rally-task:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -147,7 +132,6 @@
     switchdev:
       jobs:
         - networking-nuage-tempest-sriov-switchdev:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -156,7 +140,6 @@
     cli:
       jobs:
         - networking-nuage-tempest-cli:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -165,7 +148,6 @@
     aggregateflows:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -174,7 +156,6 @@
     scenario:
       jobs:
         - networking-nuage-tempest-scenario:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -183,7 +164,6 @@
     scale:
       jobs:
         - networking-nuage-tempest-scale:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -192,49 +172,42 @@
     upstream:
       jobs:
         - tempest-full:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-sriov:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-baremetal:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-cli:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-scenario:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - tempest-full:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -243,21 +216,18 @@
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-sriov-flat-vlan:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-rally-task:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
@@ -266,14 +236,12 @@
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
         - networking-nuage-tempest-scale:
-            nodeset: openstack-single-node-xenial
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
