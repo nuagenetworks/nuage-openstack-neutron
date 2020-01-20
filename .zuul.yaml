@@ -13,7 +13,7 @@
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
     gate:
       jobs:
         - openstack-tox-pep8:
@@ -28,7 +28,7 @@
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -174,7 +174,7 @@
         - tempest-full:
             vars:
               devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+                TEMPEST_PLUGINS: ''
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -210,9 +210,7 @@
         - tempest-full:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+                TEMPEST_PLUGINS: ''
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -375,13 +373,13 @@
       vsp_release: 5.4
       ci_vsp_name: ci-vsp-multiversion
       devstack_localrc:
-        TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
+        TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
       devstack_local_conf:
         test-config:
           $TEMPEST_CONFIG:
             nuage_sut:
               nuage_pat_legacy: disabled
-      tempest_test_regex: '^(nuage_tempest_plugin|tempest\.api\.network|neutron_tempest_plugin\.(api|scenario))\..*\[(?=.*smoke)'
+      tempest_test_regex: '^(nuage_tempest_plugin|tempest\.api\.network)\..*\[(?=.*smoke)'
       tempest_test_blacklist: "{{devstack_base_dir}}/nuage-tempest-plugin/tempest-blacklist.txt"
     required-projects:
       - name: OpenStack/nuage-openstack-neutron
