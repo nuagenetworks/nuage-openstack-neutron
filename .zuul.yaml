@@ -116,7 +116,7 @@
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
     switchdev:
       jobs:
-        - networking-nuage-tempest-sriov-switchdev:
+        - networking-nuage-tempest-api-switchdev:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
