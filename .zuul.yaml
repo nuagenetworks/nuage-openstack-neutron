@@ -7,13 +7,13 @@
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
     gate:
       jobs:
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -159,7 +159,7 @@
         - tempest-full:
             vars:
               devstack_localrc:
-                TEMPEST_PLUGINS: ''
+                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -195,7 +195,9 @@
         - tempest-full:
             vars:
               devstack_localrc:
-                TEMPEST_PLUGINS: ''
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -348,3 +350,4 @@
       - OpenStack/nuage-tempest-plugin
       - openstack/neutron-tempest-plugin
       - openstack/tempest
+
