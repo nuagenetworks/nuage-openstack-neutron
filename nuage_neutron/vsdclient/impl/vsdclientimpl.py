@@ -747,6 +747,9 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def update_nuage_vm_vport(self, params):
         self.vm.update_nuage_vm_vport(params)
 
+    def get_nuage_vm_if_by_vport_id(self, vport_id):
+        return self.vm.get_nuage_vm_if_by_vport_id(vport_id)
+
     def update_nuage_vm_if(self, params):
         self.vm.update_nuage_vm_if(params)
 
