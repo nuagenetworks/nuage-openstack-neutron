@@ -448,6 +448,9 @@ class VsdClient(object):
     def update_nuage_vm_vport(self, params):
         pass
 
+    def get_nuage_vm_if_by_vport_id(self, vport_id):
+        pass
+
     def update_nuage_vm_if(self, params):
         pass
 
