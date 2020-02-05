@@ -1142,7 +1142,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     self.vsdclient.delete_vm_by_external_id(params)
                 else:
                     self._delete_nuage_vm(db_context, port, np_name,
-                                          subnet_mapping)
+                                          subnet_mapping, port['device_id'])
             if nuage_vport:
                 self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
             if self._get_port_from_neutron(db_context, port):
@@ -1153,7 +1153,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         except Exception:
             if nuage_vm:
                 self._delete_nuage_vm(db_context, port, np_name,
-                                      subnet_mapping)
+                                      subnet_mapping, port['device_id'])
             if nuage_vport:
                 self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
             raise
@@ -1408,7 +1408,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if device_removed:
             if self._port_should_have_vm(original):
                 self._delete_nuage_vm(db_context, original,
-                                      np_name, subnet_mapping,
+                                      np_name,
+                                      subnet_mapping, original['device_id'],
                                       is_port_device_owner_removed=True)
         elif device_added:
             if self._port_should_have_vm(port):
@@ -1438,16 +1439,26 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             self.delete_gw_host_vport(db_context, port, subnet_mapping)
             return
 
-        if port.get('binding:host_id'):
+        nuage_vport = self._get_nuage_vport(port, subnet_mapping,
+                                            required=False)
+
+        if (port.get('binding:host_id') or
+                (nuage_vport and nuage_vport.get('hasAttachedInterfaces'))):
             np_name = self.vsdclient.get_net_partition_name_by_id(
                 subnet_mapping['net_partition_id'])
             require(np_name, "netpartition",
                     subnet_mapping['net_partition_id'])
+            device_id = port['device_id']
+            if not device_id:
+                # Due to concurrent Create/Update/Delete we do not know the
+                # device_id of the port. We get it from VSD vminterface instead
+                vm_if = self.vsdclient.get_nuage_vm_if_by_vport_id(
+                    nuage_vport['ID'])
+                device_id = vm_if['VMUUID']
+
             self._delete_nuage_vm(db_context, port, np_name,
-                                  subnet_mapping,
+                                  subnet_mapping, device_id,
                                   is_port_device_owner_removed=True)
-        nuage_vport = self._get_nuage_vport(port, subnet_mapping,
-                                            required=False)
         if nuage_vport and nuage_vport.get('type') == constants.VM_VPORT:
             try:
                 self.vsdclient.delete_nuage_vport(
@@ -1956,8 +1967,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             no_of_ports = 1
             vm_id = port['id']
         else:
-            no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
-                db_context, port)
+            vm_id = port['device_id']
+            no_of_ports = self.get_num_ports_of_device(
+                db_context, vm_id)
 
         fixed_ips = port['fixed_ips']
         subnets = {4: {}, 6: {}}
@@ -2024,12 +2036,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             else:
                 raise rnf
 
-    def _get_port_num_and_vm_id_of_device(self, db_context, port):
-        filters = {'device_id': [port.get('device_id')]}
+    def get_num_ports_of_device(self, db_context, device_id):
+        filters = {'device_id': [device_id]}
         ports = self.core_plugin.get_ports(db_context, filters)
         ports = [p for p in ports
                  if self._is_port_vxlan_normal(p, db_context)]
-        return len(ports), port.get('device_id')
+        return len(ports)
 
     def _process_port_create_secgrp_for_port_sec(self, context, port):
         rtr_id = None
@@ -2142,13 +2154,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 netpart['id'])
 
     def _delete_nuage_vm(self, db_context, port, np_name, subnet_mapping,
-                         is_port_device_owner_removed=False):
+                         device_id, is_port_device_owner_removed=False):
         if port.get('device_owner') in [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP]:
             no_of_ports = 1
             vm_id = port['id']
         else:
-            no_of_ports, vm_id = self._get_port_num_and_vm_id_of_device(
-                db_context, port)
+            vm_id = device_id
+            no_of_ports = self.get_num_ports_of_device(db_context, vm_id)
             # In case of device removed, this number should be the amount of
             # vminterfaces on VSD. If it's >1, nuagenetlib knows there are
             # still other vminterfaces using the VM, and it will not delete the
