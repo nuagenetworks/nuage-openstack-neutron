@@ -59,18 +59,17 @@ class NuageVM(object):
         }
         nuagevm = nuagelib.NuageVM(create_params=req_params,
                                    extra_params=extra_params)
-        try:
-            vm = self.restproxy.get(nuagevm.get_resource(),
-                                    extra_headers=nuagevm.extra_headers_get(),
-                                    required=True)[0]
-            vm_id = vm['ID']
-        except restproxy.ResourceNotFoundException as e:
+        vms = self.restproxy.get(
+            nuagevm.get_resource(),
+            extra_headers=nuagevm.extra_headers_get())
+        if not vms:
             if isdelete:
-                vm_id = None
+                return None
             else:
-                e.msg = 'VM with uuid %s not found on VSD' % params['id']
-                raise
-        return vm_id
+                msg = ('VM with uuid {} not found on '
+                       'VSD').format(req_params['id'])
+                raise restproxy.ResourceNotFoundException(msg)
+        return vms[0]['ID']
 
     def _attach_permissions_to_groups(self, nuage_grpid_list, nuage_id,
                                       neutron_tenant_id,
@@ -370,6 +369,17 @@ class NuageVM(object):
         nuagevport = nuagelib.NuageVPort(create_params=req_params)
         self.restproxy.put(nuagevport.put_resource(),
                            nuagevport.fip_update_data())
+
+    def get_nuage_vm_if_by_vport_id(self, vport_id):
+        req_params = {
+            'vport_id': vport_id,
+        }
+        nuageif = nuagelib.NuageVMInterface(create_params=req_params)
+        vm_interfaces = self.restproxy.get(nuageif.get_interface_for_vport())
+        if vm_interfaces:
+            return vm_interfaces[0]
+        else:
+            return
 
     def update_nuage_vm_if(self, params):
         req_params = {
