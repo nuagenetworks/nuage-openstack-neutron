@@ -411,6 +411,17 @@ class NuageVM(object):
             if not nuagevport.validate(resp):
                 raise nuagevport.get_rest_proxy_error()
 
+    def get_nuage_vm_if_by_vport_id(self, vport_id):
+        req_params = {
+            'vport_id': vport_id,
+        }
+        nuageif = nuagelib.NuageVMInterface(create_params=req_params)
+        vm_interfaces = self.restproxy.get(nuageif.get_interface_for_vport())
+        if vm_interfaces:
+            return vm_interfaces[0]
+        else:
+            return
+
     def update_nuage_vm_if(self, params):
         req_params = {
             'vport_id': params['nuage_vport_id'],
