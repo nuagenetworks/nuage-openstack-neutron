@@ -608,10 +608,6 @@ class VsdClient(object):
                                          **filters):
         pass
 
-    def get_policy_groups(self, securitygroup_id, vsd_subnet,
-                          sg_type=None, required=False):
-        pass
-
     # Firewall
 
     def create_firewall_rule(self, enterprise_id, os_rule):

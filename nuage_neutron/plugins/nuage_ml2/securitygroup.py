@@ -298,6 +298,17 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     def _find_or_create_policygroup(self, context, security_group_id,
                                     vsd_subnet):
         external_id = cms_id_helper.get_vsd_external_id(security_group_id)
+        policygroups = self.get_policygroups(external_id, vsd_subnet)
+        if len(policygroups) > 1:
+            msg = _("Found multiple policygroups with externalID %s")
+            raise n_exc.Conflict(msg=msg % external_id)
+        elif len(policygroups) == 1:
+            return policygroups[0]
+        else:
+            return self._create_policygroup(context, security_group_id,
+                                            vsd_subnet)
+
+    def get_policygroups(self, external_id, vsd_subnet):
         if vsd_subnet['type'] == constants.L2DOMAIN:
             policygroups = self.vsdclient.get_nuage_l2domain_policy_groups(
                 vsd_subnet['ID'],
@@ -308,23 +319,25 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             policygroups = self.vsdclient.get_nuage_domain_policy_groups(
                 domain_id,
                 externalID=external_id)
-        if len(policygroups) > 1:
-            msg = _("Found multiple policygroups with externalID %s")
-            raise n_exc.Conflict(msg=msg % external_id)
-        elif len(policygroups) == 1:
-            return policygroups[0]
-        else:
-            return self._create_policygroup(context, security_group_id,
-                                            vsd_subnet)
+        return policygroups
 
     def _create_policygroup(self, context, security_group_id, vsd_subnet):
         security_group = self.core_plugin.get_security_group(context,
                                                              security_group_id)
         # pop rules, make empty policygroup first
         security_group_rules = security_group.pop('security_group_rules')
-        policy_group = self.vsdclient.create_security_group(vsd_subnet,
-                                                            security_group)
-
+        try:
+            policy_group = self.vsdclient.create_security_group(vsd_subnet,
+                                                                security_group)
+        except restproxy.RESTProxyError as e:
+            if e.vsd_code == restproxy.REST_PG_EXISTS_ERR_CODE:
+                # PG is being concurrently created
+                external_id = cms_id_helper.get_vsd_external_id(
+                    security_group_id)
+                policygroups = self.get_policygroups(external_id, vsd_subnet)
+                return policygroups[0]
+            else:
+                raise
         # Before creating rules, we might have to make other policygroups first
         # if the rule uses remote_group_id to have rule related to other PG.
         with nuage_utils.rollback() as on_exc:
