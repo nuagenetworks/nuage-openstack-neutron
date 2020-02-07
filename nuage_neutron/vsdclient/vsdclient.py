@@ -605,10 +605,6 @@ class VsdClient(object):
                                          **filters):
         pass
 
-    def get_policy_groups(self, securitygroup_id, vsd_subnet,
-                          sg_type=None, required=False):
-        pass
-
     # Plugin stats
 
     def get_nuage_plugin_stats(self):
