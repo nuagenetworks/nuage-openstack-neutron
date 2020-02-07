@@ -783,8 +783,7 @@ class NuagePolicyGroups(object):
         resource = nuagelib.Policygroup()
         return self.restproxy.post(
             resource.post_url(parent_resource.resource, parent_id),
-            vsd_data,
-            ignore_err_codes=[restproxy.REST_PG_EXISTS_ERR_CODE])[0]
+            vsd_data)[0]
 
     def process_port_create_security_group(self, params):
         to_rollback = []
@@ -816,7 +815,7 @@ class NuagePolicyGroups(object):
         if not nuage_policygroup_id:
             try:
                 nuage_policygroup_id = self._create_nuage_secgroup(
-                    create_params)
+                    create_params, raise_on_pg_exists=True)
                 rollback_resource = {
                     'resource': RES_POLICYGROUPS,
                     'resource_id': nuage_policygroup_id
@@ -845,6 +844,20 @@ class NuagePolicyGroups(object):
                                                   constants.NUAGE_ACL_EGRESS,
                                                   nuage_policygroup_id)
                     # TODO(gridinv): do we need rollback for it?
+            except restproxy.RESTProxyError as e:
+                if (e.code == restproxy.REST_CONFLICT and
+                        e.vsd_code == restproxy.REST_PG_EXISTS_ERR_CODE):
+                    if l3dom_id:
+                        return self.get_child_policy_groups(
+                            nuagelib.NuageL3Domain.resource, l3dom_id,
+                            externalID=ext_id)[0]['ID']
+                    else:
+                        return self.get_child_policy_groups(
+                            nuagelib.NuageL2Domain.resource, vsd_subnet['ID'],
+                            externalID=ext_id)[0]['ID']
+                else:
+                    raise
+
             except Exception:
                 with excutils.save_and_reraise_exception():
                     helper.process_rollback(self.restproxy, to_rollback)
@@ -1243,26 +1256,16 @@ class NuagePolicyGroups(object):
         except restproxy.RESTProxyError as e:
             if (e.code == restproxy.REST_CONFLICT and
                     e.vsd_code == restproxy.REST_PG_EXISTS_ERR_CODE):
-                parent_rsc = None
-                parent_id = None
+                external_id = self._get_vsd_external_id(
+                    params_sg['sg_id'], params_sg['sg_type'])
                 if rtr_id:
-                    parent_rsc = nuagelib.NuageL3Domain.resource
-                    parent_id = rtr_id
-                elif l2dom_id:
-                    parent_rsc = nuagelib.NuageL2Domain.resource
-                    parent_id = l2dom_id
-                req_params = {
-                    'externalID': self._get_vsd_external_id(
-                        params_sg['sg_id'], params_sg['sg_type'])
-                }
-                nuage_policygroup = nuagelib.NuagePolicygroup(
-                    create_params=req_params)
-                response = self.restproxy.get(
-                    nuage_policygroup.get_child_resource(
-                        parent_resource=parent_rsc, parent_id=parent_id),
-                    extra_headers=nuage_policygroup.extra_headers_get(),
-                    required=True)
-                return response[0]['ID']
+                    return self.get_child_policy_groups(
+                        nuagelib.NuageL3Domain.resource, rtr_id,
+                        externalID=external_id)[0]['ID']
+                else:
+                    return self.get_child_policy_groups(
+                        nuagelib.NuageL2Domain.resource, l2dom_id,
+                        externalID=external_id)[0]['ID']
             else:
                 raise
         try:
@@ -1354,57 +1357,6 @@ class NuagePolicyGroups(object):
             policy_group.get_child_resource(parent_resource, parent_id),
             extra_headers=policy_group.extra_header_filter(**filters),
             required=required)
-
-    def get_pgs(self, securitygroup_ids, domain_id,
-                domain_type, sg_type=None, required=False):
-        if not securitygroup_ids:
-            return
-        if sg_type:
-            filters = ["externalID IS '%s'" %
-                       self._get_vsd_external_id(sg_id, sg_type)
-                       for sg_id in securitygroup_ids]
-        else:
-            filters = ["externalID IS '%s'" %
-                       self._get_vsd_external_id(sg_id, constants.SOFTWARE)
-                       for sg_id in securitygroup_ids]
-            filters += ["externalID IS '%s'" %
-                        self._get_vsd_external_id(sg_id, constants.HARDWARE)
-                        for sg_id in securitygroup_ids]
-        header = {'X-Nuage-Filter': " or ".join(filters)}
-        if domain_type == constants.L2DOMAIN:
-            resource = nuagelib.NuageL2Domain.resource
-        else:
-            resource = nuagelib.NuageL3Domain.resource
-        policy_group = nuagelib.NuagePolicygroup()
-        pgs = self.restproxy.get(
-            policy_group.get_child_resource(resource, domain_id),
-            extra_headers=header,
-            required=required)
-        l3dom_policygroup_list = []
-        l2dom_policygroup_list = []
-        if pgs:
-            for policygroup in pgs:
-                if policygroup['parentType'] == 'domain':
-                    l3dom_policygroup = {
-                        'l3dom_id': policygroup['parentID'],
-                        'policygroup_id': policygroup['ID']
-                    }
-                    l3dom_policygroup_list.append(l3dom_policygroup)
-                elif policygroup['parentType'] == constants.L2DOMAIN:
-                    l2dom_policygroup = {
-                        'l2dom_id': policygroup['parentID'],
-                        'policygroup_id': policygroup['ID']
-                    }
-                    l2dom_policygroup_list.append(l2dom_policygroup)
-
-        if not l3dom_policygroup_list and not l2dom_policygroup_list:
-            result = None
-        else:
-            result = {
-                'l3dom_policygroups': l3dom_policygroup_list,
-                'l2dom_policygroups': l2dom_policygroup_list
-            }
-        return result
 
 
 class NuageRedirectTargets(object):

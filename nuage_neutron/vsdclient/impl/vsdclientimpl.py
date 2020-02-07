@@ -941,18 +941,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             self.restproxy, nuagelib.NuagePolicygroup.resource,
             policygroup_id, required=required, **filters)
 
-    def get_policy_groups(self, securitygroup_ids, vsd_subnet,
-                          sg_type=None, required=False):
-        if vsd_subnet['type'] == constants.SUBNET:
-            domain_id = self.get_router_by_domain_subnet_id(
-                vsd_subnet['ID'])
-        else:
-            domain_id = vsd_subnet['ID']
-        return self.policygroups.get_pgs(
-            securitygroup_ids,
-            domain_id, vsd_subnet['type'], sg_type=sg_type,
-            required=required)
-
     def get_nuage_vport_redirect_targets(self, vport_id, required=False,
                                          **filters):
         return self.redirecttargets.get_child_redirect_targets(

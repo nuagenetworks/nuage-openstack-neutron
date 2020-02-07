@@ -35,6 +35,7 @@ from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
+from nuage_neutron.vsdclient import restproxy
 
 
 class NuageRedirectTarget(BaseNuagePlugin):
@@ -426,9 +427,16 @@ class NuageRedirectTarget(BaseNuagePlugin):
                                                              security_group_id)
         # pop rules, make empty policygroup first
         security_group_rules = security_group.pop('security_group_rules')
-        policy_group = self.vsdclient.create_security_group_using_parent(
-            rt['parentID'],
-            rt['parentType'], security_group)
+        try:
+            policy_group = self.vsdclient.create_security_group_using_parent(
+                rt['parentID'],
+                rt['parentType'], security_group)
+        except restproxy.RESTProxyError as e:
+            if e.vsd_code == restproxy.REST_PG_EXISTS_ERR_CODE:
+                # PG is being concurrently created
+                return
+            else:
+                raise
 
         # Before creating rules, we might have to make other policygroups first
         # if the rule uses remote_group_id to have rule related to other PG.
