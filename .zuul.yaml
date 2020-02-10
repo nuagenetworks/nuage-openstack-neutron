@@ -41,7 +41,7 @@
         - networking-nuage-rally-task
     switchdev:
       jobs:
-        - networking-nuage-tempest-sriov-switchdev
+        - networking-nuage-tempest-api-switchdev
     cli:
       jobs:
         - networking-nuage-tempest-cli
@@ -69,6 +69,7 @@
         - networking-nuage-tempest-scenario
         - networking-nuage-tempest-cli
         - tempest-full-py3
+        - networking-nuage-tempest-api-switchdev
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp
