@@ -290,7 +290,6 @@ class NuageTrunkHandler(object):
                 updated_port = self.core_plugin.update_port(
                     ctx, port.port_id,
                     {'port': {portbindings.HOST_ID: None,
-                              portbindings.PROFILE: None,
                               'device_owner': '',
                               'device_id': ''}})
                 vif_type = updated_port.get(portbindings.VIF_TYPE)
