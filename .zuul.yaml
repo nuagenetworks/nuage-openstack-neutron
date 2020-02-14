@@ -10,10 +10,6 @@
             required-projects:
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/rocky
-        - openstack-tox-py35:
-            required-projects:
-              - name: opendev.org/openstack/neutron
-                override-checkout: stable/rocky
 
     gate:
       jobs:
@@ -22,10 +18,6 @@
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/rocky
         - openstack-tox-py27:
-            required-projects:
-              - name: opendev.org/openstack/neutron
-                override-checkout: stable/rocky
-        - openstack-tox-py35:
             required-projects:
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/rocky
