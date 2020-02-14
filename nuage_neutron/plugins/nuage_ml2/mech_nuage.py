@@ -1503,9 +1503,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     nuage_vport['ID'])
                 device_id = vm_if['VMUUID']
 
-            self._delete_nuage_vm(db_context, port, np_name,
-                                  subnet_mapping, device_id,
-                                  is_port_device_owner_removed=True)
+            self._delete_nuage_vm(
+                db_context, port, np_name,
+                subnet_mapping, device_id,
+                is_port_device_owner_removed=not port['device_owner'])
         if nuage_vport and nuage_vport.get('type') == constants.VM_VPORT:
             try:
                 self.vsdclient.delete_nuage_vport(
