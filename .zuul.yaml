@@ -10,10 +10,6 @@
             required-projects:
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/queens
-        - openstack-tox-py35:
-            required-projects:
-              - name: opendev.org/openstack/neutron
-                override-checkout: stable/queens
     gate:
       jobs:
         - openstack-tox-pep8:
@@ -21,10 +17,6 @@
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/queens
         - openstack-tox-py27:
-            required-projects:
-              - name: opendev.org/openstack/neutron
-                override-checkout: stable/queens
-        - openstack-tox-py35:
             required-projects:
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/queens
