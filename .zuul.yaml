@@ -1,5 +1,4 @@
 - project:
-
     check:
       jobs:
         - openstack-tox-pep8:
@@ -28,31 +27,43 @@
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
         - networking-nuage-tempest-sriov-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
         - networking-nuage-tempest-baremetal-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
         - networking-nuage-tempest-cli-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
         - networking-nuage-tempest-scenario-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
         - tempest-full-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
 
     periodic-saturday:
       jobs:
@@ -60,12 +71,16 @@
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/queens'
+                override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
         - networking-nuage-tempest-sriov-flat-vlan-5.4:
             override-checkout: stable/queens
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/queens'
+                override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
 
     periodic-sunday:
       jobs:
@@ -74,3 +89,5 @@
             required-projects:
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
