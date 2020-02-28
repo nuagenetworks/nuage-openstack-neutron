@@ -437,7 +437,10 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                       'ipv6_cidr': self._calc_ipv6_cidr(subnet),
                       'gateway': subnet['gateway'],
                       'ipv6_gateway': subnet['IPv6Gateway'],
-                      'ip_version': subnet['IPType']}
+                      'ip_version': subnet['IPType'],
+                      'enable_dhcpv4': subnet['enableDHCPv4'],
+                      'enable_dhcpv6': subnet['enableDHCPv6'],
+                      }
         if subnet['type'] == constants.L3SUBNET:
             domain_id = self.vsdclient.get_router_by_domain_subnet_id(
                 vsd_subnet['id'])
@@ -466,6 +469,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             'gateway': 'gateway',
             'IPv6Gateway': 'ipv6_gateway',
             'IPType': 'ip_version',
+            'enableDHCPv4': 'enable_dhcpv4',
+            'enableDHCPv6': 'enable_dhcpv6',
             functools.partial(
                 self._return_val, filters['vsd_zone_id'][0]): 'vsd_zone_id'
         }
@@ -512,6 +517,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             'IPv6Address': 'ipv6_cidr',
             'ipv4_gateway': 'gateway',
             'IPv6Gateway': 'ipv6_gateway',
+            'enableDHCPv4': 'ipv4_enable_dhcp',
+            'enableDHCPv6': 'ipv6_enable_dhcp',
 
             # L3
             'parentID': 'net_partition_id',

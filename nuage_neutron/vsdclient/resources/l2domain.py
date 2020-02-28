@@ -56,6 +56,8 @@ class NuageL2Domain(object):
                 self.get_gw_from_dhcp_options(l2dom['ID'])
             np_dict['IPv6Gateway'] = l2dom['IPv6Gateway']
             np_dict['net_partition_id'] = netpart_id
+            np_dict['enableDHCPv4'] = l2dom['enableDHCPv4']
+            np_dict['enableDHCPv6'] = l2dom['enableDHCPv6']
 
             res.append(np_dict)
         return res

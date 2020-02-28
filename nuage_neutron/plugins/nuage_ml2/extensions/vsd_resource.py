@@ -43,7 +43,9 @@ RESOURCE_ATTRIBUTE_MAP = {
         'cidr': READONLY,
         'ipv6_cidr': READONLY,
         'gateway': READONLY,
-        'ipv6_gateway': READONLY
+        'ipv6_gateway': READONLY,
+        'enable_dhcpv4': READONLY,
+        'enable_dhcpv6': READONLY,
     },
     'vsd_zones': {
         'id': READONLY,
@@ -60,7 +62,9 @@ RESOURCE_ATTRIBUTE_MAP = {
         'ip_version': READONLY,
         'net_partition': READONLY,
         'vsd_zone_id': READONLY,
-        'linked': READONLY
+        'linked': READONLY,
+        'enable_dhcpv4': READONLY,
+        'enable_dhcpv6': READONLY,
     },
 }
 
