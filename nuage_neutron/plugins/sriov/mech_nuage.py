@@ -62,6 +62,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         self.vif_details = {portbindings.CAP_PORT_FILTER: True}
         self.conf = cfg.CONF
+        self.supported_network_types = [os_constants.TYPE_VXLAN,
+                                        nuage_const.NUAGE_HYBRID_MPLS_NET_TYPE]
         LOG.debug('Initializing complete')
 
     def _wrap_vsdclient(self):
@@ -224,7 +226,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         False to indicate this to callers.
         """
         network_type = segment[api.NETWORK_TYPE]
-        return network_type in [os_constants.TYPE_VXLAN]
+        return network_type in self.supported_network_types
 
     def _allocate_segment(self, context):
         """Find or allocate new segment suitable for Hw VTEP
@@ -427,8 +429,9 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 params['vsd_subnet'] = vsd_subnet
 
                 # policy groups are not supported on netconf
-                # managed gateways
-                create_policy = 'NETCONF' not in gw['gw_type']
+                # managed gateways and unmanaged gateways
+                create_policy = (gw['gw_type'] not in
+                                 ['NETCONF', 'UNMANAGED_GATEWAY'])
 
                 vport = self.vsdclient.create_gateway_vport_no_usergroup(
                     ctx.tenant_id,

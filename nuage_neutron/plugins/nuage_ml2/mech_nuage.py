@@ -66,7 +66,6 @@ from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 from nuage_neutron.vsdclient import restproxy
 
-
 LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCERV2
 PORT_UNPLUGGED_TYPES = (portbindings.VIF_TYPE_BINDING_FAILED,
                         portbindings.VIF_TYPE_UNBOUND,
@@ -84,6 +83,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     def __init__(self):
         self._core_plugin = None
         self.trunk_driver = None
+        self.supported_network_types = [os_constants.TYPE_VXLAN,
+                                        constants.NUAGE_HYBRID_MPLS_NET_TYPE]
 
         super(NuageMechanismDriver, self).__init__()
 
@@ -158,6 +159,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         "nuage_l2bridges.")
                 raise NuageBadRequest(msg=msg)
 
+        # Block vxlan and nuage_hybrid_segments in a single network
+        self.check_vxlan_mpls_segments_in_network(network.get('segments', []))
+
     @handle_nuage_api_errorcode
     @utils.context_log
     def update_network_precommit(self, context):
@@ -175,6 +179,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                           shared_change, physnets_change,
                                           original_network,
                                           updated_network)
+
+        # Block vxlan and nuage_hybrid_segments in a single network
+        # This cannot be included in the above structure since after the
+        # create segment operation, neutron calls update_network_precommit
+        # with the same value for the original and updated network
+        self.check_vxlan_mpls_segments_in_network(
+            updated_network.get('segments', []))
 
     @handle_nuage_api_errorcode
     @utils.context_log
@@ -270,11 +281,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         nuagenet_set = lib_validators.is_attr_set(subnet.get('nuagenet'))
         net_part_set = lib_validators.is_attr_set(subnet.get('net_partition'))
 
-        if not self.is_vxlan_network(network):
+        if not self.is_network_type_supported(network):
             if nuagenet_set or net_part_set:
-                # Nuage attributes set on non-vxlan network ...
-                msg = _("Network should have 'provider:network_type' vxlan or "
-                        "have such a segment")
+                # Nuage attributes set on unsupported network types
+                msg = _("Network should have 'provider:network_type' "
+                        "vxlan or nuage_hybrid_mpls, or have such a segment")
                 raise NuageBadRequest(msg=msg)
             else:
                 return  # Not for us
@@ -406,6 +417,17 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         subnet_type = subnet_info['subnet_type'] if subnet_info else None
         nuage_subnet, shared_subnet = self._get_nuage_subnet(
             nuage_subnet_id, subnet_type=subnet_type)
+
+        if (nuage_subnet['l2EncapType'] ==
+                vsd_constants.NUAGE_MPLS_TUNNEL_TYPE):
+            network = self.core_plugin.get_network(context,
+                                                   subnet['network_id'])
+            if not self.is_nuage_hybrid_mpls_network(network):
+                msg = (('Provided Nuage subnet has tunnel type '
+                        'MPLS which is not supported by {} networks')
+                       .format(network['provider:network_type'].upper()))
+                raise NuageBadRequest(msg=msg)
+
         # Check the nuage subnet type is standard if linking to domain subnet
         if (nuage_subnet.get('resourceType') and
                 nuage_subnet['resourceType'] != 'STANDARD'):
@@ -678,6 +700,9 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             'network_id': network['id'],
             'network_name': network['name']
         }
+
+        if self.is_nuage_hybrid_mpls_network(network):
+            params['tunnelType'] = vsd_constants.NUAGE_MPLS_TUNNEL_TYPE
 
         if not already_router_attached:
             if neutron_subnet['enable_dhcp']:
@@ -1092,7 +1117,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self.delete_dhcp_nuage_port_by_id(db_context,
                                                   nuage_dhcp_port['id'])
 
-    def _is_port_provisioning_required(self, db_context, port, host):
+    def _is_port_provisioning_required(self, network, port, host):
         vnic_type = port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)
 
         if vnic_type not in self._supported_vnic_types():
@@ -1111,7 +1136,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                       'have a host', port['id'])
             return False
 
-        if not self._is_port_vxlan_supported(port, db_context):
+        if not self._is_port_supported(port, network):
             LOG.debug('No provisioning block for port %s since it will not '
                       'be handled by driver', port['id'])
             return False
@@ -1138,7 +1163,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     @handle_nuage_api_errorcode
     @utils.context_log
     def create_port_precommit(self, context):
-        if self._is_port_provisioning_required(context._plugin_context,
+        if self._is_port_provisioning_required(context.network.current,
                                                context.current, context.host):
             self._insert_port_provisioning_block(context._plugin_context,
                                                  context.current['id'])
@@ -1148,11 +1173,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     def create_port_postcommit(self, context):
         self._create_port(context._plugin_context,
                           context.current,
-                          context.network)
+                          context.network.current)
         self._notify_port_provisioning_complete(context.current['id'])
 
     def _create_port(self, db_context, port, network):
-        is_network_external = network._network.get('router:external')
+        is_network_external = network.get('router:external')
         # Validate port
         subnet_ids = [ip['subnet_id'] for ip in port['fixed_ips']]
         subnet_mappings = nuagedb.get_subnet_l2doms_by_subnet_ids(
@@ -1165,7 +1190,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             return
 
         self._validate_port(db_context, port,
-                            is_network_external, subnet_mappings)
+                            is_network_external, subnet_mappings, network)
         self.nuage_callbacks.notify(resources.PORT, constants.BEFORE_CREATE,
                                     self, context=db_context,
                                     request_port=port)
@@ -1186,7 +1211,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 require(np_name, "netpartition", np_id)
                 nuage_vm = self._create_nuage_vm(
                     db_context, port, np_name, subnet_mapping,
-                    nuage_vport, nuage_subnet)
+                    nuage_vport, nuage_subnet, network)
             else:
                 nuage_vport = self._create_nuage_vport(port, nuage_subnet)
 
@@ -1210,7 +1235,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     self.vsdclient.delete_vm_by_external_id(params)
                 else:
                     self._delete_nuage_vm(db_context, port, np_name,
-                                          subnet_mapping, port['device_id'])
+                                          subnet_mapping, port['device_id'],
+                                          network)
             if nuage_vport:
                 self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
             if self._get_port_from_neutron(db_context, port):
@@ -1221,7 +1247,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         except Exception:
             if nuage_vm:
                 self._delete_nuage_vm(db_context, port, np_name,
-                                      subnet_mapping, port['device_id'])
+                                      subnet_mapping, port['device_id'],
+                                      network)
             if nuage_vport:
                 self.vsdclient.delete_nuage_vport(nuage_vport.get('ID'))
             raise
@@ -1242,12 +1269,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         db_context = context._plugin_context
         port = context.current
         original = context.original
+        network = context.network.current
 
-        if self._is_port_provisioning_required(context._plugin_context,
+        if self._is_port_provisioning_required(network,
                                                port, context.host):
             self._insert_port_provisioning_block(db_context,
                                                  port['id'])
-        is_network_external = context.network._network.get('router:external')
+        is_network_external = network.get('router:external')
         self._check_fip_on_port_with_multiple_ips(db_context, port)
 
         currently_actionable = self._should_act_on_port(port,
@@ -1264,12 +1292,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                            vsd_constants.VSD_VM_EXISTS_ON_VPORT)]
             utils.retry_on_vsdclient_error(
                 self._delete_port, vsd_error_codes=vsd_errors)(db_context,
-                                                               original)
+                                                               original,
+                                                               network)
             return
 
         elif currently_actionable and not previously_actionable:
             # Port creation needed
-            self._create_port(db_context, port, context.network)
+            self._create_port(db_context, port, network)
             return
         elif not currently_actionable or not subnet_mappings:
             return
@@ -1288,7 +1317,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         elif original['binding:host_id'] and not port['binding:host_id']:
             host_removed = True
         elif (original['device_owner'] and not port['device_owner'] and
-                original['device_owner'] == LB_DEVICE_OWNER_V2):
+              original['device_owner'] == LB_DEVICE_OWNER_V2):
             host_removed = True
 
         nuage_vport = self._find_vport(db_context, port, subnet_mapping)
@@ -1456,6 +1485,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self._delete_nuage_vm(db_context, original,
                                       np_name,
                                       subnet_mapping, original['device_id'],
+                                      context.network.current,
                                       is_port_device_owner_removed=True)
         elif host_added:
             self._validate_security_groups(context)
@@ -1464,19 +1494,21 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                     db_context, subnet_mapping)
                 self._create_nuage_vm(db_context, port,
                                       np_name, subnet_mapping, nuage_vport,
-                                      nuage_subnet)
+                                      nuage_subnet, context.network.current)
 
     @utils.context_log
     def delete_port_postcommit(self, context):
         db_context = context._plugin_context
+        network = context.network.current
         port = context.current
         vsd_errors = [(vsd_constants.CONFLICT_ERR_CODE,
                        vsd_constants.VSD_VM_EXISTS_ON_VPORT)]
         utils.retry_on_vsdclient_error(
             self._delete_port, vsd_error_codes=vsd_errors)(db_context,
-                                                           port)
+                                                           port,
+                                                           network)
 
-    def _delete_port(self, db_context, port):
+    def _delete_port(self, db_context, port, network):
         subnet_mapping = self.get_subnet_mapping_by_port(db_context, port)
         if not subnet_mapping:
             return
@@ -1484,6 +1516,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if not self.needs_vport_creation(port.get('device_owner')):
             # GW host vport cleanup
             self.delete_gw_host_vport(db_context, port, subnet_mapping)
+            return
+
+        # This check is needed because neutron plugin calls delete port
+        # after raising a nuage exception when virtio ports are created
+        # in nuage_hybrid_mpls networks
+        if self.is_nuage_hybrid_mpls_network(network):
             return
 
         nuage_vport = self._get_nuage_vport(port, subnet_mapping,
@@ -1504,8 +1542,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 device_id = vm_if['VMUUID']
 
             self._delete_nuage_vm(
-                db_context, port, np_name,
-                subnet_mapping, device_id,
+                db_context, port, np_name, subnet_mapping,
+                device_id, network,
                 is_port_device_owner_removed=not port['device_owner'])
         if nuage_vport and nuage_vport.get('type') == constants.VM_VPORT:
             try:
@@ -1934,7 +1972,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         return True
 
     def _validate_port(self, db_context, port, is_network_external,
-                       subnet_mappings):
+                       subnet_mappings, network=None):
         """_validate_port : validating neutron port
 
         """
@@ -1974,6 +2012,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                    " use neutron security groups instead.")
             raise NuageBadRequest(resource='port', msg=msg)
 
+        if network and self.is_nuage_hybrid_mpls_network(network):
+            msg = 'Virtio port is not allowed in nuage_mpls_hybrid networks'
+            raise NuageBadRequest(msg=msg)
+
     @staticmethod
     def get_subnet_mapping_by_port(db_context, port):
         return nuagedb.get_subnet_l2dom_by_port(db_context.session, port)
@@ -1987,7 +2029,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 constants.DEVICE_OWNER_OCTAVIA_HEALTHMGR in device_owner)
 
     def _create_nuage_vm(self, db_context, port, np_name, subnet_mapping,
-                         nuage_port, nuage_subnet):
+                         nuage_port, nuage_subnet, network):
         if (port.get('device_owner') in
                 [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP,
                  constants.DEVICE_OWNER_OCTAVIA_HEALTHMGR]):
@@ -1996,7 +2038,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         else:
             vm_id = port['device_id']
             no_of_ports = self.get_num_ports_of_device(
-                db_context, vm_id)
+                db_context, vm_id, network)
 
         fixed_ips = port['fixed_ips']
         subnets = {4: {}, 6: {}}
@@ -2065,11 +2107,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             else:
                 raise rnf
 
-    def get_num_ports_of_device(self, db_context, device_id):
+    def get_num_ports_of_device(self, db_context, device_id, network):
         filters = {'device_id': [device_id]}
         ports = self.core_plugin.get_ports(db_context, filters)
         ports = [p for p in ports
-                 if self._is_port_vxlan_supported(p, db_context) and
+                 if self._is_port_supported(p, network) and
                  p['binding:host_id']]
         return len(ports)
 
@@ -2148,10 +2190,10 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                             LOG.debug("Retry failed %s times.", max_attempts)
                             raise
 
-    def _is_port_vxlan_supported(self, port, db_context):
+    def _is_port_supported(self, port, network):
         if not self.is_port_vnic_type_supported(port):
             return False
-        return self.is_vxlan_network_by_id(db_context, port.get('network_id'))
+        return self.is_network_type_supported(network)
 
     def delete_gw_host_vport(self, context, port, subnet_mapping):
         port_params = {
@@ -2179,13 +2221,15 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 netpart['id'])
 
     def _delete_nuage_vm(self, db_context, port, np_name, subnet_mapping,
-                         device_id, is_port_device_owner_removed=False):
+                         device_id, network,
+                         is_port_device_owner_removed=False):
         if port.get('device_owner') in [LB_DEVICE_OWNER_V2, DEVICE_OWNER_DHCP]:
             no_of_ports = 1
             vm_id = port['id']
         else:
             vm_id = device_id
-            no_of_ports = self.get_num_ports_of_device(db_context, vm_id)
+            no_of_ports = self.get_num_ports_of_device(db_context, vm_id,
+                                                       network)
             # In case of device removed, this number should be the amount of
             # vminterfaces on VSD. If it's >1, vsdclient knows there are
             # still other vminterfaces using the VM, and it will not delete the
@@ -2274,3 +2318,14 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     def check_vlan_transparency(self, context):
         """Nuage driver vlan transparency support."""
         return True
+
+    def check_vxlan_mpls_segments_in_network(self, segments):
+        if segments:
+            segment_types = {segment['provider:network_type'] for segment
+                             in segments if
+                             segment['provider:network_type'] in
+                             self.supported_network_types}
+            if len(segment_types) == 2:
+                msg = _('It is not allowed to have both vxlan and '
+                        'nuage_hybrid_mpls segments in a single network')
+                raise NuageBadRequest(msg=msg)

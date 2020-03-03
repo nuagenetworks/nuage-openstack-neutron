@@ -49,7 +49,6 @@ from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 from nuage_neutron.vsdclient.restproxy import ResourceNotFoundException
 
-
 LOG = logging.getLogger(__name__)
 
 
@@ -70,6 +69,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         self._l2_plugin = None
         self._default_np_id = None
         self.init_fip_rate_log()
+        self.supported_network_types = [lib_constants.TYPE_VXLAN]
 
     @property
     def core_plugin(self):
@@ -137,7 +137,13 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         subnet = self.core_plugin.get_subnet(context, subnet_id)
         network = self.core_plugin.get_network(context, subnet['network_id'])
 
-        if not self.is_vxlan_network(network):
+        if not self.is_network_type_supported(network):
+            if self.is_nuage_hybrid_mpls_network(network):
+                msg = (('It is not allowed to add a router interface '
+                        'to a network type {}, or if it has a segment '
+                        'of this type.')
+                       .format(constants.NUAGE_HYBRID_MPLS_NET_TYPE))
+                raise nuage_exc.NuageBadRequest(msg=msg)
             return super(NuageL3Plugin, self).add_router_interface(
                 context, router_id, interface_info)
 
@@ -427,14 +433,15 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         if subnet_id_specified:
             subnet_id = interface_info['subnet_id']
             subnet = self.core_plugin.get_subnet(context, subnet_id)
-            if not self.is_vxlan_network_by_id(context, subnet['network_id']):
+            if not self._is_vxlan_network_by_id(context,
+                                                subnet['network_id']):
                 return super(NuageL3Plugin,
                              self).remove_router_interface(context,
                                                            router_id,
                                                            interface_info)
             filters = {'device_id': [router_id],
                        'device_owner':
-                       [lib_constants.DEVICE_OWNER_ROUTER_INTF],
+                           [lib_constants.DEVICE_OWNER_ROUTER_INTF],
                        'network_id': [subnet['network_id']]}
             router_interfaces = any(p['fixed_ips'][0]['subnet_id'] == subnet_id
                                     for p in self.core_plugin.get_ports(
@@ -449,7 +456,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             except n_exc.PortNotFound:
                 raise l3_exc.RouterInterfaceNotFound(
                     router_id=router_id, port_id=interface_info['port_id'])
-            if not self.is_vxlan_network_by_id(context, port_db['network_id']):
+            if not self._is_vxlan_network_by_id(context,
+                                                port_db['network_id']):
                 return super(NuageL3Plugin,
                              self).remove_router_interface(context,
                                                            router_id,
@@ -1066,7 +1074,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         fip = super(NuageL3Plugin, self).get_floatingip(context, id)
 
         if ((not fields or 'nuage_egress_fip_rate_kbps' in fields or
-            'nuage_ingress_fip_rate_kbps' in fields) and
+             'nuage_ingress_fip_rate_kbps' in fields) and
                 fip.get('port_id')):
             try:
                 nuage_vport = self._get_vport_for_fip(context, fip['port_id'])
@@ -1080,7 +1088,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             except Exception as e:
                 # ignoring rate limiting not found for fip
                 msg = (_('Got exception while retrieving fip rate from vsd: '
-                       '{}').format(e))
+                         '{}').format(e))
                 LOG.error(msg)
 
         return self._fields(fip, fields)
@@ -1096,8 +1104,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         neutron_fip = super(NuageL3Plugin, self).create_floatingip(
             context, floatingip,
             initial_status=lib_constants.FLOATINGIP_STATUS_DOWN)
-        if not self.is_vxlan_network_by_id(context,
-                                           neutron_fip['floating_network_id']):
+        if not self._is_vxlan_network_by_id(
+                context, neutron_fip['floating_network_id']):
             return neutron_fip
         nuage_fip_rate = self._get_values_for_fip_rate(
             fip, for_update='port_id' not in fip)
@@ -1170,8 +1178,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         fip = floatingip['floatingip']
         orig_fip = self._get_floatingip(context, id)
         self._check_fip_on_port_with_multiple_ips(context, fip.get('port_id'))
-        if not self.is_vxlan_network_by_id(context,
-                                           orig_fip['floating_network_id']):
+        if not self._is_vxlan_network_by_id(context,
+                                            orig_fip['floating_network_id']):
             return super(NuageL3Plugin, self).update_floatingip(context,
                                                                 id,
                                                                 floatingip)
@@ -1324,8 +1332,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     def delete_floatingip(self, context, fip_id):
         fip = self._get_floatingip(context, fip_id)
 
-        if not self.is_vxlan_network_by_id(context,
-                                           fip['floating_network_id']):
+        if not self._is_vxlan_network_by_id(context,
+                                            fip['floating_network_id']):
             return super(NuageL3Plugin, self).delete_floatingip(context,
                                                                 fip_id)
         port_id = fip['fixed_port_id']
@@ -1411,3 +1419,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     self.vsdclient.delete_nuage_floatingip(
                         nuage_fip['nuage_fip_id'])
                     LOG.debug('Floating-ip %s deleted from VSD', fip_id)
+
+    def _is_vxlan_network_by_id(self, context, network_id):
+        network = self.core_plugin.get_network(context,
+                                               network_id)
+        return self.is_of_network_type(network, lib_constants.TYPE_VXLAN)
