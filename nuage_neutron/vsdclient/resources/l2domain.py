@@ -150,6 +150,11 @@ class NuageL2Domain(object):
             'description': ext_params['description'],
             'IPType': ext_params['IPType']
         }
+
+        if (params.get('tunnelType') == constants.
+                NUAGE_MPLS_TUNNEL_TYPE):
+            ext_params['l2EncapType'] = constants.NUAGE_MPLS_TUNNEL_TYPE
+
         nuagel2domain = nuagelib.NuageL2Domain(create_params=req_params,
                                                extra_params=ext_params)
         try:
