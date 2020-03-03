@@ -198,3 +198,5 @@ L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES = ['cidr', 'gateway_ip', 'enable_dhcp',
 VSD_MANAGED_SUBNET_UPDATABLE_ATTRIBUTES = {"name", "description",
                                            "allocation_pools", "updated_at",
                                            "revision_number"}
+
+NUAGE_HYBRID_MPLS_NET_TYPE = 'nuage_hybrid_mpls'

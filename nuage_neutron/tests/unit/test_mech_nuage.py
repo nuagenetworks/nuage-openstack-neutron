@@ -208,9 +208,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('Subnet precommit should not have succeeded')
         except NuageBadRequest as e:
-            self.assertEqual('Bad request: Network should have \'provider:'
-                             'network_type\' vxlan or have such a segment',
-                             str(e))
+            self.assertEqual("Bad request: Network should have 'provider:"
+                             "network_type' vxlan or nuage_hybrid_mpls, or "
+                             "have such a segment", str(e))
 
     @mock.patch.object(RootNuagePlugin, 'init_vsd_client')
     @mock.patch.object(NuageMechanismDriver, 'get_subnets',
@@ -235,9 +235,9 @@ class TestNuageMechanismDriver(testtools.TestCase):
             nmd.create_subnet_precommit(Context(network, subnet))
             self.fail('Create subnet precommit should not have succeeded')
         except NuageBadRequest as e:
-            self.assertEqual('Bad request: Network should have \'provider:'
-                             'network_type\' vxlan or have such a segment',
-                             str(e))
+            self.assertEqual("Bad request: Network should have 'provider:"
+                             "network_type' vxlan or nuage_hybrid_mpls, or "
+                             "have such a segment", str(e))
 
     # VXLAN NETWORKS
 

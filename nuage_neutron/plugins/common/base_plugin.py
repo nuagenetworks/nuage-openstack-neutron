@@ -47,11 +47,11 @@ from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient_fac import VsdClientFactory
 
-
 LOG = log.getLogger(__name__)
 
 
 class RootNuagePlugin(SubnetUtilsBase):
+    supported_network_types = []
 
     def __init__(self):
         super(RootNuagePlugin, self).__init__()
@@ -372,18 +372,20 @@ class RootNuagePlugin(SubnetUtilsBase):
             raise NuageBadRequest(msg=msg)
 
     @staticmethod
-    def is_vxlan_network(network):
+    def is_of_network_type(network, type):
         net_type = 'provider:network_type'
-        if str(network.get(net_type)).lower() == 'vxlan':
+        if network.get(net_type) == type:
             return True
-        vxlan_segment = [segment for segment in network.get('segments', [])
-                         if str(segment.get(net_type)).lower() == 'vxlan']
-        return len(vxlan_segment) != 0
+        return any(segment.get(net_type) == type for segment in
+                   network.get('segments', []))
 
-    def is_vxlan_network_by_id(self, context, network_id):
-        network = self.core_plugin.get_network(context,
-                                               network_id)
-        return self.is_vxlan_network(network)
+    def is_network_type_supported(self, network):
+        return any(self.is_of_network_type(network, network_type) for
+                   network_type in self.supported_network_types)
+
+    def is_nuage_hybrid_mpls_network(self, network):
+        return self.is_of_network_type(network,
+                                       constants.NUAGE_HYBRID_MPLS_NET_TYPE)
 
     def _validate_config_for_nuage_driver(self, nuage_driver,
                                           min_required_service_plugins,
