@@ -198,6 +198,12 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+        - networking-nuage-tempest-api-switchdev:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
