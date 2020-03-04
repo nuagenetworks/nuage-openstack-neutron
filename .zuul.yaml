@@ -75,6 +75,7 @@
         - networking-nuage-tempest-scenario
         - networking-nuage-tempest-cli
         - tempest-full-py3
+        - networking-nuage-tempest-api-switchdev
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp
