@@ -1,19 +1,23 @@
 - project:
     templates:
       - openstack-python-jobs
-      - openstack-python36-jobs
     check:
       jobs:
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
+            required-projects: &required-projects-rocky
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.9.0
+
     gate:
       jobs:
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
+            required-projects: *required-projects-rocky
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -160,6 +164,7 @@
             vars:
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+            required-projects: *required-projects-rocky
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -351,7 +356,8 @@
     timeout: 9000
     required-projects:
       - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
+      - name: openstack/neutron-tempest-plugin
+        override-checkout: 0.9.0
       - OpenStack/nuage-openstack-neutronclient
       - OpenStack/nuage-tempest-plugin
       - openstack/neutron-tempest-plugin
