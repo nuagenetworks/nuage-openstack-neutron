@@ -384,6 +384,12 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     raise exceptions.NuageBadRequest(msg=msg)
                 gw = gws[0]
 
+                # gridinv: following code should be removed when
+                # we have proper support of native vlan on cisco/netconf
+                if ('NETCONF_THIRDPARTY' in gw['gw_type'] and
+                        segmentation_id == 0):
+                    return
+
                 port_id = gwport['port_id']
                 params = {
                     'gatewayport': port_id,
