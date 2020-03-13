@@ -7,9 +7,6 @@
         - openstack-tox-py27:
             required-projects:
               opendev.org/openstack/neutron
-        - openstack-tox-py36:
-            required-projects:
-              opendev.org/openstack/neutron
         - networking-nuage-tempest-smoke:
             vars:
               devstack_localrc:
@@ -24,9 +21,6 @@
             required-projects:
               opendev.org/openstack/neutron
         - openstack-tox-py27:
-            required-projects:
-              opendev.org/openstack/neutron
-        - openstack-tox-py36:
             required-projects:
               opendev.org/openstack/neutron
         - networking-nuage-tempest-smoke:
