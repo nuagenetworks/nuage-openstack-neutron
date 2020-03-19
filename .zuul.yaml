@@ -26,6 +26,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     sriov:
       jobs:
         - networking-nuage-tempest-sriov:
@@ -34,12 +35,14 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal:
@@ -48,6 +51,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     full:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -56,30 +60,35 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-baremetal:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-scenario:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -88,6 +97,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     fwaas:
       jobs:
         - legacy-tempest-aio-fwaas
@@ -100,6 +110,7 @@
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/octavia-tempest-plugin /opt/stack/nuage-octavia-tempest-plugin"'
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects-rocky
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
@@ -107,6 +118,7 @@
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/octavia-tempest-plugin /opt/stack/nuage-octavia-tempest-plugin"'
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects-rocky
     sfc:
       jobs:
         - legacy-tempest-aio-sfc
@@ -118,6 +130,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev:
@@ -126,6 +139,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     cli:
       jobs:
         - networking-nuage-tempest-cli:
@@ -134,6 +148,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     aggregateflows:
       jobs:
         - networking-nuage-tempest-aggregateflows:
@@ -142,6 +157,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     scenario:
       jobs:
         - networking-nuage-tempest-scenario:
@@ -150,6 +166,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     scale:
       jobs:
         - networking-nuage-tempest-scale:
@@ -158,6 +175,7 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     upstream:
       jobs:
         - tempest-full:
@@ -173,42 +191,49 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-baremetal:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-cli:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-scenario:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - tempest-full:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-api-switchdev:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -217,18 +242,21 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-rally-task:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
@@ -237,24 +265,28 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-tempest-scale:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects-rocky
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects-rocky
 
 - job:
     name: networking-nuage-rally-task
