@@ -26,54 +26,38 @@
       jobs:
         - networking-nuage-tempest-virtio-5.4:
             override-checkout: stable/rocky
-            required-projects:
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
-        - networking-nuage-tempest-sriov-5.4:
-            override-checkout: stable/rocky
-            required-projects:
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
-        - networking-nuage-tempest-baremetal-5.4:
-            override-checkout: stable/rocky
-            required-projects:
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
-        - networking-nuage-tempest-cli-5.4:
-            override-checkout: stable/rocky
-            required-projects:
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
-        - networking-nuage-tempest-scenario-5.4:
-            override-checkout: stable/rocky
-            required-projects:
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
-        - tempest-full-5.4:
-            override-checkout: stable/rocky
-            required-projects:
+            required-projects: &required-projects-rocky-54
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/rocky
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.9.0
+        - networking-nuage-tempest-sriov-5.4:
+            override-checkout: stable/rocky
+            required-projects: *required-projects-rocky-54
+        - networking-nuage-tempest-baremetal-5.4:
+            override-checkout: stable/rocky
+            required-projects: *required-projects-rocky-54
+        - networking-nuage-tempest-cli-5.4:
+            override-checkout: stable/rocky
+            required-projects: *required-projects-rocky-54
+        - networking-nuage-tempest-scenario-5.4:
+            override-checkout: stable/rocky
+            required-projects: *required-projects-rocky-54
+        - tempest-full-5.4:
+            override-checkout: stable/rocky
+            required-projects: *required-projects-rocky-54
 
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp-5.4:
             override-checkout: stable/rocky
-            required-projects:
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
+            required-projects: *required-projects-rocky-54
         - networking-nuage-tempest-sriov-flat-vlan-5.4:
             override-checkout: stable/rocky
-            required-projects:
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
+            required-projects: *required-projects-rocky-54
 
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-lbaas-5.4:
             override-checkout: stable/rocky
-            required-projects:
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
+            required-projects: *required-projects-rocky-54
