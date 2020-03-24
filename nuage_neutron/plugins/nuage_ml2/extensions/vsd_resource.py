@@ -39,7 +39,7 @@ RESOURCE_ATTRIBUTE_MAP = {
         'tunnel_type': READONLY,
         'ecmp_count': READONLY,
         'dhcp_managed': READONLY,
-        'ip_type': READONLY,
+        'ip_version': READONLY,
         'cidr': READONLY,
         'ipv6_cidr': READONLY,
         'gateway': READONLY,
