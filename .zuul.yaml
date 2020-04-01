@@ -4,95 +4,243 @@
     check:
       jobs:
         - openstack-tox-pep8
-        - networking-nuage-tempest-smoke-py3
+        - networking-nuage-tempest-smoke-py3:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: &required-projects-stein
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 6.0/stein
+              - name: OpenStack/nuage-openstack-neutronclient
+                override-checkout: 6.0/stein
     gate:
       jobs:
         - openstack-tox-pep8
-        - networking-nuage-tempest-smoke-py3
+        - networking-nuage-tempest-smoke-py3:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     virtio:
       jobs:
-        - networking-nuage-tempest-virtio-py3
+        - networking-nuage-tempest-virtio-py3:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     sriov:
       jobs:
-        - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-sriov-flat-vlan
+        - networking-nuage-tempest-sriov:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-sriov-flat-vlan:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     baremetal:
       jobs:
-        - networking-nuage-tempest-baremetal
+        - networking-nuage-tempest-baremetal:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     full:
       jobs:
-        - networking-nuage-tempest-virtio-py3
-        - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-sriov-flat-vlan
-        - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-scenario
+        - networking-nuage-tempest-virtio-py3:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-sriov:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-sriov-flat-vlan:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-baremetal:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-scenario:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     agent:
       jobs:
-        - networking-nuage-tempest-qdhcp
+        - networking-nuage-tempest-qdhcp:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     octavia:
       jobs:
         - networking-nuage-octavia:
+            override-checkout: stable/stein
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects-stein
         - networking-nuage-octavia-standby:
+            override-checkout: stable/stein
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects-stein
     sfc:
       jobs:
-        - legacy-tempest-aio-sfc
+        - legacy-tempest-aio-sfc:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     rally:
       jobs:
-        - networking-nuage-rally-task
+        - networking-nuage-rally-task:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     switchdev:
       jobs:
-        - networking-nuage-tempest-api-switchdev
+        - networking-nuage-tempest-api-switchdev:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     cli:
       jobs:
-        - networking-nuage-tempest-cli
+        - networking-nuage-tempest-cli:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     aggregateflows:
       jobs:
-        - networking-nuage-tempest-aggregateflows
+        - networking-nuage-tempest-aggregateflows:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     scenario:
       jobs:
-        - networking-nuage-tempest-scenario
+        - networking-nuage-tempest-scenario:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     scale:
       jobs:
-        - networking-nuage-tempest-scale
+        - networking-nuage-tempest-scale:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     upstream:
       jobs:
-        - tempest-full-py3
+        - tempest-full-py3:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     experimental:
       jobs:
         - networking-nuage-tempest-smoke-py3:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
             nodeset: openstack-single-node-rhel7
+            required-projects: *required-projects-stein
     periodic:
       jobs:
-        - networking-nuage-tempest-virtio-py3
-        - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-scenario
-        - networking-nuage-tempest-cli
-        - tempest-full-py3
-        - networking-nuage-tempest-api-switchdev
+        - networking-nuage-tempest-virtio-py3:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-sriov:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-baremetal:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-scenario:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-cli:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - tempest-full-py3:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-api-switchdev:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     periodic-saturday:
       jobs:
-        - networking-nuage-tempest-qdhcp
-        - networking-nuage-tempest-sriov-flat-vlan
-        - networking-nuage-rally-task
+        - networking-nuage-tempest-qdhcp:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-sriov-flat-vlan:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-rally-task:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
     periodic-sunday:
       jobs:
-        - networking-nuage-tempest-aggregateflows
-        - networking-nuage-tempest-scale
+        - networking-nuage-tempest-aggregateflows:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
+        - networking-nuage-tempest-scale:
+            override-checkout: stable/stein
+            vars:
+              vsp_release: 6.0
+            required-projects: *required-projects-stein
         - networking-nuage-octavia:
+            override-checkout: stable/stein
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects-stein
         - networking-nuage-octavia-standby:
+            override-checkout: stable/stein
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects-stein
 - job:
     name: networking-nuage-rally-task
     parent: rally-task-at-devstack
@@ -104,6 +252,7 @@
       - name: opendev.org/openstack/rally
       - name: opendev.org/openstack/rally-openstack
       - name: OpenStack/nuage-openstack-neutron
+        override-checkout: 6.0/stein
     pre-run: playbooks/pre-run.yaml
     irrelevant-files:
       - ^(test-|)requirements.txt$
@@ -117,7 +266,7 @@
       use_pypi: true
       nuage_fip_range: "172.{{ 255 | random }}.{{ 255 | random }}"
       devstack_plugins:
-        rally-openstack: https://opendev.org/openstack/rally-openstack
+        rally-openstack: https://this.url.is.not.used.but.needs.to.stay
         nuage-openstack-neutron: https://github.com/nuagenetworks/nuage-openstack-neutron.git
       devstack_services:
         q-agt: false
@@ -154,38 +303,54 @@
     timeout: 10800
     required-projects:
       - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
+      - name: OpenStack/nuage-openstack-neutron
+        override-checkout: 6.0/stein
+      - name: OpenStack/nuage-openstack-neutronclient
+        override-checkout: 6.0/stein
       - OpenStack/nuage-tempest-plugin
-      - openstack/neutron-tempest-plugin
-      - openstack/placement
-      - openstack/python-neutronclient
-      - openstack/tempest
+      - opendev.org/openstack/neutron-tempest-plugin
+      - opendev.org/openstack/placement
+      - opendev.org/openstack/python-neutronclient
+      - opendev.org/openstack/tempest
 
 - job:
     name: legacy-tempest-aio-sfc
     parent: legacy-dsvm-base
     run: playbooks/tempest-aio-sfc/run.yaml
     post-run: playbooks/tempest-aio-sfc/post.yaml
+    override-checkout: stable/stein
     vars:
+      vsp_release: 6.0
       job_flavor: sfc
       branch_override: default
     timeout: 9000
     required-projects:
       - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
+      - name: OpenStack/nuage-openstack-neutron
+        override-checkout: 6.0/stein
+      - name: OpenStack/nuage-openstack-neutronclient
+        override-checkout: 6.0/stein
       - OpenStack/nuage-tempest-plugin
-      - openstack/networking-sfc
-      - openstack/neutron-tempest-plugin
-      - openstack/placement
-      - openstack/python-neutronclient
-      - openstack/tempest
+      - opendev.org/openstack/networking-sfc
+      - opendev.org/openstack/neutron-tempest-plugin
+      - opendev.org/openstack/placement
+      - opendev.org/openstack/python-neutronclient
+      - opendev.org/openstack/tempest
 
 - job:
     name: legacy-tempest-aio-client  # used by nuage-openstack-neutronclient
     parent: legacy-tempest-aio-base
+    override-checkout: stable/stein
     vars:
+      vsp_release: 6.0
       job_flavor: neutronclient
     timeout: 9000
-
+    required-projects:
+      - OpenStack/nuage-gate-utils
+      - name: OpenStack/nuage-openstack-neutron
+        override-checkout: 6.0/stein
+      - name: OpenStack/nuage-openstack-neutronclient
+        override-checkout: 6.0/stein
+      - OpenStack/nuage-tempest-plugin
+      - opendev.org/openstack/neutron-tempest-plugin
+      - opendev.org/openstack/tempest
