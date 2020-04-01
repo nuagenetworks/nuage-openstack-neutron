@@ -4,24 +4,33 @@
     check:
       jobs:
         - networking-nuage-tempest-smoke:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
             required-projects: &required-projects-rocky
-              - name: openstack/neutron-tempest-plugin
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 6.0/rocky
+              - name: OpenStack/nuage-openstack-neutronclient
+                override-checkout: 6.0/rocky
+              - name: opendev.org/openstack/neutron-tempest-plugin
                 override-checkout: 0.9.0
-
     gate:
       jobs:
         - networking-nuage-tempest-smoke:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
             required-projects: *required-projects-rocky
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -30,14 +39,18 @@
     sriov:
       jobs:
         - networking-nuage-tempest-sriov:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -46,7 +59,9 @@
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -55,35 +70,45 @@
     full:
       jobs:
         - networking-nuage-tempest-virtio:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-baremetal:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-scenario:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -92,7 +117,9 @@
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -104,7 +131,9 @@
     octavia:
       jobs:
         - networking-nuage-octavia:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -112,7 +141,9 @@
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-rocky
         - networking-nuage-octavia-standby:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -125,7 +156,9 @@
     rally:
       jobs:
         - networking-nuage-rally-task:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -134,7 +167,9 @@
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -143,7 +178,9 @@
     cli:
       jobs:
         - networking-nuage-tempest-cli:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -152,7 +189,9 @@
     aggregateflows:
       jobs:
         - networking-nuage-tempest-aggregateflows:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -161,7 +200,9 @@
     scenario:
       jobs:
         - networking-nuage-tempest-scenario:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -170,7 +211,9 @@
     scale:
       jobs:
         - networking-nuage-tempest-scale:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -179,56 +222,72 @@
     upstream:
       jobs:
         - tempest-full:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
             required-projects: *required-projects-rocky
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-baremetal:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-cli:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-scenario:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - tempest-full:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-api-switchdev:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -237,21 +296,27 @@
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-rally-task:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -260,28 +325,36 @@
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-scale:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-octavia:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-rocky
         - networking-nuage-octavia-standby:
+            override-checkout: stable/rocky
             vars:
+              vsp_release: 6.0
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -299,7 +372,7 @@
       - name: opendev.org/openstack/rally
       - name: opendev.org/openstack/rally-openstack
       - name: OpenStack/nuage-openstack-neutron
-    pre-run: playbooks/pre-run.yaml
+        override-checkout: 6.0/rocky
     irrelevant-files:
       - ^(test-|)requirements.txt$
       - ^.*\.rst$
@@ -309,6 +382,7 @@
       - ^tools/.*$
       - ^tox.ini$
     vars:
+      vsp_release: 6.0
       use_pypi: true
       nuage_fip_range: "172.{{ 255 | random }}.{{ 255 | random }}"
       devstack_plugins:
@@ -343,13 +417,16 @@
     run: playbooks/tempest-aio-sfc/run.yaml
     post-run: playbooks/tempest-aio-sfc/post.yaml
     vars:
+      vsp_release: 6.0
       job_flavor: sfc
       branch_override: default
     timeout: 9000
     required-projects:
       - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
+      - name: OpenStack/nuage-openstack-neutron
+        override-checkout: 6.0/rocky
+      - name: OpenStack/nuage-openstack-neutronclient
+        override-checkout: 6.0/rocky
       - OpenStack/nuage-tempest-plugin
       - openstack/networking-sfc
       - openstack/neutron-tempest-plugin
@@ -363,13 +440,16 @@
     run: playbooks/tempest-aio-fwaas/run.yaml
     post-run: playbooks/tempest-aio-fwaas/post.yaml
     vars:
+      vsp_release: 6.0
       job_flavor: fwaas
       branch_override: default
     timeout: 9000
     required-projects:
       - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
+      - name: OpenStack/nuage-openstack-neutron
+        override-checkout: 6.0/rocky
+      - name: OpenStack/nuage-openstack-neutronclient
+        override-checkout: 6.0/rocky
       - OpenStack/nuage-tempest-plugin
       - openstack/neutron-fwaas
       - openstack/neutron-tempest-plugin
@@ -382,15 +462,19 @@
     post-run: playbooks/tempest-aio-ml2/post.yaml
     nodeset: devstack-single-node
     vars:
+      vsp_release: 6.0
       job_flavor: neutronclient
       python3: False
       branch_override: default
     timeout: 9000
     required-projects:
       - OpenStack/nuage-gate-utils
-      - name: openstack/neutron-tempest-plugin
+      - name: opendev.org/openstack/neutron-tempest-plugin
         override-checkout: 0.9.0
-      - OpenStack/nuage-openstack-neutronclient
+      - name: OpenStack/nuage-openstack-neutron
+        override-checkout: 6.0/rocky
+      - name: OpenStack/nuage-openstack-neutronclient
+        override-checkout: 6.0/rocky
       - OpenStack/nuage-tempest-plugin
       - openstack/neutron-tempest-plugin
       - openstack/tempest
