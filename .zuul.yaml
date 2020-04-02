@@ -45,10 +45,16 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
+              devstack_localrc: &remove-mpls-driver-devstack
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: &remove-mpls-driver-tempest
+                test-config:
+                  $TEMPEST_CONFIG:
+                    neutron_plugin_options:
+                      available_type_drivers: flat,vlan,local,vxlan
             required-projects: *required-projects-queens
     sriov:
       jobs:
@@ -56,19 +62,15 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens
     baremetal:
       jobs:
@@ -87,28 +89,22 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens
         - networking-nuage-tempest-sriov:
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/queens
@@ -189,10 +185,8 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens-minimal
     cli:
       jobs:
@@ -253,19 +247,15 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens-minimal
         - networking-nuage-tempest-sriov:
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens-minimal
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/queens
@@ -307,10 +297,8 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens-minimal
     periodic-saturday:
       jobs:
@@ -327,10 +315,8 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens-minimal
         - networking-nuage-rally-task:
             override-checkout: stable/queens
