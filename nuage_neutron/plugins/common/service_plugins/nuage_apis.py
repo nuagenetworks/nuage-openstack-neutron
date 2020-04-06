@@ -512,13 +512,13 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             # L2
             'net_partition_id': 'net_partition_id',
             'dhcp_managed': 'dhcp_managed',
-            'IPType': 'ip_type',
+            'IPType': 'ip_version',
             'ipv4_cidr': 'cidr',
             'IPv6Address': 'ipv6_cidr',
             'ipv4_gateway': 'gateway',
             'IPv6Gateway': 'ipv6_gateway',
-            'enableDHCPv4': 'ipv4_enable_dhcp',
-            'enableDHCPv6': 'ipv6_enable_dhcp',
+            'enableDHCPv4': 'enable_dhcpv4',
+            'enableDHCPv6': 'enable_dhcpv6',
 
             # L3
             'parentID': 'net_partition_id',
