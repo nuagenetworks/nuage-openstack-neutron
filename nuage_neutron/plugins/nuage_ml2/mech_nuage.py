@@ -1514,7 +1514,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         if not subnet_mapping:
             return
 
-        if not self.needs_vport_creation(port.get('device_owner')):
+        is_network_external = network.get('router:external')
+        if not self._should_act_on_port(port, is_network_external):
             # GW host vport cleanup
             self.delete_gw_host_vport(db_context, port, subnet_mapping)
             return
@@ -1566,9 +1567,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 with excutils.save_and_reraise_exception():
                     for rollback in reversed(rollbacks):
                         rollback[0](*rollback[1], **rollback[2])
-        elif not nuage_vport \
-                and os_constants.DEVICE_OWNER_DHCP in port.get('device_owner'):
-            return
         else:
             self.delete_gw_host_vport(db_context, port, subnet_mapping)
             return
