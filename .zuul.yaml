@@ -15,6 +15,12 @@
               vsp_release: 6.0
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: &remove-mpls-driver-tempest
+                test-config:
+                  $TEMPEST_CONFIG:
+                    neutron_plugin_options:
+                      available_type_drivers: flat,vlan,local,vxlan
             required-projects: &required-projects-queens
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 6.0/queens
@@ -38,6 +44,8 @@
               vsp_release: 6.0
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens
     virtio:
       jobs:
@@ -50,11 +58,7 @@
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
                 Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
-              devstack_local_conf: &remove-mpls-driver-tempest
-                test-config:
-                  $TEMPEST_CONFIG:
-                    neutron_plugin_options:
-                      available_type_drivers: flat,vlan,local,vxlan
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens
     sriov:
       jobs:
@@ -130,10 +134,8 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens
     fwaas:
       jobs:
@@ -306,10 +308,8 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens-minimal
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/queens
@@ -351,6 +351,9 @@
             override-checkout: stable/queens
             vars:
               vsp_release: 6.0
+              devstack_localrc:
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-queens-minimal
         - networking-nuage-octavia:
             override-checkout: stable/queens
