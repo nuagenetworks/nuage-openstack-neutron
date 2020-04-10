@@ -134,7 +134,15 @@
                 override-checkout: 0.3.0
     fwaas:
       jobs:
-        - legacy-tempest-aio-fwaas
+        - networking-nuage-fwaas-v1:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
     octavia:
       jobs:
         - networking-nuage-octavia:
@@ -440,26 +448,6 @@
       - name: openstack/neutron-tempest-plugin
         override-checkout: 0.3.0
       - openstack/python-neutronclient
-      - openstack/tempest
-
-- job:
-    name: legacy-tempest-aio-fwaas
-    parent: legacy-dsvm-base
-    run: playbooks/tempest-aio-fwaas/run.yaml
-    post-run: playbooks/tempest-aio-fwaas/post.yaml
-    nodeset: devstack-single-node
-    vars:
-      job_flavor: fwaas
-      branch_override: default
-    timeout: 9000
-    required-projects:
-      - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
-      - OpenStack/nuage-tempest-plugin
-      - openstack/neutron-fwaas
-      - name: openstack/neutron-tempest-plugin
-        override-checkout: 0.3.0
       - openstack/tempest
 
 - job:
