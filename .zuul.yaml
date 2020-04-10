@@ -8,6 +8,13 @@
             override-checkout: stable/stein
             vars:
               vsp_release: 6.0
+              devstack_localrc: &remove-mpls-driver-devstack
+                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+              devstack_local_conf: &remove-mpls-driver-tempest
+                test-config:
+                  $TEMPEST_CONFIG:
+                    neutron_plugin_options:
+                      available_type_drivers: flat,vlan,local,vxlan
             required-projects: &required-projects-stein
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 6.0/stein
@@ -20,6 +27,8 @@
             override-checkout: stable/stein
             vars:
               vsp_release: 6.0
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
     virtio:
       jobs:
@@ -27,13 +36,8 @@
             override-checkout: stable/stein
             vars:
               vsp_release: 6.0
-              devstack_localrc: &remove-mpls-driver-devstack
-                Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
-              devstack_local_conf: &remove-mpls-driver-tempest
-                test-config:
-                  $TEMPEST_CONFIG:
-                    neutron_plugin_options:
-                      available_type_drivers: flat,vlan,local,vxlan
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
     sriov:
       jobs:
@@ -97,6 +101,8 @@
             override-checkout: stable/stein
             vars:
               vsp_release: 6.0
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
     octavia:
       jobs:
@@ -178,6 +184,8 @@
             override-checkout: stable/stein
             vars:
               vsp_release: 6.0
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             nodeset: openstack-single-node-rhel7
             required-projects: *required-projects-stein
     periodic:
@@ -229,6 +237,8 @@
             override-checkout: stable/stein
             vars:
               vsp_release: 6.0
+              devstack_localrc: *remove-mpls-driver-devstack
+              devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/stein
