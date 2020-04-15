@@ -100,7 +100,13 @@
             required-projects: *required-projects-rocky
     fwaas:
       jobs:
-        - legacy-tempest-aio-fwaas
+        - networking-nuage-fwaas-v1:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     octavia:
       jobs:
         - networking-nuage-octavia:
@@ -257,6 +263,13 @@
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
+        - networking-nuage-fwaas-v1:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects: *required-projects-rocky
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
@@ -355,24 +368,6 @@
       - openstack/neutron-tempest-plugin
       - openstack/placement
       - openstack/python-neutronclient
-      - openstack/tempest
-
-- job:
-    name: legacy-tempest-aio-fwaas
-    parent: legacy-dsvm-base
-    run: playbooks/tempest-aio-fwaas/run.yaml
-    post-run: playbooks/tempest-aio-fwaas/post.yaml
-    vars:
-      job_flavor: fwaas
-      branch_override: default
-    timeout: 9000
-    required-projects:
-      - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
-      - OpenStack/nuage-tempest-plugin
-      - openstack/neutron-fwaas
-      - openstack/neutron-tempest-plugin
       - openstack/tempest
 
 - job:
