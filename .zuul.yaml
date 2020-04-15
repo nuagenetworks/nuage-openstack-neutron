@@ -337,6 +337,15 @@
             required-projects:
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
+        - networking-nuage-fwaas-v1:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
