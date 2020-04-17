@@ -724,11 +724,12 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 context,
                 id,
                 copy.deepcopy(router))
-
+            rollback_router_updates = {key: original_router[key] for key
+                                       in updates.keys()}
             on_exc(super(NuageL3Plugin, self).update_router,
                    context,
                    id,
-                   {'router': copy.deepcopy(original_router)})
+                   {'router': copy.deepcopy(rollback_router_updates)})
 
             if 'routes' in updates:
                 self._update_nuage_router_static_routes(id,
