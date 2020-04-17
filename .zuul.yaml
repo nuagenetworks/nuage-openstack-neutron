@@ -120,7 +120,22 @@
             required-projects:
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
-
+        - networking-nuage-vtep-vlan-upstream:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
+        - networking-nuage-vtep-vlan-nuage:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -308,6 +323,14 @@
             required-projects:
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
+        - networking-nuage-vtep-vlan-upstream:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -343,6 +366,22 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
+        - networking-nuage-vtep-vxlan:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
+        - networking-nuage-vtep-vlan-nuage:
+            vars:
+              devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
             required-projects:
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
@@ -501,4 +540,3 @@
         override-checkout: '5.4'
       - name: openstack/neutron-tempest-plugin
         override-checkout: 0.3.0
-
