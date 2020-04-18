@@ -7,7 +7,7 @@
         - networking-nuage-tempest-smoke-py3:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: &remove-mpls-driver-devstack
                 Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
               devstack_local_conf: &remove-mpls-driver-tempest
@@ -26,7 +26,7 @@
         - networking-nuage-tempest-smoke-py3:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
@@ -35,7 +35,7 @@
         - networking-nuage-tempest-virtio-py3:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
@@ -44,14 +44,14 @@
         - networking-nuage-tempest-sriov:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
@@ -60,47 +60,47 @@
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     full:
       jobs:
         - networking-nuage-tempest-virtio-py3:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-tempest-sriov:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
         - networking-nuage-tempest-scenario:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
@@ -109,14 +109,14 @@
         - networking-nuage-octavia:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-stein
         - networking-nuage-octavia-standby:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-stein
@@ -125,21 +125,21 @@
         - legacy-tempest-aio-sfc:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     rally:
       jobs:
         - networking-nuage-rally-task:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
@@ -148,42 +148,42 @@
         - networking-nuage-tempest-cli:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     aggregateflows:
       jobs:
         - networking-nuage-tempest-aggregateflows:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     scenario:
       jobs:
         - networking-nuage-tempest-scenario:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     scale:
       jobs:
         - networking-nuage-tempest-scale:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     upstream:
       jobs:
         - tempest-full-py3:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     experimental:
       jobs:
         - networking-nuage-tempest-smoke-py3:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             nodeset: openstack-single-node-rhel7
@@ -193,41 +193,41 @@
         - networking-nuage-tempest-virtio-py3:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-tempest-sriov:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
         - networking-nuage-tempest-scenario:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
         - networking-nuage-tempest-cli:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
         - tempest-full-py3:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
         - networking-nuage-tempest-api-switchdev:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
@@ -236,45 +236,45 @@
         - networking-nuage-tempest-qdhcp:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-stein
         - networking-nuage-rally-task:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
         - networking-nuage-tempest-scale:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
             required-projects: *required-projects-stein
         - networking-nuage-octavia:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-stein
         - networking-nuage-octavia-standby:
             override-checkout: stable/stein
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-stein
@@ -357,7 +357,7 @@
     post-run: playbooks/tempest-aio-sfc/post.yaml
     override-checkout: stable/stein
     vars:
-      vsp_release: 6.0
+      vsp_release: '6.0'
       job_flavor: sfc
       branch_override: default
     timeout: 9000
@@ -379,7 +379,7 @@
     parent: legacy-tempest-aio-base
     override-checkout: stable/stein
     vars:
-      vsp_release: 6.0
+      vsp_release: '6.0'
       job_flavor: neutronclient
     timeout: 9000
     required-projects:
