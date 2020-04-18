@@ -6,7 +6,7 @@
         - networking-nuage-tempest-smoke:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
                 Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
@@ -27,7 +27,7 @@
         - networking-nuage-tempest-smoke:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
                 Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
@@ -38,7 +38,7 @@
         - networking-nuage-tempest-virtio:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: &remove-mpls-driver-devstack
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -51,14 +51,14 @@
         - networking-nuage-tempest-sriov:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
@@ -67,7 +67,7 @@
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -78,28 +78,28 @@
         - networking-nuage-tempest-virtio:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -108,7 +108,7 @@
         - networking-nuage-tempest-scenario:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -119,7 +119,7 @@
         - networking-nuage-tempest-qdhcp:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
@@ -131,7 +131,7 @@
         - networking-nuage-octavia:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -141,7 +141,7 @@
         - networking-nuage-octavia-standby:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -156,7 +156,7 @@
         - networking-nuage-rally-task:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -167,7 +167,7 @@
         - networking-nuage-tempest-api-switchdev:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
@@ -176,7 +176,7 @@
         - networking-nuage-tempest-cli:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -187,7 +187,7 @@
         - networking-nuage-tempest-aggregateflows:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -198,7 +198,7 @@
         - networking-nuage-tempest-scenario:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -209,7 +209,7 @@
         - networking-nuage-tempest-scale:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -220,7 +220,7 @@
         - tempest-full:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
             required-projects: *required-projects-rocky
@@ -229,21 +229,21 @@
         - networking-nuage-tempest-virtio:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -252,7 +252,7 @@
         - networking-nuage-tempest-cli:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -261,7 +261,7 @@
         - networking-nuage-tempest-scenario:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -270,7 +270,7 @@
         - tempest-full:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -279,7 +279,7 @@
         - networking-nuage-tempest-api-switchdev:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
@@ -288,21 +288,21 @@
         - networking-nuage-tempest-qdhcp:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc: *remove-mpls-driver-devstack
               devstack_local_conf: *remove-mpls-driver-tempest
             required-projects: *required-projects-rocky
         - networking-nuage-rally-task:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -313,7 +313,7 @@
         - networking-nuage-tempest-aggregateflows:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -322,7 +322,7 @@
         - networking-nuage-tempest-scale:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -331,7 +331,7 @@
         - networking-nuage-octavia:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -340,7 +340,7 @@
         - networking-nuage-octavia-standby:
             override-checkout: stable/rocky
             vars:
-              vsp_release: 6.0
+              vsp_release: '6.0'
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
@@ -369,7 +369,7 @@
       - ^tools/.*$
       - ^tox.ini$
     vars:
-      vsp_release: 6.0
+      vsp_release: '6.0'
       use_pypi: true
       nuage_fip_range: "172.{{ 255 | random }}.{{ 255 | random }}"
       devstack_plugins:
@@ -404,7 +404,7 @@
     run: playbooks/tempest-aio-sfc/run.yaml
     post-run: playbooks/tempest-aio-sfc/post.yaml
     vars:
-      vsp_release: 6.0
+      vsp_release: '6.0'
       job_flavor: sfc
       branch_override: default
     timeout: 9000
@@ -427,7 +427,7 @@
     run: playbooks/tempest-aio-fwaas/run.yaml
     post-run: playbooks/tempest-aio-fwaas/post.yaml
     vars:
-      vsp_release: 6.0
+      vsp_release: '6.0'
       job_flavor: fwaas
       branch_override: default
     timeout: 9000
@@ -449,7 +449,7 @@
     post-run: playbooks/tempest-aio-ml2/post.yaml
     nodeset: devstack-single-node
     vars:
-      vsp_release: 6.0
+      vsp_release: '6.0'
       job_flavor: neutronclient
       python3: False
       branch_override: default
