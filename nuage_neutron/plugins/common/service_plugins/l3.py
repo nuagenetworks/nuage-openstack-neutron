@@ -335,7 +335,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         with nuage_utils.rollback() as on_exc:
             vsd_subnet = self.vsdclient.create_domain_subnet(
-                vsd_zone, ipv4_subnet, ipv6_subnet, network_name)
+                vsd_zone, ipv4_subnet, ipv6_subnet, network_name,
+                config.ingress_replication_enabled())
 
             on_exc(self.vsdclient.delete_domain_subnet,
                    vsd_subnet['ID'], subnet['id'])
@@ -536,8 +537,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             with session.begin(subtransactions=True):
                 vsd_l2domain = (
                     self.vsdclient.create_l2domain_for_router_detach(
-                        ipv4_subnet, subnet_mapping, ipv6_subnet, ipv4_dhcp_ip,
-                        ipv6_dhcp_ip, config.default_allow_non_ip()))
+                        ipv4_subnet, subnet_mapping, ipv6_subnet,
+                        ipv4_dhcp_ip, ipv6_dhcp_ip,
+                        config.default_allow_non_ip_enabled(),
+                        config.ingress_replication_enabled()))
                 on_exc(self.vsdclient.delete_subnet,
                        l2dom_id=vsd_l2domain['nuage_l2domain_id'])
             result = super(NuageL3Plugin,
@@ -658,7 +661,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         try:
             nuage_router = self.vsdclient.create_l3domain(
                 neutron_router, req_router, net_partition, context.tenant_name,
-                config.default_allow_non_ip())
+                config.default_allow_non_ip_enabled())
         except Exception:
             with excutils.save_and_reraise_exception():
                 super(NuageL3Plugin, self).delete_router(

@@ -9,98 +9,99 @@
 
 # (StrOpt) Hostname or IP address and port of VSD or VSD cluster in URL format.
 #          E.g.:
-#server = vsd.example.com:8443  OR
-#server = 1.1.1.2:8443          OR
-#server = [cafe:babe::2]:8443  (http://www.ietf.org/rfc/rfc2732.txt)
+# server = vsd.example.com:8443  OR
+# server = 1.1.1.2:8443          OR
+# server = [cafe:babe::2]:8443  (http://www.ietf.org/rfc/rfc2732.txt)
 
 # (StrOpt) Organization name in which VSD will orchestrate network resources
 #          using OpenStack.
 #
-#organization = csp
+# organization = csp
 
 # (StrOpt) Username and password of VSD for authentication.
 #
-#serverauth = csproot:csproot
+# serverauth = csproot:csproot
 
 # (BoolOpt) Boolean for SSL connection with VSD server.
 #
-#serverssl = True
+# serverssl = True
 
 # (StrOpt) Nuage provided base uri to reach out to VSD.
 #
-#base_uri = /nuage/api/v6
+# base_uri = /nuage/api/v6
 # (StrOpt) Nuage provided uri for initial authorization to access VSD
 #
-#auth_resource = /me
+# auth_resource = /me
 
 # (StrOpt) Default Network partition in which VSD will orchestrate
 #          network resources using OpenStack.
 #
-#default_net_partition_name = OpenStackDefaultNetPartition
+# default_net_partition_name = OpenStackDefaultNetPartition
 
 # (IntOpt) VSD server invocation timeout.
 #
-#server_timeout = 30
+# server_timeout = 30
 
 # (IntOpt) VSD server invocation retries.
 #
-#server_max_retries = 5
+# server_max_retries = 5
 
 # (IntOpt) VSD server domain delete retries.
 #
-#server_max_retries_on_domain_delete = 5
+# server_max_retries_on_domain_delete = 5
 
 # (IntOpt) Per netpartition quota of floating ips.
 #
-#default_floatingip_quota = 254
+# default_floatingip_quota = 254
 
 # (StrOpt) ID of the l3domain template to use when creating l3domains.
 #
-#default_l3domain_template = ''
+# default_l3domain_template = ''
 
 # (StrOpt) ID of the l2domain template to use when creating l2domains.
 #
-#default_l3domain_template = ''
+# default_l3domain_template = ''
 
 # (StrOpt) ID of the zone to use as isolated zone when creating l3domains.
 #
-#default_isolated_zone = ''
+# default_isolated_zone = ''
 
 # (StrOpt) ID of the zone to use as shared zone when creating l3domains.
 #
-#default_shared_zone = ''
+# default_shared_zone = ''
 
 # (StrOpt) Default underlay setting of an l3domain, when no explicit option
 #          is given on router create. One of [snat, route, off, not_available]
-#nuage_underlay_default=off
+#
+# nuage_underlay_default = off
 
 # (BoolOpt) Underlay setting of a l3domain.
 #
-#nuage_fip_underlay = False
+# nuage_fip_underlay = False
 
 # (StrOpt) ID of a Cloud Management System on the VSD which identifies this
 #          OpenStack deployment. This must be equal on every neutron instance.
 #
-#cms_id = None
+# cms_id = None
 
 # (StrOpt) ID of parent of fip pool subnet in VSD.
 #
-#nuage_uplink = None
+# nuage_uplink = None
 
 
 [FIPRATE]
 
 # (StrOpt) Location of the log file for logging fip related actions.
 #
-#fip_rate_change_log = ''
+# fip_rate_change_log = ''
 
 # (IntOpt) FIP rate limit in ingress direction in kbps.
 #
-#default_ingress_fip_rate_kbps = -1
+# default_ingress_fip_rate_kbps = -1
 
 # (IntOpt) FIP rate limit in egress direction in kbps.
 #
-#default_egress_fip_rate_kbps = None
+# default_egress_fip_rate_kbps = None
 
 
 [PLUGIN]
@@ -108,18 +109,22 @@
 # (ListOpt) List of device_owner prefixes for which vports are not created
 #           in VSD.
 #
-#device_owner_prefix = []
+# device_owner_prefix = []
 
 # (BoolOpt) Set to True to enable flow logging on all policy entries.
 #           Changing this does not affect existing policy entries.
 #
-#flow_logging_enabled = False
+# flow_logging_enabled = False
 
 # (BoolOpt) Set to True to enable statistics collection on all policy entries.
 #           Changing this does not affect existing policy entries.
 #
-#stats_collection_enabled = False
+# stats_collection_enabled = False
 
 # (BoolOpt) Set to True to allow non-IP traffic by default.
 #
-#default_allow_non_ip = False
+# default_allow_non_ip = False
+
+# (BoolOpt) Set to True to enable ingress replication for NETCONF.
+#
+# enable_ingress_replication = False
