@@ -40,6 +40,7 @@ from neutron_lib.plugins.ml2 import api
 
 from nuage_neutron.plugins.common.addresspair import NuageAddressPair
 from nuage_neutron.plugins.common import base_plugin
+from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common.exceptions import \
@@ -487,7 +488,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         }
         subnet_params = {
             'resourceType': fip_type,
-            'nuage_uplink': self.get_nuage_uplink(subnet, network_subnets)
+            'nuage_uplink': self.get_nuage_uplink(subnet, network_subnets),
+            'ingressReplicationEnabled': config.ingress_replication_enabled()
         }
         if subnet.get('underlay') in [True, False]:
             subnet_params['underlay'] = subnet.get('underlay')
@@ -676,7 +678,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             'dhcpv6_ip': None,
             'tenant_name': context.tenant_name,
             'network_id': network['id'],
-            'network_name': network['name']
+            'network_name': network['name'],
+            'ingressReplicationEnabled': config.ingress_replication_enabled()
         }
 
         if not already_router_attached:
