@@ -37,6 +37,7 @@ from oslo_utils import excutils
 import six
 
 from nuage_neutron.plugins.common import base_plugin
+from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common.extensions import nuage_router
@@ -327,7 +328,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         with nuage_utils.rollback() as on_exc:
             vsd_subnet = self.vsdclient.create_domain_subnet(
-                vsd_zone, ipv4_subnet, ipv6_subnet, network_name)
+                vsd_zone, ipv4_subnet, ipv6_subnet, network_name,
+                config.ingress_replication_enabled())
 
             on_exc(self.vsdclient.delete_domain_subnet,
                    vsd_subnet['ID'], subnet['id'])
@@ -526,8 +528,9 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             with session.begin(subtransactions=True):
                 vsd_l2domain = (
                     self.vsdclient.create_l2domain_for_router_detach(
-                        ipv4_subnet, subnet_mapping, ipv6_subnet, ipv4_dhcp_ip,
-                        ipv6_dhcp_ip))
+                        ipv4_subnet, subnet_mapping, ipv6_subnet,
+                        ipv4_dhcp_ip, ipv6_dhcp_ip,
+                        config.ingress_replication_enabled()))
                 on_exc(self.vsdclient.delete_subnet,
                        l2dom_id=vsd_l2domain['nuage_l2domain_id'])
             result = super(NuageL3Plugin,
