@@ -263,9 +263,10 @@ class NuageL2Domain(NuageResource):
 
     def post_data(self):
         data = {
-            "name": self.create_params['name'],
-            "templateID": self.create_params['template'],
-            "externalID": get_vsd_external_id(self.create_params['externalID'])
+            'name': self.create_params['name'],
+            'templateID': self.create_params['template'],
+            'externalID': get_vsd_external_id(
+                self.create_params['externalID'])
         }
 
         if self.extra_params:
@@ -398,8 +399,9 @@ class NuageSubnet(NuageResource):
 
     def post_data(self):
         data = {
-            "name": self.create_params['name'],
-            "externalID": get_vsd_external_id(self.create_params['externalID'])
+            'name': self.create_params['name'],
+            'externalID': get_vsd_external_id(
+                self.create_params['externalID'])
         }
         if self.extra_params:
             data.update(self.extra_params)
