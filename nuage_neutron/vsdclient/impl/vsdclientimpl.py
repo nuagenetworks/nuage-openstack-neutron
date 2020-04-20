@@ -222,14 +222,16 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def create_l2domain_for_router_detach(self, ipv4_subnet, subnet_mapping,
                                           ipv6_subnet=None, ipv4_dhcp_ip=None,
                                           ipv6_dhcp_ip=None,
-                                          allow_non_ip=False):
+                                          allow_non_ip=False,
+                                          enable_ingress_replication=False):
         subnet = ipv4_subnet or ipv6_subnet
         req_params = {
             'tenant_id': subnet['tenant_id'],
             'netpart_id': subnet_mapping['net_partition_id'],
             'shared': subnet['shared'],
             'network_name': subnet_mapping['network_name'],
-            'allow_non_ip': allow_non_ip
+            'allow_non_ip': allow_non_ip,
+            'ingressReplicationEnabled': enable_ingress_replication
         }
         if ipv4_subnet:
             req_params['dhcp_ip'] = ipv4_dhcp_ip
@@ -441,9 +443,10 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                                                       os_subnet_id)
 
     def create_domain_subnet(self, vsd_zone, ipv4_subnet, ipv6_subnet,
-                             network_name):
+                             network_name, enable_ingress_replication=False):
         return self.domain.domainsubnet.create_domain_subnet(
-            vsd_zone, ipv4_subnet, ipv6_subnet, network_name)
+            vsd_zone, ipv4_subnet, ipv6_subnet, network_name,
+            enable_ingress_replication)
 
     def validate_create_domain_subnet(self, neutron_subn,
                                       nuage_subnet_id, nuage_rtr_id):

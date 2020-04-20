@@ -741,7 +741,8 @@ class RootNuagePlugin(SubnetUtilsBase):
             'tenant_name': context.tenant_name,
             'network_id': network['id'],
             'network_name': network['name'],
-            'allow_non_ip': config.default_allow_non_ip()
+            'allow_non_ip': config.default_allow_non_ip_enabled(),
+            'ingressReplicationEnabled': config.ingress_replication_enabled()
         }
 
         if self.is_nuage_hybrid_mpls_network(network):
@@ -1145,7 +1146,8 @@ class RootNuagePlugin(SubnetUtilsBase):
         }
         subnet_params = {
             'resourceType': fip_type,
-            'nuage_uplink': self.get_nuage_uplink(subnet, network_subnets)
+            'nuage_uplink': self.get_nuage_uplink(subnet, network_subnets),
+            'ingressReplicationEnabled': config.ingress_replication_enabled()
         }
         if subnet.get('underlay') in [True, False]:
             subnet_params['underlay'] = subnet.get('underlay')
@@ -1207,8 +1209,8 @@ class RootNuagePlugin(SubnetUtilsBase):
                     constants.NUAGE_UNDERLAY_FIP)
 
         with utils_rollback() as on_exc:
-            nuage_subnet = self.vsdclient.create_shared_subnet(zone_id, subnet,
-                                                               subnet_params)
+            nuage_subnet = self.vsdclient.create_shared_subnet(
+                zone_id, subnet, subnet_params)
             on_exc(self.vsdclient.delete_subnet,
                    l3_vsd_subnet_id=nuage_subnet['ID'])
 
