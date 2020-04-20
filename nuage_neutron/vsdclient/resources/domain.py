@@ -631,7 +631,8 @@ class NuageDomainSubnet(object):
             'gateway': subnet['gateway_ip'],
             'resourceType': params['resourceType'],
             'description': subnet['name'],
-            'IPType': constants.IPV4
+            'IPType': constants.IPV4,
+            'ingressReplicationEnabled': params['ingressReplicationEnabled']
         }
         if params.get('underlay'):
             extra_params['underlay'] = params['underlay']
@@ -642,7 +643,7 @@ class NuageDomainSubnet(object):
         return nuage_subnet
 
     def create_domain_subnet(self, vsd_zone, ipv4_subnet, ipv6_subnet,
-                             network_name):
+                             network_name, enable_ingress_replication=False):
         subnet = ipv4_subnet or ipv6_subnet
         net = netaddr.IPNetwork(subnet['cidr'])
         req_params = {
@@ -653,7 +654,9 @@ class NuageDomainSubnet(object):
         description = helper.get_subnet_description(subnet)
         extra_params = {'description': description,
                         'entityState': 'UNDER_CONSTRUCTION',
-                        'dualStackDynamicIPAllocation': False}
+                        'dualStackDynamicIPAllocation': False,
+                        'ingressReplicationEnabled': enable_ingress_replication
+                        }
         if ipv4_subnet:
             extra_params.update({
                 'address': str(net.ip),

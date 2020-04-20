@@ -210,7 +210,7 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
                 'sg': sg,
                 'sg_rules': sg_rules,
                 'sg_type': constants.HARDWARE,
-                'allow_non_ip': config.default_allow_non_ip()
+                'allow_non_ip': config.default_allow_non_ip_enabled()
             }
             if vnic_type in self._supported_vnic_types():
                 vsd_policygroup_id = (
