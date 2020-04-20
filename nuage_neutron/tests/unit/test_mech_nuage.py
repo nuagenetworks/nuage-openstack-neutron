@@ -26,7 +26,6 @@ from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common.exceptions import NuageBadRequest
 from nuage_neutron.plugins.common import nuagedb
-
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver
 from nuage_neutron.vsdclient.impl.vsdclientimpl import VsdClientImpl
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
@@ -494,7 +493,7 @@ class TestNuageMechanismDriver(testtools.TestCase):
     # DEFAULT ALLOW NON IP CHECKS
 
     def test_default_allow_non_ip_not_set(self):
-        self.assertFalse(config.default_allow_non_ip())
+        self.assertFalse(config.default_allow_non_ip_enabled())
 
     def test_default_allow_non_ip_set_empty_string(self):
         try:
@@ -512,7 +511,18 @@ class TestNuageMechanismDriver(testtools.TestCase):
         conf = self.set_config_fixture()
         conf.config(group='PLUGIN', default_allow_non_ip=True)
 
-        self.assertTrue(config.default_allow_non_ip())
+        self.assertTrue(config.default_allow_non_ip_enabled())
+
+    # ENABLE INGRESS REPLICATION
+
+    def test_enable_ingress_replication(self):
+        self.assertFalse(config.ingress_replication_enabled())
+
+    def test_enable_ingress_replication_set(self):
+        conf = self.set_config_fixture()
+        conf.config(group='PLUGIN', enable_ingress_replication=True)
+
+        self.assertTrue(config.ingress_replication_enabled())
 
     # ip utility checks
 
