@@ -148,7 +148,8 @@ class NuageL2Domain(object):
             'address': ext_params.get('address'),
             'IPv6Address': ext_params.get('IPv6Address'),
             'description': ext_params['description'],
-            'IPType': ext_params['IPType']
+            'IPType': ext_params['IPType'],
+            'ingressReplicationEnabled': params['ingressReplicationEnabled']
         }
         nuagel2domain = nuagelib.NuageL2Domain(create_params=req_params,
                                                extra_params=ext_params)
