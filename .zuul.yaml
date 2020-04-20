@@ -20,6 +20,9 @@
                 override-checkout: 6.0/stein
               - name: OpenStack/nuage-openstack-neutronclient
                 override-checkout: 6.0/stein
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 1.0.0
+
     gate:
       jobs:
         - openstack-tox-pep8
