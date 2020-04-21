@@ -19,7 +19,6 @@ import netaddr
 
 from nuage_neutron.plugins.common import constants as plugin_constants
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
-from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper
 from nuage_neutron.vsdclient.common import nuagelib
@@ -143,8 +142,8 @@ class NuageDomain(object):
 
         extra_params = {'FIPUnderlay': params['FIPUnderlay']}
 
-        nuagel3domain, _ = self._create_domain(req_params, extra_params)
-        return nuagel3domain['ID']
+        nuage_l3domain, _ = self._create_domain(req_params, extra_params)
+        return nuage_l3domain['ID']
 
     def create_l3domain(self, neutron_router, router, net_partition,
                         tenant_name):
@@ -188,25 +187,8 @@ class NuageDomain(object):
         extra_params['PATEnabled'] = pat_enabled
         extra_params['underlayEnabled'] = underlay_enabled
 
-        router_dict = {}
-        nuagel3domain, zone_list = self._create_domain(req_params,
-                                                       extra_params)
-        nuage_domain_id = nuagel3domain['ID']
-        external_id = nuagel3domain['externalID']
-        parent_id = nuagel3domain['parentID']
-        router_dict['nuage_external_id'] = strip_cms_id(external_id)
-        router_dict['nuage_parent_id'] = parent_id
-        router_dict['nuage_domain_id'] = nuage_domain_id
-        router_dict['nuage_template_id'] = nuagel3domain.get('templateID')
-        router_dict['rt'] = nuagel3domain.get('routeTarget')
-        router_dict['rd'] = nuagel3domain.get('routeDistinguisher')
-        router_dict['ecmp_count'] = nuagel3domain.get('ECMPCount')
-        router_dict['tunnel_type'] = nuagel3domain.get('tunnelType')
-        router_dict['nuage_backhaul_vnid'] = nuagel3domain.get('backHaulVNID')
-        router_dict['nuage_backhaul_rd'] = (
-            nuagel3domain.get('backHaulRouteDistinguisher'))
-        router_dict['nuage_backhaul_rt'] = (
-            nuagel3domain.get('backHaulRouteTarget'))
+        nuage_l3domain, zone_list = self._create_domain(req_params,
+                                                        extra_params)
 
         isolated_id = None
         shared_id = None
@@ -231,10 +213,8 @@ class NuageDomain(object):
             if not isolated_id or not shared_id:
                 msg = ("Mandatory zones %s or %s do not exist in VSD" % (
                     TEMPLATE_ISOLATED_ZONE, TEMPLATE_SHARED_ZONE))
-                self.delete_l3domain(nuage_domain_id)
+                self.delete_l3domain(nuage_l3domain['ID'])
                 raise restproxy.ResourceNotFoundException(msg)
-            router_dict['nuage_def_zone_id'] = isolated_id
-            router_dict['nuage_shared_zone_id'] = shared_id
             self._make_nuage_zone_shared(net_partition['id'], shared_id,
                                          neutron_router['tenant_id'])
         elif net_partition.get('isolated_zone', None):
@@ -254,11 +234,9 @@ class NuageDomain(object):
                     id=neutron_router['id'])
             if not isolated_id or not shared_id:
                 msg = "Default zones do not exist in VSD"
-                self.delete_l3domain(nuage_domain_id)
+                self.delete_l3domain(nuage_l3domain['ID'])
                 raise restproxy.ResourceNotFoundException(msg)
 
-            router_dict['nuage_def_zone_id'] = isolated_id
-            router_dict['nuage_shared_zone_id'] = shared_id
             # TODO(Ronak) - Handle exception here
             self._make_nuage_zone_shared(net_partition['id'], shared_id,
                                          neutron_router['tenant_id'])
@@ -268,25 +246,21 @@ class NuageDomain(object):
                                     neutron_router['tenant_id'],
                                     net_partition['id'],
                                     tenant_name)
-        router_dict['nuage_userid'] = nuage_userid
-        router_dict['nuage_groupid'] = nuage_groupid
 
         self._attach_nuage_group_to_zone(nuage_groupid,
-                                         router_dict['nuage_def_zone_id'],
+                                         isolated_id,
                                          neutron_router['tenant_id'])
-        iacl_id, oacl_id = self._create_nuage_def_l3domain_acl(
-            nuage_domain_id, neutron_router['id'])
-        router_dict['iacl_id'] = iacl_id
-        router_dict['oacl_id'] = oacl_id
-        self._create_nuage_def_l3domain_adv_fwd_template(nuage_domain_id,
+        self._create_nuage_def_l3domain_acl(
+            nuage_l3domain['ID'], neutron_router['id'])
+        self._create_nuage_def_l3domain_adv_fwd_template(nuage_l3domain['ID'],
                                                          neutron_router['id'])
-        return router_dict
+        return nuage_l3domain
 
     def _create_domain(self, req_params, extra_params):
-        nuagel3domain = nuagelib.NuageL3Domain(create_params=req_params,
-                                               extra_params=extra_params)
-        created_domain = self.restproxy.post(nuagel3domain.post_resource(),
-                                             nuagel3domain.post_data())[0]
+        nuage_l3domain = nuagelib.NuageL3Domain(create_params=req_params,
+                                                extra_params=extra_params)
+        created_domain = self.restproxy.post(nuage_l3domain.post_resource(),
+                                             nuage_l3domain.post_data())[0]
         req_params = {
             'domain_id': created_domain['ID']
         }
