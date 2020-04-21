@@ -629,6 +629,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         router['nuage_backhaul_rd'] = (nuage_router.get(
             'backHaulRouteDistinguisher'))
         router['nuage_backhaul_rt'] = nuage_router.get('backHaulRouteTarget')
+        router['nuage_router_template'] = nuage_router.get('templateID')
         for route in router.get('routes', []):
             params = {
                 'address': route['destination'],
@@ -661,38 +662,20 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     context, neutron_router['id'])
 
         if nuage_router:
-            LOG.debug("Created nuage domain %s", nuage_router[
-                'nuage_domain_id'])
+            LOG.debug("Created nuage domain %s", nuage_router['ID'])
             with context.session.begin(subtransactions=True):
-                nuagedb.add_entrouter_mapping(context.session,
-                                              net_partition['id'],
-                                              neutron_router['id'],
-                                              nuage_router['nuage_domain_id'],
-                                              nuage_router['rt'],
-                                              nuage_router['rd'])
+                nuagedb.add_entrouter_mapping(
+                    context.session, net_partition['id'],
+                    neutron_router['id'], nuage_router['ID'],
+                    nuage_router['routeTarget'],
+                    nuage_router['routeDistinguisher'])
                 routing_mechanisms.update_nuage_router_parameters(
                     req_router, context, neutron_router['id']
                 )
                 self._update_nuage_router_aggregate_flows(context, req_router,
                                                           neutron_router['id'])
-            neutron_router['net_partition'] = net_partition['id']
-            neutron_router['rd'] = nuage_router['rd']
-            neutron_router['rt'] = nuage_router['rt']
-            neutron_router['nuage_backhaul_vnid'] = \
-                nuage_router['nuage_backhaul_vnid']
-            neutron_router['nuage_backhaul_rd'] = \
-                nuage_router['nuage_backhaul_rd']
-            neutron_router['nuage_backhaul_rt'] = \
-                nuage_router['nuage_backhaul_rt']
-            neutron_router['nuage_router_template'] = \
-                nuage_router['nuage_template_id']
-            neutron_router['tunnel_type'] = nuage_router['tunnel_type']
-            neutron_router['ecmp_count'] = nuage_router['ecmp_count']
-            neutron_router[constants.AGGREGATE_FLOWS] = \
-                req_router[constants.AGGREGATE_FLOWS]
-            # adds Nuage_underlay attribute to neutron_router
-            routing_mechanisms.add_nuage_router_attributes(context.session,
-                                                           neutron_router)
+            self._add_nuage_router_attributes(context.session, neutron_router,
+                                              nuage_router)
         return neutron_router
 
     def _validate_create_router(self, context, netpart_name, router):
