@@ -39,8 +39,7 @@ class ConfigTypes(object):
     MINIMAL_CONFIG = 1
     MISSING_SERVICE_PLUGIN = 2
     MISSING_ML2_EXTENSION = 3
-    NUAGE_PAT_WITH_NUAGE_UNDERLAY_CONFIG = 4
-    NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK = 5
+    NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK = 4
 
 
 class TestNuageMechanismDriver(testtools.TestCase):
@@ -64,8 +63,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
         conf.config(group='RESTPROXY', server_timeout=1)
         conf.config(group='RESTPROXY', server_max_retries=1)
         conf.config(group='RESTPROXY', cms_id='1')
-
-        conf.config(group='PLUGIN', enable_debug='api_stats')
 
         if config_type == ConfigTypes.MISSING_SERVICE_PLUGIN:
             conf.config(service_plugins=['NuagePortAttributes',
@@ -100,14 +97,14 @@ class TestNuageMechanismDriver(testtools.TestCase):
 
     @staticmethod
     def get_me_a_rest_proxy():
-        vsd_client = RESTProxyServer(server='localhost:9876',
+        rest_proxy = RESTProxyServer(server='localhost:9876',
                                      base_uri='/nuage/api/v6',
                                      serverssl=True,
                                      verify_cert='False',
                                      serverauth='1:1',
                                      auth_resource='/me',
                                      organization='org')
-        return vsd_client
+        return rest_proxy
 
     # NETWORK DRIVER INITIALIZATION CHECKS
 
