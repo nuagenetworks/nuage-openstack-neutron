@@ -13,7 +13,6 @@
 #    under the License.
 
 import base64
-import calendar
 import logging
 import math
 import re
@@ -320,27 +319,6 @@ class RESTProxyServer(object):
             'verify': self.verify_cert,
         }
         return self._get_session().request(method, url, **kwargs)
-
-    def compute_sleep_time(self, api_key_info):
-        # Assuming it's always going be in GMT
-        response_headers = api_key_info[4] if api_key_info else None
-        api_key_data = api_key_info[3][0] if api_key_info else None
-        if response_headers and api_key_data:
-            current_time_on_vsd = int(calendar.timegm(time.strptime(
-                response_headers['date'].rstrip(' GMT'),
-                "%a, %d %b %Y %H:%M:%S")))
-            # Convert from milli seconds to seconds
-            api_expiry_time = api_key_data['APIKeyExpiry'] / 1000
-            response = self.get('/systemconfigs', required=True)
-            if response[0]:
-                renewal_before = response[0]['APIKeyRenewalInterval']
-                time_to_sleep = (
-                    api_expiry_time - current_time_on_vsd - renewal_before)
-                time_to_sleep = time_to_sleep if time_to_sleep > 0 else 1
-                return time_to_sleep
-
-        # Sleep for 1 second and compute value for time to sleep.
-        return 1
 
     def generate_nuage_auth(self):
         """Generate the Nuage authentication key.
