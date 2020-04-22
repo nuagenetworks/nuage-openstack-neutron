@@ -41,9 +41,6 @@ class TestNuageExtensions(testtools.TestCase):
     def setUpClass(cls):
         super(TestNuageExtensions, cls).setUpClass()
 
-        # disable the auth key renewal in VsdClient
-        VsdClientImpl.set_auth_key_renewal(False)
-
     def set_config_fixture(self):
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
 

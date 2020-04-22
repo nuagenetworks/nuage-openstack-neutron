@@ -13,9 +13,7 @@
 #    under the License.
 
 import logging
-from time import sleep
 
-from eventlet.green import threading
 import six
 
 from nuage_neutron.plugins.common import config as nuage_config
@@ -44,20 +42,12 @@ LOG = logging.getLogger(__name__)
 
 @six.add_metaclass(helper.MemoizeClass)
 class VsdClientImpl(VsdClient, SubnetUtilsBase):
-    __renew_auth_key = True
-
-    @classmethod
-    def set_auth_key_renewal(cls, flag):  # useful in unit testing
-        cls.__renew_auth_key = flag
 
     def __init__(self, cms_id, **kwargs):
         super(VsdClientImpl, self).__init__()
         self.restproxy = restproxy.RESTProxyServer(**kwargs)
 
-        response = self.restproxy.generate_nuage_auth()
-        if self.__renew_auth_key:
-            threading.Thread(target=self._auth_key_renewal,
-                             args=[response]).start()
+        self.restproxy.generate_nuage_auth()
 
         self.verify_cms(cms_id)
         cms_id_helper.CMS_ID = cms_id
@@ -78,15 +68,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         self.trunk = trunk.NuageTrunk(self.restproxy)
         self.vm_ipreservations = vmipreservation.NuageVMIpReservation(
             self.restproxy)
-
-    def _auth_key_renewal(self, api_key_info):
-        """Sleep until the renewal window, renew the key, and sleep again.
-
-        :param api_key_info: Information about the auth key.
-        """
-        while True:
-            sleep(self.restproxy.compute_sleep_time(api_key_info))
-            api_key_info = self.restproxy.generate_nuage_auth()
 
     def verify_cms(self, cms_id):
         cms = nuagelib.NuageCms(create_params={'cms_id': cms_id})

@@ -55,9 +55,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
         if core_config.core_opts is None or ml2_config.ml2_opts is None:
             cls.fail('Fix your setup.')
 
-        # disable the auth key renewal in VsdClient
-        VsdClientImpl.set_auth_key_renewal(False)
-
     def set_config_fixture(self, config_type=ConfigTypes.MINIMAL_CONFIG):
         ml2_config.register_ml2_plugin_opts()
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
