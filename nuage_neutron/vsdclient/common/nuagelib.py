@@ -1,4 +1,4 @@
-# Copyright 2018 NOKIA
+# Copyright 2020 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -14,6 +14,8 @@
 
 from abc import ABCMeta
 import uuid
+
+from six.moves.urllib.parse import urlencode
 
 from oslo_serialization import jsonutils as json
 import six
@@ -2425,3 +2427,16 @@ class TrunkInterface(VsdChildResource):
 
 class Resync(VsdChildResource):
     resource = 'resync'
+
+
+class VmIpReservation(VsdChildResource):
+    resource = 'vmipreservations'
+
+    @classmethod
+    def delete_url(cls, parent=None, parent_id=None, url_parameters=None):
+        base = cls.get_url(parent=parent,
+                           parent_id=parent_id) + '?responseChoice=1'
+        if url_parameters:
+            return base + '&' + urlencode(url_parameters)
+        else:
+            return base
