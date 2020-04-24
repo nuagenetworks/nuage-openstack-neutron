@@ -74,7 +74,6 @@ GET_L2DOMAIN = re.compile(r'/l2domains/([0-9a-fA-F\-]+?)(\?.*)?$')
 GET_SUBNET = re.compile(r'/subnets/([0-9a-fA-F\-]+?)(\?.*)?$')
 
 NUAGE_AUTH = None
-NUAGE_AUTH_RENEWING = True
 NUAGE_AUTH_SEMAPHORE = threading.Semaphore()
 THREAD_LOCAL_DATA = threading.local()
 
@@ -349,15 +348,13 @@ class RESTProxyServer(object):
         The first thread to execute this method acquires `NUAGE_AUTH_SEMAPHORE`
         and is thus able to generate the key. All subsequent threads which
         execute this method while the first thread is busy generating the key,
-        will wait in the elif-block until the semaphore has been released by
+        will wait in the else-block until the semaphore has been released by
         the first thread. If the first thread has finished generating the key,
         these threads will acquire the semaphore, release it and thus exit
-        the method. However, if the first thread fails to generate the key,
-        all other threads will again execute this method.
+        the method.
         """
-        global NUAGE_AUTH, NUAGE_AUTH_RENEWING, NUAGE_AUTH_SEMAPHORE
+        global NUAGE_AUTH, NUAGE_AUTH_SEMAPHORE
         if NUAGE_AUTH_SEMAPHORE.acquire(blocking=False):
-            NUAGE_AUTH_RENEWING = True
             try:
                 encoded_auth = base64.b64encode(
                     self.serverauth.encode()).decode()
@@ -383,19 +380,16 @@ class RESTProxyServer(object):
                     encoded_auth = base64.b64encode(
                         new_uname_pass.encode()).decode()
                     NUAGE_AUTH = 'Basic ' + encoded_auth
-                    NUAGE_AUTH_RENEWING = False
                     LOG.debug("[RESTProxy] New auth-token received %s",
                               NUAGE_AUTH)
                     return resp
             finally:
                 NUAGE_AUTH_SEMAPHORE.release()
         # some other thread is renewing the auth key
-        elif NUAGE_AUTH_RENEWING:
+        else:
             # make this thread wait until the other thread completes renewal
             NUAGE_AUTH_SEMAPHORE.acquire(blocking=True)
             NUAGE_AUTH_SEMAPHORE.release()
-            if NUAGE_AUTH_RENEWING:  # but not successful
-                self.generate_nuage_auth()
 
     def rest_call(self, action, resource, data, extra_headers=None,
                   ignore_marked_for_deletion=False):
