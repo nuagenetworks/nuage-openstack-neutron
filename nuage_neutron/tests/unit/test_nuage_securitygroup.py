@@ -36,6 +36,7 @@ class TestNuageSecurityGroup(testtools.TestCase):
         vsd_mock.create_security_group.side_effect = (
             restproxy.RESTProxyError(
                 vsd_code=restproxy.REST_PG_EXISTS_ERR_CODE))
-        driver._create_policygroup(mock.MagicMock(), mock.MagicMock(),
-                                   mock.MagicMock())
+        pg = driver._create_policygroup(mock.MagicMock(), mock.MagicMock(),
+                                        mock.MagicMock())
+        self.assertIsNotNone(pg)
         vsd_mock.create_security_group_rules.assert_not_called()
