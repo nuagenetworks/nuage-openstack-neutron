@@ -13,7 +13,8 @@
         - networking-nuage-tempest-smoke-py3-vsdipam
     experimental:
       jobs:
-        - networking-nuage-vtep-vxlan
+        - networking-nuage-vtep-vxlan:
+            nodeset: openstack-single-node-bionic
     virtio:
       jobs:
         - networking-nuage-tempest-virtio-py3
@@ -38,8 +39,10 @@
         - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario
         - networking-nuage-tempest-scenario-vsdipam
-        - networking-nuage-vtep-vlan-upstream
-        - networking-nuage-vtep-vlan-nuage
+        - networking-nuage-vtep-vlan-upstream:
+            nodeset: openstack-single-node-bionic
+        - networking-nuage-vtep-vlan-nuage:
+            nodeset: openstack-single-node-bionic
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp
@@ -82,14 +85,17 @@
         - networking-nuage-tempest-cli
         - tempest-full-py3
         - networking-nuage-tempest-api-switchdev
-        - networking-nuage-vtep-vlan-upstream
+        - networking-nuage-vtep-vlan-upstream:
+            nodeset: openstack-single-node-bionic
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp
         - networking-nuage-tempest-sriov-flat-vlan
         - networking-nuage-rally-task
-        - networking-nuage-vtep-vxlan
-        - networking-nuage-vtep-vlan-nuage
+        - networking-nuage-vtep-vxlan:
+            nodeset: openstack-single-node-bionic
+        - networking-nuage-vtep-vlan-nuage:
+            nodeset: openstack-single-node-bionic
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows
