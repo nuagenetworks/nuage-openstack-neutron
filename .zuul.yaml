@@ -291,6 +291,22 @@
             required-projects:
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
+        - networking-nuage-tempest-virtio-py3-vsdipam:
+            vars: *vars-nuage
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov-vsdipam:
+            vars: *vars-nuage
+            required-projects: *required-projects
+        - networking-nuage-tempest-baremetal-vsdipam:
+            vars: *vars-nuage
+            required-projects: *required-projects
+        - networking-nuage-tempest-scenario-vsdipam:
+            vars: *vars-nuage
+            required-projects: *required-projects
+        - tempest-full-py3-vsdipam:
+            vars: *vars-nuage
+            required-projects: *required-projects
+
 
 - job:
     name: networking-nuage-rally-task
