@@ -163,6 +163,17 @@
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
             required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-virtio-py3-vsdipam:
+            required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-sriov-vsdipam:
+            required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-baremetal-vsdipam:
+            required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-scenario-vsdipam:
+            required-projects: *neutron-plugin-version-stein
+        - tempest-full-py3-vsdipam:
+            required-projects: *neutron-plugin-version-stein
+
 
 - job:
     name: networking-nuage-rally-task
