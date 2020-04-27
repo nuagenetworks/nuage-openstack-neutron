@@ -266,6 +266,24 @@
                 FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-rocky
+        - networking-nuage-tempest-virtio-vsdipam:
+            vars: *required-vars-rocky
+            required-projects: *required-projects-rocky
+        - networking-nuage-tempest-sriov-vsdipam:
+            vars: *required-vars-rocky
+            required-projects: *required-projects-rocky
+        - networking-nuage-tempest-baremetal-vsdipam:
+            vars: *required-vars-rocky
+            required-projects: *required-projects-rocky
+        - networking-nuage-tempest-scenario-vsdipam:
+            vars: *required-vars-rocky
+            required-projects: *required-projects-rocky
+        - tempest-full-vsdipam:
+            vars:
+              devstack_localrc:
+                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
+            required-projects: *required-projects-rocky
+
 
 - job:
     name: networking-nuage-rally-task
