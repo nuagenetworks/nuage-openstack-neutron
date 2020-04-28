@@ -47,7 +47,6 @@ from nuage_neutron.plugins.common.validation import validate
 from nuage_neutron.vsdclient import restproxy
 from nuage_neutron.vsdclient.vsdclient_fac import VsdClientFactory
 
-
 LOG = log.getLogger(__name__)
 
 

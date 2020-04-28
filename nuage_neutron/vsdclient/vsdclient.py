@@ -132,6 +132,7 @@ class VsdClient(object):
     def create_l2domain_for_router_detach(self, os_subnet, subnet_mapping,
                                           ipv6_subnet=None, ipv4_dhcp_ip=None,
                                           ipv6_dhcp_ip=None,
+                                          allow_non_ip=False,
                                           enable_ingress_replication=False):
         pass
 
@@ -212,7 +213,7 @@ class VsdClient(object):
         pass
 
     def create_l3domain(self, neutron_router, router, net_partition,
-                        tenant_name):
+                        tenant_name, allow_non_ip=False):
         pass
 
     def create_shared_l3domain(self, params):

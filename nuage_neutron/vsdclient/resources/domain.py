@@ -39,31 +39,38 @@ class NuageDomain(object):
         self.domainsubnet = NuageDomainSubnet(restproxy_serv,
                                               policygroups)
 
-    def _create_nuage_def_l3domain_acl(self, id, neutron_router_id):
+    def _create_nuage_def_l3domain_acl(self, id, neutron_router_id,
+                                       allow_non_ip=False):
         nuageibacl_id = self._create_nuage_l3dom_ingress_tmplt(
             id,
-            neutron_router_id)
+            neutron_router_id,
+            allow_non_ip)
         nuageobacl_id = self._create_nuage_l3dom_egress_tmplt(
             id,
-            neutron_router_id)
+            neutron_router_id,
+            allow_non_ip)
         return nuageibacl_id, nuageobacl_id
 
-    def _create_nuage_l3dom_ingress_tmplt(self, id, neutron_router_id):
+    def _create_nuage_l3dom_ingress_tmplt(self, id, neutron_router_id,
+                                          allow_non_ip=False):
         req_params = {
             'parent_id': id,
             'name': id,
-            'externalID': get_vsd_external_id(neutron_router_id)
+            'externalID': get_vsd_external_id(neutron_router_id),
+            'defaultAllowNonIP': allow_non_ip
         }
         nuageibacl = nuagelib.NuageInboundACL(create_params=req_params)
         acls = self.restproxy.post(nuageibacl.post_resource_l3(),
                                    nuageibacl.post_data_default_l3())
         return acls[0]['ID'] if acls else None
 
-    def _create_nuage_l3dom_egress_tmplt(self, id, neutron_router_id):
+    def _create_nuage_l3dom_egress_tmplt(self, id, neutron_router_id,
+                                         allow_non_ip=False):
         req_params = {
             'parent_id': id,
             'name': id,
-            'externalID': get_vsd_external_id(neutron_router_id)
+            'externalID': get_vsd_external_id(neutron_router_id),
+            'defaultAllowNonIP': allow_non_ip
         }
         nuageobacl = nuagelib.NuageOutboundACL(create_params=req_params)
         acls = self.restproxy.post(nuageobacl.post_resource_l3(),
@@ -147,7 +154,7 @@ class NuageDomain(object):
         return nuagel3domain['ID']
 
     def create_l3domain(self, neutron_router, router, net_partition,
-                        tenant_name):
+                        tenant_name, allow_non_ip=False):
         req_params = {
             'net_partition_id': net_partition['id'],
             'name': neutron_router['id'],
@@ -274,7 +281,8 @@ class NuageDomain(object):
                                          router_dict['nuage_def_zone_id'],
                                          neutron_router['tenant_id'])
         iacl_id, oacl_id = self._create_nuage_def_l3domain_acl(
-            nuage_domain_id, neutron_router['id'])
+            nuage_domain_id, neutron_router['id'],
+            allow_non_ip=allow_non_ip)
         router_dict['iacl_id'] = iacl_id
         router_dict['oacl_id'] = oacl_id
         self._create_nuage_def_l3domain_adv_fwd_template(nuage_domain_id,

@@ -680,6 +680,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             'tenant_name': context.tenant_name,
             'network_id': network['id'],
             'network_name': network['name'],
+            'defaultAllowNonIP': config.default_allow_non_ip_enabled(),
             'ingressReplicationEnabled': config.ingress_replication_enabled()
         }
 
