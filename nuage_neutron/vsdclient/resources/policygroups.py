@@ -837,7 +837,8 @@ class NuagePolicyGroups(object):
                         ext_id,
                         constants.NUAGE_ACL_EGRESS,
                         name=acl_tmpl_name,
-                        priority=1)
+                        priority=1,
+                        allow_non_ip=params['allow_non_ip'])
                     self.create_default_deny_rule(parent_id,
                                                   parent_type,
                                                   deny_all_tmpl,
@@ -864,7 +865,8 @@ class NuagePolicyGroups(object):
         return nuage_policygroup_id
 
     def create_nuage_acl_tmplt(self, parent_id, parent_type, os_resource_id,
-                               direction, name=None, priority=None):
+                               direction, name=None, priority=None,
+                               allow_non_ip=False):
         req_params = {
             'parent_id': parent_id,
             'name': name if name is not None else parent_id,
@@ -878,10 +880,12 @@ class NuagePolicyGroups(object):
             nuageacl = nuagelib.NuageInboundACL(create_params=req_params)
         if parent_type == constants.NETWORK_TYPE_L2:
             rest_path = nuageacl.post_resource_l2()
-            rest_data = nuageacl.post_data_default_l2()
+            rest_data = nuageacl.post_data_default_l2(
+                allow_non_ip=allow_non_ip)
         else:
             rest_path = nuageacl.post_resource_l3()
-            rest_data = nuageacl.post_data_default_l3()
+            rest_data = nuageacl.post_data_default_l3(
+                allow_non_ip=allow_non_ip)
         return self.restproxy.post(
             rest_path, rest_data,
             on_res_exists=self.restproxy.acltmpl_retrieve_by_priority,
