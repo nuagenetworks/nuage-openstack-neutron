@@ -558,8 +558,21 @@ class RESTProxyServer(object):
             errors = json.loads(response[3])
             if str(errors.get('internalErrorCode')) in ignore_err_codes:
                 if on_res_exists:
+                    LOG.debug(
+                        'Received {} from VSD with internalErrorCode '
+                        '{}. Trying {} to recover.'.format(
+                            REST_CONFLICT_ERR_CODE,
+                            errors.get('internalErrorCode'),
+                            on_res_exists.__name__))
                     get_response = on_res_exists(self, resource, data)
-                    if not get_response:
+                    if get_response:
+                        LOG.debug(
+                            'Recovery from {} successful.'.format(
+                                REST_CONFLICT_ERR_CODE))
+                    else:
+                        LOG.debug(
+                            'Recovery from {} unsuccessful.'.format(
+                                REST_CONFLICT_ERR_CODE))
                         msg = str(errors['errors'][0]['descriptions'][0]
                                   ['description'])
                         self.raise_rest_error(msg,
