@@ -96,11 +96,13 @@ def get_l2domid_for_netpartition(restproxy_serv, np_id, name):
     return l2_template[0]['ID'] if l2_template else None
 
 
-def create_nuage_l2dom_ingress_tmplt(restproxy_serv, id, neutron_subnet):
+def create_nuage_l2dom_ingress_tmplt(restproxy_serv, id, neutron_subnet,
+                                     allow_non_ip=False):
     req_params = {
         'parent_id': id,
         'name': id,
-        'externalID': get_subnet_external_id(neutron_subnet)
+        'externalID': get_subnet_external_id(neutron_subnet),
+        'defaultAllowNonIP': allow_non_ip
     }
     nuageibacl = nuagelib.NuageInboundACL(create_params=req_params)
     restproxy_serv.post(
@@ -109,11 +111,13 @@ def create_nuage_l2dom_ingress_tmplt(restproxy_serv, id, neutron_subnet):
         ignore_err_codes=[restproxy.REST_DUPLICATE_ACL_PRIORITY])
 
 
-def create_nuage_l2dom_egress_tmplt(restproxy_serv, id, neutron_subnet):
+def create_nuage_l2dom_egress_tmplt(restproxy_serv, id, neutron_subnet,
+                                    allow_non_ip=False):
     req_params = {
         'parent_id': id,
         'name': id,
-        'externalID': get_subnet_external_id(neutron_subnet)
+        'externalID': get_subnet_external_id(neutron_subnet),
+        'defaultAllowNonIP': allow_non_ip
     }
     nuageobacl = nuagelib.NuageOutboundACL(create_params=req_params)
     restproxy_serv.post(

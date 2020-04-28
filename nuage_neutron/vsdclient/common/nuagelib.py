@@ -18,8 +18,6 @@ import uuid
 from oslo_serialization import jsonutils as json
 import six
 
-from nuage_neutron.plugins.common import config
-
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
@@ -1097,8 +1095,6 @@ class NuageVMInterface(NuageResource):
 
 class NuageInboundACL(NuageResource):
 
-    def_allow_non_ip = config.default_allow_non_ip_enabled()
-
     def get_resource_l2(self):
         parent_id = self.create_params['parent_id']
         return '/l2domains/%s/ingressacltemplates' % parent_id
@@ -1121,7 +1117,7 @@ class NuageInboundACL(NuageResource):
                         constants.NUAGE_DEFAULT_L2_INGRESS_ACL)
         data['description'] = 'default ACL'
         data['active'] = True
-        data['defaultAllowNonIP'] = self.def_allow_non_ip
+        data['defaultAllowNonIP'] = self.create_params['defaultAllowNonIP']
         data['externalID'] = self.create_params['externalID']
         if self.create_params.get('priority'):
             data['priority'] = self.create_params.get('priority')
@@ -1136,7 +1132,7 @@ class NuageInboundACL(NuageResource):
                         constants.NUAGE_DEFAULT_L3_INGRESS_ACL)
         data['description'] = 'default ACL'
         data['active'] = True
-        data['defaultAllowNonIP'] = self.def_allow_non_ip
+        data['defaultAllowNonIP'] = self.create_params['defaultAllowNonIP']
         data['externalID'] = self.create_params['externalID']
         if self.create_params.get('priority'):
             data['priority'] = self.create_params.get('priority')
@@ -1189,8 +1185,6 @@ class NuageInboundACL(NuageResource):
 
 class NuageOutboundACL(NuageResource):
 
-    def_allow_non_ip = config.default_allow_non_ip_enabled()
-
     def get_resource_l2(self):
         parent_id = self.create_params['parent_id']
         return '/l2domains/%s/egressacltemplates' % parent_id
@@ -1213,7 +1207,7 @@ class NuageOutboundACL(NuageResource):
                         constants.NUAGE_DEFAULT_L2_EGRESS_ACL)
         data['description'] = 'default ACL'
         data['active'] = True
-        data['defaultAllowNonIP'] = self.def_allow_non_ip
+        data['defaultAllowNonIP'] = self.create_params['defaultAllowNonIP']
         data['defaultInstallACLImplicitRules'] = False
         data['externalID'] = self.create_params['externalID']
         if self.create_params.get('priority'):
@@ -1229,7 +1223,7 @@ class NuageOutboundACL(NuageResource):
                         constants.NUAGE_DEFAULT_L3_EGRESS_ACL)
         data['description'] = 'default ACL'
         data['active'] = True
-        data['defaultAllowNonIP'] = self.def_allow_non_ip
+        data['defaultAllowNonIP'] = self.create_params['defaultAllowNonIP']
         data['defaultInstallACLImplicitRules'] = False
         data['externalID'] = self.create_params['externalID']
         if self.create_params.get('priority'):

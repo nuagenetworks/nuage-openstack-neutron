@@ -240,6 +240,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def create_l2domain_for_router_detach(self, ipv4_subnet, subnet_mapping,
                                           ipv6_subnet=None, ipv4_dhcp_ip=None,
                                           ipv6_dhcp_ip=None,
+                                          allow_non_ip=False,
                                           enable_ingress_replication=False):
         subnet = ipv4_subnet or ipv6_subnet
         req_params = {
@@ -247,6 +248,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             'netpart_id': subnet_mapping['net_partition_id'],
             'shared': subnet['shared'],
             'network_name': subnet_mapping['network_name'],
+            'defaultAllowNonIP': allow_non_ip,
             'ingressReplicationEnabled': enable_ingress_replication
         }
         if ipv4_subnet:
@@ -351,9 +353,10 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         return l2domain
 
     def create_l3domain(self, neutron_router, router, net_partition,
-                        tenant_name):
+                        tenant_name, allow_non_ip=False):
         return self.domain.create_l3domain(neutron_router, router,
-                                           net_partition, tenant_name)
+                                           net_partition, tenant_name,
+                                           allow_non_ip)
 
     def create_shared_l3domain(self, params):
         return self.domain.create_shared_l3domain(params)
