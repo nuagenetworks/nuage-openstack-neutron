@@ -20,8 +20,6 @@ from six.moves.urllib.parse import urlencode
 from oslo_serialization import jsonutils as json
 import six
 
-from nuage_neutron.plugins.common import config
-
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common.cms_id_helper import strip_cms_id
 from nuage_neutron.vsdclient.common import constants
@@ -1097,8 +1095,6 @@ class NuageVMInterface(NuageResource):
 
 class NuageInboundACL(NuageResource):
 
-    def_allow_non_ip = config.default_allow_non_ip()
-
     def get_resource_l2(self):
         parent_id = self.create_params['parent_id']
         return '/l2domains/%s/ingressacltemplates' % parent_id
@@ -1115,13 +1111,13 @@ class NuageInboundACL(NuageResource):
         parent_id = self.create_params['parent_id']
         return '/domains/%s/ingressacltemplates' % parent_id
 
-    def post_data_default_l2(self):
+    def post_data_default_l2(self, allow_non_ip=False):
         data = {}
         data['name'] = (self.create_params['name'] +
                         constants.NUAGE_DEFAULT_L2_INGRESS_ACL)
         data['description'] = 'default ACL'
         data['active'] = True
-        data['defaultAllowNonIP'] = self.def_allow_non_ip
+        data['defaultAllowNonIP'] = allow_non_ip
         data['externalID'] = self.create_params['externalID']
         if self.create_params.get('priority'):
             data['priority'] = self.create_params.get('priority')
@@ -1130,13 +1126,13 @@ class NuageInboundACL(NuageResource):
     def post_data_l2(self):
         return
 
-    def post_data_default_l3(self):
+    def post_data_default_l3(self, allow_non_ip=False):
         data = {}
         data['name'] = (self.create_params['name'] +
                         constants.NUAGE_DEFAULT_L3_INGRESS_ACL)
         data['description'] = 'default ACL'
         data['active'] = True
-        data['defaultAllowNonIP'] = self.def_allow_non_ip
+        data['defaultAllowNonIP'] = allow_non_ip
         data['externalID'] = self.create_params['externalID']
         if self.create_params.get('priority'):
             data['priority'] = self.create_params.get('priority')
@@ -1189,8 +1185,6 @@ class NuageInboundACL(NuageResource):
 
 class NuageOutboundACL(NuageResource):
 
-    def_allow_non_ip = config.default_allow_non_ip()
-
     def get_resource_l2(self):
         parent_id = self.create_params['parent_id']
         return '/l2domains/%s/egressacltemplates' % parent_id
@@ -1207,13 +1201,13 @@ class NuageOutboundACL(NuageResource):
         parent_id = self.create_params['parent_id']
         return '/domains/%s/egressacltemplates' % parent_id
 
-    def post_data_default_l2(self):
+    def post_data_default_l2(self, allow_non_ip=False):
         data = {}
         data['name'] = (self.create_params['name'] +
                         constants.NUAGE_DEFAULT_L2_EGRESS_ACL)
         data['description'] = 'default ACL'
         data['active'] = True
-        data['defaultAllowNonIP'] = self.def_allow_non_ip
+        data['defaultAllowNonIP'] = allow_non_ip
         data['defaultInstallACLImplicitRules'] = False
         data['externalID'] = self.create_params['externalID']
         if self.create_params.get('priority'):
@@ -1223,13 +1217,13 @@ class NuageOutboundACL(NuageResource):
     def post_data_l2(self):
         return
 
-    def post_data_default_l3(self):
+    def post_data_default_l3(self, allow_non_ip=False):
         data = {}
         data['name'] = (self.create_params['name'] +
                         constants.NUAGE_DEFAULT_L3_EGRESS_ACL)
         data['description'] = 'default ACL'
         data['active'] = True
-        data['defaultAllowNonIP'] = self.def_allow_non_ip
+        data['defaultAllowNonIP'] = allow_non_ip
         data['defaultInstallACLImplicitRules'] = False
         data['externalID'] = self.create_params['externalID']
         if self.create_params.get('priority'):

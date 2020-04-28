@@ -38,6 +38,7 @@ from oslo_utils import excutils
 import six
 
 from nuage_neutron.plugins.common import base_plugin
+from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common.extensions import nuage_router
@@ -536,7 +537,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 vsd_l2domain = (
                     self.vsdclient.create_l2domain_for_router_detach(
                         ipv4_subnet, subnet_mapping, ipv6_subnet, ipv4_dhcp_ip,
-                        ipv6_dhcp_ip))
+                        ipv6_dhcp_ip, config.default_allow_non_ip()))
                 on_exc(self.vsdclient.delete_subnet,
                        l2dom_id=vsd_l2domain['nuage_l2domain_id'])
             result = super(NuageL3Plugin,
@@ -656,7 +657,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         nuage_router = None
         try:
             nuage_router = self.vsdclient.create_l3domain(
-                neutron_router, req_router, net_partition, context.tenant_name)
+                neutron_router, req_router, net_partition, context.tenant_name,
+                config.default_allow_non_ip())
         except Exception:
             with excutils.save_and_reraise_exception():
                 super(NuageL3Plugin, self).delete_router(
