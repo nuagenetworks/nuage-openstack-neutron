@@ -740,7 +740,8 @@ class RootNuagePlugin(SubnetUtilsBase):
             'dhcpv6_ip': None,
             'tenant_name': context.tenant_name,
             'network_id': network['id'],
-            'network_name': network['name']
+            'network_name': network['name'],
+            'allow_non_ip': config.default_allow_non_ip()
         }
 
         if self.is_nuage_hybrid_mpls_network(network):
