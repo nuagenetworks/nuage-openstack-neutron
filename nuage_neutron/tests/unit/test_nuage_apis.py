@@ -12,9 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# run me using :
-# python -m testtools.run nuage_neutron/tests/unit/test_nuage_apis.py
-
 import mock
 import testtools
 
