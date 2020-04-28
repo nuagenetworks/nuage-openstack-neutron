@@ -12,9 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# run me using :
-# python -m testtools.run nuage_neutron/tests/unit/test_mech_nuage.py
-
 import mock
 import oslo_config
 import testtools
@@ -508,8 +505,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
 
     def test_default_allow_non_ip_set_empty_string(self):
         try:
-            cfg = self.set_config_fixture()
-            cfg.config(group='PLUGIN', default_allow_non_ip='')
+            conf = self.set_config_fixture()
+            conf.config(group='PLUGIN', default_allow_non_ip='')
 
             self.fail('From Ocata onwards oslo is correctly checking its '
                       'config value parsing; '
@@ -519,8 +516,8 @@ class TestNuageMechanismDriver(testtools.TestCase):
             self.assertEqual('Unexpected boolean value \'\'', str(e))
 
     def test_default_allow_non_ip_set(self):
-        cfg = self.set_config_fixture()
-        cfg.config(group='PLUGIN', default_allow_non_ip=True)
+        conf = self.set_config_fixture()
+        conf.config(group='PLUGIN', default_allow_non_ip=True)
 
         self.assertTrue(config.default_allow_non_ip())
 
@@ -545,9 +542,6 @@ class TestNuageMechanismDriver(testtools.TestCase):
             'nuage:vip'))
 
     def test_needs_vport_creation_using_prefix(self):
-        from oslo_config import cfg
-        from oslo_config import fixture as oslo_fixture
-
         conf = self.useFixture(oslo_fixture.Config(cfg.CONF))
         conf.config(group='PLUGIN', device_owner_prefix='no_vport')
 
