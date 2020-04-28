@@ -72,6 +72,7 @@
 
 # (StrOpt) Default underlay setting of an l3domain, when no explicit option
 #          is given on router create. One of [snat, route, off, not_available]
+#
 # nuage_underlay_default = off
 
 # (BoolOpt) Underlay setting of a l3domain.
