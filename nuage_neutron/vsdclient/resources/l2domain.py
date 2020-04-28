@@ -200,9 +200,10 @@ class NuageL2Domain(object):
                                              params['netpart_id'],
                                              params.get('shared'),
                                              params['tenant_id'])
-        self._create_nuage_def_l2domain_acl(l2domain_id, subnet)
-        self._create_nuage_def_l2domain_adv_fwd_template(l2domain_id,
-                                                         subnet)
+        self._create_nuage_def_l2domain_acl(
+            l2domain_id, subnet, allow_non_ip=params['allow_non_ip'])
+        self._create_nuage_def_l2domain_adv_fwd_template(
+            l2domain_id, subnet)
 
         return subnet_dict
 
@@ -347,13 +348,16 @@ class NuageL2Domain(object):
                 raise
             # else (CONFLICT), ignore
 
-    def _create_nuage_def_l2domain_acl(self, id, neutron_subnet):
+    def _create_nuage_def_l2domain_acl(self, id, neutron_subnet,
+                                       allow_non_ip=False):
         helper.create_nuage_l2dom_ingress_tmplt(self.restproxy,
                                                 id,
-                                                neutron_subnet)
+                                                neutron_subnet,
+                                                allow_non_ip=allow_non_ip)
         helper.create_nuage_l2dom_egress_tmplt(self.restproxy,
                                                id,
-                                               neutron_subnet)
+                                               neutron_subnet,
+                                               allow_non_ip=allow_non_ip)
 
     def _create_nuage_def_l2domain_adv_fwd_template(self, l2dom_id,
                                                     neutron_subnet):

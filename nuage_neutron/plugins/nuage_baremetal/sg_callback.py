@@ -19,6 +19,8 @@ from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib.plugins import directory
+
+from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
@@ -207,7 +209,8 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
                 'vsd_subnet': vsd_subnet,
                 'sg': sg,
                 'sg_rules': sg_rules,
-                'sg_type': constants.HARDWARE
+                'sg_type': constants.HARDWARE,
+                'allow_non_ip': config.default_allow_non_ip()
             }
             if vnic_type in self._supported_vnic_types():
                 vsd_policygroup_id = (
