@@ -72,7 +72,7 @@ IPV6_ENABLED='True'
 IPV6_SUBNET_ATTRIBUTES_ENABLED='True'
 
 # Default settings for plugin
-Q_ML2_PLUGIN_EXT_DRIVERS=${Q_ML2_PLUGIN_EXT_DRIVERS:-nuage_subnet,nuage_port,port_security}
+Q_ML2_PLUGIN_EXT_DRIVERS=${Q_ML2_PLUGIN_EXT_DRIVERS:-nuage_network,nuage_subnet,nuage_port,port_security}
 Q_ML2_PLUGIN_MECHANISM_DRIVERS=${Q_ML2_PLUGIN_MECHANISM_DRIVERS:-nuage}
 Q_ML2_PLUGIN_TYPE_DRIVERS=${Q_ML2_PLUGIN_TYPE_DRIVERS:-vxlan}
 Q_SERVICE_PLUGIN_CLASSES=${Q_SERVICE_PLUGIN_CLASSES:-NuagePortAttributes,NuageAPI,NuageNetTopology,trunk,NuageL2Bridge,segments,$EXTRA_SERVICE_PLUGIN_CLASSES}
