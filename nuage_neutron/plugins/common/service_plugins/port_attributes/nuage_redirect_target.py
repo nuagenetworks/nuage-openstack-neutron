@@ -405,14 +405,8 @@ class NuageRedirectTarget(BaseNuagePlugin):
         parent_type = redirect_target['parentType']
 
         external_id = cms_id_helper.get_vsd_external_id(security_group_id)
-        if parent_type == constants.L2DOMAIN:
-            policygroups = self.vsdclient.get_nuage_l2domain_policy_groups(
-                parent_id,
-                externalID=external_id)
-        else:
-            policygroups = self.vsdclient.get_nuage_domain_policy_groups(
-                parent_id,
-                externalID=external_id)
+        policygroups = self._get_policygroups(external_id, parent_id,
+                                              parent_type)
         if len(policygroups) > 1:
             msg = _("Found multiple policygroups with externalID %s")
             raise n_exc.Conflict(msg=msg % external_id)
@@ -421,6 +415,17 @@ class NuageRedirectTarget(BaseNuagePlugin):
         else:
             return self._create_pg_for_rt(context, security_group_id,
                                           redirect_target, vsd_managed)
+
+    def _get_policygroups(self, external_id, parent_id, parent_type):
+        if parent_type == constants.L2DOMAIN:
+            policygroups = self.vsdclient.get_nuage_l2domain_policy_groups(
+                parent_id,
+                externalID=external_id)
+        else:
+            policygroups = self.vsdclient.get_nuage_domain_policy_groups(
+                parent_id,
+                externalID=external_id)
+        return policygroups
 
     def _create_pg_for_rt(self, context, security_group_id, rt, vsd_managed):
         security_group = self.core_plugin.get_security_group(context,
@@ -434,7 +439,11 @@ class NuageRedirectTarget(BaseNuagePlugin):
         except restproxy.RESTProxyError as e:
             if e.vsd_code == restproxy.REST_PG_EXISTS_ERR_CODE:
                 # PG is being concurrently created
-                return
+                external_id = cms_id_helper.get_vsd_external_id(
+                    security_group_id)
+                policygroups = self._get_policygroups(
+                    external_id, rt['parentID'], rt['parentType'])
+                return policygroups[0]
             else:
                 raise
 
