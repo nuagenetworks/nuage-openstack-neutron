@@ -11,11 +11,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import netaddr
 import six
 
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from neutron.ipam import driver
 from neutron.objects import ports as port_obj
 from neutron_lib.api.definitions import allowedaddresspairs as addr_pair
 from neutron_lib.api.definitions import port_security as portsecurity
@@ -26,7 +28,7 @@ from neutron_lib.plugins import directory
 
 from nuage_neutron.plugins.common.base_plugin import BaseNuagePlugin
 from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common.exceptions import SubnetMappingNotFound
+from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 
@@ -289,17 +291,17 @@ class NuageAddressPair(BaseNuagePlugin):
             return False
         return True
 
-    def create_allowed_address_pairs(self, context, port, vport):
+    def _create_allowed_address_pairs(self, context, port, vport):
         self._process_allowed_address_pairs(context, port, vport, True)
 
-    def update_allowed_address_pairs(self, context, port, original_port,
-                                     vport):
+    def _update_allowed_address_pairs(self, context, port, original_port,
+                                      vport):
         verify = self._verify_allowed_address_pairs(port, original_port)
         if not verify:
             return
-
         old_addr_pairs = original_port[addr_pair.ADDRESS_PAIRS]
         new_addr_pairs = port[addr_pair.ADDRESS_PAIRS]
+        self._validate_vips_reservation(context, port, new_addr_pairs)
         delete_addr_pairs = self._get_deleted_addr_pairs(old_addr_pairs,
                                                          new_addr_pairs,
                                                          port)
@@ -363,7 +365,7 @@ class NuageAddressPair(BaseNuagePlugin):
                 LOG.debug("Process address pairs for port: %s", port)
                 vport = vports_by_port_id.get(port['id'])
                 self.calculate_vips_for_port_ips(context, port)
-                self.create_allowed_address_pairs(context, port, vport)
+                self._create_allowed_address_pairs(context, port, vport)
 
     def post_port_create_addresspair(self, resource, event, plugin, **kwargs):
         port = kwargs.get('port')
@@ -384,19 +386,70 @@ class NuageAddressPair(BaseNuagePlugin):
             # mutually exclusive in Neutron
             return
 
+        self._validate_vips_reservation(context, port,
+                                        port.get('allowed_address_pairs'))
         try:
             nuagedb.get_subnet_l2dom_by_port_id(context.session, port['id'])
-            self.create_allowed_address_pairs(context, port, vport)
-        except SubnetMappingNotFound:
+            self._create_allowed_address_pairs(context, port, vport)
+        except nuage_exc.SubnetMappingNotFound:
             pass
+
+    def _validate_vips_reservation(self, context, port, vips):
+        """_validate_vips_reservation
+
+        Validate whether the currently loaded ipam driver requires a 'vip'
+        port to be created first to 'reserve' the ip for aap usage.
+
+        :raises NuageBadRequest: When the aap ip is not reserved while
+                                 ipam_driver requires it.
+        """
+        ipam_driver = driver.Pool.get_instance(None, context)
+        if (not hasattr(ipam_driver, 'requires_ipam_for_aap') or
+                not ipam_driver.requires_ipam_for_aap):
+            # ipam driver assumes no need for ipam before aap use
+            return
+        for vip in vips:
+            try:
+                ip_address = netaddr.IPAddress(vip['ip_address'])
+            except (ValueError, KeyError):
+                # Non-ip aaps do not have to be reserved
+                continue
+            subnet_ids = [ip['subnet_id'] for ip in
+                          port['fixed_ips']]
+            port_fixed_ips = [netaddr.IPAddress(ip['ip_address']) for ip in
+                              port['fixed_ips']]
+            if ip_address in port_fixed_ips:
+                # ip_addresses that are held by the port itself do not
+                # require upfront reservation
+                continue
+            for subnet_id in subnet_ids:
+                subnet = self.core_plugin.get_subnet(context,
+                                                     subnet_id)
+                if ip_address not in netaddr.IPNetwork(subnet['cidr']):
+                    # ip_addresses outside of network range do not
+                    # require reservation.
+                    continue
+
+                # find port with the reservation
+                filters = {
+                    'fixed_ips': {'subnet_id': [subnet_id],
+                                  'ip_address': [str(ip_address)]}}
+                ports = self.core_plugin.get_ports(context,
+                                                   filters=filters)
+                if (not ports or ports[0]['device_owner'] not in
+                        self.get_device_owners_vip()):
+                    msg = ("Unable to find 'vip' reservation port "
+                           "for allowed address pair with ip: "
+                           "{}".format(str(ip_address)))
+                    raise nuage_exc.NuageBadRequest(msg=msg)
 
     def post_port_update_addresspair(self, resource, event, plugin, context,
                                      port, original_port, vport, rollbacks,
                                      **kwargs):
         if self.is_port_vnic_type_supported(port):
-            self.update_allowed_address_pairs(context, port,
-                                              original_port, vport)
-            rollbacks.append((self.update_allowed_address_pairs,
+            self._update_allowed_address_pairs(context, port,
+                                               original_port, vport)
+            rollbacks.append((self._update_allowed_address_pairs,
                               [context, original_port, port, vport], {}))
 
     def post_router_interface_create_addresspair(self, resource, event, plugin,
