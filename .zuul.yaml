@@ -304,7 +304,7 @@
         PUBLIC_NETWORK_GATEWAY: "{{ nuage_fip_range }}.1"
         Q_PLUGIN: ml2
         Q_USE_PROVIDERNET_FOR_PUBLIC: False
-        Q_ML2_PLUGIN_EXT_DRIVERS: nuage_subnet,nuage_port,port_security,nuage_network
+        Q_ML2_PLUGIN_EXT_DRIVERS: nuage_network,nuage_subnet,nuage_port,port_security
         Q_ML2_PLUGIN_MECHANISM_DRIVERS: nuage
         Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan
         NUAGE_VSD_DEF_NETPART_NAME: "NuageCi-{{ 1000000 | random }}"
