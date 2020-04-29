@@ -47,6 +47,9 @@ class NuageNeutronDbPool(NeutronDbPool):
     As this driver does not implement yet the subnet pool concept, most
     operations are either trivial or no-ops.
     """
+    # This driver does not require for allowed address pair ips to be reserved
+    # before usage with a dummy/vip port.
+    requires_ipam_for_aap = False
 
     def get_address_request_factory(self):
         """Returns default NuageAddressRequestFactory
