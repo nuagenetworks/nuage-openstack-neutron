@@ -79,11 +79,16 @@
     periodic:
       jobs:
         - networking-nuage-tempest-virtio-py3
+        - networking-nuage-tempest-virtio-py3-vsdipam
         - networking-nuage-tempest-sriov
+        - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal
+        - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario
+        - networking-nuage-tempest-scenario-vsdipam
         - networking-nuage-tempest-cli
         - tempest-full-py3
+        - tempest-full-py3-vsdipam
         - networking-nuage-tempest-api-switchdev
         - networking-nuage-vtep-vlan-upstream:
             nodeset: openstack-single-node-bionic
@@ -102,6 +107,12 @@
         - networking-nuage-tempest-scale
         - networking-nuage-octavia
         - networking-nuage-octavia-standby
+        - networking-nuage-tempest-virtio-py3-vsdipam
+        - networking-nuage-tempest-sriov-vsdipam
+        - networking-nuage-tempest-baremetal-vsdipam
+        - networking-nuage-tempest-scenario-vsdipam
+        - tempest-full-py3-vsdipam
+
 - job:
     name: networking-nuage-rally-task
     parent: rally-task-at-devstack
