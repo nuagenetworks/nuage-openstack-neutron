@@ -102,6 +102,9 @@ MIN_MECH_NUAGE_SERVICE_PLUGINS_IN_CONFIG = {
                            'NuagePortAttributesServicePlugin'}
 
 MIN_MECH_NUAGE_EXTENSIONS_IN_CONFIG = {
+    'nuage_network': 'nuage_neutron.plugins.'
+                     'nuage_ml2.nuage_network_ext_driver.'
+                     'NuageNetworkExtensionDriver',
     'nuage_subnet': 'nuage_neutron.plugins.'
                     'nuage_ml2.nuage_subnet_ext_driver.'
                     'NuageSubnetExtensionDriver',
