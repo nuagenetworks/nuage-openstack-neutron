@@ -153,8 +153,8 @@ class NuageL2Domain(object):
         }
 
         if (params.get('tunnelType') == constants.
-                NUAGE_MPLS_TUNNEL_TYPE):
-            ext_params['l2EncapType'] = constants.NUAGE_MPLS_TUNNEL_TYPE
+                VSD_TUNNEL_TYPES['MPLS']):
+            ext_params['l2EncapType'] = constants.VSD_TUNNEL_TYPES['MPLS']
 
         nuagel2domain = nuagelib.NuageL2Domain(create_params=req_params,
                                                extra_params=ext_params)
