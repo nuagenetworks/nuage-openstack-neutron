@@ -264,9 +264,9 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
             self._create_port_on_switch(context)
 
     def update_port_precommit(self, context):
-        nuage_binding = ext_db.get_switchport_binding_by_neutron_port(
+        nuage_bindings = ext_db.get_switchport_binding_by_neutron_port(
             context._plugin_context, context.current['id'])
-        context.nuage_binding = nuage_binding
+        context.nuage_bindings = nuage_bindings
 
     @context_log
     def update_port_postcommit(self, context):
@@ -283,10 +283,13 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)
                 not in self.supported_vnic_types):
             return
-
-        nuage_binding = ext_db.get_switchport_binding_by_neutron_port(
-            context._plugin_context, context.current['id'])
-        context.nuage_binding = nuage_binding
+        db_context = context._plugin_context
+        nuage_bindings = ext_db.get_switchport_binding_by_neutron_port(
+            db_context, context.current['id'])
+        context.nuage_bindings = nuage_bindings
+        with db_context.session.begin(subtransactions=True):
+            ext_db.delete_switchport_binding(db_context,
+                                             context.current['id'])
 
     @context_log
     def delete_port_postcommit(self, context):
@@ -302,92 +305,139 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                                                   fixed_ip['subnet_id'])
         return None
 
-    def _create_bridgeport(self, context, device_id, segmentation_id):
+    def _get_redundancy(self, bridge, switch_mappings, tenant_id):
+        """_get_redundancy
+
+        This methods checks switch mappings which correspond to
+        a particular host,bridge. If any of them is a part of
+        redundant port in VSD, than all of them should  belong
+        to a single redundancy group. If none of switch mappings
+        are part of redundancy group than whole list is returned to
+        a caller, otherwise a single entry is returned along with
+        RG ID.
+
+        :returns switch_mappings: list of switch mappings plugin
+                 has to orchestrate
+        :returns redundancy_group_id: VSD RG id to which switch
+                 mappings belong or None.
+
+        """
+        redundant_ports = ({mapping.get('redundant_port_uuid') for
+                           mapping in switch_mappings})
+        if len(redundant_ports) > 1:
+            # we got a list with only some of the entries redundant
+            # this is misconfiguration
+            msg = (_("All switchports for bridge %(bridge)s must be"
+                     "part of a single redundant port") %
+                   {'bridge': bridge})
+            raise exceptions.NuageBadRequest(msg=msg)
+        elif len(redundant_ports) == 1 and None not in redundant_ports:
+            # Active/Active redundancy, fetch RG id and
+            # return a single mapping to orchestrate
+            rg_port = self.vsdclient.get_gateway_port(
+                tenant_id,
+                redundant_ports.pop())
+            return (switch_mappings[::len(switch_mappings)],
+                    rg_port.get('rg_id'))
+        else:
+            # Single port or Active/Standby redundancy
+            return switch_mappings, None
+
+    def _create_bridgeport(self, context, bridge, segmentation_id):
         port = context.current
         ctx = context._plugin_context
         host = port[portbindings.HOST_ID]
-        switch_mapping = ext_db.get_switchport_by_host_slot(
-            ctx,
-            {'host_id': host, 'pci_slot': device_id})
-        if not switch_mapping:
+        switch_mappings = ext_db.get_switchports_by_host_bridge(
+            ctx, host, bridge)
+        if not switch_mappings:
             msg = (_("Failed to retrieve switchport mapping "
                      "for host: %(host)s bridge: %(bridge)s",
-                     {'host': host, 'bridge': device_id}))
+                   {'host': host, 'bridge': bridge}))
             raise exceptions.NuageBadRequest(msg=msg)
-        bp_exist = ext_db.get_switchport_binding_by_neutron_port(
+        port_bindings = ext_db.get_switchport_binding_by_neutron_port(
             ctx,
             port['id'],
             segmentation_id)
-        if bp_exist:
-            LOG.info("bridge port %(bp)s for port %(port_id)s already exist",
-                     {'bp': bp_exist['nuage_vport_id'],
+        if port_bindings:
+            LOG.info("bridge port(s) %(pb)s for port %(port_id)s "
+                     "already exist",
+                     {'pb': port_bindings,
                       'port_id': port['id']})
             return
+        mappings, rg = self._get_redundancy(bridge,
+                                            switch_mappings,
+                                            ctx.tenant_id)
+        for switchport in mappings:
+            vports = ext_db.get_switchport_bindings_by_switchport_vlan(
+                ctx,
+                switchport['port_uuid'],
+                segmentation_id)
 
-        vports = ext_db.get_switchport_bindings_by_switchport_vlan(
-            ctx,
-            switch_mapping['port_uuid'],
-            segmentation_id)
+            if len(vports) == 0:
+                if rg:
+                    gw = self.vsdclient.get_gateway(ctx.tenant_id, rg)
+                else:
+                    filters = {'system_id': [switchport['switch_id']]}
+                    gws = self.vsdclient.get_gateways(ctx.tenant_id,
+                                                      filters)
+                    if len(gws) == 0:
+                        msg = (_("No gateway found %s")
+                               % filters['system_id'][0])
+                        raise exceptions.NuageBadRequest(msg=msg)
+                    gw = gws[0]
 
-        if len(vports) == 0:
-            filters = {'system_id': [switch_mapping['switch_id']]}
-            gws = self.vsdclient.get_gateways(ctx.tenant_id,
-                                              filters)
-            if len(gws) == 0:
-                msg = (_("No gateway found %s")
-                       % filters['system_id'][0])
-                raise exceptions.NuageBadRequest(msg=msg)
-            gw = gws[0]
+                params = {
+                    'gatewayport': switchport.get('redundant_port_uuid') or
+                    switchport['port_uuid'],
+                    'value': segmentation_id,
+                    'redundant': rg is not None,
+                    'personality': gw['gw_type']
+                }
+                vlan = self.vsdclient.create_gateway_vlan(params)
+                LOG.debug("created vlan: %(vlan_dict)s",
+                          {'vlan_dict': vlan})
+                subnet_mapping = self._get_subnet_mapping(
+                    context._plugin_context,
+                    port)
+                subnet = context._plugin.get_subnet(
+                    context._plugin_context,
+                    subnet_mapping['subnet_id'])
+                params = {
+                    'gatewayinterface': vlan['ID'],
+                    'np_id': subnet_mapping['net_partition_id'],
+                    'tenant': port['tenant_id'],
+                    'subnet': subnet,
+                    'enable_dhcp': subnet['enable_dhcp'],
+                    'nuage_managed_subnet':
+                        subnet_mapping['nuage_managed_subnet'],
+                    'port_security_enabled': False,
+                    'personality': gw['gw_type'],
+                    'type': p_const.BRIDGE_VPORT_TYPE
+                }
+                vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                    subnet_mapping['nuage_subnet_id'])
+                params['vsd_subnet'] = vsd_subnet
 
-            params = {
-                'gatewayport': switch_mapping['port_uuid'],
-                'value': segmentation_id,
-                'redundant': switch_mapping['redundant'],
-                'personality': gw['gw_type']
+                # policy groups are not supported on netconf
+                # managed gateways
+                create_policy = 'NETCONF' not in gw['gw_type']
+
+                vport = self.vsdclient.create_gateway_vport_no_usergroup(
+                    ctx.tenant_id,
+                    params, create_policy_group=create_policy)
+                LOG.debug("created vport: %(vport_dict)s",
+                          {'vport_dict': vport})
+                bridge_port_id = vport.get('vport').get('ID')
+            else:
+                bridge_port_id = vports[0]['nuage_vport_id']
+            binding = {
+                'neutron_port_id': port.get('id'),
+                'nuage_vport_id': bridge_port_id,
+                'switchport_uuid': switchport['port_uuid'],
+                'segmentation_id': segmentation_id,
+                'switchport_mapping_id': switchport['id']
             }
-            vlan = self.vsdclient.create_gateway_vlan(params)
-            LOG.debug("created vlan: %(vlan_dict)s",
-                      {'vlan_dict': vlan})
-            subnet_mapping = self._get_subnet_mapping(context._plugin_context,
-                                                      port)
-            subnet = context._plugin.get_subnet(context._plugin_context,
-                                                subnet_mapping['subnet_id'])
-            params = {
-                'gatewayinterface': vlan['ID'],
-                'np_id': subnet_mapping['net_partition_id'],
-                'tenant': port['tenant_id'],
-                'subnet': subnet,
-                'enable_dhcp': subnet['enable_dhcp'],
-                'nuage_managed_subnet':
-                    subnet_mapping['nuage_managed_subnet'],
-                'port_security_enabled': False,
-                'personality': gw['gw_type'],
-                'type': p_const.BRIDGE_VPORT_TYPE
-            }
-            vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
-                subnet_mapping['nuage_subnet_id'])
-            params['vsd_subnet'] = vsd_subnet
-
-            # policy groups are not supported on netconf
-            # managed gateways
-            create_policy = 'NETCONF' not in gw['gw_type']
-
-            vport = self.vsdclient.create_gateway_vport_no_usergroup(
-                ctx.tenant_id,
-                params, create_policy_group=create_policy)
-            LOG.debug("created vport: %(vport_dict)s",
-                      {'vport_dict': vport})
-            bridge_port_id = vport.get('vport').get('ID')
-        else:
-            bridge_port_id = vports[0]['nuage_vport_id']
-        binding = {
-            'neutron_port_id': port.get('id'),
-            'nuage_vport_id': bridge_port_id,
-            'switchport_uuid': switch_mapping['port_uuid'],
-            'segmentation_id': segmentation_id,
-            'switchport_mapping_id': switch_mapping['id']
-        }
-        ext_db.add_switchport_binding(ctx, binding)
+            ext_db.add_switchport_binding(ctx, binding)
 
     def _create_port_on_switch(self, context):
         port = context.current
@@ -428,30 +478,28 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         db_context = context._plugin_context
         if self.is_network_device_port(port):
             return
-        binding = context.nuage_binding
-        if not binding:
+        port_bindings = context.nuage_bindings
+        if not port_bindings:
             return
-        LOG.debug("delete_port with port_id %(port_id)s",
-                  {'port_id': port['id']})
         with db_context.session.begin(subtransactions=True):
-            bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
-                db_context, binding['switchport_uuid'],
-                binding['segmentation_id'])
-            db_context.session.delete(binding)
-        if not bindings:
-            vport = self.vsdclient.get_nuage_vport_by_id(
-                binding['nuage_vport_id'],
-                required=False)
-            if vport:
-                LOG.debug("Deleting vport %(vport)s", {'vport': vport})
-                self.vsdclient.delete_nuage_gateway_vport_no_usergroup(
-                    port['tenant_id'],
-                    vport)
-                if vport.get('VLANID'):
-                    LOG.debug("Deleting vlan %(vlan)s",
-                              {'vlan': vport['VLANID']})
-                    self.vsdclient.delete_gateway_port_vlan(
-                        vport['VLANID'])
+            for binding in port_bindings:
+                bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
+                    db_context, binding['switchport_uuid'],
+                    binding['segmentation_id'])
+                if not bindings:
+                    vport = self.vsdclient.get_nuage_vport_by_id(
+                        binding['nuage_vport_id'],
+                        required=False)
+                    if vport:
+                        LOG.debug("Deleting vport %(vport)s", {'vport': vport})
+                        self.vsdclient.delete_nuage_gateway_vport_no_usergroup(
+                            port['tenant_id'],
+                            vport)
+                        if vport.get('VLANID'):
+                            LOG.debug("Deleting vlan %(vlan)s",
+                                      {'vlan': vport['VLANID']})
+                            self.vsdclient.delete_gateway_port_vlan(
+                                vport['VLANID'])
 
     def check_segment_for_agent(self, segment, agent=None):
         network_type = segment[api.NETWORK_TYPE]

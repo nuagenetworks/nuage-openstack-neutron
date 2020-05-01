@@ -68,11 +68,12 @@ class NuageSwitchportMapping(model_base.BASEV2, model_base.HasId):
     __tablename__ = 'nuage_switchport_mapping'
     switch_info = sa.Column(sa.String(255), nullable=False)
     switch_id = sa.Column(sa.String(36), nullable=False)
-    redundant = sa.Column(sa.Boolean())
     port_id = sa.Column(sa.String(255), nullable=False)
     port_uuid = sa.Column(sa.String(36), nullable=False)
+    redundant_port_uuid = sa.Column(sa.String(36), nullable=True)
     pci_slot = sa.Column(sa.String(36), nullable=False)
     host_id = sa.Column(sa.String(255), nullable=False)
+    bridge = sa.Column(sa.String(36), nullable=True)
     __table_args__ = (sa.PrimaryKeyConstraint('id'),
                       sa.UniqueConstraint('host_id', 'pci_slot'))
 
