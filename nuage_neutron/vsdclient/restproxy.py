@@ -532,6 +532,22 @@ class RESTProxyServer(object):
         }
         return restproxy.get(resource, extra_headers=headers)
 
+    @staticmethod
+    def vport_retrieve_by_ext_id_and_vlan(restproxy, resource, data):
+        if not (data.get('externalID') and data.get('VLANID')):
+            return None
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "externalID IS '%s'" % data.get('externalID'),
+        }
+        vports = restproxy.get(resource, extra_headers=headers)
+        vport = next((vport for vport in vports
+                     if data.get('VLANID') == vport.get('VLANID')), None)
+        if not vport:
+            msg = 'Unable to find VPort on VLAN {}'.format(data.get('VLANID'))
+            raise ResourceConflictException(msg=msg)
+        return [vport]
+
     def post(self, resource, data, extra_headers=None,
              on_res_exists=retrieve_by_external_id.__func__,
              ignore_err_codes=None):
