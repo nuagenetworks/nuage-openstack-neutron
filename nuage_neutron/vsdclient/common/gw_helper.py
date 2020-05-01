@@ -77,7 +77,7 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
     vport = restproxy_serv.post(
         resource_url,
         nuage_vport.post_vport_data(),
-        on_res_exists=restproxy_serv.retrieve_by_external_id,
+        on_res_exists=restproxy_serv.vport_retrieve_by_ext_id_and_vlan,
         ignore_err_codes=[restproxy.REST_VLAN_IN_USE_ERR_CODE])[0]
 
     # create the interface
@@ -425,7 +425,9 @@ def make_gw_port_dict(port):
         'gw_port_phy_name': port['physicalName'],
         'gw_port_vlan': port['VLANRange'],
         'gw_port_mnemonic': port['userMnemonic'],
-        'gw_redundant_port_id': port.get('associatedRedundantPortID')
+        'gw_redundant_port_id': port.get('associatedRedundantPortID'),
+        'rg_id': port.get('parentID') if
+        port.get('parentType') == 'redundancygroup' else None
     }
     return ret
 

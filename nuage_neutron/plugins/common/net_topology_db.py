@@ -37,6 +37,14 @@ def get_switchport_by_host_slot(context, record_dict):
     return gateway_port
 
 
+def get_switchports_by_host_bridge(context, host_id, bridge):
+    """Get switchports that matches the supplied host_id and bridge."""
+    query = context.session.query(nuage_models.NuageSwitchportMapping)
+    return query.filter_by(
+        host_id=host_id,
+        bridge=bridge).all()
+
+
 def get_switchport_bindings_by_switchport_vlan(context,
                                                switchport_uuid,
                                                segmentation_id):
@@ -69,7 +77,7 @@ def get_switchport_binding_by_neutron_port(context,
     )
     if segmentation_id:
         query = query.filter_by(segmentation_id=segmentation_id)
-    return query.first()
+    return query.all()
 
 
 def add_switchport_binding(context, binding):
@@ -87,14 +95,18 @@ def add_switchport_binding(context, binding):
         session.add(port_map)
 
 
-def delete_switchport_binding(context, neutron_port_id, segmentation_id):
+def delete_switchport_binding(context, neutron_port_id, segmentation_id=None):
     """Delete mappings that matches neutron_port_id."""
     session = context.session
     with session.begin(subtransactions=True):
         if neutron_port_id:
-            session.query(nuage_models.NuageSwitchportBinding).filter_by(
-                neutron_port_id=neutron_port_id,
-                segmentation_id=segmentation_id).delete()
+            query = (
+                session.query(nuage_models.NuageSwitchportBinding).filter_by(
+                    neutron_port_id=neutron_port_id)
+            )
+            if segmentation_id:
+                query = query.filter_by(segmentation_id=segmentation_id)
+            query.delete()
 
 
 class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase):
@@ -116,10 +128,11 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase):
         res = {'id': gw_map_db['id'],
                'switch_info': gw_map_db['switch_info'],
                'switch_id': gw_map_db['switch_id'],
-               'redundant': gw_map_db['redundant'],
                'port_id': gw_map_db['port_id'],
                'port_uuid': gw_map_db['port_uuid'],
+               'redundant_port_uuid': gw_map_db['redundant_port_uuid'],
                'pci_slot': gw_map_db['pci_slot'],
+               'bridge': gw_map_db['bridge'],
                'host_id': gw_map_db['host_id']
                }
         return lib_db_utils.resource_fields(res, fields)
@@ -196,10 +209,11 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase):
                 id=uuidutils.generate_uuid(),
                 switch_info=s['switch_info'],
                 switch_id=s['switch_id'],
-                redundant=s['redundant'],
                 port_id=s['port_id'],
                 port_uuid=s['port_uuid'],
+                redundant_port_uuid=s['redundant_port_uuid'],
                 pci_slot=s['pci_slot'],
+                bridge=s['bridge'],
                 host_id=s['host_id'])
             context.session.add(gw_map_db)
         return self._make_switchport_mapping_dict(gw_map_db)
