@@ -19,7 +19,7 @@ Q_PLUGIN=ml2
 
 Q_ML2_PLUGIN_MECHANISM_DRIVERS=nuage
 
-Q_ML2_PLUGIN_EXT_DRIVERS=nuage_subnet,nuage_port,port_security
+Q_ML2_PLUGIN_EXT_DRIVERS=nuage_network,nuage_subnet,nuage_port,port_security
 
 
 Required settings
