@@ -312,7 +312,7 @@ function create_fake_gateway_for_hw_vtep(){
       echo "Created GWPort with id: $PORT_ID"
 
     fi
-    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$machine_id" --port-id "$name" --host-id $(hostname) --pci-slot $PUBLIC_BRIDGE | grep ' id ' | get_field 2)
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$machine_id" --port-id "$name" --host-id $(hostname) --pci-slot eth1 --bridge $PUBLIC_BRIDGE | grep ' id ' | get_field 2)
     echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
 }
 
