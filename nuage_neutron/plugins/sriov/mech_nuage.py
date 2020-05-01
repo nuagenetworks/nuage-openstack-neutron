@@ -274,7 +274,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 'id': gw_port_mapping['id'],
                 'switch_info': gw_port_mapping['switch_info'],
                 'switch_id': gw_port_mapping['switch_id'],
-                'redundant': gw_port_mapping['redundant'],
+                'redundant': gw_port_mapping.get(
+                    'redundant_port_uuid') is not None,
                 'port_id': gw_port_mapping['port_uuid']
             }]
 
@@ -360,14 +361,14 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 port=port['id'])
         segmentation_id = port_dict['segmentation_id']
         ctx = neutron_context.get_admin_context()
-        vport_exist = ext_db.get_switchport_binding_by_neutron_port(
+        bridgeports = ext_db.get_switchport_binding_by_neutron_port(
             ctx,
             port['id'],
             segmentation_id)
-        if vport_exist:
-            LOG.info("bridge port %(bp)s for port %(port_id)s already exist",
-                     {'bp': vport_exist['nuage_vport_id'],
-                      'port_id': vport_exist['neutron_port_id']})
+        if bridgeports:
+            LOG.info("bridge port(s) %(bp)s for port %(port)s already exist",
+                     {'bp': bridgeports,
+                      'port': port['id']})
             return
         for gwport in gw_ports:
             vports = ext_db.get_switchport_bindings_by_switchport_vlan(
@@ -474,31 +475,32 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         db_context = context._plugin_context
         LOG.debug("delete_port with port_id %(port_id)s",
                   {'port_id': port['id']})
-        binding = ext_db.get_switchport_binding_by_neutron_port(
+        port_bindings = ext_db.get_switchport_binding_by_neutron_port(
             db_context, port['id'])
-        if not binding:
+        if not port_bindings:
             return
-        bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
-            db_context, binding['switchport_uuid'],
-            binding['segmentation_id'])
-        if len(bindings) == 1:
-            vport = self.vsdclient.get_nuage_vport_by_id(
-                binding['nuage_vport_id'],
-                required=False)
-            if not vport:
-                LOG.debug("couldn't find a vport")
-            else:
-                LOG.debug("Deleting vport %(vport)s", {'vport': vport})
-                self.vsdclient.delete_nuage_gateway_vport_no_usergroup(
-                    port['tenant_id'],
-                    vport)
-                if vport.get('VLANID'):
-                    LOG.debug("Deleting vlan %(vlan)s",
-                              {'vlan': vport['VLANID']})
-                    self.vsdclient.delete_gateway_port_vlan(
-                        vport['VLANID'])
-        ext_db.delete_switchport_binding(db_context, port['id'],
-                                         binding['segmentation_id'])
+        for binding in port_bindings:
+            bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
+                db_context, binding['switchport_uuid'],
+                binding['segmentation_id'])
+            if len(bindings) == 1:
+                vport = self.vsdclient.get_nuage_vport_by_id(
+                    binding['nuage_vport_id'],
+                    required=False)
+                if not vport:
+                    LOG.debug("couldn't find a vport")
+                else:
+                    LOG.debug("Deleting vport %(vport)s", {'vport': vport})
+                    self.vsdclient.delete_nuage_gateway_vport_no_usergroup(
+                        port['tenant_id'],
+                        vport)
+                    if vport.get('VLANID'):
+                        LOG.debug("Deleting vlan %(vlan)s",
+                                  {'vlan': vport['VLANID']})
+                        self.vsdclient.delete_gateway_port_vlan(
+                            vport['VLANID'])
+            ext_db.delete_switchport_binding(db_context, port['id'],
+                                             binding['segmentation_id'])
 
     def check_vlan_transparency(self, context):
         """Nuage driver vlan transparency support."""
