@@ -61,7 +61,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                        resources.PORT, constants.AFTER_DELETE)
 
     @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_CREATE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_create_security_group(self, resource, event, trigger, **kwargs):
         session = kwargs['context'].session
@@ -72,14 +72,14 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             nuagedb.set_nuage_sg_parameter(session, sg_id, 'STATEFUL', '0')
 
     @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_DELETE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_delete_security_group(self, resource, event, trigger, **kwargs):
         sg_id = kwargs['security_group_id']
         self.vsdclient.delete_nuage_secgroup(sg_id)
 
     @registry.receives(resources.SECURITY_GROUP, [events.PRECOMMIT_DELETE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def delete_security_group_precommit(self, resource, event, trigger,
                                         **kwargs):
@@ -88,7 +88,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         nuagedb.delete_nuage_sg_parameter(session, sg_id, 'STATEFUL')
 
     @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_UPDATE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_update_security_group(self, resource, event, trigger, **kwargs):
         context = kwargs['context']
@@ -101,7 +101,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             self.stateful = kwargs['security_group']['stateful']
 
     @registry.receives(resources.SECURITY_GROUP, [events.PRECOMMIT_UPDATE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def update_security_group_precommit(self, resource, event, trigger,
                                         payload):
@@ -114,7 +114,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             self.stateful = None
 
     @registry.receives(resources.SECURITY_GROUP, [events.AFTER_UPDATE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def update_security_group_postcommit(self, resource, event, trigger,
                                          **kwargs):
@@ -139,7 +139,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                                    data)
 
     @registry.receives(resources.SECURITY_GROUP_RULE, [events.BEFORE_CREATE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_create_security_group_rule(self, resource, event, trigger,
                                        **kwargs):
@@ -147,7 +147,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
             kwargs['security_group_rule'])
 
     @registry.receives(resources.SECURITY_GROUP_RULE, [events.AFTER_CREATE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def post_create_security_group_rule(self, resource, event, trigger,
                                         **kwargs):
@@ -177,7 +177,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                                             sg_rule['id'])
 
     @registry.receives(resources.SECURITY_GROUP_RULE, [events.BEFORE_DELETE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_delete_security_group_rule(self, resource, event, trigger,
                                        **kwargs):

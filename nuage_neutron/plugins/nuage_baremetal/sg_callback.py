@@ -61,7 +61,7 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
             port_params, required=required)
 
     @registry.receives(resources.SECURITY_GROUP_RULE, [events.BEFORE_DELETE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_delete_security_group_rule(self, resource,
                                        event, trigger, **kwargs):
@@ -71,7 +71,7 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
         self.client.delete_nuage_sgrule([local_sg_rule], constants.HARDWARE)
 
     @registry.receives(resources.SECURITY_GROUP_RULE, [events.BEFORE_CREATE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_create_security_group_rule(self, resource,
                                        event, trigger, **kwargs):
@@ -79,7 +79,7 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
             kwargs['security_group_rule'])
 
     @registry.receives(resources.SECURITY_GROUP_RULE, [events.AFTER_CREATE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def post_create_security_group_rule(self, resource,
                                         event, trigger, **kwargs):
@@ -109,7 +109,7 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
                                                             sg_rule['id'])
 
     @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_DELETE])
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_delete_security_group(self, resource, event, trigger, **kwargs):
         self.client.delete_nuage_secgroup(kwargs['security_group_id'])

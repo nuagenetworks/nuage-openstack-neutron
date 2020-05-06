@@ -124,7 +124,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             raise cfg.ConfigFileValueError(_('%s cannot be'
                                              ' in fraction') % attribute)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def add_router_interface(self, context, router_id, interface_info=None):
         # pre-commit begins here
@@ -427,7 +427,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         nuage_rtr_id = ent_rtr_mapping['nuage_router_id']
         return nuage_subnet_id, nuage_rtr_id
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def remove_router_interface(self, context, router_id, interface_info):
         port_id_specified = interface_info and 'port_id' in interface_info
@@ -585,7 +585,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     {'nuage_subnet_id': vsd_subnet['ID'],
                      'nuage_l2dom_tmplt_id': None})
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):
@@ -595,7 +595,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                           nuage_router)
         return self._fields(router, fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_routers(self, context, filters=None, fields=None,
@@ -645,7 +645,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             if nuage_route:
                 route['rd'] = nuage_route['rd']
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def create_router(self, context, router):
@@ -840,7 +840,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         }
         nuagedb.update_entrouter_mapping(ent_rtr_mapping, ns_dict)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def delete_router(self, context, id):
@@ -1083,7 +1083,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                     % (neutron_fip['id'], neutron_fip['tenant_id'],
                        direction, value, 'K'))
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_floatingip(self, context, id, fields=None):
@@ -1109,7 +1109,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         return self._fields(fip, fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def create_floatingip(self, context, floatingip,
@@ -1183,7 +1183,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                 self.def_ingress_rate_kbps)
         return fip_rate_values
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def update_floatingip(self, context, id, floatingip):
@@ -1326,7 +1326,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             lib_constants.FLOATINGIP_STATUS_DOWN)
         neutron_fip['status'] = lib_constants.FLOATINGIP_STATUS_DOWN
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def disassociate_floatingips(self, context, port_id, do_notify=True):
         fips = self.get_floatingips(context, filters={'port_id': [port_id]})
@@ -1342,7 +1342,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         return router_ids
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @db.retry_if_session_inactive()
     @log_helpers.log_method_call
     def delete_floatingip(self, context, fip_id):
