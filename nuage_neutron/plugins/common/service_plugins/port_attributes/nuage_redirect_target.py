@@ -132,7 +132,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
         return [self._make_redirect_target_dict(rtarget, context, fields)
                 for rtarget in rtargets]
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def delete_nuage_redirect_target(self, context, rtarget_id):
         filters = {'device_id': [rtarget_id]}
@@ -161,7 +161,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             res['tenant_id'] = context.tenant_id
         return self.core_plugin._fields(res, fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def create_nuage_redirect_target(self, context, nuage_redirect_target):
         redirect_target = nuage_redirect_target['nuage_redirect_target']
@@ -210,7 +210,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             res['tenant_id'] = context.tenant_id
         return self.core_plugin._fields(res, fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def create_nuage_redirect_target_vip(self, context,
                                          nuage_redirect_target_vip):
@@ -355,7 +355,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             else:
                 raise ext_rtarget.RedirectTargetRuleInvalidPortRange()
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def create_nuage_redirect_target_rule(self, context,
                                           nuage_redirect_target_rule):
@@ -460,7 +460,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
                                                        security_group_rules)
         return policy_group
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_redirect_target_rule(self, context, rtarget_rule_id,
                                        fields=None):
@@ -476,12 +476,12 @@ class NuageRedirectTarget(BaseNuagePlugin):
                                                     context=context,
                                                     fields=fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def delete_nuage_redirect_target_rule(self, context, rtarget_rule_id):
         self.vsdclient.delete_nuage_redirect_target_rule(rtarget_rule_id)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_redirect_target_rules(self, context, filters=None,
                                         fields=None):

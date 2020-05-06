@@ -60,7 +60,7 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
         return self.client.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_delete_security_group_rule(self, resource,
                                        event, trigger, **kwargs):
@@ -69,14 +69,14 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
         local_sg_rule = self.core_plugin.get_security_group_rule(context, id)
         self.client.delete_nuage_sgrule([local_sg_rule], constants.HARDWARE)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_create_security_group_rule(self, resource,
                                        event, trigger, **kwargs):
         self.client.validate_nuage_sg_rule_definition(
             kwargs['security_group_rule'])
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def post_create_security_group_rule(self, resource,
                                         event, trigger, **kwargs):
@@ -105,7 +105,7 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
                 self.core_plugin.delete_security_group_rule(context,
                                                             sg_rule['id'])
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_delete_security_group(self, resource, event, trigger, **kwargs):
         self.client.delete_nuage_secgroup(kwargs['security_group_id'])
