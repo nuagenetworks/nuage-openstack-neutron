@@ -118,7 +118,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def create_nuage_gateway_vport(self, context, nuage_gateway_vport):
         vport = nuage_gateway_vport['nuage_gateway_vport']
@@ -183,7 +183,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             resp_dict['port_id'] = port_id
         return self._make_vport_dict(resp_dict, context=context)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def create_nuage_gateway_vlan(self, context, nuage_gateway_vlan):
         vlan = nuage_gateway_vlan['nuage_gateway_vlan']
@@ -191,12 +191,12 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
         resp = self.vsdclient.create_gateway_port_vlan(vlan)
         return self._make_vlan_dict(resp, context=context)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def delete_nuage_gateway_vlan(self, context, id):
         self.vsdclient.delete_gateway_port_vlan(id)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def delete_nuage_gateway_vport(self, context, id):
         def_netpart = cfg.CONF.RESTPROXY.default_net_partition_name
@@ -205,7 +205,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
                                                   id,
                                                   netpart['id'])
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def update_nuage_gateway_vlan(self, context, id, nuage_gateway_vlan):
         vlan = nuage_gateway_vlan['nuage_gateway_vlan']
@@ -220,7 +220,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
                                                        params)
         return self._make_vlan_dict(resp, context=context)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_vlan(self, context, id, fields=None):
         resp = self.vsdclient.get_gateway_port_vlan(context.tenant_id,
@@ -231,7 +231,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             raise nuage_exc.NuageNotFound(resource='nuage_vlan',
                                           resource_id=id)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_vport(self, context, id, fields=None):
         fetch_tenant = self._check_for_permissions(context, None)
@@ -277,7 +277,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
                       'contained')
         return self._make_vport_dict(resp, fields=fields, context=context)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_vports(self, context, filters=None, fields=None):
         user_tenant = filters.get('tenant')
@@ -305,12 +305,12 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
         else:
             return []
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_vlans_count(self, context, filters=None):
         return 0
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_vports_count(self, context, filters=None):
         return 0
@@ -353,7 +353,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
                 fetch_tenant = context.tenant_id
         return fetch_tenant
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_vlans(self, context, filters=None, fields=None):
         if not filters:
@@ -390,7 +390,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
         else:
             return []
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_port(self, context, id, fields=None):
         resp = self.vsdclient.get_gateway_port(context.tenant_id, id)
@@ -402,7 +402,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             raise nuage_exc.NuageNotFound(resource='nuage_gateway_port',
                                           resource_id=id)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_ports(self, context, filters=None, fields=None):
         resp = self.vsdclient.get_gateway_ports(context.tenant_id,
@@ -410,7 +410,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
         return [self._make_gw_port_dict(gw, fields=fields, context=context)
                 for gw in resp]
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway(self, context, id, fields=None):
         resp = self.vsdclient.get_gateway(context.tenant_id, id)
@@ -421,7 +421,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             raise nuage_exc.NuageNotFound(resource='nuage_gateway',
                                           resource_id=id)
 
-    @utils.handle_nuage_api_error
+    @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateways(self, context, filters=None, fields=None):
         resp = self.vsdclient.get_gateways(context.tenant_id,
