@@ -103,18 +103,6 @@ def get_logger(name=None, fn=None):
     return logging.getLogger(fn.__module__ if fn else name)
 
 
-def handle_nuage_api_error(fn):
-    def wrapped(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except RESTProxyError as ex:
-            _, _, tb = sys.exc_info()
-            six.reraise(nuage_exc.NuageAPIException,
-                        nuage_exc.NuageAPIException(msg=ex.msg),
-                        tb)
-    return wrapped
-
-
 def context_log(fn):
     def wrapped(*args, **kwargs):
         instance = args[0]

@@ -43,7 +43,7 @@ class NuageexternalsgMixin(nuage_utils.SubnetUtilsBase):
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def create_nuage_external_security_group(self, context,
                                              nuage_external_security_group):
@@ -146,7 +146,7 @@ class NuageexternalsgMixin(nuage_utils.SubnetUtilsBase):
         return [self._make_external_security_group_dict(sg, context, fields)
                 for sg in ext_sgs]
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def delete_nuage_external_security_group(self, context, ext_sg_id):
         self.vsdclient.delete_nuage_external_security_group(ext_sg_id)
@@ -186,7 +186,7 @@ class NuageexternalsgMixin(nuage_utils.SubnetUtilsBase):
             res['tenant_id'] = context.tenant_id
         return self._fields(res, fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def create_nuage_external_security_group_rule(
             self, context, nuage_external_security_group_rule):
@@ -205,7 +205,7 @@ class NuageexternalsgMixin(nuage_utils.SubnetUtilsBase):
         return directory.get_plugin(
             constants.NUAGE_PORT_ATTRIBUTES_SERVICE_PLUGIN)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_external_security_group_rule(self, context, external_rule_id,
                                                fields=None):
@@ -220,13 +220,13 @@ class NuageexternalsgMixin(nuage_utils.SubnetUtilsBase):
                                                             context=context,
                                                             fields=fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def delete_nuage_external_security_group_rule(self, context,
                                                   external_rule_id):
         self.vsdclient.delete_nuage_external_sg_rule(external_rule_id)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_external_security_group_rules(self, context, filters=None,
                                                 fields=None):
