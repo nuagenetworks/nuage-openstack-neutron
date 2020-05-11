@@ -294,14 +294,14 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                 default_netpart_name)
             self._default_np_id = default_netpart['id']
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def create_net_partition(self, context, net_partition):
         ent = net_partition['net_partition']
         return self._validate_create_net_partition(context, ent['name'])
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def _validate_delete_net_partition(self, context, id, net_partition_name):
         if net_partition_name == constants.SHARED_INFRASTRUCTURE:
@@ -320,7 +320,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                      "net_partition %s.") % net_partition_name)
             raise n_exc.BadRequest(resource='net_partition', msg=msg)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def delete_net_partition(self, context, id):
@@ -428,7 +428,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             filters=filters, fields=fields, sorts=sorts,
             limit=limit, marker_obj=marker_obj, page_reverse=page_reverse)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @lib_db_api.retry_if_session_inactive()
     @log_helpers.log_method_call
     def get_vsd_subnet(self, context, id, fields=None):
@@ -456,7 +456,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         vsd_subnet['net_partition'] = net_partition
         return self._fields(vsd_subnet, fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_vsd_subnets(self, context, filters=None, fields=None):
         if 'vsd_zone_id' not in filters:
@@ -479,7 +479,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         }
         return self._trans_vsd_to_os(l3subs, vsd_to_os, filters, fields)
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_vsd_domains(self, context, filters=None, fields=None):
 
@@ -560,7 +560,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             subnet = self.vsdclient.get_nuage_subnet_by_id(shared_id)
         return subnet.get('IPv6Address')
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_vsd_zones(self, context, filters=None, fields=None):
         if 'vsd_domain_id' not in filters:
@@ -590,7 +590,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         dict[key] = val
         return dict
 
-    @nuage_utils.handle_nuage_api_error
+    @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_vsd_organisations(self, context, filters=None, fields=None):
         netpartitions = self.vsdclient.get_net_partitions()
