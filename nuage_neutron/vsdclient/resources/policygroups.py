@@ -887,7 +887,7 @@ class NuagePolicyGroups(object):
             rest_data = nuageacl.post_data_default_l3()
         return self.restproxy.post(
             rest_path, rest_data,
-            on_res_exists=self.restproxy.acltmpl_retrieve_by_priority,
+            on_res_exists=self.restproxy.retrieve_by_cms_id_and_priority,
             ignore_err_codes=[restproxy.REST_DUPLICATE_ACL_PRIORITY])[0]
 
     def create_default_deny_rule(self, parent_id, parent_type,
@@ -1528,7 +1528,10 @@ class NuageRedirectTargets(object):
         # neutron ingress is nuage egress and vice versa
         fwd_rules = self.restproxy.post(
             nuage_fwdrule.in_post_resource(fwd_policy_id),
-            nuage_match_info)
+            nuage_match_info,
+            on_res_exists=self.restproxy.retrieve_by_ext_id_and_priority,
+            ignore_err_codes=[restproxy.REST_DUPLICATE_POLICY_ENTRY_PRIORITY]
+        )
         return (self._process_redirect_target_rule(fwd_rules[0])
                 if fwd_rules else None)
 
