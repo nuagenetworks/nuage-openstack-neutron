@@ -55,6 +55,7 @@ REST_ENT_PERMS_EXISTS_ERR_CODE = '4504'
 REST_PG_EXISTS_ERR_CODE = '9501'
 REST_NW_MACRO_EXISTS_INTERNAL_ERR_CODE = '2504'
 REST_DUPLICATE_ACL_PRIORITY = '2640'
+REST_DUPLICATE_POLICY_ENTRY_PRIORITY = '2591'
 
 # legacy - deprecated
 CONFLICT_ERR_CODE = REST_CONFLICT
@@ -478,14 +479,26 @@ class RESTProxyServer(object):
         return restproxy.get(resource, extra_headers=headers)
 
     @staticmethod
-    def acltmpl_retrieve_by_priority(restproxy, resource, data):
-        if not data.get('priority'):
+    def retrieve_by_ext_id_and_priority(restproxy, resource, data):
+        if data.get('priority') is None or not data.get('externalID'):
             return None
         headers = {
             'X-NUAGE-FilterType': "predicate",
             'X-Nuage-Filter': "priority IS %d and externalID CONTAINS '%s'" % (
                 data.get('priority'),
-                data.get('externalID').split('@')[1]),
+                data.get('externalID')),
+        }
+        return restproxy.get(resource, extra_headers=headers)
+
+    @staticmethod
+    def retrieve_by_cms_id_and_priority(restproxy, resource, data):
+        if data.get('priority') is None or not data.get('externalID'):
+            return None
+        headers = {
+            'X-NUAGE-FilterType': "predicate",
+            'X-Nuage-Filter': "priority IS %d and externalID CONTAINS '%s'" % (
+                data.get('priority'),
+                data.get('externalID').split('@')[1])
         }
         return restproxy.get(resource, extra_headers=headers)
 
