@@ -870,10 +870,10 @@ def get_subnet_description(subnet, network_name=None):
         return network_name or subnet['name']
 
 
-def _chunks(l, n):
-    """Split a list l in chunks of length n """
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+def _chunks(values, n):
+    """Split a list in chunks of length n """
+    for i in range(0, len(values), n):
+        yield values[i:i + n]
 
 
 def _chunked_extra_header_match_any_filter(field, values,
