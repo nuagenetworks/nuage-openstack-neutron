@@ -21,6 +21,8 @@
                   $TEMPEST_CONFIG:
                     neutron_plugin_options:
                       available_type_drivers: flat,vlan,local,vxlan
+                    nuage_sut:
+                      nuage_hybrid_mpls_enabled: False
             required-projects: &required-projects-queens
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 6.0/queens
