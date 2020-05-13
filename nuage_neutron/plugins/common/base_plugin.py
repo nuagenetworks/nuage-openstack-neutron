@@ -1189,7 +1189,7 @@ class RootNuagePlugin(SubnetUtilsBase):
                     except restproxy.RESTProxyError as e:
                         msg = ("Shared infrastructure enterprise can have max "
                                "1 Floating IP domains.")
-                        if e.msg == msg:
+                        if str(e) == msg:
                             LOG.debug("Hit concurrent creation of Floating IP "
                                       "domain in Shared Infrastructure. "
                                       "Obtaining the one created")
