@@ -328,7 +328,6 @@ RESOURCE_ATTRIBUTE_MAP = {
 }
 
 REDIRECTTARGETS = 'nuage_redirect_targets'
-NOREDIRECTTARGETS = 'no_nuage_redirect_targets'
 EXTENDED_ATTRIBUTES_2_0 = {
     'ports': {
         REDIRECTTARGETS: {
