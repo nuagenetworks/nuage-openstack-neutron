@@ -139,7 +139,7 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                 constants.DHCP_OPTION_NAME_TO_NUMBER[ip_version]):
             if number == dhcp_option:
                 if hasattr(e, 'msg'):
-                    error = "For DHCP option " + name + ", " + e.msg
+                    error = "For DHCP option " + name + ", " + str(e)
                     return nuage_exc.NuageBadRequest(msg=error)
                 else:
                     error = ("Error encountered while processing option value"

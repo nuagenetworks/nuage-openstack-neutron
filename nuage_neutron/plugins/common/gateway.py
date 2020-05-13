@@ -164,7 +164,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             if hasattr(ex, 'code'):
                 if ex.code == constants.RES_CONFLICT:
                     # gridinv - do not map resource in conflict to 500
-                    raise nuage_exc.NuageBadRequest(msg=ex.message)
+                    raise nuage_exc.NuageBadRequest(msg=str(ex))
             raise
         if port_id and not subnet_mapping['nuage_managed_subnet']:
             port = params['port']

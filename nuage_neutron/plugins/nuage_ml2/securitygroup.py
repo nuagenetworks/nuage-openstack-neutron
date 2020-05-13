@@ -264,7 +264,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                 self.vsdclient.check_unused_policygroups(securitygroups)
                 successful = True
             except restproxy.RESTProxyError as e:
-                msg = e.msg.lower()
+                msg = str(e).lower()
                 if (e.code not in (404, 409) and 'policygroup' not in msg and
                         'policy group' not in msg):
                     raise
@@ -297,12 +297,12 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                 successful = True
             except restproxy.RESTProxyError as e:
                 LOG.debug("Policy group retry %s times.", attempt)
-                msg = e.msg.lower()
+                msg = str(e).lower()
                 if (e.code not in (404, 409) and 'policygroup' not in msg and
                         'policy group' not in msg):
                     raise
                 elif e.vsd_code in constants.NOT_SUPPORTED_NW_MACRO:
-                    msg = e.msg.split(': ', 1)
+                    msg = str(e).split(': ', 1)
                     if len(msg) > 1:
                         e.msg = ('{}: Non supported remote CIDR in security'
                                  ' rule: {}'.format(msg[0], msg[1]))
