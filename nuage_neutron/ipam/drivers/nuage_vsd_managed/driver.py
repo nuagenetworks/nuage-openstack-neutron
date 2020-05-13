@@ -144,7 +144,7 @@ class NuageIpamSubnet(driver.NeutronDbSubnet):
                 raise ipam_exc.IpAddressGenerationFailure(
                     subnet_id=self._subnet_id)
             elif e.vsd_code == vsd_constants.VSD_IP_IN_USE_ERR_CODE:
-                raise ipam_exc.InvalidAddressRequest(reason=e.msg)
+                raise ipam_exc.InvalidAddressRequest(reason=str(e))
             raise
 
         def rollback(db_api_conn):

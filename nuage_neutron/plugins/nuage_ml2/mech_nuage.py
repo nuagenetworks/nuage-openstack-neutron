@@ -644,7 +644,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             if self._get_port_from_neutron(db_context, port):
                 raise
             else:
-                LOG.info("Port was deleted concurrently: %s", ex.message)
+                LOG.info(_("Port was deleted concurrently: {}").format(ex))
                 return
         except Exception:
             if nuage_vm:
@@ -1411,7 +1411,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         successful = True
                     except restproxy.RESTProxyError as e:
                         LOG.debug("Policy group retry %s times.", attempt)
-                        msg = e.msg.lower()
+                        msg = str(e).lower()
                         if (e.code not in (404, 409) and
                                 'policygroup' not in msg and
                                 'policy group' not in msg):
