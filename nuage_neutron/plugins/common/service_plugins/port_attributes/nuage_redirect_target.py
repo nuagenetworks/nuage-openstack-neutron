@@ -29,8 +29,6 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common.extensions import (
     nuage_redirect_target as ext_rtarget)
-from nuage_neutron.plugins.common.extensions.nuage_redirect_target \
-    import REDIRECTTARGETS
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import cms_id_helper
@@ -52,8 +50,6 @@ class NuageRedirectTarget(BaseNuagePlugin):
                                        resources.PORT, constants.AFTER_UPDATE)
         self.nuage_callbacks.subscribe(self.post_port_create_redirect_target,
                                        resources.PORT, constants.AFTER_CREATE)
-        self.nuage_callbacks.subscribe(self.post_port_show_redirect_target,
-                                       resources.PORT, constants.AFTER_SHOW)
 
     @log_helpers.log_method_call
     def get_nuage_redirect_target(self, context, rtarget_id, fields=None):
@@ -661,16 +657,3 @@ class NuageRedirectTarget(BaseNuagePlugin):
         self.process_port_redirect_target(
             context, port, port[ext_rtarget.REDIRECTTARGETS],
             n_rtarget_ids)
-
-    def post_port_show_redirect_target(self, resource, event, trigger,
-                                       **kwargs):
-        port = kwargs.get('port')
-        fields = kwargs.get('fields')
-        vport = kwargs.get('vport')
-        if not port or not vport or \
-                fields and REDIRECTTARGETS not in fields:
-            return
-        policy_groups = self.vsdclient.get_nuage_vport_redirect_targets(
-            vport['ID'])
-        port[REDIRECTTARGETS] = [policy_group['ID']
-                                 for policy_group in policy_groups]
