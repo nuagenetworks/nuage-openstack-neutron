@@ -74,9 +74,19 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         """driver vlan transparency support."""
         return True
 
-    def is_network_device_port(self, port):
+    @staticmethod
+    def is_network_device_port(port):
         return port.get('device_owner', '').startswith(
             constants.DEVICE_OWNER_PREFIXES)
+
+    @staticmethod
+    def is_network_dhcp_port(port):
+        return (port.get('device_owner', '') ==
+                constants.DEVICE_OWNER_DHCP)
+
+    def provisioning_required(self, port):
+        return (self.is_network_dhcp_port(port) or not
+                self.is_network_device_port(port))
 
     def _validate_create_subnet(self, db_context, network, prefixlen,
                                 subnet, vsd_managed, l2bridge):
@@ -274,7 +284,8 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)
                 not in self.supported_vnic_types):
             return
-        if context.host != context.original_host and context.original_host:
+        if ((context.host != context.original_host and
+                context.original_host) or not port.get('fixed_ips')):
             self._delete_port_on_switch(context)
         self._create_port_on_switch(context)
 
@@ -353,7 +364,14 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
             msg = (_("Failed to retrieve switchport mapping "
                      "for host: %(host)s bridge: %(bridge)s") %
                    {'host': host, 'bridge': bridge})
-            raise exceptions.NuageBadRequest(msg=msg)
+            if self.is_network_dhcp_port(port):
+                LOG.warn(msg)
+                LOG.warn('network:dhcp port %(port)s will have '
+                         'no connectivity',
+                         {'port': port['id']})
+                return
+            else:
+                raise exceptions.NuageBadRequest(msg=msg)
         port_bindings = ext_db.get_switchport_binding_by_neutron_port(
             ctx,
             port['id'],
@@ -386,6 +404,18 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                         raise exceptions.NuageBadRequest(msg=msg)
                     gw = gws[0]
 
+                subnet_mapping = self._get_subnet_mapping(
+                    context._plugin_context,
+                    port)
+                if not subnet_mapping:
+                    LOG.debug("Subnet mapping for port %s could not be found, "
+                              "it might have been deleted concurrently.",
+                              port['id'])
+                    return
+                subnet = context._plugin.get_subnet(
+                    context._plugin_context,
+                    subnet_mapping['subnet_id'])
+
                 params = {
                     'gatewayport': switchport.get('redundant_port_uuid') or
                     switchport['port_uuid'],
@@ -396,12 +426,6 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                 vlan = self.vsdclient.create_gateway_vlan(params)
                 LOG.debug("created vlan: %(vlan_dict)s",
                           {'vlan_dict': vlan})
-                subnet_mapping = self._get_subnet_mapping(
-                    context._plugin_context,
-                    port)
-                subnet = context._plugin.get_subnet(
-                    context._plugin_context,
-                    subnet_mapping['subnet_id'])
                 params = {
                     'gatewayinterface': vlan['ID'],
                     'np_id': subnet_mapping['net_partition_id'],
@@ -418,9 +442,8 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                     subnet_mapping['nuage_subnet_id'])
                 params['vsd_subnet'] = vsd_subnet
 
-                # policy groups are not supported on netconf
-                # managed gateways
-                create_policy = 'NETCONF' not in gw['gw_type']
+                # do not create policy groups - just waist of resources
+                create_policy = False
 
                 vport = self.vsdclient.create_gateway_vport_no_usergroup(
                     ctx.tenant_id,
@@ -444,13 +467,15 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         device_id = port['device_id']
         device_owner = port['device_owner']
         host = port[portbindings.HOST_ID]
+        if not port.get('fixed_ips'):
+            return
         if not hasattr(context, 'top_bound_segment'):
             return
         if not context.top_bound_segment:
             return
         if not (host and device_id and device_owner):
             return
-        if self.is_network_device_port(port):
+        if not self.provisioning_required(port):
             return
 
         for agent in context.host_agents(self.agent_type):
@@ -476,7 +501,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
     def _delete_port_on_switch(self, context):
         port = context.current
         db_context = context._plugin_context
-        if self.is_network_device_port(port):
+        if not self.provisioning_required(port):
             return
         port_bindings = context.nuage_bindings
         if not port_bindings:
@@ -486,7 +511,9 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                 bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
                     db_context, binding['switchport_uuid'],
                     binding['segmentation_id'])
-                if not bindings:
+                bp_in_use = [b for b in bindings if
+                             b.get('neutron_port_id') != port.get('id')]
+                if not bp_in_use:
                     vport = self.vsdclient.get_nuage_vport_by_id(
                         binding['nuage_vport_id'],
                         required=False)
