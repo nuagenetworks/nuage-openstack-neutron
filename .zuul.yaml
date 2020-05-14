@@ -39,10 +39,13 @@
       jobs:
         - networking-nuage-tempest-virtio:
             override-checkout: stable/rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov:
             override-checkout: stable/rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal:
             override-checkout: stable/rocky
             required-projects: *required-projects
