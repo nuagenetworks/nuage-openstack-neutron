@@ -2254,7 +2254,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     @staticmethod
     def _supported_vnic_types():
         return [portbindings.VNIC_NORMAL,
-                portbindings.VNIC_DIRECT]
+                portbindings.VNIC_DIRECT,
+                portbindings.VNIC_VIRTIO_FORWARDER]
 
     @staticmethod
     def _direct_vnic_supported(port):
