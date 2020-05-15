@@ -1814,16 +1814,23 @@ class NuageGatewayPortBase(NuageResource):
     def extra_headers_get(self):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "externalID IS '%s'" %\
-                                    get_vsd_external_id(
-                                        self.create_params['externalID'])
+        headers['X-Nuage-Filter'] = ("externalID IS '%s'" %
+                                     get_vsd_external_id(
+                                         self.create_params['externalID']))
         return headers
 
     def extra_headers_by_name(self):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "name IS '%s'" %\
-                                    self.extra_params['gw_port_name']
+        headers['X-Nuage-Filter'] = ("name IS '%s'" %
+                                     self.extra_params['gw_port_name'])
+        return headers
+
+    def extra_headers_by_phys_name(self):
+        headers = {}
+        headers['X-NUAGE-FilterType'] = "predicate"
+        headers['X-Nuage-Filter'] = ("physicalName IS '%s'" %
+                                     self.extra_params['physical_name'])
         return headers
 
 
