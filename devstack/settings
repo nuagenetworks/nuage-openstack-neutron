@@ -82,7 +82,7 @@ if ! is_service_enabled q-agt; then
     NEUTRON_AGENT=nuagevrs
 fi
 
-if is_service_enabled q-fwaas neutron-fwaas-v1; then
+if is_service_enabled q-fwaas-v1 neutron-fwaas-v1; then
     NETWORK_API_EXTENSIONS+=,fwaas,fwaasrouterinsertion
 fi
 if is_service_enabled q-qos neutron-qos; then

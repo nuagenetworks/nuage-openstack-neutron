@@ -107,7 +107,6 @@
     fwaas:
       jobs:
         - networking-nuage-fwaas-v1:
-            vars: *vars-nuage
             required-projects: *required-projects
     octavia:
       jobs:
@@ -250,7 +249,6 @@
             vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-fwaas-v1:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-vtep-vxlan:
             vars: *vars-nuage
