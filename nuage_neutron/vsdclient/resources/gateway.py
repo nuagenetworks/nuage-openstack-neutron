@@ -99,42 +99,42 @@ class NuageGateway(object):
         return gw_list
 
     def get_gateway_ports(self, tenant_id, filters):
-        if 'gateway' in filters and 'name' in filters:
+        if 'gateway' in filters:
             req_params = {
                 'gw_id': filters['gateway'][0]
             }
-            extra_params = {
-                'gw_port_name': filters['name'][0]
-            }
-            return self._get_gateway_ports(req_params, extra_params)
-
-        if 'gateway' in filters and 'id' in filters:
-            port = gw_helper.get_gateway_port(self.restproxy,
-                                              filters['id'][0],
-                                              gw_id=filters['gateway'][0])
-            if not port:
-                return []
+            if 'name' in filters:
+                extra_params = {
+                    'gw_port_name': filters['name'][0]
+                }
+                return self._get_gateway_ports(req_params, extra_params)
+            elif 'physicalName' in filters:
+                extra_params = {
+                    'physical_name': filters['physicalName'][0]
+                }
+                return self._get_gateway_ports(req_params, extra_params)
+            elif 'id' in filters:
+                port = gw_helper.get_gateway_port(self.restproxy,
+                                                  filters['id'][0],
+                                                  gw_id=filters['gateway'][0])
+                return [port] if port else []
+            elif 'gatewayport' in filters:
+                # We don't need the gateway that is being passed in
+                port = gw_helper.get_gateway_port(self.restproxy,
+                                                  filters['gatewayport'][0],
+                                                  gw_id=filters['gateway'][0])
+                return [port] if port else []
             else:
-                return [port]
+                req_params = {
+                    'gw_id': filters['gateway'][0]
+                }
+                return self._get_gateway_ports(req_params)
 
-        if 'id' in filters:
+        elif 'id' in filters:
             port = gw_helper.get_gateway_port(self.restproxy, filters['id'][0])
-            if not port:
-                return []
-            else:
-                return [port]
+            return [port] if port else []
 
-        if 'gateway' in filters and 'gatewayport' in filters:
-            # We don't need the gateway that is being passed in
-            port = gw_helper.get_gateway_port(self.restproxy,
-                                              filters['gatewayport'][0],
-                                              gw_id=filters['gateway'][0])
-            if not port:
-                return []
-            else:
-                return [port]
-
-        if 'gateway' not in filters:
+        else:
             gws = self.get_gateways(tenant_id, filters)
             ports = []
             for gw in gws:
@@ -143,11 +143,6 @@ class NuageGateway(object):
                 }
                 ports.extend(self._get_gateway_ports(req_params))
             return ports
-        else:
-            req_params = {
-                'gw_id': filters['gateway'][0]
-            }
-            return self._get_gateway_ports(req_params)
 
     def _get_gateway_ports(self, req_params, extra_params=None):
         extra_headers = dict()
@@ -164,15 +159,12 @@ class NuageGateway(object):
         if extra_params:
             if 'gw_port_name' in extra_params:
                 extra_headers = nuage_gw_port.extra_headers_by_name()
-
-        response = self.restproxy.rest_call(
-            'GET',
-            nuage_gw_port.get_resource_by_gateway(), '',
-            extra_headers=extra_headers)
-
-        if not nuage_gw_port.validate(response):
-            raise nuage_gw_port.get_rest_proxy_error()
-        return nuage_gw_port.get_response_objlist(response)
+            elif 'physical_name' in extra_params:
+                extra_headers = nuage_gw_port.extra_headers_by_phys_name()
+        return self.restproxy.get(
+            nuage_gw_port.get_resource_by_gateway(),
+            extra_headers=extra_headers,
+            required=True)
 
     def _get_gateway_port_vlans(self, tenant_id, req_params,
                                 extra_params=None):
