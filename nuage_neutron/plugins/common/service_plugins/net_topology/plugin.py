@@ -44,12 +44,12 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
                    % filters['system_id'][0])
             raise nuage_exc.NuageBadRequest(msg=msg)
         filters = {'gateway': [gws[0]['gw_id']],
-                   'name': [switchport_mapping['port_id']]}
+                   'physicalName': [switchport_mapping['port_id']]}
         gw_ports = self.vsdclient.get_gateway_ports(context.tenant_id,
                                                     filters)
         if len(gw_ports) == 0:
             msg = (_("No gateway port found %s")
-                   % filters['name'][0])
+                   % filters['physicalName'][0])
             raise nuage_exc.NuageBadRequest(msg=msg)
         return gw_ports[0].get('gw_port_id'), gws[0]['gw_redundant']
 
