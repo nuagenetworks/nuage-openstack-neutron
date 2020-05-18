@@ -91,3 +91,24 @@
                 override-checkout: 5.4/queens
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
+        - networking-nuage-fwaas-v1:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '5.4'
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
+
+    fwaas:
+      jobs:
+        - networking-nuage-fwaas-v1:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '5.4'
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
