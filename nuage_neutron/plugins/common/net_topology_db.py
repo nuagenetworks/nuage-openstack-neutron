@@ -36,13 +36,13 @@ def get_switchport_by_host_slot(context, record_dict):
     return gateway_port
 
 # JvB added
-def get_switchport_by_host_nic(context, host_id, nic_name):
-    """Get switchport that matches the supplied host_id and nic_name."""
+def get_switchport_by_host_physnet(context, host_id, physnet):
+    """Get switchport that matches the supplied host_id and physnet."""
     try:
         query = context.session.query(nuage_models.NuageSwitchportMapping)
         gateway_port = query.filter_by(
             host_id=host_id,
-            nic_name=nic_name).one()
+            physnet=physnet).one()
     except sql_exc.NoResultFound:
         return None
     return gateway_port
@@ -131,7 +131,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                # 'port_id': gw_map_db['port_id'],
                'port_uuid': gw_map_db['port_uuid'],
                # 'pci_slot': gw_map_db['pci_slot'],
-               'nic_name': gw_map_db['nic_name'],
+               'physnet': gw_map_db['physnet'],
                'host_id': gw_map_db['host_id']
                }
         return self._fields(res, fields)
@@ -209,7 +209,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                 # port_id=s['port_id'],
                 port_uuid=s['port_uuid'],
                 # pci_slot=s['pci_slot'],
-                nic_name=s['nic_name'],
+                phys_net=s['phys_net'],
                 host_id=s['host_id'])
             context.session.add(gw_map_db)
         return self._make_switchport_mapping_dict(gw_map_db)

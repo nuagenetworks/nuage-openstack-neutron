@@ -116,7 +116,7 @@ RESOURCE_ATTRIBUTE_MAP = {
 #            'is_visible': True,
 #            'enforce_policy': True
 #        },
-        'nic_name': {
+        'physnet': {
             'allow_post': True,
             'allow_put': True,
             'validate': {'type:string': None},

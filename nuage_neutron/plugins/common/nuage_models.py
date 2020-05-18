@@ -73,9 +73,9 @@ class NuageSwitchportMapping(model_base.BASEV2, model_base.HasId):
     port_uuid = sa.Column(sa.String(36), nullable=False)
     # pci_slot = sa.Column(sa.String(36), nullable=False)
     host_id = sa.Column(sa.String(255), nullable=False)
-    nic_name = sa.Column(sa.String(16), nullable=False)
+    physnet = sa.Column(sa.String(255), nullable=False)
     __table_args__ = (sa.PrimaryKeyConstraint('id'),
-                      sa.UniqueConstraint('host_id', 'nic_name'))
+                      sa.UniqueConstraint('host_id', 'physnet'))
 
 
 class NuageSwitchportBinding(model_base.BASEV2, model_base.HasId):
