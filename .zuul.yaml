@@ -127,7 +127,11 @@
             required-projects: *required-projects-rocky
     fwaas:
       jobs:
-        - legacy-tempest-aio-fwaas
+        - networking-nuage-fwaas-v1:
+            override-checkout: stable/rocky
+            vars:
+              vsp_release: '6.0'
+            required-projects: *required-projects-rocky
     octavia:
       jobs:
         - networking-nuage-octavia:
@@ -348,7 +352,11 @@
                 FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-rocky
-
+        - networking-nuage-fwaas-v1:
+            override-checkout: stable/rocky
+            vars:
+              vsp_release: '6.0'
+            required-projects: *required-projects-rocky
 - job:
     name: networking-nuage-rally-task
     parent: rally-task-at-devstack
