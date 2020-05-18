@@ -71,13 +71,13 @@ def upgrade():
                                         sa.Column('redundant',
                                                   sa.Boolean(),
                                                   nullable=False),
-                                        sa.Column('port_id',
-                                                  sa.String(255),
-                                                  nullable=False),
+                                        #sa.Column('port_id',
+                                        #          sa.String(255),
+                                        #          nullable=False),
                                         sa.Column('port_uuid',
                                                   sa.String(36),
                                                   nullable=False),
-                                        sa.Column('pci_slot', sa.String(36),
+                                        sa.Column('physnet', sa.String(255),
                                                   nullable=False),
                                         sa.Column('host_id', sa.String(255),
                                                   nullable=False)
@@ -117,8 +117,8 @@ def upgrade():
                 nuage_switchport_mapping).filter(
                 nuage_switchport_mapping.c.port_uuid ==
                 nuage_switchport_binding.switchport_uuid,
-                nuage_switchport_mapping.c.pci_slot ==
-                json.loads(port_binding.profile)["pci_slot"],
+                nuage_switchport_mapping.c.physnet ==
+                json.loads(port_binding.profile)["physical_network"],
                 nuage_switchport_mapping.c.host_id ==
                 port_binding.host).first()
 
