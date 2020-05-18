@@ -209,7 +209,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                 # port_id=s['port_id'],
                 port_uuid=s['port_uuid'],
                 # pci_slot=s['pci_slot'],
-                phys_net=s['phys_net'],
+                physnet=s['physnet'],
                 host_id=s['host_id'])
             context.session.add(gw_map_db)
         return self._make_switchport_mapping_dict(gw_map_db)
