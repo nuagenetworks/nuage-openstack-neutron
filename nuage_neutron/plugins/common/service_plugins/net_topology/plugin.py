@@ -89,15 +89,15 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
                     gw_port_id
                 switchport_mapping['switchport_mapping']['redundant'] =\
                     redundant
-            if (s.get('pci_slot') and
-                s.get('pci_slot') != orig.get('pci_slot') or
+            if (s.get('nic_name') and
+                s.get('nic_name') != orig.get('nic_name') or
                 s.get('host_id') and
                     s.get('host_id') != orig.get('host_id')):
                 if not s.get('host_id'):
                     s['host_id'] = orig['host_id']
-                if not s.get('pci_slot'):
-                    s['pci_slot'] = orig['pci_slot']
-                self._validate_host_pci(context, s)
+                if not s.get('nic_name'):
+                    s['nic_name'] = orig['nic_name']
+                # self._validate_host_pci(context, s)
             gw_map = super(NuageNetTopologyPlugin,
                            self).update_switchport_mapping(context, id,
                                                            switchport_mapping)

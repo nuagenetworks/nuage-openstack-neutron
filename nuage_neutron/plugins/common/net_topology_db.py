@@ -35,6 +35,18 @@ def get_switchport_by_host_slot(context, record_dict):
         return None
     return gateway_port
 
+# JvB added
+def get_switchport_by_host_nic(context, host_id, nic_name):
+    """Get switchport that matches the supplied host_id and nic_name."""
+    try:
+        query = context.session.query(nuage_models.NuageSwitchportMapping)
+        gateway_port = query.filter_by(
+            host_id=host_id,
+            nic_name=nic_name).one()
+    except sql_exc.NoResultFound:
+        return None
+    return gateway_port
+
 
 def get_switchport_bindings_by_switchport_vlan(context,
                                                switchport_uuid,
@@ -118,7 +130,8 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                'redundant': gw_map_db['redundant'],
                'port_id': gw_map_db['port_id'],
                'port_uuid': gw_map_db['port_uuid'],
-               'pci_slot': gw_map_db['pci_slot'],
+               # 'pci_slot': gw_map_db['pci_slot'],
+               'nic_name': gw_map_db['nic_name'],
                'host_id': gw_map_db['host_id']
                }
         return self._fields(res, fields)
@@ -176,16 +189,16 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                }
         return self._fields(res, fields)
 
-    def _validate_host_pci(self, context, switchport_mapping):
-        port_map = get_switchport_by_host_slot(context, switchport_mapping)
-        if port_map:
-            raise _ext.SwitchportParamDuplicate(
-                param_name='pci_slot',
-                param_value=switchport_mapping['pci_slot'])
+    # def _validate_host_pci(self, context, switchport_mapping):
+    #     port_map = get_switchport_by_host_slot(context, switchport_mapping)
+    #     if port_map:
+    #         raise _ext.SwitchportParamDuplicate(
+    #             param_name='pci_slot',
+    #             param_value=switchport_mapping['pci_slot'])
 
     def create_switchport_mapping(self, context, switchport_mapping):
         s = switchport_mapping['switchport_mapping']
-        self._validate_host_pci(context, s)
+        # self._validate_host_pci(context, s)
         with context.session.begin(subtransactions=True):
             gw_map_db = nuage_models.NuageSwitchportMapping(
                 id=uuidutils.generate_uuid(),
@@ -194,7 +207,8 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                 redundant=s['redundant'],
                 port_id=s['port_id'],
                 port_uuid=s['port_uuid'],
-                pci_slot=s['pci_slot'],
+                # pci_slot=s['pci_slot'],
+                nic_name=s['nic_name'],
                 host_id=s['host_id'])
             context.session.add(gw_map_db)
         return self._make_switchport_mapping_dict(gw_map_db)

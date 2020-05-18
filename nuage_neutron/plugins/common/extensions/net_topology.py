@@ -109,13 +109,21 @@ RESOURCE_ATTRIBUTE_MAP = {
             'is_visible': True,
             'enforce_policy': True
         },
-        'pci_slot': {
+#        'pci_slot': {
+#            'allow_post': True,
+#            'allow_put': True,
+#            'validate': {'type:string': None},
+#            'is_visible': True,
+#            'enforce_policy': True
+#        },
+        'nic_name': {
             'allow_post': True,
             'allow_put': True,
             'validate': {'type:string': None},
             'is_visible': True,
             'enforce_policy': True
         },
+
         'tenant_id': {
             'allow_post': True,
             'allow_put': False,
