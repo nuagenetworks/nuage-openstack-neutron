@@ -104,7 +104,7 @@
     fwaas:
       jobs:
         - networking-nuage-fwaas-v1:
-            vars: *required-vars-nuage-only-rocky
+            override-checkout: stable/rocky
             required-projects: *required-projects-rocky
     octavia:
       jobs:
@@ -233,7 +233,7 @@
             vars: *required-vars-nuage-only-rocky
             required-projects: *required-projects-rocky
         - networking-nuage-fwaas-v1:
-            vars: *required-vars-nuage-only-rocky
+            override-checkout: stable/rocky
             required-projects: *required-projects-rocky
         - networking-nuage-vtep-vxlan:
             vars: *required-vars-nuage-only-rocky
