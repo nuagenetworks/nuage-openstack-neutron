@@ -128,7 +128,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                'switch_info': gw_map_db['switch_info'],
                'switch_id': gw_map_db['switch_id'],
                'redundant': gw_map_db['redundant'],
-               'port_id': gw_map_db['port_id'],
+               # 'port_id': gw_map_db['port_id'],
                'port_uuid': gw_map_db['port_uuid'],
                # 'pci_slot': gw_map_db['pci_slot'],
                'nic_name': gw_map_db['nic_name'],
@@ -154,12 +154,13 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                 nuage_models.NuageSwitchportBinding.id == id).one()
             query = context.session.query(
                 nuage_models.NuageSwitchportMapping.switch_id,
-                nuage_models.NuageSwitchportMapping.port_id)
+                # nuage_models.NuageSwitchportMapping.port_id)
+                nuage_models.NuageSwitchportMapping.port_uuid)
             query = query.filter(
                 nuage_models.NuageSwitchportMapping.port_uuid ==
                 gw_bind_db['switchport_uuid']).distinct()
             switch, port = query.one()
-            gw_bind_db['port_id'] = port
+            # gw_bind_db['port_id'] = port
             gw_bind_db['switch_id'] = switch
 
         except sql_exc.NoResultFound:
@@ -170,7 +171,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
         res = {'id': gw_bind_db['id'],
                'neutron_port_id': gw_bind_db['neutron_port_id'],
                'switch_id': gw_bind_db.get('switch_id'),
-               'port_id': gw_bind_db.get('port_id'),
+               # 'port_id': gw_bind_db.get('port_id'),
                'port_uuid': gw_bind_db['switchport_uuid'],
                'nuage_vport_id': gw_bind_db['nuage_vport_id'],
                'segmentation_id': gw_bind_db['segmentation_id']
@@ -182,7 +183,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
         res = {'id': gw_bind_db['id'],
                'neutron_port_id': gw_bind_db['neutron_port_id'],
                'switch_id': binding[1],
-               'port_id': binding[2],
+               # 'port_id': binding[2],
                'port_uuid': gw_bind_db['switchport_uuid'],
                'nuage_vport_id': gw_bind_db['nuage_vport_id'],
                'segmentation_id': gw_bind_db['segmentation_id']
@@ -205,7 +206,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                 switch_info=s['switch_info'],
                 switch_id=s['switch_id'],
                 redundant=s['redundant'],
-                port_id=s['port_id'],
+                # port_id=s['port_id'],
                 port_uuid=s['port_uuid'],
                 # pci_slot=s['pci_slot'],
                 nic_name=s['nic_name'],
@@ -251,7 +252,8 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
         query = context.session.query(
             nuage_models.NuageSwitchportBinding,
             nuage_models.NuageSwitchportMapping.switch_id,
-            nuage_models.NuageSwitchportMapping.port_id)
+            # nuage_models.NuageSwitchportMapping.port_id) # JvB changed
+            nuage_models.NuageSwitchportMapping.port_uuid)
         query = query.outerjoin(
             nuage_models.NuageSwitchportMapping,
             nuage_models.NuageSwitchportMapping.port_uuid ==

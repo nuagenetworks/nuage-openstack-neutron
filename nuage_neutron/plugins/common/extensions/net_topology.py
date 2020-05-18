@@ -86,14 +86,14 @@ RESOURCE_ATTRIBUTE_MAP = {
             'enforce_policy': True
 
         },
-        'port_id': {
-            'allow_post': True,
-            'allow_put': True,
-            'validate': {'type:string': None},
-            'is_visible': True,
-            'enforce_policy': True
-
-        },
+#        'port_id': {
+#            'allow_post': True,
+#            'allow_put': True,
+#            'validate': {'type:string': None},
+#            'is_visible': True,
+#            'enforce_policy': True
+#
+#        },
         'port_uuid': {
             'allow_post': False,
             'allow_put': False,
@@ -152,13 +152,13 @@ RESOURCE_ATTRIBUTE_MAP = {
             'is_visible': True,
             'enforce_policy': True
         },
-        'port_id': {
-            'allow_post': True,
-            'allow_put': True,
-            'validate': {'type:string': None},
-            'is_visible': True,
-            'enforce_policy': True
-        },
+        #'port_id': {
+        #    'allow_post': True,
+        #    'allow_put': True,
+        #    'validate': {'type:string': None},
+        #    'is_visible': True,
+        #    'enforce_policy': True
+        #},
         'port_uuid': {
             'allow_post': False,
             'allow_put': False,
