@@ -61,3 +61,16 @@
         - networking-nuage-tempest-lbaas-5.4:
             override-checkout: stable/rocky
             required-projects: *required-projects-rocky-54
+        - networking-nuage-fwaas-v1:
+            override-checkout: stable/rocky
+            vars:
+              vsp_release: '5.4'
+            required-projects: *required-projects-rocky-54
+
+    fwaas:
+      jobs:
+        - networking-nuage-fwaas-v1:
+            override-checkout: stable/rocky
+            vars:
+              vsp_release: '5.4'
+            required-projects: *required-projects-rocky-54

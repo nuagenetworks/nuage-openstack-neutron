@@ -73,7 +73,7 @@ IPV6_SUBNET_ATTRIBUTES_ENABLED='True'
 # Nuage ml2 mechanism driver extensions
 Q_ML2_PLUGIN_EXT_DRIVERS=${Q_ML2_PLUGIN_EXT_DRIVERS:-nuage_subnet,nuage_port,port_security}
 
-if is_service_enabled q-fwaas neutron-fwaas-v1; then
+if is_service_enabled q-fwaas-v1 neutron-fwaas-v1; then
     NETWORK_API_EXTENSIONS+=,fwaas,fwaasrouterinsertion
 fi
 if is_service_enabled q-qos neutron-qos; then
