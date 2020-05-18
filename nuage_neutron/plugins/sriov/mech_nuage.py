@@ -264,7 +264,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
           { 'profile' : profile, 'port' : port } )
 
         host_id = port['binding:host_id']
-        physnet = profile.get('physnet')
+        physnet = profile.get('physical_network')
         #gw_port_mapping = ext_db.get_switchport_by_host_slot(
         #    context._plugin_context,
         #    {'host_id': host_id, 'pci_slot': profile.get('pci_slot')})
