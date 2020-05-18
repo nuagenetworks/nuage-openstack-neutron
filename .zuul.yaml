@@ -141,7 +141,7 @@
             required-projects: *required-projects
     fwaas:
       jobs:
-        - legacy-tempest-aio-fwaas:
+        - networking-nuage-fwaas-v1:
             override-checkout: stable/queens
             vars:
               vsp_release: '6.0'
@@ -372,6 +372,11 @@
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/queens/amphora-x64-haproxy.qcow2"
+            required-projects: *required-projects
+        - networking-nuage-fwaas-v1:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '6.0'
             required-projects: *required-projects
 
 - job:
