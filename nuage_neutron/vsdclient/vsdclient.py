@@ -492,6 +492,10 @@ class VsdClient(object):
     def get_gateway_port(self, tenant_id, gw_port_id):
         pass
 
+    # JvB added
+    def update_gateway_port(self, gw_port_id, port_dict):
+        pass
+
     def get_gateway_port_vlans(self, tenant_id, netpart_id, filters):
         pass
 

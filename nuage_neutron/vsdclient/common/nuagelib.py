@@ -145,7 +145,6 @@ class NuageResource(object):
                               self.error_code,
                               self.vsd_error_code)
 
-
 class NuageL3DomTemplate(NuageResource):
     def post_resource(self):
         ent_id = self.create_params['net_partition_id']
@@ -1817,6 +1816,10 @@ class NuageGatewayPortBase(NuageResource):
                                     self.extra_params['gw_port_name']
         return headers
 
+    # JvB added, could use some refactoring...
+    def put_url(self):
+        return '%s?responseChoice=1' % self.get_resource()
+
 
 class NuageGatewayPort(NuageGatewayPortBase):
     def get_resource(self):
@@ -1838,21 +1841,21 @@ class NuageGatewayRedundantPort(NuageGatewayPortBase):
         if self.create_params['personality'] in constants.SW_GW_TYPES:
             return '/ports/%s' % self.create_params['port_id']
         else:
-            return '/vsgredundantports/%s' % self.create_params['port_id']
+            return '/gatewayredundantports/%s' % self.create_params['port_id']
 
     def get_resource_by_gateway(self):
         if self.create_params['personality'] in constants.SW_GW_TYPES:
             return '/redundancygroups/%s/ports' % \
                 self.create_params['gw_id']
         else:
-            return '/redundancygroups/%s/vsgredundantports' % \
+            return '/redundancygroups/%s/gatewayredundantports' % \
                 self.create_params['gw_id']
 
     def post_vlan(self):
         if self.create_params['personality'] in constants.SW_GW_TYPES:
             return '/ports/%s/vlans' % self.create_params['port_id']
         else:
-            return '/vsgredundantports/%s/vlans' % \
+            return '/gatewayredundantports/%s/vlans' % \
                 self.create_params['port_id']
 
     def get_ent_perm(self):
@@ -1860,7 +1863,7 @@ class NuageGatewayRedundantPort(NuageGatewayPortBase):
             return '/ports/%s/enterprisepermissions' % \
                 self.create_params['port_id']
         else:
-            return '/vsgredundantports/%s/enterprisepermissions' % \
+            return '/gatewayredundantports/%s/enterprisepermissions' % \
                 self.create_params['port_id']
 
 
@@ -1921,14 +1924,14 @@ class NuageRedundantVlan(NuageVlanBase):
         if self.create_params['personality'] in constants.SW_GW_TYPES:
             return '/ports/%s/vlans' % self.create_params['port_id']
         else:
-            return '/vsgredundantports/%s/vlans' % \
+            return '/gatewayredundantports/%s/vlans' % \
                 self.create_params['port_id']
 
     def get_resource_by_port(self):
         if self.create_params['personality'] in constants.SW_GW_TYPES:
             return '/ports/%s/vlans' % self.create_params['port_id']
         else:
-            return '/vsgredundantports/%s/vlans' % \
+            return '/gatewayredundantports/%s/vlans' % \
                 self.create_params['port_id']
 
 
@@ -2051,7 +2054,7 @@ class NuageEntPermission(NuageResource, NuageBasePermission):
 
     def get_resource_by_port(self, redundancy=False):
         if redundancy:
-            return '/vsgredundantports/%s/enterprisepermissions' %\
+            return '/gatewayredundantports/%s/enterprisepermissions' %\
                 self.create_params['port_id']
         else:
             return '/ports/%s/enterprisepermissions' %\

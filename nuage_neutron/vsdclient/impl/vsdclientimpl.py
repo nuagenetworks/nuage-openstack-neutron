@@ -757,6 +757,10 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         else:
             return []
 
+    def update_gateway_port(self, gw_port_id, redundant, port_dict):
+        return self.nuagegw.update_gateway_port( gw_port_id, redundant,
+                                                 port_dict )
+
     def get_gateway_port_vlans(self, tenant_id, netpart_id, filters):
         vlans = self.nuagegw.get_gateway_port_vlans(tenant_id, netpart_id,
                                                     filters)

@@ -193,7 +193,7 @@ def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
     # Below loop iterates over non-redundant or redundant gw ports.
     #
     # When non-redundant, endpoint is always /ports.
-    # When redundant, for HW, endpoint is /vsgredundantports, for SW it is
+    # When redundant, for HW, endpoint is /gatewayredundantports, for SW it is
     # /ports. Hence, when we set personality to HW and loop over both
     # redundancy modes, we cover all cases.
     #

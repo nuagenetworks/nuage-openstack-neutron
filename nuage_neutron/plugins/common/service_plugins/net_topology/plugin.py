@@ -63,6 +63,9 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             gw_map = super(NuageNetTopologyPlugin,
                            self).create_switchport_mapping(context,
                                                            switchport_mapping)
+            if (s['port_desc']):
+                self.vsdclient.update_gateway_port(gw_port_id, redundant,
+                 { 'description' : s['port_desc'] } )
         return gw_map
 
     @log_helpers.log_method_call
@@ -101,4 +104,9 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             gw_map = super(NuageNetTopologyPlugin,
                            self).update_switchport_mapping(context, id,
                                                            switchport_mapping)
+            if (s.get('port_desc')):
+               self.vsdclient.update_gateway_port(
+                switchport_mapping['switchport_mapping']['port_uuid'],
+                switchport_mapping['switchport_mapping']['redundant'],
+                { 'description' : s['port_desc'] } )
         return gw_map
