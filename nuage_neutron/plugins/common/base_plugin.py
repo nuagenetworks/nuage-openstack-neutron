@@ -746,7 +746,7 @@ class RootNuagePlugin(SubnetUtilsBase):
         }
 
         if self.is_nuage_hybrid_mpls_network(network):
-            params['tunnelType'] = vsd_constants.NUAGE_MPLS_TUNNEL_TYPE
+            params['tunnelType'] = vsd_constants.VSD_TUNNEL_TYPES['MPLS']
 
         if not is_nuage_l3:
             if neutron_subnet['enable_dhcp']:
@@ -877,15 +877,18 @@ class RootNuagePlugin(SubnetUtilsBase):
         nuage_subnet, shared_subnet = self._get_nuage_subnet(
             nuage_subnet_id, subnet_type=subnet_type)
 
-        if (nuage_subnet['l2EncapType'] ==
-                vsd_constants.NUAGE_MPLS_TUNNEL_TYPE):
-            network = self.core_plugin.get_network(context,
-                                                   subnet['network_id'])
-            if not self.is_nuage_hybrid_mpls_network(network):
-                msg = (('Provided Nuage subnet has tunnel type '
-                        'MPLS which is not supported by {} networks')
-                       .format(network['provider:network_type'].upper()))
-                raise NuageBadRequest(msg=msg)
+        network = self.core_plugin.get_network(context,
+                                               subnet['network_id'])
+
+        expected_tunnel_type = (vsd_constants.VSD_TUNNEL_TYPES['MPLS'] if
+                                self.is_nuage_hybrid_mpls_network(network)
+                                else vsd_constants.VSD_TUNNEL_TYPES['VXLAN'])
+        if not nuage_subnet['l2EncapType'] == expected_tunnel_type:
+            msg = (('Provided Nuage subnet has tunnel type '
+                    '{} which is not supported by {} networks')
+                   .format(nuage_subnet['l2EncapType'],
+                           network['provider:network_type'].upper()))
+            raise NuageBadRequest(msg=msg)
 
         # Check the nuage subnet type is standard if linking to domain subnet
         if (nuage_subnet.get('resourceType') and
