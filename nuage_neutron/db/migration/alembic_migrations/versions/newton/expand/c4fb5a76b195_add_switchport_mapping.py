@@ -35,12 +35,12 @@ def upgrade():
                     sa.Column('switch_info', sa.String(255), nullable=False),
                     sa.Column('switch_id', sa.String(36), nullable=False),
                     sa.Column('redundant', sa.Boolean(), nullable=False),
-                    sa.Column('port_name', sa.String(16), nullable=False),
+                    # sa.Column('port_name', sa.String(16), nullable=False),
                     sa.Column('port_uuid', sa.String(36), nullable=False),
                     sa.Column('physnet', sa.String(255), nullable=False),
                     sa.Column('host_id', sa.String(255), nullable=False),
                     sa.PrimaryKeyConstraint('id'),
-                    sa.UniqueConstraint('switch_id', 'port_name'),
+                    sa.UniqueConstraint('port_uuid'),
                     sa.UniqueConstraint('physnet', 'host_id'))
 
     op.create_table('nuage_switchport_binding',
