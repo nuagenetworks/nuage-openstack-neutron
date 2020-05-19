@@ -45,6 +45,9 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             raise nuage_exc.NuageBadRequest(msg=msg)
         filters = {'gateway': [gws[0]['gw_id']],
                    'name': [switchport_mapping['port_name']]}
+        #
+        # XXX this is very inefficient, it loops over redundant/non-redundant gw
+        #
         gw_ports = self.vsdclient.get_gateway_ports(context.tenant_id,
                                                     filters)
         if len(gw_ports) == 0:
