@@ -86,6 +86,13 @@ RESOURCE_ATTRIBUTE_MAP = {
             'enforce_policy': True
 
         },
+        'port_name': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
         'port_desc': {
             'allow_post': True,
             'allow_put': True,
