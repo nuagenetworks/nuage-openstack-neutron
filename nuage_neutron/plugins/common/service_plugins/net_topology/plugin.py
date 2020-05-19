@@ -44,7 +44,7 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
                    % filters['system_id'][0])
             raise nuage_exc.NuageBadRequest(msg=msg)
         filters = {'gateway': [gws[0]['gw_id']],
-                   'name': [switchport_mapping['port_id']]}
+                   'name': [switchport_mapping['port_name']]}
         gw_ports = self.vsdclient.get_gateway_ports(context.tenant_id,
                                                     filters)
         if len(gw_ports) == 0:
@@ -78,10 +78,10 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             s = switchport_mapping['switchport_mapping']
             if (s.get('switch_id') and
                 s.get('switch_id') != orig.get('switch_id') or
-                s.get('port_id') and
-                    s.get('port_id') != orig.get('port_id')):
-                if not s.get('port_id'):
-                    s['port_id'] = orig['port_id']
+                s.get('port_name') and
+                    s.get('port_name') != orig.get('port_name')):
+                if not s.get('port_name'):
+                    s['port_name'] = orig['port_name']
                 if not s.get('switch_id'):
                     s['switch_id'] = orig['switch_id']
                 gw_port_id, redundant = self._validate_switchport(context, s)

@@ -1813,7 +1813,7 @@ class NuageGatewayPortBase(NuageResource):
     def extra_headers_by_name(self):
         headers = {}
         headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "name IS '%s'" %\
+        headers['X-Nuage-Filter'] = "physicalName IS '%s'" %\
                                     self.extra_params['gw_port_name']
         return headers
 
