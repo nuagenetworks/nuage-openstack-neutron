@@ -210,7 +210,8 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                 port_uuid=s['port_uuid'],
                 # pci_slot=s['pci_slot'],
                 physnet=s['physnet'],
-                host_id=s['host_id'])
+                # JvB Include optional PCI slot in host id if provided
+                host_id= '%s:%s' % (s['host_id'], s['pci_slot'] or '*' )
             context.session.add(gw_map_db)
         return self._make_switchport_mapping_dict(gw_map_db)
 

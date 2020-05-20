@@ -269,14 +269,21 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         #    context._plugin_context,
         #    {'host_id': host_id, 'pci_slot': profile.get('pci_slot')})
         gw_port_mapping = ext_db.get_switchport_by_host_physnet(
-            context._plugin_context, host_id, physnet )
+            context._plugin_context, '%s:*' % host_id, physnet )
 
         if not gw_port_mapping:
-            LOG.warning("_make_port_dict can not get switchport_mapping "
-                        "for %(vif)s",
-                        {'vif': {'host_id': host_id,'physnet': physnet }})
-            local_link_information = None
-        else:
+            # JvB then try with the specific PCI slot
+            host_pci_id = '%s:%s' % (host_id,profile.get('pci_slot'))
+            gw_port_mapping = ext_db.get_switchport_by_host_physnet(
+                               context._plugin_context, host_pci_id, physnet )
+
+            if not gw_port_mapping:
+               LOG.warning("_make_port_dict can not find switchport_mapping "
+                           "for %(vif)s",
+                           {'vif':{'host_pci': host_pci_id,'physnet': physnet}})
+               local_link_information = None
+
+        if gw_port_mapping:
             local_link_information = [{
                 'id': gw_port_mapping['id'],
                 'switch_info': gw_port_mapping['switch_info'],
