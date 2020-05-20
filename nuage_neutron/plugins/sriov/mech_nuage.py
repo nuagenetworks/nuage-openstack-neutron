@@ -408,7 +408,10 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     'gatewayport': port_id,
                     'value': segmentation_id,
                     'redundant': gwport['redundant'],
-                    'personality': gw['gw_type']
+                    'personality': gw['gw_type'],
+                    # TODO add NIC name? physnet?
+                    'description': "auto-created for SRIOV on %s"
+                      % port['host_id']
                 }
                 try:
                     vlan = self.vsdclient.create_gateway_vlan(params)

@@ -51,7 +51,8 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
     req_params = dict()
     extra_params = {
         'vlan': nuage_vlan_id,
-        'externalID': get_vsd_external_id(params.get('externalid'))
+        'externalID': get_vsd_external_id(params.get('externalid')),
+        'description': "Created by Nuage Neutron plugin"
     }
 
     if vport_type == constants.BRIDGE_VPORT_TYPE:

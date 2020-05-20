@@ -379,7 +379,9 @@ class NuageGateway(object):
     def create_gateway_vlan(self, vlan_dict):
         req_params = {
             'port_id': vlan_dict['gatewayport'],
-            'personality': vlan_dict['personality']
+            'personality': vlan_dict['personality'],
+            'description': vlan_dict['description']
+                           if 'description' in vlan_dict else None
         }
         nuage_gw_vlan = nuagelib.NuageVlanBase.factory(
             create_params=req_params,
