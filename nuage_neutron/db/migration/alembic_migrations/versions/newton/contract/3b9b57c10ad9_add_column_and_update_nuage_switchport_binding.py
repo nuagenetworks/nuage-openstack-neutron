@@ -113,14 +113,21 @@ def upgrade():
                 ml2_port_bindings.c.port_id ==
                 nuage_switchport_binding.neutron_port_id).first()
 
+            profile = json.loads(port_binding.profile)
+
             switch_port_mapping = session.query(
                 nuage_switchport_mapping).filter(
                 nuage_switchport_mapping.c.port_uuid ==
-                nuage_switchport_binding.switchport_uuid,
+                 nuage_switchport_binding.switchport_uuid,
                 nuage_switchport_mapping.c.physnet ==
-                json.loads(port_binding.profile)["physical_network"],
+                 profile["physical_network"],
+                # JvB include any PCI slot info when comparing
                 nuage_switchport_mapping.c.host_id ==
-                port_binding.host).first()
+                 '%s:%s' % ( port_binding.host, profile['pci_slot'] )
+                or
+                nuage_switchport_mapping.c.host_id ==
+                 '%s:*' % port_binding.host
+            ).first()
 
             session.execute(nuage_switchport_bindings.update().values(
                 switchport_mapping_id=switch_port_mapping.id).where(
