@@ -115,13 +115,13 @@ RESOURCE_ATTRIBUTE_MAP = {
             'is_visible': True,
             'enforce_policy': True
         },
-#        'pci_slot': {
-#            'allow_post': True,
-#            'allow_put': True,
-#            'validate': {'type:string': None},
-#            'is_visible': True,
-#            'enforce_policy': True
-#        },
+        'pci_slot': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string': None},
+            'is_visible': True,
+            'enforce_policy': True
+        },
         'physnet': {
             'allow_post': True,
             'allow_put': True,
