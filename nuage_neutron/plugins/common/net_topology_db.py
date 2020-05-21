@@ -200,21 +200,24 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
     def create_switchport_mapping(self, context, switchport_mapping):
         s = switchport_mapping['switchport_mapping']
         # self._validate_host_pci(context, s)
-        with context.session.begin(subtransactions=True):
-            gw_map_db = nuage_models.NuageSwitchportMapping(
-                id=uuidutils.generate_uuid(),
-                switch_info=s['switch_info'],
-                switch_id=s['switch_id'],
-                redundant=s['redundant'],
-                # port_id=s['port_id'],
-                port_uuid=s['port_uuid'],
-                # pci_slot=s['pci_slot'],
-                physnet=s['physnet'],
-                # JvB Include optional PCI slot in host id if provided
-                host_id= '%s:%s' % (s['host_id'],
-                  s['pci_slot'] if 'pci_slot' in s else '*' ))
-            context.session.add(gw_map_db)
-        return self._make_switchport_mapping_dict(gw_map_db)
+        try:
+           with context.session.begin(subtransactions=True):
+               gw_map_db = nuage_models.NuageSwitchportMapping(
+                   id=uuidutils.generate_uuid(),
+                   switch_info=s['switch_info'],
+                   switch_id=s['switch_id'],
+                   redundant=s['redundant'],
+                   # port_id=s['port_id'],
+                   port_uuid=s['port_uuid'],
+                   # pci_slot=s['pci_slot'],
+                   physnet=s['physnet'],
+                   # JvB Include optional PCI slot in host id if provided
+                   host_id= '%s:%s' % (s['host_id'],
+                     s['pci_slot'] if 'pci_slot' in s else '*' ))
+               context.session.add(gw_map_db)
+           return self._make_switchport_mapping_dict(gw_map_db)
+       except sql_exc.SQLAlchemyError: # IntegrityError:
+           raise _ext.SwitchportParamDuplicate(param_name='port_uuid',param_value=s['port_uuid'])
 
     def delete_switchport_mapping(self, context, id):
         gw_map = self._ensure_switchport_mapping_not_in_use(context, id)
