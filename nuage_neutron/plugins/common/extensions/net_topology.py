@@ -122,7 +122,9 @@ RESOURCE_ATTRIBUTE_MAP = {
             'allow_put': True,
             'validate': {'type:string': None},
             'is_visible': True,
-            'enforce_policy': True
+            'enforce_policy': True,
+            'required': False,
+            'default': '*'
         },
         'physnet': {
             'allow_post': True,
