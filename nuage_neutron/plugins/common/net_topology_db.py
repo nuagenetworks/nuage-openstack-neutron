@@ -216,7 +216,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase,
                      s['pci_slot'] if 'pci_slot' in s else '*' ))
                context.session.add(gw_map_db)
            return self._make_switchport_mapping_dict(gw_map_db)
-       except sql_exc.SQLAlchemyError: # IntegrityError:
+        except sql_exc.SQLAlchemyError: # IntegrityError: or DBDuplicateEntry
            raise _ext.SwitchportParamDuplicate(param_name='port_uuid',param_value=s['port_uuid'])
 
     def delete_switchport_mapping(self, context, id):
