@@ -44,7 +44,10 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
                    % filters['system_id'][0])
             raise nuage_exc.NuageBadRequest(msg=msg)
         filters = {'gateway': [gws[0]['gw_id']],
-                   'name': [switchport_mapping['port_id']]}
+                   'name': [switchport_mapping['port_name']]}
+        #
+        # XXX this is very inefficient, it loops over redundant/non-redundant gw
+        #
         gw_ports = self.vsdclient.get_gateway_ports(context.tenant_id,
                                                     filters)
         if len(gw_ports) == 0:
@@ -63,6 +66,9 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             gw_map = super(NuageNetTopologyPlugin,
                            self).create_switchport_mapping(context,
                                                            switchport_mapping)
+            if (s['port_desc']):
+                self.vsdclient.update_gateway_port(gw_port_id, redundant,
+                 { 'description' : s['port_desc'] } )
         return gw_map
 
     @log_helpers.log_method_call
@@ -78,10 +84,10 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             s = switchport_mapping['switchport_mapping']
             if (s.get('switch_id') and
                 s.get('switch_id') != orig.get('switch_id') or
-                s.get('port_id') and
-                    s.get('port_id') != orig.get('port_id')):
-                if not s.get('port_id'):
-                    s['port_id'] = orig['port_id']
+                s.get('port_name') and
+                    s.get('port_name') != orig.get('port_name')):
+                if not s.get('port_name'):
+                    s['port_name'] = orig['port_name']
                 if not s.get('switch_id'):
                     s['switch_id'] = orig['switch_id']
                 gw_port_id, redundant = self._validate_switchport(context, s)
@@ -89,16 +95,21 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
                     gw_port_id
                 switchport_mapping['switchport_mapping']['redundant'] =\
                     redundant
-            if (s.get('pci_slot') and
-                s.get('pci_slot') != orig.get('pci_slot') or
+            if (s.get('physnet') and
+                s.get('physnet') != orig.get('physnet') or
                 s.get('host_id') and
                     s.get('host_id') != orig.get('host_id')):
                 if not s.get('host_id'):
                     s['host_id'] = orig['host_id']
-                if not s.get('pci_slot'):
-                    s['pci_slot'] = orig['pci_slot']
-                self._validate_host_pci(context, s)
+                if not s.get('physnet'):
+                    s['physnet'] = orig['physnet']
+                # self._validate_host_pci(context, s)
             gw_map = super(NuageNetTopologyPlugin,
                            self).update_switchport_mapping(context, id,
                                                            switchport_mapping)
+            if (s.get('port_desc')):
+               self.vsdclient.update_gateway_port(
+                switchport_mapping['switchport_mapping']['port_uuid'],
+                switchport_mapping['switchport_mapping']['redundant'],
+                { 'description' : s['port_desc'] } )
         return gw_map

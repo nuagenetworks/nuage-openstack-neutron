@@ -259,17 +259,31 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                         {'port': port})
             return None
         profile = self._get_binding_profile(port)
+
+        LOG.info( "JvB: Locate switchport port=%(port)s profile=%(profile)s",
+          { 'profile' : profile, 'port' : port } )
+
         host_id = port['binding:host_id']
-        gw_port_mapping = ext_db.get_switchport_by_host_slot(
-            context._plugin_context,
-            {'host_id': host_id, 'pci_slot': profile.get('pci_slot')})
+        physnet = profile.get('physical_network')
+        #gw_port_mapping = ext_db.get_switchport_by_host_slot(
+        #    context._plugin_context,
+        #    {'host_id': host_id, 'pci_slot': profile.get('pci_slot')})
+        gw_port_mapping = ext_db.get_switchport_by_host_physnet(
+            context._plugin_context, '%s:*' % host_id, physnet )
+
         if not gw_port_mapping:
-            LOG.warning("_make_port_dict can not get switchport_mapping "
-                        "for %(vif)s",
-                        {'vif': {'host_id': host_id,
-                                 'pci_slot': profile.get('pci_slot')}})
-            local_link_information = None
-        else:
+            # JvB then try with the specific PCI slot
+            host_pci_id = '%s:%s' % (host_id,profile.get('pci_slot'))
+            gw_port_mapping = ext_db.get_switchport_by_host_physnet(
+                               context._plugin_context, host_pci_id, physnet )
+
+            if not gw_port_mapping:
+               LOG.warning("_make_port_dict can not find switchport_mapping "
+                           "for %(vif)s",
+                           {'vif':{'host_pci': host_pci_id,'physnet': physnet}})
+               local_link_information = None
+
+        if gw_port_mapping:
             local_link_information = [{
                 'id': gw_port_mapping['id'],
                 'switch_info': gw_port_mapping['switch_info'],
@@ -394,7 +408,10 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     'gatewayport': port_id,
                     'value': segmentation_id,
                     'redundant': gwport['redundant'],
-                    'personality': gw['gw_type']
+                    'personality': gw['gw_type'],
+                    # TODO add NIC name? physnet?
+                    'description': "auto-created for SRIOV on %s"
+                      % port['host_id']
                 }
                 try:
                     vlan = self.vsdclient.create_gateway_vlan(params)

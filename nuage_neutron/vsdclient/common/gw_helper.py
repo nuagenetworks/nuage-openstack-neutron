@@ -51,7 +51,8 @@ def _create_vport_interface(subnet_id, pg_obj, restproxy_serv,
     req_params = dict()
     extra_params = {
         'vlan': nuage_vlan_id,
-        'externalID': get_vsd_external_id(params.get('externalid'))
+        'externalID': get_vsd_external_id(params.get('externalid')),
+        'description': "Created by Nuage Neutron plugin"
     }
 
     if vport_type == constants.BRIDGE_VPORT_TYPE:
@@ -193,7 +194,7 @@ def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
     # Below loop iterates over non-redundant or redundant gw ports.
     #
     # When non-redundant, endpoint is always /ports.
-    # When redundant, for HW, endpoint is /vsgredundantports, for SW it is
+    # When redundant, for HW, endpoint is /gatewayredundantports, for SW it is
     # /ports. Hence, when we set personality to HW and loop over both
     # redundancy modes, we cover all cases.
     #

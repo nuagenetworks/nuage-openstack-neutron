@@ -69,12 +69,15 @@ class NuageSwitchportMapping(model_base.BASEV2, model_base.HasId):
     switch_info = sa.Column(sa.String(255), nullable=False)
     switch_id = sa.Column(sa.String(36), nullable=False)
     redundant = sa.Column(sa.Boolean())
-    port_id = sa.Column(sa.String(255), nullable=False)
+    # port_id = sa.Column(sa.String(255), nullable=False)
     port_uuid = sa.Column(sa.String(36), nullable=False)
-    pci_slot = sa.Column(sa.String(36), nullable=False)
+    # pci_slot = sa.Column(sa.String(36), nullable=False)
     host_id = sa.Column(sa.String(255), nullable=False)
+    physnet = sa.Column(sa.String(255), nullable=False)
     __table_args__ = (sa.PrimaryKeyConstraint('id'),
-                      sa.UniqueConstraint('host_id', 'pci_slot'))
+                      # Not unique when PCI slot mapping is used
+                      # sa.UniqueConstraint('port_uuid'),
+                      sa.UniqueConstraint('host_id', 'physnet'))
 
 
 class NuageSwitchportBinding(model_base.BASEV2, model_base.HasId):

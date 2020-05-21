@@ -171,6 +171,14 @@ class NuageGateway(object):
             extra_headers=extra_headers,
             required=True)
 
+    # JvB added
+    def update_gateway_port(self, port_id, redundant, req_params ):
+       nuage_gw_port = nuagelib.NuageGatewayPortBase.factory(
+           create_params={ 'port_id' : port_id },
+           extra_params=None,
+           redundant=redundant)
+       return self.restproxy.put( nuage_gw_port.put_url(), req_params )
+
     def _get_gateway_port_vlans(self, tenant_id, req_params,
                                 extra_params=None):
         if not req_params.get('personality'):
@@ -371,7 +379,9 @@ class NuageGateway(object):
     def create_gateway_vlan(self, vlan_dict):
         req_params = {
             'port_id': vlan_dict['gatewayport'],
-            'personality': vlan_dict['personality']
+            'personality': vlan_dict['personality'],
+            'description': vlan_dict['description']
+                           if 'description' in vlan_dict else None
         }
         nuage_gw_vlan = nuagelib.NuageVlanBase.factory(
             create_params=req_params,
