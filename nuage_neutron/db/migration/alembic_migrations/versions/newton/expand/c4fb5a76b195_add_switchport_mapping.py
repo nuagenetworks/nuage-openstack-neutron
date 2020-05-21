@@ -40,7 +40,7 @@ def upgrade():
                     sa.Column('physnet', sa.String(255), nullable=False),
                     sa.Column('host_id', sa.String(255), nullable=False),
                     sa.PrimaryKeyConstraint('id'),
-                    sa.UniqueConstraint('port_uuid'),
+                    # sa.UniqueConstraint('port_uuid'),
                     sa.UniqueConstraint('physnet', 'host_id'))
 
     op.create_table('nuage_switchport_binding',

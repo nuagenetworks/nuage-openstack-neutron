@@ -75,7 +75,8 @@ class NuageSwitchportMapping(model_base.BASEV2, model_base.HasId):
     host_id = sa.Column(sa.String(255), nullable=False)
     physnet = sa.Column(sa.String(255), nullable=False)
     __table_args__ = (sa.PrimaryKeyConstraint('id'),
-                      sa.UniqueConstraint('port_uuid'),
+                      # Not unique when PCI slot mapping is used
+                      # sa.UniqueConstraint('port_uuid'),
                       sa.UniqueConstraint('host_id', 'physnet'))
 
 
