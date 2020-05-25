@@ -136,6 +136,7 @@
       - ^tox.ini$
     vars:
       use_pypi: true
+      vsp_release: '20.5'
       nuage_fip_range: "172.{{ 255 | random }}.{{ 255 | random }}"
       devstack_plugins:
         rally-openstack: https://opendev.org/openstack/rally-openstack
@@ -169,6 +170,7 @@
     run: playbooks/tempest-aio-ml2/run.yaml
     post-run: playbooks/tempest-aio-ml2/post.yaml
     vars:
+      vsp_release: '20.5'
       job_flavor: ml2
       python3: False
       branch_override: default
@@ -189,6 +191,7 @@
     run: playbooks/tempest-aio-sfc/run.yaml
     post-run: playbooks/tempest-aio-sfc/post.yaml
     vars:
+      vsp_release: '20.5'
       job_flavor: sfc
       branch_override: default
     timeout: 9000
@@ -202,10 +205,3 @@
       - openstack/placement
       - openstack/python-neutronclient
       - openstack/tempest
-
-- job:
-    name: legacy-tempest-aio-client  # used by nuage-openstack-neutronclient
-    parent: legacy-tempest-aio-base
-    vars:
-      job_flavor: neutronclient
-    timeout: 9000
