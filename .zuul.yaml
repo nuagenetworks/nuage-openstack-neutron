@@ -328,6 +328,7 @@
       - ^tox.ini$
     vars:
       use_pypi: true
+      vsp_release: '20.5'
       nuage_fip_range: "172.{{ 255 | random }}.{{ 255 | random }}"
       devstack_plugins:
         rally-openstack: https://opendev.org/openstack/rally-openstack
@@ -362,6 +363,7 @@
     post-run: playbooks/tempest-aio-sfc/post.yaml
     nodeset: devstack-single-node
     vars:
+      vsp_release: '20.5'
       job_flavor: sfc
       branch_override: default
     timeout: 9000
@@ -374,26 +376,6 @@
       - name: openstack/neutron-tempest-plugin
         override-checkout: 0.3.0
       - openstack/python-neutronclient
-      - openstack/tempest
-
-- job:
-    name: legacy-tempest-aio-client  # used by nuage-openstack-neutronclient
-    parent: legacy-dsvm-base
-    run: playbooks/tempest-aio-ml2/run.yaml
-    post-run: playbooks/tempest-aio-ml2/post.yaml
-    nodeset: devstack-single-node
-    vars:
-      job_flavor: neutronclient
-      python3: False
-      branch_override: default
-    timeout: 9000
-    required-projects:
-      - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
-      - OpenStack/nuage-tempest-plugin
-      - name: openstack/neutron-tempest-plugin
-        override-checkout: 0.3.0
       - openstack/tempest
 
 - job:
