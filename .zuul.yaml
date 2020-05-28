@@ -45,6 +45,8 @@
         - networking-nuage-tempest-sriov:
             vars: &required-vars-nuage-only-rocky
               devstack_localrc:
+                USE_PYTHON3: false
+                FORCE_CONFIG_DRIVE: false
                 TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-sriov-flat-vlan:
@@ -91,7 +93,7 @@
             vars: *required-vars-nuage-only-rocky
             required-projects: *required-projects-rocky
         - networking-nuage-vtep-vlan-upstream:
-            vars: *required-vars-nuage-only-rocky
+            vars: *required-vars-rocky
             required-projects: *required-projects-rocky
         - networking-nuage-vtep-vlan-nuage:
             vars: *required-vars-nuage-only-rocky
@@ -216,10 +218,7 @@
             vars: *required-vars-nuage-only-rocky
             required-projects: *required-projects-rocky
         - networking-nuage-vtep-vlan-upstream:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
+            vars: *required-vars-rocky
             required-projects: *required-projects-rocky
     periodic-saturday:
       jobs:
@@ -239,10 +238,7 @@
             vars: *required-vars-nuage-only-rocky
             required-projects: *required-projects-rocky
         - networking-nuage-vtep-vlan-nuage:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
+            vars: *required-vars-nuage-only-rocky
             required-projects: *required-projects-rocky
     periodic-sunday:
       jobs:

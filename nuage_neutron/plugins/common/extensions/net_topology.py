@@ -102,6 +102,12 @@ RESOURCE_ATTRIBUTE_MAP = {
             'enforce_policy': True
 
         },
+        'redundant_port_uuid': {
+            'allow_post': False,
+            'allow_put': False,
+            'validate': {'type:string': None},
+            'is_visible': True,
+        },
         'host_id': {
             'allow_post': True,
             'allow_put': True,
@@ -115,6 +121,13 @@ RESOURCE_ATTRIBUTE_MAP = {
             'validate': {'type:string': None},
             'is_visible': True,
             'enforce_policy': True
+        },
+        'bridge': {
+            'allow_post': True,
+            'allow_put': True,
+            'validate': {'type:string_or_none': None},
+            'is_visible': True,
+            'default': None
         },
         'tenant_id': {
             'allow_post': True,
