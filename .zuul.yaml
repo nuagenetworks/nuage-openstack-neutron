@@ -182,6 +182,9 @@
         - networking-nuage-tempest-scenario:
             vars: *vars-nuage
             required-projects: *required-projects
+        - networking-nuage-tempest-scenario-rhel:
+            vars: *vars-nuage
+            required-projects: *required-projects
     scale:
       jobs:
         - networking-nuage-tempest-scale:
