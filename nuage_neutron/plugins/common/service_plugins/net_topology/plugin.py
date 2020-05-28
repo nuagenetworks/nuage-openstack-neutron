@@ -51,15 +51,17 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             msg = (_("No gateway port found %s")
                    % filters['physicalName'][0])
             raise nuage_exc.NuageBadRequest(msg=msg)
-        return gw_ports[0].get('gw_port_id'), gws[0]['gw_redundant']
+        return (gw_ports[0].get('gw_port_id'),
+                gw_ports[0].get('gw_redundant_port_id'))
 
     @log_helpers.log_method_call
     def create_switchport_mapping(self, context, switchport_mapping):
         s = switchport_mapping['switchport_mapping']
         with context.session.begin(subtransactions=True):
-            gw_port_id, redundant = self._validate_switchport(context, s)
+            gw_port_id, gw_rport_id = self._validate_switchport(context, s)
             switchport_mapping['switchport_mapping']['port_uuid'] = gw_port_id
-            switchport_mapping['switchport_mapping']['redundant'] = redundant
+            switchport_mapping['switchport_mapping']['redundant_port_uuid'] = (
+                gw_rport_id)
             gw_map = super(NuageNetTopologyPlugin,
                            self).create_switchport_mapping(context,
                                                            switchport_mapping)
@@ -84,11 +86,9 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
                     s['port_id'] = orig['port_id']
                 if not s.get('switch_id'):
                     s['switch_id'] = orig['switch_id']
-                gw_port_id, redundant = self._validate_switchport(context, s)
-                switchport_mapping['switchport_mapping']['port_uuid'] =\
-                    gw_port_id
-                switchport_mapping['switchport_mapping']['redundant'] =\
-                    redundant
+                gw_port_id, gw_rport_id = self._validate_switchport(context, s)
+                s['port_uuid'] = gw_port_id
+                s['redundant_port_uuid'] = gw_rport_id
             if (s.get('pci_slot') and
                 s.get('pci_slot') != orig.get('pci_slot') or
                 s.get('host_id') and
@@ -101,4 +101,4 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
             gw_map = super(NuageNetTopologyPlugin,
                            self).update_switchport_mapping(context, id,
                                                            switchport_mapping)
-        return gw_map
+            return gw_map
