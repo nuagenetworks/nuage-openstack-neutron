@@ -370,7 +370,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         port = port_dict['port']
         gw_ports = port.get('link_info')
         if not gw_ports:
-            raise exceptions.DirectPortSwithportMappingNotFound(
+            raise exceptions.DirectPortSwitchportMappingNotFound(
                 port=port['id'])
         segmentation_id = port_dict['segmentation_id']
         ctx = neutron_context.get_admin_context()

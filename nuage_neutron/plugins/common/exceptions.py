@@ -110,5 +110,5 @@ class DirectPortSubnetConflict(n_exc.Conflict):
                 "networks, or networks with single subnet only.")
 
 
-class DirectPortSwithportMappingNotFound(n_exc.NotFound):
+class DirectPortSwitchportMappingNotFound(n_exc.NotFound):
     message = _("Could not find switchport mapping for port %(port)s.")

@@ -370,12 +370,15 @@ class NuageTrunkHandler(object):
         self._unset_sub_ports(trunk.id, trunk_port, subports)
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
+      try:
         if event == events.PRECOMMIT_CREATE:
             self.trunk_pre_create(payload.context, payload.current_trunk)
         elif event == events.AFTER_CREATE:
             self.trunk_created(payload.current_trunk)
         elif event == events.AFTER_DELETE:
             self.trunk_deleted(payload.original_trunk)
+      except Exception as e:
+        LOG.critical(e,exc_info=True)
 
     def subport_event(self, resource, event, trunk_plugin, payload):
         if event == events.PRECOMMIT_CREATE:
