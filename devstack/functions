@@ -164,8 +164,8 @@ function create_or_retrieve_cms {
         if [[ -n "$NUAGE_VSD_CMS_NAME" ]]; then
             name="$NUAGE_VSD_CMS_NAME"
         else
-            machine_id=$(cat /etc/machine-id)
-            name="OPENSTACK_$machine_id"
+            deployment_id=$(cat /etc/machine-id)
+            name="OPENSTACK_$deployment_id"
         fi
         url="$base_url/cms"
 
@@ -245,6 +245,15 @@ function configure_networking_sfc_policy {
     echo "configured policy for networking_sfc."
 }
 
+function create_fake_bridges_for_hwvtep(){
+    # Create br-active and br-standby
+    $(sudo ovs-vsctl -- --may-exist add-br br-active)
+    $(sudo ovs-vsctl -- --may-exist add-br br-standby)
+    $(sudo ovs-vsctl br-set-external-id br-active bridge-id br-active)
+    $(sudo ovs-vsctl br-set-external-id br-standby bridge-id br-standby)
+
+}
+
 function create_fake_gateway_for_hw_vtep(){
     username=$( echo "${NUAGE_VSD_SERVER_AUTH}" | cut -d ':' -f 1)
 
@@ -265,65 +274,84 @@ function create_fake_gateway_for_hw_vtep(){
     apikey="${BASH_REMATCH[1]}"
     echo "Connected"
 
-    # Name of GW is based on machine id
-    machine_id=$(cat /etc/machine-id)
-    name="OS_CI_$machine_id"
-    echo "Creating fake gateway for HW VTEP"
-    echo "Trying to find Hw VTEP GW with name: $name"
-    url=$base_url'/gateways'
-    result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url")
-    regex=".*(\{[^\}]*\"name\":.?\"$name\"[^\}]*\}).*"
-    if [[ ${result} =~ $regex ]]; then
-        cms="${BASH_REMATCH[1]}"
-        regex='"ID":.?"([^"]*)"'
-        if [[ ${cms} =~ $regex ]]; then
-            GW_ID="${BASH_REMATCH[1]}"
-        fi
-    fi
+    # Name of GW is based on machine id, we have 5 gateways
+    deployment_id=$RANDOM
+    names=("OS_CI_1_$deployment_id" "OS_CI_2_$deployment_id" "OS_CI_3_$deployment_id" "OS_CI_4_$deployment_id" "OS_CI_5_$deployment_id")
+    physical_names=("OS_CI_1_$deployment_id" "LAG-1" "LAG-1" "OS_CI_4_$deployment_id" "OS_CI_5_$deployment_id")
+    gateway_ids=()
+    gatewayport_ids=()
 
-    if [[ ${GW_ID} ]]; then
-      echo "Found gateway: $GW_ID"
-      echo "Trying to find GW_PORT"
-      url=$base_url'/gateways/$GW/ports'
-      result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url")
-      regex=".*(\{[^\}]*\"name\":.?\"$name\"[^\}]*\}).*"
-      if [[ ${result} =~ $regex ]]; then
-          cms="${BASH_REMATCH[1]}"
-          regex='"ID":.?"([^"]*)"'
-          if [[ ${cms} =~ $regex ]]; then
-              PORT_ID="${BASH_REMATCH[1]}"
-              echo "Found GW_PORT: $PORT_ID"
+    echo "Creating GWtemplate"
+    url=$base_url'/gatewaytemplates'
+    name="OS_CI_$deployment_id"
+    result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"NUAGE_210_WBX_48_S\"}")
+    regex='"ID":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    GW_TMPLT_ID="${BASH_REMATCH[1]}"
+    echo "Created GWTemplate with id: $GW_TMPLT_ID"
 
-          fi
-      fi
-    else
-      echo "Could not find existing GW with name: $name"
-      echo "Creating GWtemplate"
-      url=$base_url'/gatewaytemplates'
-      result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"NUAGE_210_WBX_48_S\"}")
-      regex='"ID":.?"([^"]*)"'
-      [[ ${result} =~ $regex ]]
-      GW_TMPLT_ID="${BASH_REMATCH[1]}"
-      echo "Created GWTemplate with id: $GW_TMPLT_ID"
+    echo "Creating fake gateways for HW VTEP"
+    for i in "${!names[@]}"; do
+      name=${names[i]}
+      physical_name=${physical_names[i]}
 
       echo "Creating GW"
       url=$base_url'/gateways'
-      result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"NUAGE_210_WBX_48_S\", \"systemID\":\"$machine_id\", \"templateID\":\"$GW_TMPLT_ID\"}")
+      result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"NUAGE_210_WBX_48_S\", \"systemID\":\"$name\", \"templateID\":\"$GW_TMPLT_ID\"}")
       regex='"ID":.?"([^"]*)"'
       [[ ${result} =~ $regex ]]
       GW_ID="${BASH_REMATCH[1]}"
       echo "Created GW with id: $GW_ID"
+      gateway_ids+=($GW_ID)
 
       url=$base_url'/gateways/'$GW_ID'/ports'
-      result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"VLANRange\":\"0-4095\", \"physicalName\":\"$name\", \"portType\":\"ACCESS\"}")
+      result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"VLANRange\":\"0-4095\", \"physicalName\":\"$physical_name\", \"portType\":\"ACCESS\"}")
       regex='"ID":.?"([^"]*)"'
       [[ ${result} =~ $regex ]]
       PORT_ID="${BASH_REMATCH[1]}"
       echo "Created GWPort with id: $PORT_ID"
+      gatewayport_ids+=($PORT_ID)
 
-    fi
-    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$machine_id" --port-id "$name" --host-id $(hostname) --pci-slot eth1 --bridge $PUBLIC_BRIDGE | grep ' id ' | get_field 2)
+    done
+
+    # Create Redundant Gateway using GW2 and GW3
+    # Create redundancygroup
+    url=$base_url'/redundancygroups'
+    redundant_name="OS_CI_R_$deployment_id"
+    result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$redundant_name\", \"gatewayPeer1ID\":\"${gateway_ids[1]}\", \"gatewayPeer2ID\":\"${gateway_ids[2]}\"}")
+    regex='"ID":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    RG_ID="${BASH_REMATCH[1]}"
+    echo "Created redundancygroup with id: $RG_ID"
+
+    # Create redundant port
+    url=$base_url'/redundancygroups/'$RG_ID'/vsgredundantports'
+    result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$redundant_name\", \"VLANRange\":\"0-4095\", \"physicalName\":\"LAG-1\", \"portType\":\"ACCESS\", \"portPeer1ID\":\"${gateway_port_ids[1]}\", \"portPeer2ID\":\"${gateway_port_ids[2]}\"}")
+    regex='"ID":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    RG_PORT_ID="${BASH_REMATCH[1]}"
+    echo "Created redundant port with id: $RG_PORT_ID"
+
+    # Switchport mapping for GW1, no bonding, external bridge of deployment
+    name=${names[0]}
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "$name" --host-id $(hostname) --pci-slot eth1 --bridge $PUBLIC_BRIDGE | grep ' id ' | get_field 2)
     echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
+    # Switchport mapping for GW2 & GW3, Active bonding, br-active
+    name=${names[1]}
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "LAG-1" --host-id $(hostname) --pci-slot eth2 --bridge br-active | grep ' id ' | get_field 2)
+    echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
+    name=${names[2]}
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "LAG-1" --host-id $(hostname) --pci-slot eth3 --bridge br-active | grep ' id ' | get_field 2)
+    echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
+
+    # Switchport mapping for GW4 & GW5, Active/Standby bonding, br-standby
+    name=${names[3]}
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "$name" --host-id $(hostname) --pci-slot eth4 --bridge br-standby | grep ' id ' | get_field 2)
+    echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
+    name=${names[4]}
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "$name" --host-id $(hostname) --pci-slot eth5 --bridge br-standby | grep ' id ' | get_field 2)
+    echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
+
 }
 
 
