@@ -42,6 +42,10 @@ if [[ "$1" == "stack" ]]; then
             if [[ "${NUAGE_USE_SWITCHDEV}" == "True" ]]; then
                 cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_switchdev_policy.json $NEUTRON_CONF_DIR/policy.d
             fi
+            # Create fake bridges for hw vtep if applicable
+            if is_service_enabled q-agt; then
+                create_fake_bridges_for_hwvtep
+            fi
         fi
         configure_nova_nuage
         if [[ "${NUAGE_USE_METADATA}" == "True" ]]; then
