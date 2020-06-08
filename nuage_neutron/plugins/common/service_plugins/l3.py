@@ -210,7 +210,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         except Exception as exc:
             msg = ["overlaps with another subnet",
                    "overlaps with existing network"]
-            if msg[0] in exc.message or msg[1] in exc.message:
+            if msg[0] in str(exc) or msg[1] in str(exc):
                 subnet_id = rtr_if_info['subnet_id']
                 subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
                     session, subnet_id)
