@@ -191,7 +191,6 @@ NUAGE_ML2_BM_DRIVER_NAME = 'nuage_baremetal'
 AFTER_CREATE = 'after_create_nuage'
 AFTER_UPDATE = 'after_update_nuage'
 AFTER_DELETE = 'after_delete_nuage'
-AFTER_SHOW = 'after_show_nuage'
 BEFORE_UPDATE = 'before_update_nuage'
 BEFORE_CREATE = 'before_create_nuage'
 
