@@ -45,8 +45,14 @@
         - networking-nuage-tempest-qdhcp
     octavia:
       jobs:
-        - networking-nuage-octavia
-        - networking-nuage-octavia-standby
+        - networking-nuage-octavia:
+            vars:
+              devstack_localrc:
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/ussuri/amphora-x64-haproxy.qcow2"
+        - networking-nuage-octavia-standby:
+            vars:
+              devstack_localrc:
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/ussuri/amphora-x64-haproxy.qcow2"
     sfc:
       jobs:
         - legacy-tempest-aio-sfc
@@ -76,16 +82,11 @@
     periodic:
       jobs:
         - networking-nuage-tempest-virtio-py3
-        - networking-nuage-tempest-virtio-py3-vsdipam
         - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario
-        - networking-nuage-tempest-scenario-vsdipam
         - networking-nuage-tempest-cli
         - tempest-full-py3
-        - tempest-full-py3-vsdipam
         - networking-nuage-tempest-api-switchdev
         - networking-nuage-vtep-vlan-upstream:
             nodeset: openstack-single-node-bionic
@@ -102,8 +103,14 @@
       jobs:
         - networking-nuage-tempest-aggregateflows
         - networking-nuage-tempest-scale
-        - networking-nuage-octavia
-        - networking-nuage-octavia-standby
+        - networking-nuage-octavia:
+            vars:
+              devstack_localrc:
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/ussuri/amphora-x64-haproxy.qcow2"
+        - networking-nuage-octavia-standby:
+            vars:
+              devstack_localrc:
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/ussuri/amphora-x64-haproxy.qcow2"
         - networking-nuage-tempest-virtio-py3-vsdipam
         - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal-vsdipam
