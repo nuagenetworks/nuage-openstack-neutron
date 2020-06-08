@@ -51,8 +51,6 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
                                        resources.PORT, constants.AFTER_UPDATE)
         self.nuage_callbacks.subscribe(self.post_port_create_nuage_fip,
                                        resources.PORT, constants.AFTER_CREATE)
-        self.nuage_callbacks.subscribe(self._post_port_show_nuage_fip,
-                                       resources.PORT, constants.AFTER_SHOW)
 
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
@@ -179,21 +177,3 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         self.vsdclient.update_vport(
             vport['ID'],
             {'associatedFloatingIPID': request_fip.get('id')})
-
-    def _post_port_show_nuage_fip(self, resource, event, trigger, **kwargs):
-        port = kwargs.get('port')
-        vport = kwargs.get('vport')
-        fields = kwargs.get('fields')
-        if fields and NUAGE_FLOATINGIP not in fields:
-            return
-        if not vport or not vport.get('associatedFloatingIPID'):
-            port[NUAGE_FLOATINGIP] = None
-            return
-
-        floatingip = self.vsdclient.get_nuage_floatingip(
-            vport['associatedFloatingIPID'], externalID=None)
-        if floatingip:
-            port[NUAGE_FLOATINGIP] = {'id': floatingip['ID'],
-                                      'ip_address': floatingip['address']}
-        else:
-            port[NUAGE_FLOATINGIP] = None
