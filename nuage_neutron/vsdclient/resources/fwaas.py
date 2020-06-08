@@ -142,6 +142,13 @@ class NuageFwaasMapper(NuageFwaasBase):
         return result
 
     def map_rule_os_to_vsd(self, os_rule, post=False):
+        # Rewrite the ICMP protocol for IPv6 rules just like FWaaS v2:
+        # Neutron fwaas client v1 does not support passing the 'ipv6-icmp'
+        # protocol but we do have to support IPv6 fwaas rules.
+        if (os_rule.get('protocol') == lib_constants.PROTO_NAME_ICMP and
+                os_rule.get('ip_version') == lib_constants.IP_VERSION_6):
+            os_rule['protocol'] = lib_constants.PROTO_NAME_IPV6_ICMP
+
         vsd_dict = self.do_mapping(self.os_fwrule_to_vsd_fwrule, os_rule)
         if post:
             vsd_dict.update({
