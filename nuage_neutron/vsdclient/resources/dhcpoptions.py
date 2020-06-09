@@ -210,8 +210,8 @@ class NuageDhcpOptions(object):
             self.restproxy.delete(nuage_dhcp_options.dhcp_resource(dhcp_id))
         except restproxy.RESTProxyError as e:
             if on_rollback:
-                e.message = ("Rollback also failed due to the exception: " +
-                             e.message)
+                e.msg = ("Rollback also failed due to the exception: " +
+                         str(e))
             raise
 
     def _create_nuage_dhcp_options(self, subnet, resource_id,
