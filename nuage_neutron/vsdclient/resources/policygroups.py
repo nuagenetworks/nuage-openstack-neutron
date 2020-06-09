@@ -16,12 +16,10 @@ import logging
 import random
 
 from neutron_lib import constants as lib_constants
-from neutron_lib.db import api as db_api
 from oslo_config import cfg
 from oslo_utils import excutils
 import six
 
-from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
 from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import helper
@@ -161,7 +159,7 @@ class NuagePolicyGroups(object):
         if is_hardware:
             stateful = False
         elif 'security_group_id' in sg_rule:
-            stateful = self.get_sg_stateful_value(sg_rule['security_group_id'])
+            stateful = params['stateful']
         else:
             # e.g. in case of external security group
             stateful = True
@@ -294,6 +292,7 @@ class NuagePolicyGroups(object):
         l2dom_id = params['nuage_l2dom_id']
         nuage_policygroup_id = params.get('nuage_policygroup_id')
         l3dom_policygroup = l2dom_policygroup = []
+        stateful = params['stateful']
         if rtr_id:
             l3dom_policygroup = [{
                 'l3dom_id': rtr_id,
@@ -316,7 +315,8 @@ class NuagePolicyGroups(object):
                 params = {
                     'policygroup': policygroup,
                     'neutron_sg_rule': rule,
-                    'sg_type': params.get('sg_type', constants.SOFTWARE)
+                    'sg_type': params.get('sg_type', constants.SOFTWARE),
+                    'stateful': stateful
                 }
                 if ('ethertype' in rule and
                         str(rule['ethertype']) not in
@@ -333,6 +333,7 @@ class NuagePolicyGroups(object):
         remote_group_name = params.get('remote_group_name')
         external_id = params.get('externalID')
         legacy = params.get('legacy', False)
+        stateful = params['stateful']
         for l3dom_policygroup in l3dom_policygroup_list:
             nuage_ibacl_id, nuage_obacl_id = self._get_ingress_egress_ids(
                 rtr_id=l3dom_policygroup['l3dom_id'])
@@ -358,7 +359,8 @@ class NuagePolicyGroups(object):
                 'rule_id': sg_rule.get('id'),
                 'l3dom_id': l3dom_policygroup['l3dom_id'],
                 'externalID': external_id,
-                'legacy': legacy
+                'legacy': legacy,
+                'stateful': stateful
             }
             if sg_type:
                 params['sg_type'] = sg_type
@@ -396,7 +398,8 @@ class NuagePolicyGroups(object):
                 'dhcp_managed': dhcp_managed,
                 'l2dom_id': l2dom_policygroup['l2dom_id'],
                 'externalID': external_id,
-                'legacy': legacy
+                'legacy': legacy,
+                'stateful': stateful
             }
             if sg_type:
                 params['sg_type'] = sg_type
@@ -435,10 +438,8 @@ class NuagePolicyGroups(object):
             if 'icmp' in sg_rule.get('protocol'):  # both v4 and v6
                 port_min = sg_rule.get('port_range_min')  # type
                 port_max = sg_rule.get('port_range_max')  # code
-                sg_id = sg_rule['security_group_id']
-                stateful = self.get_sg_stateful_value(sg_id)
                 # reverse = stateful AND no-can-do-stateful
-                reverse = (stateful and
+                reverse = (params['stateful'] and
                            (  # no-can-do as unspecified ~ wildcard
                               not port_min and not port_max or
                               # no-can-do as icmpv4 type no-can-do stateful
@@ -446,8 +447,7 @@ class NuagePolicyGroups(object):
                               port_min not in STATEFUL_ICMP_V4_TYPES or
                               # no-can-do as icmpv6 type no-can-do stateful
                               sg_rule['ethertype'] == constants.OS_IPV6 and
-                              port_min not in STATEFUL_ICMP_V6_TYPES
-                           ))
+                              port_min not in STATEFUL_ICMP_V6_TYPES))
 
         # create the configured rule
         self._create_nuage_sgrule(params)
@@ -530,9 +530,7 @@ class NuagePolicyGroups(object):
             # this handles the case where, rule with protocol icmp and
             # ICMP type not in [8,13,15,17] with ingress direction
             # has an icmp rule in egress and vice versa
-            sg_id = rule['security_group_id']
-            stateful = self.get_sg_stateful_value(sg_id)
-            if (rule.get('protocol') == 'icmp' and stateful and
+            if (rule.get('protocol') == 'icmp' and rule['stateful'] and
                     ((rule['ethertype'] == constants.OS_IPV4 and
                       rule.get('port_range_min')
                       not in STATEFUL_ICMP_V4_TYPES) or
@@ -738,7 +736,8 @@ class NuagePolicyGroups(object):
             'name': sg['name'],
             'sg_id': sg['id'],
             'sg_rules': sg_rules,
-            'sg_type': sg_type
+            'sg_type': sg_type,
+            'stateful': sg['stateful']
         }
         if not nuage_policygroup_id:
             try:
@@ -922,13 +921,6 @@ class NuagePolicyGroups(object):
                         continue
                     else:
                         raise
-
-    @staticmethod
-    def get_sg_stateful_value(sg_id):
-        session = db_api.get_reader_session()
-        value = nuagedb.get_nuage_sg_parameter(session, sg_id, 'STATEFUL')
-        session.close()
-        return not (value and value.parameter_value == '0')
 
     def create_nuage_external_security_group(self, params):
         l2dom_id = params.get('l2dom_id')

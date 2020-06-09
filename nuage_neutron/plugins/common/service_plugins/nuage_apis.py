@@ -17,12 +17,10 @@ import functools
 import netaddr
 from neutron._i18n import _
 from neutron.api import extensions as neutron_extensions
-from neutron.db import securitygroups_db as sg_db
 from neutron_lib.api import validators
 from neutron_lib import context as n_ctx
 from neutron_lib.db import api as lib_db_api
 from neutron_lib.db import model_query
-from neutron_lib.db import resource_extend as lib_db_resource_extend
 from neutron_lib.db import utils as ndb_utils
 from neutron_lib import exceptions as n_exc
 from neutron_lib.services import base as service_base
@@ -47,20 +45,16 @@ LOG = logging.getLogger(__name__)
 class NuageApi(base_plugin.BaseNuagePlugin,
                service_base.ServicePluginBase,
                externalsg.NuageexternalsgMixin,
-               gateway.NuagegatewayMixin,
-               sg_db.SecurityGroupDbMixin):
+               gateway.NuagegatewayMixin):
     supported_extension_aliases = ['net-partition', 'nuage-gateway',
                                    'vsd-resource',
-                                   'nuage-external-security-group',
-                                   'nuage-security-group']
+                                   'nuage-external-security-group']
 
     def __init__(self):
         super(NuageApi, self).__init__()
         # Prepare default and shared netpartitions
         self._prepare_netpartitions()
         neutron_extensions.append_api_extensions_path(extensions.__path__)
-        lib_db_resource_extend.register_funcs('security_groups',
-                                              [self._extend_resource_dict])
 
     def get_plugin_type(self):
         return constants.NUAGE_APIS
@@ -612,15 +606,3 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                     str(obj[filter]).lower() not in filters[filter]):
                 return False
         return True
-
-    def _extend_resource_dict(self, resource_res, resource_db):
-        if resource_db:
-            sg_id = resource_res['id']
-            resource_res['stateful'] = self.get_sg_stateful_value(sg_id)
-
-    @staticmethod
-    def get_sg_stateful_value(sg_id):
-        session = lib_db_api.get_reader_session()
-        value = nuagedb.get_nuage_sg_parameter(session, sg_id, 'STATEFUL')
-        session.close()
-        return not (value and value.parameter_value == '0')

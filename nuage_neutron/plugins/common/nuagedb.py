@@ -586,27 +586,6 @@ def get_port_bindings_for_sg(session, sg_ids, vnic_types, bound_only=False):
     return query.all()
 
 
-def get_nuage_sg_parameter(session, sg_id, parameter_name):
-    return (
-        session.query(nuage_models.NuageSecurityGroup)
-        .filter_by(security_group_id=sg_id)
-        .filter_by(parameter_name=parameter_name)
-    ).first()
-
-
-def set_nuage_sg_parameter(session, sg_id, parameter_name, value):
-    nuage_sg = nuage_models.NuageSecurityGroup(security_group_id=sg_id,
-                                               parameter_name=parameter_name,
-                                               parameter_value=value)
-    session.merge(nuage_sg)
-
-
-def delete_nuage_sg_parameter(session, sg_id, parameter_name):
-    row = get_nuage_sg_parameter(session, sg_id, parameter_name)
-    if row:
-        session.delete(row)
-
-
 def check_ports_to_router_mapping(context, port_ids):
     device_owner_router_itf_port = aliased(models_v2.Port)
     session = context.session

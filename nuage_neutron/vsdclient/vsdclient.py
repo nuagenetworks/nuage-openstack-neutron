@@ -274,7 +274,8 @@ class VsdClient(object):
                                            os_security_group):
         pass
 
-    def create_security_group_rules(self, policygroup, security_group_rules):
+    def create_security_group_rules(self, policygroup, security_group_rules,
+                                    stateful):
         pass
 
     def update_vports_in_policy_group(self, pg_id, vport_list):
