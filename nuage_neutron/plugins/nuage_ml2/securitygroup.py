@@ -23,11 +23,9 @@ from neutron_lib.plugins import directory
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
-from oslo_utils import uuidutils
 
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common import constants as nuage_constants
@@ -41,8 +39,6 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     def __init__(self):
         super(NuageSecurityGroup, self).__init__()
         self._l2_plugin = None
-        self.stateful = None
-        self.sg_name_before_update = None
 
     @property
     def core_plugin(self):
@@ -58,58 +54,11 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         self.nuage_callbacks.subscribe(self.post_port_delete,
                                        resources.PORT, constants.AFTER_DELETE)
 
-    @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_CREATE])
-    @nuage_utils.handle_nuage_api_errorcode
-    @log_helpers.log_method_call
-    def pre_create_security_group(self, resource, event, trigger, payload):
-        session = payload.context.session
-        sg = payload.desired_state
-        stateful = sg.get('stateful', True)
-        payload.request_body['security_group']['id'] = sg_id = \
-            sg.get('id') or uuidutils.generate_uuid()
-        if not stateful:
-            nuagedb.set_nuage_sg_parameter(session, sg_id, 'STATEFUL', '0')
-
     @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_DELETE])
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_delete_security_group(self, resource, event, trigger, payload):
         self.vsdclient.delete_nuage_secgroup(payload.resource_id)
-
-    @registry.receives(resources.SECURITY_GROUP, [events.PRECOMMIT_DELETE])
-    @nuage_utils.handle_nuage_api_errorcode
-    @log_helpers.log_method_call
-    def delete_security_group_precommit(self, resource, event, trigger,
-                                        **kwargs):
-        session = kwargs['context'].session
-        sg_id = kwargs['security_group_id']
-        nuagedb.delete_nuage_sg_parameter(session, sg_id, 'STATEFUL')
-
-    @registry.receives(resources.SECURITY_GROUP, [events.BEFORE_UPDATE])
-    @nuage_utils.handle_nuage_api_errorcode
-    @log_helpers.log_method_call
-    def pre_update_security_group(self, resource, event, trigger, **kwargs):
-        context = kwargs['context']
-        sg_id = kwargs['security_group_id']
-        current = self.get_security_group(context, sg_id)
-        self.sg_name_before_update = current['name']
-        sg = kwargs['security_group']
-        if 'stateful' in sg and sg['stateful'] != current['stateful']:
-            self._check_for_security_group_in_use(context, sg_id)
-            self.stateful = kwargs['security_group']['stateful']
-
-    @registry.receives(resources.SECURITY_GROUP, [events.PRECOMMIT_UPDATE])
-    @nuage_utils.handle_nuage_api_errorcode
-    @log_helpers.log_method_call
-    def update_security_group_precommit(self, resource, event, trigger,
-                                        payload):
-        session = payload.context.session
-        sg_id = payload.resource_id
-        sg = payload.desired_state
-        if self.stateful is not None:
-            self._update_stateful_parameter(session, sg_id, self.stateful)
-            sg['stateful'] = self.stateful
-            self.stateful = None
 
     @registry.receives(resources.SECURITY_GROUP, [events.AFTER_UPDATE])
     @nuage_utils.handle_nuage_api_errorcode
@@ -153,6 +102,8 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         context = kwargs['context']
         sg_rule = kwargs['security_group_rule']
         sg_id = sg_rule['security_group_id']
+        stateful = self.core_plugin.get_security_group(
+            context, sg_id)['stateful']
 
         if sg_rule.get('remote_group_id'):
             remote_sg = self.core_plugin.get_security_group(
@@ -165,6 +116,7 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                     'sg_id': sg_id,
                     'neutron_sg_rule': sg_rule,
                     'policygroup': nuage_policygroup,
+                    'stateful': stateful
                 }
                 if remote_sg:
                     sg_params['remote_group_name'] = remote_sg['name']
@@ -182,6 +134,9 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
         context = kwargs['context']
         id = kwargs['security_group_rule_id']
         local_sg_rule = self.core_plugin.get_security_group_rule(context, id)
+        stateful = self.core_plugin.get_security_group(
+            context, local_sg_rule['security_group_id'])['stateful']
+        local_sg_rule['stateful'] = stateful
         self.vsdclient.delete_nuage_sgrule([local_sg_rule])
 
     def post_port_create(self, resource, event, trigger, context, port, vport,
@@ -350,19 +305,6 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
                                                      remote_sg_id,
                                                      vsd_subnet)
 
-            self.vsdclient.create_security_group_rules(policy_group,
-                                                       security_group_rules)
+            self.vsdclient.create_security_group_rules(
+                policy_group, security_group_rules, security_group['stateful'])
         return policy_group
-
-    def _check_for_security_group_in_use(self, context, sg_id):
-        filters = {'security_group_id': [sg_id]}
-        bound_ports = self._get_port_security_group_bindings(context, filters)
-        if bound_ports:
-            raise ext_sg.SecurityGroupInUse(id=sg_id)
-
-    @staticmethod
-    def _update_stateful_parameter(session, sg_id, stateful):
-        if stateful:
-            nuagedb.delete_nuage_sg_parameter(session, sg_id, 'STATEFUL')
-        else:
-            nuagedb.set_nuage_sg_parameter(session, sg_id, 'STATEFUL', '0')

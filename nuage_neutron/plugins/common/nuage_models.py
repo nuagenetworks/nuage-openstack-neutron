@@ -161,26 +161,6 @@ class NuageConfigParameter(model_base.BASEV2):
     name = sa.Column(sa.String(255), primary_key=True, nullable=False)
 
 
-class NuageSecurityGroup(model_base.BASEV2):
-    __tablename__ = 'nuage_security_group'
-    __table_args__ = (
-        sa.PrimaryKeyConstraint('security_group_id', 'parameter_name'),
-    )
-    security_group_id = sa.Column('security_group_id', sa.String(255),
-                                  nullable=False)
-    parameter_name = sa.Column(sa.String(255),
-                               sa.ForeignKey(
-                                   'nuage_security_group_parameter.name',
-                                   ondelete='CASCADE'),
-                               nullable=False)
-    parameter_value = sa.Column(sa.String(255), nullable=False)
-
-
-class NuageSecurityGroupParameter(model_base.BASEV2):
-    __tablename__ = 'nuage_security_group_parameter'
-    name = sa.Column(sa.String(255), primary_key=True, nullable=False)
-
-
 class NuageL2bridge(model_base.BASEV2, model_base.HasId,
                     model_base.HasProject):
     __tablename__ = 'nuage_l2bridge'

@@ -456,8 +456,8 @@ class NuageRedirectTarget(BaseNuagePlugin):
                                                           remote_sg_id,
                                                           rt, vsd_managed)
         if not vsd_managed:
-            self.vsdclient.create_security_group_rules(policy_group,
-                                                       security_group_rules)
+            self.vsdclient.create_security_group_rules(
+                policy_group, security_group_rules, security_group['stateful'])
         return policy_group
 
     @nuage_utils.handle_nuage_api_errorcode

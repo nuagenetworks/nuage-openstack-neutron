@@ -477,11 +477,13 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                                                        parent_id,
                                                        os_security_group)
 
-    def create_security_group_rules(self, policygroup, security_group_rules):
+    def create_security_group_rules(self, policygroup, security_group_rules,
+                                    stateful):
         params = {'nuage_router_id': None,
                   'nuage_l2dom_id': None,
                   'nuage_policygroup_id': policygroup['ID'],
-                  'sg_rules': security_group_rules}
+                  'sg_rules': security_group_rules,
+                  'stateful': stateful}
         if policygroup['parentType'] == constants.L2DOMAIN:
             params['nuage_l2dom_id'] = policygroup['parentID']
         else:

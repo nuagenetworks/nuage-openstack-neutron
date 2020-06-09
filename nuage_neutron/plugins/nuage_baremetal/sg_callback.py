@@ -68,6 +68,9 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
         context = kwargs['context']
         id = kwargs['security_group_rule_id']
         local_sg_rule = self.core_plugin.get_security_group_rule(context, id)
+        stateful = self.core_plugin.get_security_group(
+            context, local_sg_rule['security_group_id'])['stateful']
+        local_sg_rule['stateful'] = stateful
         self.client.delete_nuage_sgrule([local_sg_rule], constants.HARDWARE)
 
     @registry.receives(resources.SECURITY_GROUP_RULE, [events.BEFORE_CREATE])
@@ -87,6 +90,8 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
         context = kwargs['context']
         sg_rule = kwargs['security_group_rule']
         sg_id = sg_rule['security_group_id']
+        stateful = self.core_plugin.get_security_group(
+            context, sg_id)['stateful']
 
         if sg_rule.get('remote_group_id'):
             remote_sg = self.core_plugin.get_security_group(
@@ -98,7 +103,8 @@ class NuageBmSecurityGroupHandler(SubnetUtilsBase):
                 sg_params = {
                     'neutron_sg_rule': sg_rule,
                     'policygroup': nuage_policygroup,
-                    'sg_type': constants.HARDWARE
+                    'sg_type': constants.HARDWARE,
+                    'stateful': stateful
                 }
                 if remote_sg:
                     sg_params['remote_group_name'] = remote_sg['name']
