@@ -109,7 +109,6 @@
         - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario-vsdipam
         - tempest-full-py3-vsdipam
-
 - job:
     name: networking-nuage-rally-task
     parent: rally-task-at-devstack
