@@ -48,11 +48,11 @@
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
-                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
-                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
     sfc:
       jobs:
         - legacy-tempest-aio-sfc
@@ -103,17 +103,16 @@
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
-                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
-                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
         - networking-nuage-tempest-virtio-py3-vsdipam
         - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario-vsdipam
         - tempest-full-py3-vsdipam
-
 - job:
     name: networking-nuage-rally-task
     parent: rally-task-at-devstack
