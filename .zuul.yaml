@@ -115,16 +115,14 @@
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/octavia-tempest-plugin /opt/stack/nuage-octavia-tempest-plugin"'
-                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-rocky
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/octavia-tempest-plugin /opt/stack/nuage-octavia-tempest-plugin"'
-                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-rocky
     sfc:
       jobs:
@@ -253,14 +251,14 @@
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
-                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-rocky
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
                 USE_PYTHON3: false
                 FORCE_CONFIG_DRIVE: false
-                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros-ipv6.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects-rocky
         - networking-nuage-tempest-virtio-vsdipam:
             vars: *required-vars-rocky
