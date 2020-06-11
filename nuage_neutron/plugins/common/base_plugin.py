@@ -883,10 +883,14 @@ class RootNuagePlugin(SubnetUtilsBase):
                                 self.is_nuage_hybrid_mpls_network(network)
                                 else vsd_constants.VSD_TUNNEL_TYPES['VXLAN'])
         if not nuage_subnet['l2EncapType'] == expected_tunnel_type:
+            network_type = (lib_constants.TYPE_VXLAN if
+                            expected_tunnel_type ==
+                            vsd_constants.VSD_TUNNEL_TYPES['VXLAN']
+                            else constants.NUAGE_HYBRID_MPLS_NET_TYPE)
             msg = (('Provided Nuage subnet has tunnel type '
                     '{} which is not supported by {} networks')
                    .format(nuage_subnet['l2EncapType'],
-                           network['provider:network_type'].upper()))
+                           network_type.upper()))
             raise NuageBadRequest(msg=msg)
 
         # Check the nuage subnet type is standard if linking to domain subnet
