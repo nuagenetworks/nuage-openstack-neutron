@@ -1214,39 +1214,26 @@ class RootNuagePlugin(SubnetUtilsBase):
         elif l3dom_params['FIPUnderlay'] is False:
             l3dom_id = self.vsdclient.create_shared_l3domain(l3dom_params)
         else:
-            fip_underlay_subnets = nuagedb.get_subnets_by_parameter_value(
-                context.session, parameter=constants.NUAGE_UNDERLAY,
-                value=constants.NUAGE_UNDERLAY_FIP)
-            if fip_underlay_subnets:
-                # Underlay subnets are attached to same domain and zone.
-                # The first underlay subnet is used to get the uplink zoneID.
-                subnet_id = fip_underlay_subnets[0]['subnet_id']
-                mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
-                                                         subnet_id)
-                nuage_subnet = self.vsdclient.get_domain_subnet_by_id(
-                    mapping['nuage_subnet_id'])
-                zone_id = nuage_subnet['parentID']
-            else:
-                l3dom_id = (self.vsdclient
-                            .get_fip_underlay_enabled_domain_by_netpart(
-                                netpart_id))
-                if l3dom_id is None:
-                    try:
-                        l3dom_id = self.vsdclient.create_shared_l3domain(
-                            l3dom_params)
-                    except restproxy.RESTProxyError as e:
-                        msg = ("Shared infrastructure enterprise can have max "
-                               "1 Floating IP domains.")
-                        if str(e) == msg:
-                            LOG.debug("Hit concurrent creation of Floating IP "
-                                      "domain in Shared Infrastructure. "
-                                      "Obtaining the one created")
-                            l3dom_id = (
-                                self.vsdclient
-                                    .get_fip_underlay_enabled_domain_by_netpart
-                                (netpart_id))
-                        else:
-                            raise
+            l3dom_id = (self.vsdclient
+                        .get_fip_underlay_enabled_domain_by_netpart(
+                            netpart_id))
+            if not l3dom_id:
+                try:
+                    l3dom_id = self.vsdclient.create_shared_l3domain(
+                        l3dom_params)
+                except restproxy.RESTProxyError as e:
+                    msg = ("Shared infrastructure enterprise can have max "
+                           "1 Floating IP domains.")
+                    if str(e) == msg:
+                        LOG.debug("Hit concurrent creation of Floating IP "
+                                  "domain in Shared Infrastructure. "
+                                  "Obtaining the one created")
+                        l3dom_id = (
+                            self.vsdclient
+                                .get_fip_underlay_enabled_domain_by_netpart
+                            (netpart_id))
+                    else:
+                        raise
 
         if zone_id is None and l3dom_id is not None:
             zone_id = self.vsdclient.get_zone_by_domainid(
