@@ -29,6 +29,8 @@
             required-projects: &required-projects-rocky-54
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 5.4/rocky
+              - name: OpenStack/nuage-openstack-neutronclient
+                override-checkout: 5.4/rocky
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.9.0
         - networking-nuage-tempest-sriov-5.4:
