@@ -487,10 +487,6 @@ class NuageDomain(object):
                 raise restproxy.ResourceConflictException(msg)
 
     def create_nuage_floatingip(self, params):
-        fip = self.create_nuage_floatingip_details(params)
-        return fip['ID']
-
-    def create_nuage_floatingip_details(self, params):
         req_params = {
             'domain_id': params['nuage_rtr_id'],
             'shared_netid': params['nuage_fippool_id'],
