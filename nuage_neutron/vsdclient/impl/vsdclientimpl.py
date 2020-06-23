@@ -120,14 +120,11 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def get_net_partition_name_by_id(self, ent_id):
         return self.net_part.get_net_partition_name_by_id(ent_id)
 
-    def get_nuage_fip_by_id(self, params):
-        return self.net_part.get_nuage_fip_by_id(params)
+    def get_nuage_fip_by_id(self, neutron_fip_id):
+        return self.net_part.get_nuage_fip_by_id(neutron_fip_id)
 
     def get_nuage_fip_pool_by_id(self, params):
         return self.net_part.get_nuage_fip_pool_by_id(params)
-
-    def set_fip_quota_at_ent_profile(self, fip_quota):
-        self.net_part.set_fip_quota_at_ent_profile(fip_quota)
 
     def get_subnet_by_netpart(self, netpart_id):
         return self.l2domain.get_subnet_by_netpart(netpart_id)
@@ -248,9 +245,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def create_nuage_floatingip(self, params):
         return self.domain.create_nuage_floatingip(params)
 
-    def create_nuage_floatingip_details(self, params):
-        return self.domain.create_nuage_floatingip_details(params)
-
     def get_nuage_floatingip(self, id, required=False, **filters):
         return self.domain.get_nuage_floatingip(id, required=required,
                                                 **filters)
@@ -299,8 +293,9 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                              l3isolated, l3shared):
         return self.domain.validate_zone_create(l3dom_id, l3isolated, l3shared)
 
-    def get_nuage_port_by_id(self, params):
-        return helper.get_nuage_port_by_id(self.restproxy, params)
+    def get_nuage_vm_interface_by_neutron_id(self, neutron_port_id):
+        return helper.get_nuage_vm_interface_by_neutron_id(self.restproxy,
+                                                           neutron_port_id)
 
     def get_routers_by_netpart(self, netpart_id):
         return self.domain.get_routers_by_netpart(netpart_id)
@@ -497,16 +492,14 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def update_vports_in_policy_group(self, pg_id, vport_list):
         self.policygroups.update_vports_in_policy_group(pg_id, vport_list)
 
-    def get_rate_limit(self, vport_id, neutron_fip_id):
-        return self.policygroups.get_rate_limit(vport_id, neutron_fip_id)
+    def get_fip_qos(self, vport_id, neutron_fip_id):
+        return self.policygroups.get_fip_qos(vport_id, neutron_fip_id)
 
-    def create_update_rate_limiting(self, rate_limit, vport_id,
-                                    neutron_fip_id):
-        self.policygroups.create_update_rate_limiting(rate_limit, vport_id,
-                                                      neutron_fip_id)
+    def create_update_fip_qos(self, neutron_fip, nuage_vport):
+        self.policygroups.create_update_fip_qos(neutron_fip, nuage_vport)
 
-    def delete_rate_limiting(self, vport_id, neutron_fip_id):
-        self.policygroups.delete_rate_limiting(
+    def delete_fip_qos(self, vport_id, neutron_fip_id):
+        self.policygroups.delete_fip_qos(
             vport_id, neutron_fip_id)
 
     def delete_nuage_sgrule(self, sg_rules, sg_type='SOFTWARE'):
