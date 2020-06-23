@@ -17,7 +17,6 @@ from oslo_config import cfg
 from neutron._i18n import _
 from neutron_lib.api import extensions as api_extensions
 from neutron_lib.api import validators as lib_validators
-from neutron_lib import constants as lib_constants
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 
@@ -34,45 +33,35 @@ def convert_ingress_default_to_default_value(data):
     return data
 
 
-def send_fip_rate_limit_info(attribute):
-    msg = (_("'%s' should be a number higher than 0, -1 for "
-             "unlimited or 'default' for the configured default value.")
-           % attribute)
-    raise nuage_exc.NuageBadRequest(msg=msg)
-
-
-def fip_value_validator(fip_value, attribute, units='mbps'):
-    if fip_value is None:
-        msg = (_("Missing value for %s") % attribute)
-        raise nuage_exc.NuageBadRequest(msg=msg)
-    if isinstance(fip_value, bool):
-        return send_fip_rate_limit_info(attribute)
+def fip_rate_limit_validator(rate_limit, attribute):
+    if rate_limit is None:
+        return
+    msg = _("'{}' should be an integer number between 0 and {}, "
+            "-1 for unlimited or 'default' for "
+            "the configured default value.").format(attribute,
+                                                    constants.MAX_VSD_INTEGER)
     try:
-        fip_value = float(fip_value)
-        if units == 'kbps' and int(fip_value) != fip_value:
-            msg = (_('%s value cannot be in fraction') % attribute)
-            raise nuage_exc.NuageBadRequest(msg=msg)
-        else:
-            fip_value = int(fip_value)
+        rate_limit = float(rate_limit)
     except (ValueError, TypeError):
-        return send_fip_rate_limit_info(attribute)
-
-    if fip_value < -1:
-        return send_fip_rate_limit_info(attribute)
-
-    if fip_value > constants.MAX_VSD_INTEGER:
-        msg = (_("%(attr)s cannot be > %(max)s") %
-               {'attr': attribute,
-                'max': constants.MAX_VSD_INTEGER})
         raise nuage_exc.NuageBadRequest(msg=msg)
+
+    if not is_valid_rate_limit(rate_limit):
+        raise nuage_exc.NuageBadRequest(msg=msg)
+
+
+def is_valid_rate_limit(rate_limit):
+    if (not rate_limit.is_integer() or rate_limit < -1 or
+            rate_limit > constants.MAX_VSD_INTEGER):
+        return False
+    return True
 
 
 def egress_limit_validation_kbps(data, valid_values=None):
-    fip_value_validator(data, "nuage_egress_fip_rate_kbps", units='kbps')
+    fip_rate_limit_validator(data, "nuage_egress_fip_rate_kbps")
 
 
 def ingress_limit_validation_kbps(data, valid_values=None):
-    fip_value_validator(data, "nuage_ingress_fip_rate_kbps", units='kbps')
+    fip_rate_limit_validator(data, "nuage_ingress_fip_rate_kbps")
 
 
 lib_validators.add_validator('type:egress_rate_valid_kbps',
@@ -87,7 +76,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
-            'default': lib_constants.ATTR_NOT_SPECIFIED,
+            'default': None,
             'validate': {'type:ingress_rate_valid_kbps': None},
             'convert_to': convert_ingress_default_to_default_value,
             'enforce_policy': True
@@ -96,7 +85,7 @@ EXTENDED_ATTRIBUTES_2_0 = {
             'allow_post': True,
             'allow_put': True,
             'is_visible': True,
-            'default': lib_constants.ATTR_NOT_SPECIFIED,
+            'default': None,
             'validate': {'type:egress_rate_valid_kbps': None},
             'convert_to': convert_egress_default_to_default_value,
             'enforce_policy': True
