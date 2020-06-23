@@ -1517,20 +1517,20 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         shared = subnets[4].get('shared') or subnets[6].get('shared', False)
 
-        nuage_port = self.vsdclient.get_nuage_port_by_id(
-            {'neutron_port_id': port['id']})
-        if not nuage_port:
+        vm_interface = self.vsdclient.get_nuage_vm_interface_by_neutron_id(
+            port['id'])
+        if not vm_interface:
             return
         params = {
             'no_of_ports': no_of_ports,
             'netpart_name': np_name,
             'tenant': port['tenant_id'],
-            'nuage_vif_id': nuage_port['nuage_vif_id'],
+            'nuage_vif_id': vm_interface['ID'],
             'id': vm_id,
             'subn_tenant': subnet_tenant_id,
             'portOnSharedSubn': shared
         }
-        if not nuage_port['domainID']:
+        if not vm_interface.get('domainID'):
             params['l2dom_id'] = subnet_mapping['nuage_subnet_id']
         else:
             params['l3dom_id'] = subnet_mapping['nuage_subnet_id'],
