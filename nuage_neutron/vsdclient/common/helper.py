@@ -360,32 +360,18 @@ def get_l3dom_template_id_by_dom_id(restproxy_serv, dom_id):
     return l3domain_template['templateID']
 
 
-def get_nuage_port_by_id(restproxy_serv, params):
+def get_nuage_vm_interface_by_neutron_id(restproxy_serv, neutron_port_id):
     req_params = {
-        'externalID': get_vsd_external_id(params['neutron_port_id'])
+        'externalID': get_vsd_external_id(neutron_port_id)
     }
 
-    vport_type = params.get('nuage_vport_type')
-    if vport_type == constants.HOST_VPORT_TYPE:
-        req_params['vport_id'] = params['nuage_vport_id']
-        nuage_intf = nuagelib.NuageHostInterface(create_params=req_params)
-        nuage_extra_headers = nuage_intf.extra_headers_by_externalid()
-    else:
-        nuage_intf = nuagelib.NuageVMInterface(create_params=req_params)
-        nuage_extra_headers = nuage_intf.extra_headers_for_all_vmifs()
+    nuage_intf = nuagelib.NuageVMInterface(create_params=req_params)
+    nuage_extra_headers = nuage_intf.extra_headers_for_all_vmifs()
 
     interfaces = restproxy_serv.get(nuage_intf.get_all_resource(),
                                     extra_headers=nuage_extra_headers,
                                     required=True)
-    if interfaces:
-        interface = interfaces[0]
-        req_params = {'vport_id': interface['VPortID']}
-        nuage_vport = nuagelib.NuageVPort(create_params=req_params)
-        vport = restproxy_serv.get(nuage_vport.get_resource(),
-                                   required=True)[0]
-        vport['nuage_vif_id'] = interface['ID']
-        return vport
-    return None
+    return interfaces[0] if interfaces else None
 
 
 def get_nuage_vport_by_id(restproxy_serv, id, required=True):
@@ -401,7 +387,7 @@ def get_nuage_vport_by_neutron_id(restproxy_serv, params, required=True):
     }
     l2domid = params.get('l2dom_id')
     l3domid = params.get('l3dom_id')
-    vports = ''
+    vports = None
 
     if l2domid:
         nuagel2domain = nuagelib.NuageL2Domain(create_params=req_params)

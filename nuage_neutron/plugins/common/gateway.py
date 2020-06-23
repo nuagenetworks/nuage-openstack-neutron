@@ -166,13 +166,6 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
                     # gridinv - do not map resource in conflict to 500
                     raise nuage_exc.NuageBadRequest(msg=str(ex))
             raise
-        if port_id and not subnet_mapping['nuage_managed_subnet']:
-            port = params['port']
-            self.l3_plugin._check_floatingip_update(
-                context,
-                port,
-                vport_type=constants.HOST_VPORT,
-                vport_id=vport['ID'])
         resp_dict = {'vport_id': resp['vport']['ID'],
                      'vport_type': resp['vport']['type'],
                      'vport_name': resp['vport']['name'],
