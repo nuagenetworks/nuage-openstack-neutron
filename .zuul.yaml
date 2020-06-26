@@ -302,3 +302,10 @@
       - openstack/neutron-tempest-plugin
       - openstack/tempest
 
+- job:
+    name: networking-nuage-tempest-smoke-multiversion-20.10
+    parent: networking-nuage-tempest-smoke
+    override-checkout: stable/rocky
+    vars:
+      ci_vsp_name: ci-vsp-multiversion-0.0
+    required-projects: *required-projects
