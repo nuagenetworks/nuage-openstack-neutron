@@ -41,23 +41,31 @@ class NuageL2Domain(object):
                                      required=True)
         res = []
         for l2dom in l2_doms:
+            # backend_l2domain for domain linked to shared infrastructure
+            l2_backend_dom = l2dom
+            shared_resource = l2dom['associatedSharedNetworkResourceID']
+            if shared_resource:
+                # find backend l2dom
+                l2_backend_doms = self.restproxy.get(
+                    nuagel2dom.get_resource(shared_resource), required=True)
+                l2_backend_dom = l2_backend_doms[0]
             np_dict = dict()
             np_dict['name'] = l2dom['name']
             np_dict['ID'] = l2dom['ID']
-            np_dict['subnet_os_id'] = strip_cms_id(l2dom['externalID'])
-            np_dict['dhcp_managed'] = l2dom['DHCPManaged']
-            np_dict['IPType'] = l2dom['IPType']
-            np_dict['ipv4_cidr'] = \
-                str(netaddr.IPNetwork("{}/{}".format(l2dom['address'],
-                                                     l2dom['netmask'])))\
-                if l2dom.get('address') else ""
-            np_dict['IPv6Address'] = l2dom['IPv6Address']
-            np_dict['ipv4_gateway'] = \
-                self.get_gw_from_dhcp_options(l2dom['ID'])
-            np_dict['IPv6Gateway'] = l2dom['IPv6Gateway']
             np_dict['net_partition_id'] = netpart_id
-            np_dict['enableDHCPv4'] = l2dom['enableDHCPv4']
-            np_dict['enableDHCPv6'] = l2dom['enableDHCPv6']
+            np_dict['subnet_os_id'] = strip_cms_id(l2dom['externalID'])
+            np_dict['dhcp_managed'] = l2_backend_dom['DHCPManaged']
+            np_dict['IPType'] = l2_backend_dom['IPType']
+            np_dict['ipv4_cidr'] = (str(
+                netaddr.IPNetwork("{}/{}".format(l2_backend_dom['address'],
+                                                 l2_backend_dom['netmask'])))
+                if l2_backend_dom.get('address') else "")
+            np_dict['IPv6Address'] = l2_backend_dom['IPv6Address']
+            np_dict['ipv4_gateway'] = self.get_gw_from_dhcp_options(
+                l2_backend_dom['ID'])
+            np_dict['IPv6Gateway'] = l2_backend_dom['IPv6Gateway']
+            np_dict['enableDHCPv4'] = l2_backend_dom['enableDHCPv4']
+            np_dict['enableDHCPv6'] = l2_backend_dom['enableDHCPv6']
 
             res.append(np_dict)
         return res
