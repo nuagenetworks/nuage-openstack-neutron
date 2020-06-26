@@ -53,9 +53,3 @@ class VsdPassthroughResource(BaseNuagePlugin):
             elif key in resource:
                 dict[value] = resource[key]
         return self._fields(dict, fields)
-
-    def _fields(self, resource, fields):
-        if fields:
-            return dict(((key, item) for key, item in six.iteritems(resource)
-                         if key in fields))
-        return resource
