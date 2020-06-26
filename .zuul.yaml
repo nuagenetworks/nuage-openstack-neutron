@@ -18,7 +18,6 @@
                 override-checkout: 5.4/queens
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
-
     gate:
       jobs:
         - openstack-tox-pep8:
@@ -62,6 +61,7 @@
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/queens
             required-projects: *required-projects
+        - networking-nuage-tempest-smoke-multiversion-20.10
 
     periodic-sunday:
       jobs:
@@ -77,3 +77,11 @@
         - networking-nuage-fwaas-v1:
             override-checkout: stable/queens
             required-projects: *required-projects
+
+- job:
+    name: networking-nuage-tempest-smoke-multiversion-20.10
+    parent: networking-nuage-tempest-smoke
+    override-checkout: stable/queens
+    vars:
+      ci_vsp_name: ci-vsp-multiversion-0.0
+    required-projects: *required-projects
