@@ -283,13 +283,13 @@ class VsdClient(object):
     def update_vport_policygroups(self, vport_id, policygroup_ids):
         pass
 
-    def get_fip_qos(self, vport_id, neutron_fip_id):
+    def get_fip_qos(self, nuage_fip):
         pass
 
-    def create_update_fip_qos(self, neutron_fip, nuage_vport):
+    def create_update_fip_qos(self, neutron_fip, nuage_fip):
         pass
 
-    def delete_fip_qos(self, vport_id, neutron_fip_id):
+    def delete_fip_qos(self, nuage_fip):
         pass
 
     def delete_nuage_sgrule(self, sg_rules, sg_type='SOFTWARE'):
