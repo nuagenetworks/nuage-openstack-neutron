@@ -435,6 +435,7 @@ class NuageVM(object):
     @staticmethod
     def _get_vip_action(key):
         return {
+            # full cidr # dif mac # same ip # same subnet
             (0, 0, 0, 0): ACTION_MACSPOOFING,
             (0, 0, 0, 1): ACTION_MACSPOOFING,
             (0, 0, 1, 1): ACTION_MACSPOOFING,

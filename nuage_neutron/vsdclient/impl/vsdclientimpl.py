@@ -31,6 +31,7 @@ from nuage_neutron.vsdclient.resources import gateway
 from nuage_neutron.vsdclient.resources import l2domain
 from nuage_neutron.vsdclient.resources import netpartition
 from nuage_neutron.vsdclient.resources import policygroups
+from nuage_neutron.vsdclient.resources import qos
 from nuage_neutron.vsdclient.resources import trunk
 from nuage_neutron.vsdclient.resources import vm
 from nuage_neutron.vsdclient.resources import vmipreservation
@@ -52,6 +53,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         self.verify_cms(cms_id)
         cms_id_helper.CMS_ID = cms_id
 
+        self.qos = qos.NuageQos(self.restproxy)
         self.net_part = netpartition.NuageNetPartition(self.restproxy)
         self.policygroups = policygroups.NuagePolicyGroups(self.restproxy)
         self.redirecttargets = policygroups.NuageRedirectTargets(
@@ -494,15 +496,14 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def update_vports_in_policy_group(self, pg_id, vport_list):
         self.policygroups.update_vports_in_policy_group(pg_id, vport_list)
 
-    def get_fip_qos(self, vport_id, neutron_fip_id):
-        return self.policygroups.get_fip_qos(vport_id, neutron_fip_id)
+    def get_fip_qos(self, nuage_fip):
+        return self.qos.get_fip_qos(nuage_fip)
 
-    def create_update_fip_qos(self, neutron_fip, nuage_vport):
-        self.policygroups.create_update_fip_qos(neutron_fip, nuage_vport)
+    def create_update_fip_qos(self, neutron_fip, nuage_fip):
+        self.qos.create_update_fip_qos(neutron_fip, nuage_fip)
 
-    def delete_fip_qos(self, vport_id, neutron_fip_id):
-        self.policygroups.delete_fip_qos(
-            vport_id, neutron_fip_id)
+    def delete_fip_qos(self, nuage_fip):
+        self.qos.delete_fip_qos(nuage_fip)
 
     def delete_nuage_sgrule(self, sg_rules, sg_type='SOFTWARE'):
         self.policygroups.delete_nuage_sgrule(sg_rules, sg_type)
