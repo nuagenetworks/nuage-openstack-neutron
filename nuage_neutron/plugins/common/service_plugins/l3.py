@@ -936,6 +936,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         # Check if we have to associate a FIP to a VIP
         self._process_fip_to_vip(context, neutron_port,
                                  nuage_fip['ID'])
+        return nuage_fip
 
     def _validate_processing_fip(self, context,
                                  neutron_fip, neutron_port):
@@ -963,11 +964,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         return ent_rtr_mapping, fip_pool
 
-    def _update_proprietary_fip_qos(self, neutron_fip, nuage_vport):
+    def _update_proprietary_fip_qos(self, neutron_fip, nuage_vport, nuage_fip):
         # Add QOS to port for rate limiting
         if nuage_vport:
             self.vsdclient.create_update_fip_qos(
-                neutron_fip, nuage_vport)
+                neutron_fip, nuage_fip)
             self.fip_rate_log.info(
                 "FIP {} updated with 'nuage_egress_fip_rate_kbps':{}, "
                 "'nuage_ingress_fip_rate_kbps':{}.".format(
@@ -985,21 +986,13 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         if ((not fields or 'nuage_egress_fip_rate_kbps' in fields or
              'nuage_ingress_fip_rate_kbps' in fields) and
                 fip.get('port_id')):
-            try:
-                nuage_vport = self._get_vport_for_neutron_port(context,
-                                                               fip['port_id'])
-                nuage_rate_limit = self.vsdclient.get_fip_qos(
-                    nuage_vport['ID'], fip['id'])
-                for direction, value in six.iteritems(nuage_rate_limit):
-                    if 'ingress' in direction:
-                        fip['nuage_ingress_fip_rate_kbps'] = value
-                    elif 'egress' in direction:
-                        fip['nuage_egress_fip_rate_kbps'] = value
-            except Exception as e:
-                # ignoring rate limiting not found for fip
-                msg = (_('Got exception while retrieving fip rate from vsd: '
-                         '{}').format(e))
-                LOG.error(msg)
+            nuage_fip = self.vsdclient.get_nuage_fip_by_id(id)
+            nuage_rate_limit = self.vsdclient.get_fip_qos(nuage_fip)
+            for direction, value in six.iteritems(nuage_rate_limit):
+                if 'ingress' in direction:
+                    fip['nuage_ingress_fip_rate_kbps'] = value
+                elif 'egress' in direction:
+                    fip['nuage_egress_fip_rate_kbps'] = value
 
         return self._fields(fip, fields)
 
@@ -1026,9 +1019,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             nuage_vport = self._get_vport_for_neutron_port(
                 context, port['id'],
                 required=False)
-            self._create_update_floatingip(context, neutron_fip,
-                                           port, nuage_vport)
-            self._update_proprietary_fip_qos(neutron_fip, nuage_vport)
+            nuage_fip = self._create_update_floatingip(context, neutron_fip,
+                                                       port, nuage_vport)
+            self._update_proprietary_fip_qos(neutron_fip, nuage_vport,
+                                             nuage_fip)
             self.update_floatingip_status(
                 context, neutron_fip['id'],
                 lib_constants.FLOATINGIP_STATUS_ACTIVE)
@@ -1097,7 +1091,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                                      updates['port_id'])
                     nuage_vport = self._get_vport_for_neutron_port(
                         context, port['id'], required=False)
-                    self._create_update_floatingip(
+                    nuage_fip = self._create_update_floatingip(
                         context, neutron_fip, port, nuage_vport,
                         original_fip=orig_fip)
 
@@ -1112,7 +1106,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                             neutron_fip)
                     on_exc(rollback_create_update_floatingip)
 
-                    self._update_proprietary_fip_qos(neutron_fip, nuage_vport)
+                    self._update_proprietary_fip_qos(neutron_fip, nuage_vport,
+                                                     nuage_fip)
                     self.update_floatingip_status(
                         context, neutron_fip['id'],
                         lib_constants.FLOATINGIP_STATUS_ACTIVE)
@@ -1128,7 +1123,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                       neutron_fip['nuage_egress_fip_rate_kbps'] is not None):
                     nuage_vport = self._get_vport_for_neutron_port(
                         context, original_port_id, required=False)
-                    self._update_proprietary_fip_qos(neutron_fip, nuage_vport)
+                    nuage_fip = self.vsdclient.get_nuage_fip_by_id(
+                        neutron_fip['id'])
+                    self._update_proprietary_fip_qos(neutron_fip, nuage_vport,
+                                                     nuage_fip)
 
         return neutron_fip
 
@@ -1144,7 +1142,18 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         nuage_vport = self._get_vport_for_neutron_port(context,
                                                        detached_port_id,
                                                        required=False)
+        nuage_fip = nuage_fip or self.vsdclient.get_nuage_fip_by_id(
+            neutron_fip['id'])
         if nuage_vport and nuage_vport.get('associatedFloatingIPID'):
+            # First delete legacy fip qos, as it is not allowed to have fip
+            # qos attached to a fip that is not attached to vPort.
+            self.vsdclient.delete_fip_qos(nuage_fip)
+            self.fip_rate_log.info(
+                'FIP {} (owned by tenant {}) disassociated '
+                'from port {}'.format(
+                    neutron_fip['id'], neutron_fip['tenant_id'],
+                    detached_port_id))
+
             params = {
                 'nuage_vport_id': nuage_vport['ID'],
                 'nuage_fip_id': None
@@ -1154,23 +1163,13 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                       "vport %(vport)s",
                       {'fip': neutron_fip['id'],
                        'vport': nuage_vport['ID']})
-            self.vsdclient.delete_fip_qos(
-                nuage_vport['ID'], neutron_fip['id'])
-            self.fip_rate_log.info(
-                'FIP {} (owned by tenant {}) disassociated '
-                'from port {}'.format(
-                    neutron_fip['id'], neutron_fip['tenant_id'],
-                    detached_port_id))
 
         # Delete fip from VSD
-        if do_delete:
-            nuage_fip = nuage_fip or self.vsdclient.get_nuage_fip_by_id(
-                neutron_fip['id'])
-            if nuage_fip:
-                self.vsdclient.delete_nuage_floatingip(
-                    nuage_fip['ID'])
-                LOG.debug('Floating-ip {} deleted '
-                          'from VSD'.format(neutron_fip['id']))
+        if do_delete and nuage_fip:
+            self.vsdclient.delete_nuage_floatingip(
+                nuage_fip['ID'])
+            LOG.debug('Floating-ip {} deleted '
+                      'from VSD'.format(neutron_fip['id']))
 
         self.update_floatingip_status(
             context, neutron_fip['id'],

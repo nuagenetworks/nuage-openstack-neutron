@@ -1279,6 +1279,9 @@ class NuageFloatingIP(NuageResource):
         return '/domains/%s/%s' % (self.create_params['domain_id'],
                                    self.resource)
 
+    def put_resource(self):
+        return '/%s/%%s?responseChoice=1' % self.resource
+
     def get_resource(self):
         return '/%s' % self.resource
 
@@ -2406,6 +2409,10 @@ class VsdChildResource(VsdResource):
     def post_url(cls, parent=None, parent_id=None):
         return cls.get_url(parent=parent,
                            parent_id=parent_id) + '?responseChoice=1'
+
+
+class NuageRateLimiter(VsdResource):
+    resource = 'ratelimiters'
 
 
 class Job(VsdChildResource):
