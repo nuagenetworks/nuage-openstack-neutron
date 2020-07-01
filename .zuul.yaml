@@ -4,20 +4,20 @@
     check:
       jobs:
         - openstack-tox-pep8
-        - networking-nuage-tempest-smoke-py3
-        - networking-nuage-tempest-smoke-py3-vsdipam
+        - networking-nuage-tempest-smoke
+        - networking-nuage-tempest-smoke-vsdipam
     gate:
       jobs:
         - openstack-tox-pep8
-        - networking-nuage-tempest-smoke-py3
-        - networking-nuage-tempest-smoke-py3-vsdipam
+        - networking-nuage-tempest-smoke
+        - networking-nuage-tempest-smoke-vsdipam
     experimental:
       jobs:
         - networking-nuage-vtep-vxlan
     virtio:
       jobs:
-        - networking-nuage-tempest-virtio-py3
-        - networking-nuage-tempest-virtio-py3-vsdipam
+        - networking-nuage-tempest-virtio
+        - networking-nuage-tempest-virtio-vsdipam
     sriov:
       jobs:
         - networking-nuage-tempest-sriov
@@ -29,8 +29,8 @@
         - networking-nuage-tempest-baremetal-vsdipam
     full:
       jobs:
-        - networking-nuage-tempest-virtio-py3
-        - networking-nuage-tempest-virtio-py3-vsdipam
+        - networking-nuage-tempest-virtio
+        - networking-nuage-tempest-virtio-vsdipam
         - networking-nuage-tempest-sriov
         - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-sriov-flat-vlan
@@ -71,12 +71,12 @@
         - networking-nuage-tempest-scale
     upstream:
       jobs:
-        - tempest-full-py3
-        - tempest-full-py3-vsdipam
+        - tempest-full
+        - tempest-full-vsdipam
     periodic:
       jobs:
-        - networking-nuage-tempest-virtio-py3
-        - networking-nuage-tempest-virtio-py3-vsdipam
+        - networking-nuage-tempest-virtio
+        - networking-nuage-tempest-virtio-vsdipam
         - networking-nuage-tempest-sriov
         - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal
@@ -104,7 +104,7 @@
         - networking-nuage-tempest-scale
         - networking-nuage-octavia
         - networking-nuage-octavia-standby
-        - networking-nuage-tempest-virtio-py3-vsdipam
+        - networking-nuage-tempest-virtio-vsdipam
         - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario-vsdipam
