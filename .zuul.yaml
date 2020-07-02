@@ -1,5 +1,4 @@
 - project:
-
     check:
       jobs:
         - openstack-tox-pep8:
@@ -10,6 +9,15 @@
             required-projects:
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/rocky
+        - networking-nuage-tempest-smoke:
+            override-checkout: stable/rocky
+            required-projects: &required-projects
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/rocky
+              - name: OpenStack/nuage-openstack-neutronclient
+                override-checkout: 5.4/rocky
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.9.0
 
     gate:
       jobs:
@@ -21,58 +29,51 @@
             required-projects:
               - name: opendev.org/openstack/neutron
                 override-checkout: stable/rocky
+        - networking-nuage-tempest-smoke:
+            override-checkout: stable/rocky
+            required-projects: *required-projects
 
     periodic:
       jobs:
-        - networking-nuage-tempest-virtio-5.4:
+        - networking-nuage-tempest-virtio:
             override-checkout: stable/rocky
-            required-projects: &required-projects-rocky-54
-              - name: OpenStack/nuage-openstack-neutron
-                override-checkout: 5.4/rocky
-              - name: OpenStack/nuage-openstack-neutronclient
-                override-checkout: 5.4/rocky
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.9.0
-        - networking-nuage-tempest-sriov-5.4:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky-54
-        - networking-nuage-tempest-baremetal-5.4:
+            required-projects: *required-projects
+        - networking-nuage-tempest-baremetal:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky-54
-        - networking-nuage-tempest-cli-5.4:
+            required-projects: *required-projects
+        - networking-nuage-tempest-cli:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky-54
-        - networking-nuage-tempest-scenario-5.4:
+            required-projects: *required-projects
+        - networking-nuage-tempest-scenario:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky-54
-        - tempest-full-5.4:
+            required-projects: *required-projects
+        - tempest-full:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky-54
+            required-projects: *required-projects
 
     periodic-saturday:
       jobs:
-        - networking-nuage-tempest-qdhcp-5.4:
+        - networking-nuage-tempest-qdhcp:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky-54
-        - networking-nuage-tempest-sriov-flat-vlan-5.4:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky-54
+            required-projects: *required-projects
 
     periodic-sunday:
       jobs:
-        - networking-nuage-tempest-lbaas-5.4:
+        - networking-nuage-tempest-lbaas:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky-54
+            required-projects: *required-projects
         - networking-nuage-fwaas-v1:
             override-checkout: stable/rocky
-            vars:
-              vsp_release: '5.4'
-            required-projects: *required-projects-rocky-54
+            required-projects: *required-projects
 
     fwaas:
       jobs:
         - networking-nuage-fwaas-v1:
             override-checkout: stable/rocky
-            vars:
-              vsp_release: '5.4'
-            required-projects: *required-projects-rocky-54
+            required-projects: *required-projects
