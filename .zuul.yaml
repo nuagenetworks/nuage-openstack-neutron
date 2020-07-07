@@ -175,7 +175,7 @@
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/queens/amphora-x64-haproxy.qcow2"
             required-projects: *required-projects
-        - networking-nuage-tempest-virtio-py3-vsdipam:
+        - networking-nuage-tempest-virtio-vsdipam:
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
             required-projects: *required-projects
@@ -183,7 +183,7 @@
             required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
             required-projects: *required-projects
-        - tempest-full-py3-vsdipam:
+        - tempest-full-vsdipam:
             required-projects: *required-projects
 
 
