@@ -4,279 +4,187 @@
     check:
       jobs:
         - networking-nuage-tempest-smoke:
-            vars: &required-vars-rocky
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
-            required-projects: &required-projects-rocky
+            required-projects: &required-projects
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.9.0
         - networking-nuage-tempest-smoke-py3-vsdipam:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
 
     gate:
       jobs:
         - networking-nuage-tempest-smoke:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-smoke-vsdipam:
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
 
     experimental:
       jobs:
         - networking-nuage-vtep-vxlan:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            
+            required-projects: *required-projects
         - networking-nuage-tempest-virtio-vsdipam:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     sriov:
       jobs:
         - networking-nuage-tempest-sriov:
-            vars: &required-vars-nuage-only-rocky
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     full:
       jobs:
         - networking-nuage-tempest-virtio:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-virtio-vsdipam:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     fwaas:
       jobs:
         - networking-nuage-fwaas-v1:
             override-checkout: stable/rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     octavia:
       jobs:
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     sfc:
       jobs:
         - legacy-tempest-aio-sfc
     rally:
       jobs:
         - networking-nuage-rally-task:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     cli:
       jobs:
         - networking-nuage-tempest-cli:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     aggregateflows:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     scenario:
       jobs:
         - networking-nuage-tempest-scenario:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     scale:
       jobs:
         - networking-nuage-tempest-scale:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     upstream:
       jobs:
         - tempest-full:
-            vars:
-              devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - tempest-full-vsdipam:
-            vars:
-              devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-cli:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - tempest-full:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-api-switchdev:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            
+            required-projects: *required-projects
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-rally-task:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-fwaas-v1:
-            override-checkout: stable/rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-vtep-vxlan:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-scale:
-            vars: *required-vars-nuage-only-rocky
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
         - networking-nuage-tempest-virtio-vsdipam:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
-            vars: *required-vars-rocky
-            required-projects: *required-projects-rocky
+            
+            required-projects: *required-projects
         - tempest-full-vsdipam:
-            vars:
-              devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
-            required-projects: *required-projects-rocky
+            required-projects: *required-projects
 
 
 - job:
