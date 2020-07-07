@@ -8,14 +8,10 @@
             required-projects:
               opendev.org/openstack/neutron
         - networking-nuage-tempest-smoke:
-            vars: &vars
-              devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
             required-projects: &required-projects
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
         - networking-nuage-tempest-smoke-vsdipam:
-            vars: *vars
             required-projects: *required-projects
 
     gate:
@@ -27,82 +23,57 @@
             required-projects:
               opendev.org/openstack/neutron
         - networking-nuage-tempest-smoke:
-            vars: *vars
             required-projects: *required-projects
         - networking-nuage-tempest-smoke-vsdipam:
-            vars: *vars
             required-projects: *required-projects
 
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
-            vars: *vars
             required-projects: *required-projects
         - networking-nuage-tempest-virtio-vsdipam:
-            vars: *vars
             required-projects: *required-projects
     sriov:
       jobs:
         - networking-nuage-tempest-sriov:
-            vars: &vars-nuage
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
     full:
       jobs:
         - networking-nuage-tempest-virtio:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-virtio-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-sriov:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-baremetal:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-scenario:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
-            vars: *vars-nuage
             required-projects: *required-projects
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
-            vars: *vars-nuage
             required-projects: *required-projects
     fwaas:
       jobs:
@@ -113,197 +84,106 @@
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/queens/amphora-x64-haproxy.qcow2"
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/queens/amphora-x64-haproxy.qcow2"
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
     sfc:
       jobs:
         - legacy-tempest-aio-sfc
     rally:
       jobs:
         - networking-nuage-rally-task:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
     cli:
       jobs:
         - networking-nuage-tempest-cli:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
     aggregateflows:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin"'
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
     scenario:
       jobs:
         - networking-nuage-tempest-scenario:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-scenario-rhel:
-            vars: *vars-nuage
             required-projects: *required-projects
     scale:
       jobs:
         - networking-nuage-tempest-scale:
-            vars: *vars-nuage
             required-projects: *required-projects
     upstream:
       jobs:
         - tempest-full:
-            vars:
-              devstack_localrc:
-                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
             required-projects: *required-projects
         - tempest-full-vsdipam:
-              vars:
-                devstack_localrc:
-                  TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
               required-projects: *required-projects
 
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-sriov:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-baremetal:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-cli:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-scenario:
-            vars: *vars-nuage
             required-projects: *required-projects
         - tempest-full:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-                TEMPEST_PLUGINS: '"/opt/stack/neutron-tempest-plugin"'
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
         - networking-nuage-tempest-api-switchdev:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-rally-task:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-fwaas-v1:
             required-projects: *required-projects
         - networking-nuage-vtep-vxlan:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
-            vars:
-              devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-scale:
-            vars: *vars-nuage
-            required-projects: *required-projects
-        - networking-nuage-tempest-smoke-multiversion:
             required-projects: *required-projects
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/queens/amphora-x64-haproxy.qcow2"
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
-                USE_PYTHON3: false
-                FORCE_CONFIG_DRIVE: false
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/queens/amphora-x64-haproxy.qcow2"
-            required-projects:
-              - name: openstack/neutron-tempest-plugin
-                override-checkout: 0.3.0
+            required-projects: *required-projects
         - networking-nuage-tempest-virtio-py3-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
         - tempest-full-py3-vsdipam:
-            vars: *vars-nuage
             required-projects: *required-projects
 
 
@@ -378,26 +258,3 @@
         override-checkout: 0.3.0
       - openstack/python-neutronclient
       - openstack/tempest
-
-- job:
-    name: networking-nuage-tempest-smoke-multiversion
-    parent: networking-nuage-tempest-smoke
-    vars:
-      vsp_release: 5.4
-      ci_vsp_name: ci-vsp-multiversion
-      devstack_localrc:
-        TEMPEST_PLUGINS: '"/opt/stack/nuage-tempest-plugin /opt/stack/neutron-tempest-plugin"'
-      devstack_local_conf:
-        test-config:
-          $TEMPEST_CONFIG:
-            nuage_sut:
-              nuage_pat_legacy: disabled
-      tempest_test_regex: '^(nuage_tempest_plugin|tempest\.api\.network|neutron_tempest_plugin\.(api|scenario))\..*\[(?=.*smoke)'
-      tempest_test_blacklist: "{{devstack_base_dir}}/nuage-tempest-plugin/tempest-blacklist.txt"
-    required-projects:
-      - name: OpenStack/nuage-openstack-neutron
-        override-checkout: '5.4/queens'
-      - name: OpenStack/nuage-tempest-plugin
-        override-checkout: '5.4'
-      - name: openstack/neutron-tempest-plugin
-        override-checkout: 0.3.0
