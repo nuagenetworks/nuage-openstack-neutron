@@ -4,20 +4,20 @@
     check:
       jobs:
         - openstack-tox-pep8
-        - networking-nuage-tempest-smoke-py3:
-            required-projects: &neutron-plugin-version-stein
+        - networking-nuage-tempest-smoke:
+            required-projects: &required-projects
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 1.0.0
-        - networking-nuage-tempest-smoke-py3-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-smoke-vsdipam:
+            required-projects: *required-projects
 
     gate:
       jobs:
         - openstack-tox-pep8
-        - networking-nuage-tempest-smoke-py3:
-            required-projects: *neutron-plugin-version-stein
-        - networking-nuage-tempest-smoke-py3-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-smoke:
+            required-projects: *required-projects
+        - networking-nuage-tempest-smoke-vsdipam:
+            required-projects: *required-projects
 
     experimental:
       jobs:
@@ -29,162 +29,162 @@
                 s-object: false
                 s-container: false
                 s-account: false
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     virtio:
       jobs:
-        - networking-nuage-tempest-virtio-py3:
-            required-projects: *neutron-plugin-version-stein
-        - networking-nuage-tempest-virtio-py3-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-virtio:
+            required-projects: *required-projects
+        - networking-nuage-tempest-virtio-vsdipam:
+            required-projects: *required-projects
     sriov:
       jobs:
         - networking-nuage-tempest-sriov:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     full:
       jobs:
-        - networking-nuage-tempest-virtio-py3:
-            required-projects: *neutron-plugin-version-stein
-        - networking-nuage-tempest-virtio-py3-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-virtio:
+            required-projects: *required-projects
+        - networking-nuage-tempest-virtio-vsdipam:
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
             vars: *disable-swift
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
             vars: *disable-swift
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     octavia:
       jobs:
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     sfc:
       jobs:
         - legacy-tempest-aio-sfc:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     rally:
       jobs:
         - networking-nuage-rally-task
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     cli:
       jobs:
         - networking-nuage-tempest-cli:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     aggregateflows:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     scenario:
       jobs:
         - networking-nuage-tempest-scenario:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     scale:
       jobs:
         - networking-nuage-tempest-scale:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     upstream:
       jobs:
-        - tempest-full-py3:
-            required-projects: *neutron-plugin-version-stein
-        - tempest-full-py3-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+        - tempest-full:
+            required-projects: *required-projects
+        - tempest-full-vsdipam:
+            required-projects: *required-projects
     periodic:
       jobs:
-        - networking-nuage-tempest-virtio-py3:
-            required-projects: *neutron-plugin-version-stein
+        - networking-nuage-tempest-virtio:
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-cli:
-            required-projects: *neutron-plugin-version-stein
-        - tempest-full-py3:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
+        - tempest-full:
+            required-projects: *required-projects
         - networking-nuage-tempest-api-switchdev:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
             vars: *disable-swift
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-rally-task
         - networking-nuage-vtep-vxlan:
             vars: *disable-swift
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
             vars: *disable-swift
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-scale:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-octavia:
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/stein/amphora-x64-haproxy.qcow2"
-            required-projects: *neutron-plugin-version-stein
-        - networking-nuage-tempest-virtio-py3-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
+        - networking-nuage-tempest-virtio-vsdipam:
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-baremetal-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
         - networking-nuage-tempest-scenario-vsdipam:
-            required-projects: *neutron-plugin-version-stein
-        - tempest-full-py3-vsdipam:
-            required-projects: *neutron-plugin-version-stein
+            required-projects: *required-projects
+        - tempest-full-vsdipam:
+            required-projects: *required-projects
 
 - job:
     name: networking-nuage-rally-task
