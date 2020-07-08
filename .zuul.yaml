@@ -160,6 +160,7 @@
         - networking-nuage-vtep-vlan-nuage:
             override-checkout: stable/rocky
             required-projects: *required-projects
+        - networking-nuage-tempest-smoke-multiversion-20.10
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
