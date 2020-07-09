@@ -23,6 +23,7 @@ from oslo_utils import excutils
 
 from neutron._i18n import _
 from neutron.api import extensions as neutron_extensions
+from neutron.common import _constants
 from neutron.db import agents_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import provisioning_blocks
@@ -88,7 +89,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         self._wrap_vsdclient()
         NuageSecurityGroup().register()
         NuageAddressPair().register()
-        db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
+        _constants.AUTO_DELETE_PORT_OWNERS += [
             constants.DEVICE_OWNER_DHCP_NUAGE]
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         LOG.debug('Initializing complete')

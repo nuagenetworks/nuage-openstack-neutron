@@ -22,7 +22,7 @@ from neutron_lib.plugins.ml2 import api
 
 import netaddr
 from neutron._i18n import _
-from neutron.db import db_base_plugin_v2
+from neutron.common import _constants
 from neutron.plugins.ml2.drivers import mech_agent
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -65,7 +65,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
     def initialize(self):
         LOG.debug('Initializing driver')
         self.init_vsd_client()
-        db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
+        _constants.AUTO_DELETE_PORT_OWNERS += [
             p_const.DEVICE_OWNER_DHCP_NUAGE]
         LOG.debug('Initializing complete')
 
