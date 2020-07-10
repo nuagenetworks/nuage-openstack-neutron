@@ -12,11 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
-import testtools
+from unittest import mock
 
 from oslo_config import cfg
 from oslo_config import fixture as oslo_fixture
+import testtools
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin
 from nuage_neutron.plugins.nuage_ml2.nuage_network_ext_driver import \

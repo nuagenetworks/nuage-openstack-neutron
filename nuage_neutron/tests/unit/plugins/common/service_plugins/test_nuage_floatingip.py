@@ -11,8 +11,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import mock
-from mock import MagicMock
+from unittest import mock
+from unittest.mock import MagicMock
+
 import testtools
 
 from nuage_neutron.plugins.common.base_plugin import RootNuagePlugin

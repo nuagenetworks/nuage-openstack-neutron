@@ -12,8 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
-from mock import Mock
+from unittest import mock
+from unittest.mock import Mock
+
 import testtools
 
 from nuage_neutron.vsdclient.common import helper

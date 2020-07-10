@@ -11,9 +11,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import mock
-from mock import MagicMock
-from mock import Mock
+from unittest import mock
+from unittest.mock import MagicMock
+from unittest.mock import Mock
+
 import testtools
 
 from nuage_neutron.vsdclient import restproxy

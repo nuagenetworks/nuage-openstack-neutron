@@ -15,11 +15,11 @@
 import contextlib
 import re
 
-import mock
-from mock import MagicMock
-from oslo_config import cfg
+from unittest import mock
+from unittest.mock import MagicMock
 
 from neutron.tests.unit.plugins.ml2.test_plugin import Ml2PluginV2TestCase
+from oslo_config import cfg
 
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.nuage_ml2.mech_nuage import NuageMechanismDriver

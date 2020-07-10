@@ -12,12 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
-import oslo_config
-import testtools
+from unittest import mock
 
+import oslo_config
 from oslo_config import cfg
 from oslo_config import fixture as oslo_fixture
+import testtools
 
 from neutron.conf import common as core_config
 from neutron.conf.plugins.ml2 import config as ml2_config
