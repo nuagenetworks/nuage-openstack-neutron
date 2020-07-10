@@ -32,6 +32,11 @@ from nuage_neutron.vsdclient import restproxy
 
 LOG = log.getLogger(__name__)
 
+# Ports with these device owners are only validated locally, not on VSD
+TRANSPARENT_DEVICE_OWNERS = [constants.DEVICE_OWNER_DHCP_NUAGE,
+                             n_constants.DEVICE_OWNER_ROUTER_GW
+                             ] + list(n_constants.ROUTER_INTERFACE_OWNERS)
+
 
 class NuageIpamSubnet(driver.NeutronDbSubnet):
 
@@ -174,6 +179,13 @@ class NuageIpamSubnet(driver.NeutronDbSubnet):
         else:
             ipv6_address = address
 
+        # Check whether a reservation exists
+        existing_reservation = vsdclient.get_vm_ip_reservation(
+            is_l2, subnet_mapping['nuage_subnet_id'],
+            ipv4_address, ipv6_address)
+        if not existing_reservation:
+            # no reservation to delete & no rollback to configure
+            return
         vsdclient.delete_vm_ip_reservation(
             is_l2, subnet_mapping['nuage_subnet_id'],
             ipv4_address, ipv6_address)
@@ -254,11 +266,6 @@ class TransparentSpecificAddressrequest(ipam_req.SpecificAddressRequest):
 
 class NuageVSDManagedAddressRequestFactory(ipam_req.AddressRequestFactory):
 
-    # Ports with these device owners are only validated locally, not on VSD
-    transparent_device_owners = [constants.DEVICE_OWNER_DHCP_NUAGE,
-                                 n_constants.DEVICE_OWNER_ROUTER_GW
-                                 ] + list(n_constants.ROUTER_INTERFACE_OWNERS)
-
     @classmethod
     def get_request(cls, context, port, ip_dict):
         """Builds request using ip info
@@ -270,7 +277,7 @@ class NuageVSDManagedAddressRequestFactory(ipam_req.AddressRequestFactory):
              this ip_dict keys.
         :return: returns prepared AddressRequest (specific or any)
         """
-        if port['device_owner'] in cls.transparent_device_owners:
+        if port['device_owner'] in TRANSPARENT_DEVICE_OWNERS:
             if ip_dict.get('ip_address'):
                 return TransparentSpecificAddressrequest(ip_dict['ip_address'])
             else:
@@ -300,4 +307,5 @@ class NuageVSDManagedDbPool(driver.NeutronDbPool):
         return NuageIpamSubnet.load(subnet_id, self._context)
 
     def needs_rollback(self):
-        return True
+        # Rollback is done by the driver itself.
+        return False
