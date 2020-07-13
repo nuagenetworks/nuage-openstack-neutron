@@ -53,11 +53,13 @@ if [[ "$1" == "stack" ]]; then
             sudo iptables -I openstack-INPUT 1 -i ${OVS_BRIDGE} -j ACCEPT || :
         fi
     elif [[ "$2" == "test-config" ]]; then
-        #must run after Octavia is running.
-        configure_octavia_nuage
-        # Configure Hardware VTEP if applicable
-        if is_service_enabled q-agt; then
-            create_fake_gateway_for_hw_vtep
+        if is_service_enabled q-svc; then
+            # Must run after Octavia is running
+            configure_octavia_nuage
+            # Configure Hardware VTEP if applicable
+            if is_service_enabled q-agt; then
+                create_fake_gateway_for_hw_vtep
+            fi
         fi
     fi
 
