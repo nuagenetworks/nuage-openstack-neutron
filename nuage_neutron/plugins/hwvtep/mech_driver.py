@@ -22,7 +22,6 @@ from neutron_lib.plugins.ml2 import api
 
 import netaddr
 from neutron._i18n import _
-from neutron.common import _constants
 from neutron.plugins.ml2.drivers import mech_agent
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -65,8 +64,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
     def initialize(self):
         LOG.debug('Initializing driver')
         self.init_vsd_client()
-        _constants.AUTO_DELETE_PORT_OWNERS += [
-            p_const.DEVICE_OWNER_DHCP_NUAGE]
+        self.register_callbacks()
         LOG.debug('Initializing complete')
 
     def get_allowed_network_types(self, agent=None):
@@ -237,16 +235,6 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                 self._cleanup_group(db_context,
                                     mapping['net_partition_id'],
                                     mapping['nuage_subnet_id'], subnet)
-
-        filters = {
-            'network_id': [subnet['network_id']],
-            'device_owner': [p_const.DEVICE_OWNER_DHCP_NUAGE]
-        }
-        nuage_dhcp_ports = self.core_plugin.get_ports(db_context, filters)
-        for nuage_dhcp_port in nuage_dhcp_ports:
-            if not nuage_dhcp_port.get('fixed_ips'):
-                self.delete_dhcp_nuage_port_by_id(db_context,
-                                                  nuage_dhcp_port['id'])
 
     @handle_nuage_api_errorcode
     @context_log
