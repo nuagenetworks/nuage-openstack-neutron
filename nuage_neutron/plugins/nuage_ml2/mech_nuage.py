@@ -88,8 +88,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         self._wrap_vsdclient()
         NuageSecurityGroup().register()
         NuageAddressPair().register()
-        db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
-            constants.DEVICE_OWNER_DHCP_NUAGE]
+        self.register_callbacks()
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         LOG.debug('Initializing complete')
 
@@ -519,16 +518,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self._cleanup_group(db_context,
                                     mapping['net_partition_id'],
                                     mapping['nuage_subnet_id'], subnet)
-
-        filters = {
-            'network_id': [subnet['network_id']],
-            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
-        }
-        nuage_dhcp_ports = self.core_plugin.get_ports(db_context, filters)
-        for nuage_dhcp_port in nuage_dhcp_ports:
-            if not nuage_dhcp_port.get('fixed_ips'):
-                self.delete_dhcp_nuage_port_by_id(db_context,
-                                                  nuage_dhcp_port['id'])
 
     def _is_port_provisioning_required(self, network, port, host):
         vnic_type = port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)

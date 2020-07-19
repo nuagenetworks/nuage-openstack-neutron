@@ -20,10 +20,14 @@ import time
 import netaddr
 from neutron._i18n import _
 from neutron.db import db_base_plugin_v2
+from neutron.objects import subnet as subnet_obj
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import PortNotFound
@@ -287,6 +291,46 @@ class RootNuagePlugin(SubnetUtilsBase):
                 raise n_exc.BadRequest(resource=for_resource, msg=msg)
             found_resource = found_resource[0]
         return found_resource
+
+    def _delete_dhcp_nuage_ports_by_network_id(self, resource,
+                                               event, trigger, payload):
+        context = payload.context
+        filters = {
+            'network_id': [payload.resource_id],
+            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+        }
+        nuage_dhcp_ports = self.core_plugin.get_ports(context, filters)
+        for port in nuage_dhcp_ports:
+            self.delete_dhcp_nuage_port_by_id(context, port['id'])
+
+    def _delete_nuage_dhcp_allocations(self, resource,
+                                       event, trigger, payload):
+        context = payload.context
+        subnet = subnet_obj.Subnet.get_object(context, id=payload.resource_id)
+        filters = {
+            'fixed_ips': {'subnet_id': [subnet['id']]},
+            'device_owner': [constants.DEVICE_OWNER_DHCP_NUAGE]
+        }
+        nuage_dhcp_ports = self.core_plugin.get_ports(context,
+                                                      filters=filters)
+        for port in nuage_dhcp_ports:
+            fixed_ips = [fixed_ip for fixed_ip in port.get('fixed_ips', [])
+                         if fixed_ip['subnet_id'] != subnet['id']]
+            if not fixed_ips:
+                self.delete_dhcp_nuage_port_by_id(context, port['id'])
+            else:
+                db_base_plugin_v2.NeutronDbPluginV2.update_port(
+                    self.core_plugin, context, port['id'],
+                    {'port': {'fixed_ips': fixed_ips}})
+
+    def register_callbacks(self):
+        registry.subscribe(self._delete_nuage_dhcp_allocations,
+                           resources.SUBNET,
+                           events.PRECOMMIT_DELETE_ASSOCIATIONS,
+                           priority=0)
+        registry.subscribe(self._delete_dhcp_nuage_ports_by_network_id,
+                           resources.NETWORK,
+                           events.BEFORE_DELETE)
 
     @log_helpers.log_method_call
     def create_update_dhcp_nuage_port(self, context, neutron_subnet,
