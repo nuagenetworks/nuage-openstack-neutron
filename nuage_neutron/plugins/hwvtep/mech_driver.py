@@ -123,13 +123,27 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         ipv4s = len([s for s in network_subnets if self._is_ipv4(s)])
         ipv6s = len([s for s in network_subnets if self._is_ipv6(s)])
 
+        if ipv4s > 1 or ipv6s > 1:
+            msg = _("HWVTEP driver only supports single subnet networks "
+                    "or dualstack networks")
+            raise exceptions.NuageBadRequest(msg=msg)
+
+        if vsd_managed:
+            nuage_subnet_id = subnet['nuagenet']
+            try:
+                nuage_subnet, = self._get_nuage_subnet(nuage_subnet_id)
+            except exceptions.NuageBadRequest:
+                # Subnet or domain not found. Let checks in base_plugin
+                # verify this issue
+                pass
+            else:
+                if nuage_subnet["type"] == p_const.L3SUBNET:
+                    msg = _("HWVTEP driver does not support mapping "
+                            "of VSD subnets. Only l2 domains are allowed.")
+                    raise exceptions.NuageBadRequest(msg=msg)
+
         # nuage_l2bridge tests
         if l2bridge:
-            if ipv4s > 1 or ipv6s > 1:
-                msg = _("A network attached to a nuage_l2bridge cannot have"
-                        " more than one ipv4 or more than one ipv6 subnet.")
-                raise exceptions.NuageBadRequest(msg=msg)
-
             # For l2bridges, certain parameters need to be equal for all
             # bridged subnets, as they are reflected on VSD.
             bridged_subnets = nuagedb.get_subnets_for_nuage_l2bridge(
