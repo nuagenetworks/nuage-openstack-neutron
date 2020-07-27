@@ -57,7 +57,6 @@ from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 from nuage_neutron.vsdclient import restproxy
 
-
 LB_DEVICE_OWNER_V2 = os_constants.DEVICE_OWNER_LOADBALANCERV2
 PORT_UNPLUGGED_TYPES = (portbindings.VIF_TYPE_BINDING_FAILED,
                         portbindings.VIF_TYPE_UNBOUND,
@@ -709,9 +708,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             db_context, original, port)
 
         host_added = host_removed = False
-        if not original['binding:host_id'] and port['binding:host_id']:
+        if (not original['binding:host_id'] and port['binding:host_id'] or
+                not original['device_id'] and port['device_id']):
             host_added = True
-        elif original['binding:host_id'] and not port['binding:host_id']:
+        elif (original['binding:host_id'] and not port['binding:host_id'] or
+                original['device_id'] and not port['device_id']):
             host_removed = True
         elif (original['device_owner'] and not port['device_owner'] and
                 original['device_owner'] == LB_DEVICE_OWNER_V2):
@@ -878,11 +879,15 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 subnet_mapping['net_partition_id'])
 
         if host_removed:
-            if self._port_should_have_vm(original):
-                self._delete_nuage_vm(db_context, original,
-                                      np_name,
-                                      subnet_mapping, original['device_id'],
-                                      is_port_device_owner_removed=True)
+            if (self._port_should_have_vm(original) or
+                    not original['device_owner']):
+                # When device_owner is missing it is unknown whether a VM
+                # exists in VSD
+                self._delete_nuage_vm(
+                    db_context, original,
+                    np_name,
+                    subnet_mapping, original['device_id'],
+                    is_port_device_owner_removed=not port['device_owner'])
         elif host_added:
             self._validate_security_groups(context)
             if self._port_should_have_vm(port):
@@ -915,8 +920,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         nuage_vport = self._get_nuage_vport(port, subnet_mapping,
                                             required=False)
 
-        if (port.get('binding:host_id') or
-                (nuage_vport and nuage_vport.get('hasAttachedInterfaces'))):
+        if nuage_vport and nuage_vport.get('hasAttachedInterfaces'):
+            # Delete VMInterface
             np_name = self.vsdclient.get_net_partition_name_by_id(
                 subnet_mapping['net_partition_id'])
             require(np_name, "netpartition",
