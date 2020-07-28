@@ -284,7 +284,8 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)
                 not in self.supported_vnic_types):
             return
-        if context.host != context.original_host and context.original_host:
+        if ((context.host != context.original_host and
+                context.original_host) or not port.get('fixed_ips')):
             self._delete_port_on_switch(context)
         self._create_port_on_switch(context)
 
@@ -441,9 +442,8 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                     subnet_mapping['nuage_subnet_id'])
                 params['vsd_subnet'] = vsd_subnet
 
-                # policy groups are not supported on netconf
-                # managed gateways
-                create_policy = 'NETCONF' not in gw['gw_type']
+                # allow all policy group is a default switch behaviour
+                create_policy = False
 
                 vport = self.vsdclient.create_gateway_vport_no_usergroup(
                     ctx.tenant_id,
@@ -467,6 +467,8 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         device_id = port['device_id']
         device_owner = port['device_owner']
         host = port[portbindings.HOST_ID]
+        if not port.get('fixed_ips'):
+            return
         if not hasattr(context, 'top_bound_segment'):
             return
         if not context.top_bound_segment:
