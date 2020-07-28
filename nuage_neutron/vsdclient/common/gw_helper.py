@@ -309,7 +309,7 @@ def get_interface_by_vport(restproxy_serv, nuage_vport_id, type):
     elif type == constants.HOST_VPORT_TYPE:
         nuage_intf = nuagelib.NuageHostInterface(create_params=req_params)
     host_interfaces = restproxy_serv.get(nuage_intf.get_resource_by_vport(),
-                                         required=True)
+                                         required=False)
     return host_interfaces[0] if host_interfaces else None
 
 
