@@ -1940,54 +1940,6 @@ class NuageRedundantVlan(NuageVlanBase):
                 self.create_params['port_id']
 
 
-@six.add_metaclass(ABCMeta)
-class NuageQOS(NuageResource):
-    def get_resource(self):
-        return '/qos/%s' % self.create_params['qos_id']
-
-    def post_data(self):
-        data = {
-            "name": self.create_params['name'],
-        }
-
-        if self.extra_params:
-            data.update(self.extra_params)
-        return data
-
-    def put_resource(self):
-        return '/qos/%s?responseChoice=1' % self.create_params['qos_id']
-
-    def get_qosid(self, response):
-        return self.get_response_objid(response)
-
-    def delete_resource(self):
-        return '/qos/%s?responseChoice=1' % self.create_params['qos_id']
-
-
-class NuageVportQOS(NuageQOS):
-
-    def get_all_resource(self):
-        return '/vports/%s/qos' % self.create_params['vport_id']
-
-    def post_resource(self):
-        return '/vports/%s/qos' % self.create_params['vport_id']
-
-    def extra_headers_get(self):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = (
-            "externalID IS '%s'" % get_vsd_external_id(
-                self.create_params['externalID']))
-        return headers
-
-    def extra_headers_by_value(self):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "value IS %s" %\
-                                    self.extra_params['vlan_value']
-        return headers
-
-
 class NuageBasePermission(object):
 
     def get_permitted_entity_id(self, response):
@@ -2450,3 +2402,7 @@ class VmIpReservation(VsdChildResource):
             return base + '&' + urlencode(url_parameters)
         else:
             return base
+
+
+class NuageQos(VsdChildResource):
+    resource = 'qos'

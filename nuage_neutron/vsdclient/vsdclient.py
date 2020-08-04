@@ -290,7 +290,18 @@ class VsdClient(object):
     def create_update_fip_qos(self, neutron_fip, nuage_fip):
         pass
 
+    def bulk_update_existing_qos(self, qos_policy_id, qos_policy_options,
+                                 l3subnet_ids, l2domain_ids, vport_ids):
+        pass
+
     def delete_fip_qos(self, nuage_fip):
+        pass
+
+    def create_update_qos(self, parent_type, parent_id, qos_policy_id,
+                          qos_policy_options, original_qos_policy_id=None):
+        pass
+
+    def delete_qos(self, parent_type, parent_id, qos_policy_id):
         pass
 
     def delete_nuage_sgrule(self, sg_rules, sg_type='SOFTWARE'):
