@@ -46,6 +46,7 @@ from nuage_neutron.plugins.common.exceptions import NuagePortBound
 from nuage_neutron.plugins.common import extensions
 from nuage_neutron.plugins.common.extensions import nuagepolicygroup
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import qos_driver
 from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
@@ -75,6 +76,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     def __init__(self):
         self._core_plugin = None
         self.trunk_driver = None
+        self.qos_driver = None
         self.supported_network_types = [os_constants.TYPE_VXLAN,
                                         constants.NUAGE_HYBRID_MPLS_NET_TYPE]
 
@@ -91,6 +93,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
             constants.DEVICE_OWNER_DHCP_NUAGE]
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
+        self.qos_driver = qos_driver.NuageQosDriver.create(self,
+                                                           self.vsdclient)
         LOG.debug('Initializing complete')
 
     def _validate_mech_nuage_configuration(self):
@@ -190,6 +194,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
          physnets_change,
          name_change) = self._network_no_action(original_network,
                                                 updated_network)
+        self.qos_driver.update_network(db_context, original_network,
+                                       updated_network)
         if not any([external_change, shared_change, physnets_change,
                     name_change]):
             # No update required
@@ -356,6 +362,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             for param in constants.L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES:
                 self._validate_l2bridge_added_subnet_parameter(
                     ipv_bridged[0], subnet, param, l2bridge)
+
+    @handle_nuage_api_errorcode
+    @utils.context_log
+    def create_subnet_postcommit(self, context):
+        # Set QOS
+        self.qos_driver.create_subnet(context)
 
     @handle_nuage_api_errorcode
     @utils.context_log
@@ -633,6 +645,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self._process_port_create_secgrp_for_port_sec(db_context, port)
             self.calculate_vips_for_port_ips(db_context,
                                              port)
+            self.qos_driver.create_update_port(db_context, port, nuage_vport)
         except (restproxy.RESTProxyError, NuageBadRequest) as ex:
             # TODO(gridinv): looks like in some cases we convert 404 to 400
             # so i have to catch both. Question here is - don't we hide
@@ -795,6 +808,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 self.vsdclient.update_mac_spoofing_on_vport(
                     nuage_vport['ID'],
                     status)
+            self.qos_driver.create_update_port(db_context, port, nuage_vport,
+                                               original)
         except Exception as e:
             LOG.error('update_port_precommit(): got exception: {}'.format(e))
             with excutils.save_and_reraise_exception():

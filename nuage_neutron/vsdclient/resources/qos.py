@@ -15,6 +15,7 @@
 import logging
 
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
+from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import nuagelib
 
 LOG = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class NuageQos(object):
     def __init__(self, restproxy_serv):
         self.restproxy = restproxy_serv
         self.ratelimiter_obj = nuagelib.NuageRateLimiter()
+        self.qos_obj = nuagelib.NuageQos
 
     def _get_ratelimiter(self, ratelimiter_id):
         rl = self.restproxy.get(
@@ -137,3 +139,54 @@ class NuageQos(object):
             # We can only delete a rate limiter once it is no longer in use
             for ratelimiter in ratelimiters_to_be_deleted:
                 self._delete_ratelimiter(ratelimiter)
+
+    def create_update_qos(self, parent_type, parent_id, qos_policy_id,
+                          qos_policy_options, original_qos_policy_id=None):
+        if parent_type == constants.L2DOMAIN:
+            parent_type = nuagelib.NuageL2Domain.resource
+        elif parent_type == constants.SUBNET:
+            parent_type = nuagelib.NuageSubnet.resource
+        elif parent_type == constants.VPORT:
+            parent_type = nuagelib.NuageVPort.resource
+
+        if original_qos_policy_id:
+            # If there is already a QOS policy active on the resource
+            # Delete it.
+            self.delete_qos(parent_type, parent_id, original_qos_policy_id)
+        if not qos_policy_options:
+            return
+        qos_data = {
+            'name': 'OS_QOS_policy_' + qos_policy_id,
+            'active': True,
+            'commitedInformationRate': 0,
+            'externalID': get_vsd_external_id(qos_policy_id)
+        }
+        qos_data.update(qos_policy_options)
+        self.restproxy.post(
+            self.qos_obj.post_url(parent=parent_type, parent_id=parent_id),
+            qos_data)
+
+    def bulk_update_existing_qos(self, qos_policy_id, qos_policy_options,
+                                 l3subnet_ids, l2domain_ids, vport_ids):
+        # find all existing QOS objects
+        filters = {'externalID': get_vsd_external_id(qos_policy_id)}
+        qoss = self.restproxy.get(
+            self.qos_obj.get_url(),
+            extra_headers=self.qos_obj.extra_header_filter(**filters))
+        updates = [{'ID': qos['ID']} for qos in qoss]
+        for update in updates:
+            update.update(qos_policy_options)
+
+        self.restproxy.bulk_put(self.qos_obj.get_url() + '?responseChoice=1',
+                                updates)
+
+    def delete_qos(self, parent_type, parent_id, qos_policy_id):
+
+        qos_resource = nuagelib.NuageQos()
+        filters = {'externalID': get_vsd_external_id(qos_policy_id)}
+        qos = self.restproxy.get(
+            qos_resource.get_url(parent=parent_type, parent_id=parent_id),
+            extra_headers=qos_resource.extra_header_filter(**filters))
+        if qos:
+            self.restproxy.delete(
+                qos_resource.delete_url() % qos[0]['ID'])
