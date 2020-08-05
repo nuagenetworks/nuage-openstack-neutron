@@ -432,7 +432,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 # policy groups are not supported on netconf
                 # managed gateways and unmanaged gateways
                 create_policy = (gw['gw_type'] not in
-                                 ['NETCONF', 'UNMANAGED_GATEWAY'])
+                                 ['NETCONF_THIRDPARTY_HW_VTEP',
+                                  'UNMANAGED_GATEWAY'])
 
                 vport = self.vsdclient.create_gateway_vport_no_usergroup(
                     ctx.tenant_id,
