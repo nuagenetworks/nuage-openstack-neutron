@@ -300,4 +300,4 @@ class NuageVSDManagedDbPool(driver.NeutronDbPool):
         return NuageIpamSubnet.load(subnet_id, self._context)
 
     def needs_rollback(self):
-        return True
+        return False
