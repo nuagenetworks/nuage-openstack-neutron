@@ -1,0 +1,25 @@
+- project:
+    templates:
+      - openstack-python36-jobs
+    check:
+      jobs:
+        - openstack-tox-pep8
+        - networking-nuage-tempest-smoke:
+            override-checkout: stable/train
+            vars:
+              vsp_release: '20.5'
+            required-projects: &required-projects-205-train
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 20.5/train
+              - name: OpenStack/nuage-openstack-neutronclient
+                override-checkout: 20.5/train
+              - name: opendev.org/openstack/neutron-tempest-plugin
+
+    gate:
+      jobs:
+        - openstack-tox-pep8
+        - networking-nuage-tempest-smoke:
+            override-checkout: stable/train
+            vars:
+              vsp_release: '20.5'
+            required-projects: *required-projects-205-train
