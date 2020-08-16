@@ -571,7 +571,7 @@ class NuagePolicyGroups(object):
             policygroups.put_resource(policygroup_id),
             data)
 
-    def get_rate_limit(self, vport_id, neutron_fip_id):
+    def get_fip_qos(self, vport_id, neutron_fip_id):
         create_params = {'vport_id': vport_id,
                          'externalID': get_vsd_external_id(neutron_fip_id)}
         qos = nuagelib.NuageVportQOS(create_params)
@@ -592,35 +592,45 @@ class NuagePolicyGroups(object):
                 '%s' % constants.INFINITY) else -1
         return fip_rate_values
 
-    def create_update_rate_limiting(self, fip_rate_values, vport_id,
-                                    neutron_fip_id):
-        data = {}
-        for direction, value in six.iteritems(fip_rate_values):
-            if float(value) == -1:
-                value = constants.INFINITY
-            elif 'kbps' in direction:
-                value = float(value) / 1000
-            if 'ingress' in direction:
-                data["EgressFIPPeakInformationRate"] = value
-            elif 'egress' in direction:
-                data["FIPPeakInformationRate"] = value
-        create_params = {'vport_id': vport_id,
-                         'externalID': get_vsd_external_id(neutron_fip_id)}
+    def create_update_fip_qos(self, neutron_fip, nuage_vport):
+        qos_data = {}
+        # OS ingress, VSD egress
+        egress_rate_limit = neutron_fip['nuage_ingress_fip_rate_kbps']
+        if egress_rate_limit is not None:
+            # TODO(Tom) do not process INFINITY (-1)
+            if float(egress_rate_limit) == -1:
+                qos_data['EgressFIPPeakInformationRate'] = constants.INFINITY
+            else:
+                qos_data['EgressFIPPeakInformationRate'] = (
+                    float(egress_rate_limit) / 1000)
+        # OS egress, VSD ingress
+        ingress_rate_limit = neutron_fip['nuage_egress_fip_rate_kbps']
+        if ingress_rate_limit is not None:
+            # TODO(Tom) do not process INFINITY (-1)
+            if float(ingress_rate_limit) == -1:
+                qos_data['FIPPeakInformationRate'] = constants.INFINITY
+            else:
+                qos_data['FIPPeakInformationRate'] = (
+                    float(ingress_rate_limit) / 1000)
+
+        # Get QOS object for vport
+        create_params = {'vport_id': nuage_vport['ID'],
+                         'externalID': get_vsd_external_id(neutron_fip['id'])}
         qos = nuagelib.NuageVportQOS(create_params)
         qoses = self.restproxy.get(qos.get_all_resource(),
                                    extra_headers=qos.extra_headers_get(),
                                    required=True)
         # 'required' refers to vport, not the qoses
         if not qoses:
-            self.add_rate_limiting(data, vport_id, neutron_fip_id)
+            self._add_fip_qos(qos_data, nuage_vport['ID'], neutron_fip['id'])
             return
 
         qos_obj = qoses[0]
         create_params = {'qos_id': qos_obj['ID']}
         qos = nuagelib.NuageVportQOS(create_params)
-        self.restproxy.put(qos.put_resource(), data)
+        self.restproxy.put(qos.put_resource(), qos_data)
 
-    def add_rate_limiting(self, rate_limit_values, vport_id, neutron_fip_id):
+    def _add_fip_qos(self, rate_limit_values, vport_id, neutron_fip_id):
         data = {"FIPPeakBurstSize": 100,
                 "EgressFIPPeakBurstSize": 100,
                 "FIPRateLimitingActive": True,
@@ -632,7 +642,7 @@ class NuagePolicyGroups(object):
         self.restproxy.post(qos.post_resource(),
                             qos.post_data())
 
-    def delete_rate_limiting(self, vport_id, neutron_fip_id):
+    def delete_fip_qos(self, vport_id, neutron_fip_id):
         create_params = {'vport_id': vport_id,
                          'externalID': get_vsd_external_id(neutron_fip_id)}
         qos = nuagelib.NuageVportQOS(create_params)
