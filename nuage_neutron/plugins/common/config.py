@@ -77,9 +77,11 @@ fiprate_opts = [
     cfg.StrOpt('fip_rate_change_log', default=''),
     cfg.IntOpt('default_ingress_fip_rate_kbps',
                help=_('FIP rate limit in ingress direction in kbs.'),
+               min=-1, max=constants.MAX_VSD_INTEGER,
                default=-1),
     cfg.IntOpt('default_egress_fip_rate_kbps',
                help=_('FIP rate limit in egress direction in kbs.'),
+               min=-1, max=constants.MAX_VSD_INTEGER,
                default=None),
 ]
 
