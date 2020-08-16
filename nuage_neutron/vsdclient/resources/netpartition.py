@@ -208,14 +208,9 @@ class NuageNetPartition(object):
             nuage_net_partition.get_resource_by_id())
         return enterprises[0]['name'] if enterprises else None
 
-    def _is_first_netpartition(self):
-        nuagenet_partition = nuagelib.NuageNetPartition()
-        enterprises = self.restproxy.get(nuagenet_partition.get_resource())
-        return len(enterprises) == 0
-
-    def get_nuage_fip_by_id(self, params):
+    def get_nuage_fip_by_id(self, neutron_fip_id):
         req_params = {
-            'externalID': get_vsd_external_id(params['fip_id'])
+            'externalID': get_vsd_external_id(neutron_fip_id)
         }
         nuage_fip = nuagelib.NuageFloatingIP(create_params=req_params)
         nuage_extra_headers = nuage_fip.extra_headers()
@@ -223,8 +218,7 @@ class NuageNetPartition(object):
         fips = self.restproxy.get(nuage_fip.get_resource(),
                                   extra_headers=nuage_extra_headers,
                                   required=True)
-        return {'nuage_fip_id': fips[0]['ID'],
-                'nuage_assigned': fips[0]['assigned']} if fips else None
+        return fips[0] if fips else None
 
     def get_nuage_fip_pool_by_id(self, nuage_subnet_id):
         nuage_fip_pool = nuagelib.NuageSubnet()
@@ -235,16 +229,3 @@ class NuageNetPartition(object):
             return ret
         else:
             return None
-
-    def set_fip_quota_at_ent_profile(self, fip_quota):
-        if self._is_first_netpartition():
-            nuage_ent_profile = nuagelib.NuageEntProfile()
-            ent_profs = self.restproxy.get(nuage_ent_profile.get_resource())
-            if ent_profs:
-                if ent_profs[0]['name'] == "Default Enterprise Profile":
-                    self.restproxy.put(nuage_ent_profile.get_resource_by_id(
-                        ent_profs[0]['ID']),
-                        nuage_ent_profile.post_fip_quota(fip_quota))
-        else:
-            logging.warning("FIP Quota already set at the Enterprise Profile "
-                            "Level")
