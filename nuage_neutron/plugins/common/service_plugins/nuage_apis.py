@@ -496,8 +496,10 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                 filters['vsd_organisation_id'][0]))
         elif 'os_router_ids' in filters:
             # get domain by Openstack router id
-            l3domains.extend(self.vsdclient.get_router_by_external(os_id)
-                             for os_id in filters['os_router_ids'])
+            for os_id in filters['os_router_ids']:
+                l3_domain = self.vsdclient.get_router_by_external(os_id)
+                if l3_domain:
+                    l3domains.append(l3_domain)
         else:
             msg = _('vsd_organisation_id or os_router_ids is a required filter'
                     ' parameter for this API.')
