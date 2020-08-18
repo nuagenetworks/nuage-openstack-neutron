@@ -138,6 +138,7 @@
       jobs:
         - networking-nuage-tempest-virtio:
             override-checkout: stable/queens
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov:
             override-checkout: stable/queens
             required-projects: *required-projects
@@ -162,6 +163,7 @@
       jobs:
         - networking-nuage-tempest-qdhcp:
             override-checkout: stable/queens
+            required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/queens
             required-projects: *required-projects
@@ -173,6 +175,7 @@
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
             override-checkout: stable/queens
+            required-projects: *required-projects
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
