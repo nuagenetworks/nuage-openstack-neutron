@@ -487,8 +487,7 @@ class NuageVM(object):
 
     def _add_os_fip_to_vip(self, params, vip):
         os_fip = params['os_fip']
-        vsd_fip = self.vsdclient.get_nuage_fip_by_id(
-            {'fip_id': os_fip['id']})
+        vsd_fip = self.vsdclient.get_nuage_fip_by_id(os_fip['id'])
         if not vsd_fip:
             params = {
                 'nuage_rtr_id': params['vsd_l3domain_id'],
@@ -499,7 +498,7 @@ class NuageVM(object):
             vsd_fip_id = self.vsdclient.create_nuage_floatingip(
                 params)
         else:
-            vsd_fip_id = vsd_fip['nuage_fip_id']
+            vsd_fip_id = vsd_fip['ID']
         if vsd_fip_id:
             self._update_fip_to_vip(vip, vsd_fip_id)
 
