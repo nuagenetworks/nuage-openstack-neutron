@@ -434,27 +434,19 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     def get_vsd_subnet(self, context, id, fields=None):
         subnet = self.vsdclient.get_nuage_subnet_by_id(
             id, required=True)
-        vsd_subnet = {'id': subnet['ID'],
-                      'name': subnet['name'],
-                      'cidr': self._calc_cidr(subnet),
-                      'ipv6_cidr': self._calc_ipv6_cidr(subnet),
-                      'gateway': subnet['gateway'],
-                      'ipv6_gateway': subnet['IPv6Gateway'],
-                      'ip_version': subnet['IPType'],
-                      'enable_dhcpv4': subnet['enableDHCPv4'],
-                      'enable_dhcpv6': subnet['enableDHCPv6'],
-                      }
+        subnet_dict = self._calculate_vsd_subnet_dict(subnet)
+
         if subnet['type'] == constants.L3SUBNET:
             domain_id = self.vsdclient.get_router_by_domain_subnet_id(
-                vsd_subnet['id'])
+                subnet_dict['id'])
             netpart_id = self.vsdclient.get_router_np_id(domain_id)
         else:
             netpart_id = subnet['parentID']
 
         net_partition = self.vsdclient.get_net_partition_name_by_id(
             netpart_id)
-        vsd_subnet['net_partition'] = net_partition
-        return self._fields(vsd_subnet, fields)
+        subnet_dict['net_partition'] = net_partition
+        return self._fields(subnet_dict, fields)
 
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
@@ -464,20 +456,25 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             raise n_exc.BadRequest(resource='vsd-subnets', msg=msg)
         l3subs = self.vsdclient.get_domain_subnet_by_zone_id(
             filters['vsd_zone_id'][0])
-        vsd_to_os = {
-            'ID': 'id',
-            'name': 'name',
-            self._calc_cidr: 'cidr',
-            self._calc_ipv6_cidr: 'ipv6_cidr',
-            'gateway': 'gateway',
-            'IPv6Gateway': 'ipv6_gateway',
-            'IPType': 'ip_version',
-            'enableDHCPv4': 'enable_dhcpv4',
-            'enableDHCPv6': 'enable_dhcpv6',
-            functools.partial(
-                self._return_val, filters['vsd_zone_id'][0]): 'vsd_zone_id'
-        }
-        return self._trans_vsd_to_os(l3subs, vsd_to_os, filters, fields)
+        sub_dicts = [self._calculate_vsd_subnet_dict(sub) for sub in l3subs]
+        return [self._fields(subnet_dict, fields) for subnet_dict in sub_dicts]
+
+    def _calculate_vsd_subnet_dict(self, subnet):
+        backend_subnet = subnet
+        if subnet['associatedSharedNetworkResourceID']:
+            backend_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                subnet['associatedSharedNetworkResourceID'])
+
+        subnet_dict = {'id': subnet['ID'],
+                       'name': subnet['name'],
+                       'cidr': self._calc_cidr(backend_subnet),
+                       'ipv6_cidr': backend_subnet.get('IPv6Address'),
+                       'gateway': backend_subnet.get('gateway'),
+                       'ipv6_gateway': backend_subnet.get('IPv6Gateway'),
+                       'ip_version': backend_subnet['IPType'],
+                       'enable_dhcpv4': backend_subnet['enableDHCPv4'],
+                       'enable_dhcpv6': backend_subnet['enableDHCPv6']}
+        return subnet_dict
 
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
@@ -540,27 +537,12 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                                      filters, fields)
 
     def _calc_cidr(self, subnet):
-        if (not subnet['address']) and (
-                not subnet['associatedSharedNetworkResourceID']):
-            return None
-
-        shared_id = subnet['associatedSharedNetworkResourceID']
-        if shared_id:
-            subnet = self.vsdclient.get_nuage_subnet_by_id(shared_id)
         if subnet.get('address'):
             ip = netaddr.IPNetwork(subnet['address'] + '/' +
                                    subnet['netmask'])
             return str(ip)
-
-    def _calc_ipv6_cidr(self, subnet):
-        if (not subnet['IPv6Address']) and (
-                not subnet['associatedSharedNetworkResourceID']):
+        else:
             return None
-
-        shared_id = subnet['associatedSharedNetworkResourceID']
-        if shared_id:
-            subnet = self.vsdclient.get_nuage_subnet_by_id(shared_id)
-        return subnet.get('IPv6Address')
 
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
@@ -630,17 +612,6 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                     str(obj[filter]).lower() not in filters[filter]):
                 return False
         return True
-
-    @staticmethod
-    def _return_val(val, dummy):  # this must be the dummiest method ever
-        return val
-
-    @staticmethod
-    def _filter_fields(subnet, fields):
-        for key in subnet:
-            if key not in fields:
-                del subnet[key]
-        return subnet
 
     def _extend_resource_dict(self, resource_res, resource_db):
         if resource_db:
