@@ -14,6 +14,9 @@
     experimental:
       jobs:
         - networking-nuage-vtep-vxlan
+    upgrade:
+      jobs:
+        - nuage-grenade-multinode
     virtio:
       jobs:
         - networking-nuage-tempest-virtio
@@ -211,3 +214,99 @@
     vars:
       job_flavor: neutronclient
     timeout: 9000
+
+- job:
+    name: nuage-grenade-multinode
+    parent: grenade-multinode
+    nodeset: openstack-single-node-centos7
+    required-projects:
+      - OpenStack/nuage-openstack-neutron
+      - OpenStack/nuage-openstack-neutronclient
+      - OpenStack/nuage-tempest-plugin
+      - openstack/grenade
+      - openstack/neutron
+      - openstack/neutron-tempest-plugin
+      - openstack/tempest
+    pre-run: playbooks/pre-grenade.yaml
+    run: playbooks/run-grenade.yaml
+    irrelevant-files: &irrelevant-files
+      - ^(test-|)requirements.txt$
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^setup.cfg$
+      - ^tox.ini$
+    vars:
+      nuage_fip_range: "{{ hostvars[inventory_hostname]['nodepool']['interface_ip'].split('.')  }}"
+      vsp_release: "{{ nuage_vsp_release }}"
+      grenade_localrc:
+        BASE_RUN_SMOKE: False
+      grenade_devstack_localrc:
+        shared:
+          FORCE: 'yes'
+          LIBVIRT_TYPE: kvm
+          FORCE_CONFIG_DRIVE: True
+          FLOATING_RANGE: "10.{{ nuage_fip_range[2] | int + 40 }}.{{ nuage_fip_range[3] }}.0/24"
+          PUBLIC_NETWORK_GATEWAY: "10.{{ nuage_fip_range[2] | int + 40 }}.{{ nuage_fip_range[3] }}.1"
+          Q_PLUGIN: ml2
+          Q_PLUGIN_EXTRA_CONF_FILES: /plugins/nuage/plugin.ini
+          Q_USE_PROVIDERNET_FOR_PUBLIC: False
+          Q_ML2_PLUGIN_EXT_DRIVERS: nuage_subnet,nuage_port,port_security,nuage_network
+          Q_ML2_PLUGIN_TYPE_DRIVERS: vxlan,vlan,flat
+          Q_ML2_PLUGIN_MECHANISM_DRIVERS: nuage,nuage_baremetal
+          ML2_L3_PLUGIN: NuageL3
+          PHYSICAL_NETWORK: physnet1,physnet2
+          NUAGE_VSD_DEF_NETPART_NAME: "NuageCi-{{ 1000000 | random }}"
+          NUAGE_FIP_UNDERLAY: True
+          NUAGE_USE_METADATA: True
+          NUAGE_METADATA_SHARED_SECRET: sharedsecret
+          NUAGE_PAT: legacy_disabled
+          OVS_BRIDGE: alubr0
+          USE_PYTHON3: True
+      devstack_plugins:
+        nuage-openstack-neutron: https://github.com/nuagenetworks/nuage-openstack-neutron.git
+        nuage-openstack-neutronclient: https://github.com/nuagenetworks/nuage-openstack-neutronclient.git
+        neutron-tempest-plugin: https://opendev.org/openstack/neutron-tempest-plugin
+        nuage-tempest-plugin: https://github.com/nuagenetworks/nuage-tempest-plugin.git
+      devstack_services:
+        c-bak: false
+        etcd: false
+        s-account: false
+        s-container: false
+        s-object: false
+        s-proxy: false
+        peakmem_tracker: false
+        q-agt: false
+        q-dhcp: false
+        q-l3: false
+        q-meta: false
+        q-metering: false
+        horizon: false
+      tempest_plugins:
+        - nuage-tempest-plugin
+        - neutron-tempest-plugin
+      devstack_local_conf:
+        post-config:
+          $NEUTRON_CONF:
+            DEFAULT:
+              vlan_transparent: true
+              enable_snat_by_default: false
+            quotas:
+              # A negative value means unlimited. (integer value)
+              quota_network: 1000
+              quota_subnet: 1000
+              quota_port: 1000
+              quota_router: 1000
+              quota_floatingip: 1000
+              quota_security_group: 1000
+              quota_security_group_rule: 1000
+        test-config:
+          $TEMPEST_CONFIG:
+            scenario:
+              dhcp_client: dhclient
+            nuage_sut:
+              image_is_advanced: true
+              release: "{{ vsp_release }}"
+              openstack_version: "{{ zuul.branch | basename }}"
+            neutron_plugin_options:
+              available_type_drivers: flat,vlan,local,vxlan
+

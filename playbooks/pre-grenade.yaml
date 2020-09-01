@@ -1,0 +1,37 @@
+- hosts: controller
+  tasks:
+    - name: fetch vsp_info
+      slurp:
+        src: /etc/ci/vsp_info.yaml
+      register: vsp_info
+
+- hosts: all
+  vars:
+    vsp: "{{ hostvars['controller']['vsp_info']['content'] | b64decode | from_yaml}}"
+    devstack_localrc:
+      NUAGE_VSD_SERVERS: "{{ vsp['vsd_server'] }}"
+      NUAGE_VSC_SERVER: "{{ vsp['vsc_controller'] }}"
+      NUAGE_VSP_RELEASE: "{{ vsp['nuage_vsp_release'] }}"
+  roles:
+    - configure-grenade-branches
+    - role: setup-nuage-source-dirs
+      devstack_base_dir: "{{ devstack_bases.old }}"
+      devstack_sources_branch: "{{ grenade_from_branch }}"
+    - role: write-vsp-devstack-local-conf
+      devstack_base_dir: "{{ devstack_bases.old }}"
+    - role: setup-nuage-source-dirs
+      devstack_base_dir: "{{ devstack_bases.new }}"
+      devstack_sources_branch: "{{ grenade_to_branch | default(omit)}}"
+    - role: write-vsp-devstack-local-conf
+      devstack_base_dir: "{{ devstack_bases.new }}"
+  tasks:
+    - name: Workaround uwsgi 2.0.19
+      lineinfile:
+        path: "{{ devstack_bases.old }}/requirements/upper-constraints.txt"
+        line: uwsgi===2.0.18
+    - name: Workaround uwsgi 2.0.19
+      lineinfile:
+        path: "{{ devstack_bases.new }}/requirements/upper-constraints.txt"
+        line: uwsgi===2.0.18
+  environment: '{{ proxy_env }}'
+
