@@ -15,6 +15,8 @@
 
 from neutron_lib import constants as lib_constants
 from neutron_lib.db import api as db_api
+from oslo_log import helpers as log_helpers
+from oslo_log import log as logging
 
 # This loads in the extensions for flow classifier.
 from nuage_neutron.flow_classifier import extensions  # noqa
@@ -24,8 +26,7 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils as nuage_utils
-from oslo_log import helpers as log_helpers
-from oslo_log import log as logging
+from nuage_neutron.vsdclient.common import cms_id_helper
 
 from networking_sfc.services.flowclassifier import plugin as flow_plugin
 
@@ -75,18 +76,13 @@ class NuageFlowClassifierPlugin(
                 context, fc_db['id'])
             src_prt_details['externalID'] = 'fc' + '_' + src_prt_details['id']
             dst_prt_details['externalID'] = 'fc' + '_' + dst_prt_details['id']
-            l2dom_id, l3subnet_id, rtr_id = (
+            l2dom_id, l3domain_id, l3subnet_id = (
                 self.get_logical_port_subnet_mapping(context, src_prt_details))
-            self._create_nuage_flow_classifier(on_exc,
-                                               l2dom_id,
-                                               l3subnet_id,
-                                               rtr_id,
-                                               src_prt_details)
+            self._create_nuage_flow_classifier(on_exc, l2dom_id, l3domain_id,
+                                               l3subnet_id, src_prt_details)
             if src_prt_details['id'] != dst_prt_details['id']:
-                self._create_nuage_flow_classifier(on_exc,
-                                                   l2dom_id,
-                                                   l3subnet_id,
-                                                   rtr_id,
+                self._create_nuage_flow_classifier(on_exc, l2dom_id,
+                                                   l3domain_id, l3subnet_id,
                                                    dst_prt_details)
         return fc_db
 
@@ -133,39 +129,44 @@ class NuageFlowClassifierPlugin(
         port_list.append(prt_details)
         return prt_details
 
-    def _create_nuage_flow_classifier(self, on_exc, l2dom_id, l3subnet_id,
-                                      rtr_id,
-                                      port_info):
-        params = {'l2dom_id': l2dom_id}
-        params['rtr_id'] = rtr_id
-        params['l3dom_id'] = rtr_id
-        params['externalID'] = port_info['externalID']
-        params['type'] = constants.VM_VPORT
-        params['sg_type'] = constants.SOFTWARE
-        params['name'] = port_info['externalID']
-        params['description'] = port_info['externalID']
-        nuage_sg_id = (self.vsdclient.
-                       create_nuage_sec_grp_for_sfc(params))
-        params['redundancy_enabled'] = 'false'
-        params['insertion_mode'] = 'VIRTUAL_WIRE'
-        params['external_id'] = port_info['externalID']
+    def _create_nuage_flow_classifier(self, on_exc, l2dom_id, l3domain_id,
+                                      l3subnet_id, port_info):
+        pg_params = {
+            'name': port_info['externalID'],
+            'description': port_info['externalID'],
+            'externalID': cms_id_helper.get_vsd_external_id(
+                port_info['externalID']),
+            'type': constants.SOFTWARE
+        }
+        domain_type = constants.DOMAIN if l3domain_id else constants.L2DOMAIN
+        domain_id = l2dom_id or l3domain_id
+        pg_id = self.vsdclient.create_policy_group(
+            domain_type, domain_id, pg_params, raise_on_pg_exists=False)['ID']
+        params = {'l2dom_id': l2dom_id, 'rtr_id': l3domain_id,
+                  'l3dom_id': l3domain_id,
+                  'type': constants.VM_VPORT, 'sg_type': constants.SOFTWARE,
+                  'name': port_info['externalID'],
+                  'description': port_info['externalID'],
+                  'redundancy_enabled': 'false',
+                  'insertion_mode': 'VIRTUAL_WIRE',
+                  'external_id': port_info['externalID']}
         get_param = {'name': port_info['externalID']}
         rt_list = self.vsdclient.get_nuage_redirect_targets(get_param)
         if not rt_list:
-            on_exc(self.vsdclient.delete_nuage_policy_group,
-                   nuage_sg_id)
+            on_exc(self.vsdclient.delete_policy_group,
+                   pg_id)
             rt = self.vsdclient.create_nuage_redirect_target(
-                params, l2dom_id=l2dom_id, domain_id=rtr_id)
+                params, l2dom_id=l2dom_id, domain_id=l3domain_id)
             on_exc(self.vsdclient.delete_nuage_redirect_target, rt['ID'])
             port_details = {'neutron_port_id': port_info['id'],
                             'l2dom_id': l2dom_id,
-                            'rtr_id': rtr_id,
+                            'rtr_id': l3domain_id,
                             'l3dom_id': l3subnet_id}
-            nuage_port = self.vsdclient.get_nuage_vport_for_port_sec(
+            nuage_port = self.vsdclient.get_nuage_vport_by_neutron_id(
                 port_details)
-            self.vsdclient.update_vports_in_policy_group(nuage_sg_id,
-                                                         [nuage_port['ID']])
-            on_exc(self.vsdclient.update_vports_in_policy_group, nuage_sg_id,
+            self.vsdclient.set_vports_in_policygroup(pg_id,
+                                                     [nuage_port['ID']])
+            on_exc(self.vsdclient.set_vports_in_policygroup, pg_id,
                    [])
             self.vsdclient.update_redirect_target_vports(rt['ID'],
                                                          [nuage_port['ID']])
@@ -173,7 +174,7 @@ class NuageFlowClassifierPlugin(
 
     def get_logical_port_subnet_mapping(self, context, port_info):
         l2dom_id = None
-        rtr_id = None
+        l3domain_id = None
         l3subnet_id = None
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
             context.session,
@@ -183,24 +184,24 @@ class NuageFlowClassifierPlugin(
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3subnet_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = self.vsdclient.get_nuage_domain_id_from_subnet(
+                l3domain_id = self.vsdclient.get_nuage_domain_id_from_subnet(
                     l3subnet_id)
         else:
             msg = ('Cannot find subnet mapping for'
                    ' the port-id %s ' % port_info['id'])
             raise nuage_exc.NuageBadRequest(msg=msg)
-        return l2dom_id, l3subnet_id, rtr_id
+        return l2dom_id, l3domain_id, l3subnet_id
 
     def _delete_nuage_flow_classifier_for_port(self, port_id):
         param = {'name': 'fc_' + port_id}
         rt = self.vsdclient.get_nuage_redirect_targets(param)
         if rt:
             self.vsdclient.update_redirect_target_vports(rt[0]['ID'], [])
-            pg = self.vsdclient.get_nuage_policy_groups(
+            pg = self.vsdclient.get_policygroups(
                 required=False, externalID=rt[0]['externalID'])
             if pg:
-                self.vsdclient.update_vports_in_policy_group(pg[0]['ID'], [])
-                self.vsdclient.delete_nuage_policy_group(pg[0]['ID'])
+                self.vsdclient.set_vports_in_policygroup(pg[0]['ID'], [])
+                self.vsdclient.delete_policy_group(pg[0]['ID'])
             self.vsdclient.delete_nuage_redirect_target(rt[0]['ID'])
 
     @staticmethod

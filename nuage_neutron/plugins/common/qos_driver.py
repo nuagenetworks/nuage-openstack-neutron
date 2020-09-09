@@ -26,6 +26,7 @@ from oslo_log import log as logging
 from nuage_neutron.plugins.common import constants as nuage_constants
 from nuage_neutron.plugins.common import nuagedb
 
+
 LOG = logging.getLogger(__name__)
 
 NUAGE_QOS = 'qos'
@@ -38,14 +39,27 @@ SUPPORTED_RULES = {
             'type:range': [0, db_consts.DB_INTEGER_MAX_VALUE]},
         qos_consts.DIRECTION: {
             'type:values': [constants.EGRESS_DIRECTION]}
-    },
+    }
 }
 VIF_TYPES = [portbindings.VIF_TYPE_OVS, portbindings.VIF_TYPE_VHOST_USER]
 VNIC_TYPES = [portbindings.VNIC_NORMAL]
 
 
 class NuageQosDriver(base.DriverBase):
-    """Nuage driver for QoS."""
+    """Nuage driver for QoS.
+
+    This driver manages the following objects:
+    - QOS object on Network & port
+    - PGs for DSCP marking, one per domain
+        Creation is done at first usage in the domain
+        Deletion of this PG is delayed until either domain or policy deletion
+    - Adv Fwd Policy for DSCP marking, up to two per domain
+        Creation is done at first usage in the domain
+           Network: Rule with locationType L2Domain/L3Subnet
+           Port: rule with locationType PG
+        Deletion is delayed until either domain or policy(rule) deletion
+
+    """
 
     def __init__(self):
         super(NuageQosDriver, self).__init__(
@@ -75,8 +89,7 @@ class NuageQosDriver(base.DriverBase):
             if isinstance(rule, qos_rule.QosBandwidthLimitRule):
                 vsd_qos_options['rateLimitingActive'] = True
                 if rule.max_kbps:
-                    vsd_qos_options['peak'] = (
-                        float(rule.max_kbps) / 1000)
+                    vsd_qos_options['peak'] = float(rule.max_kbps) / 1000
                 if rule.max_burst_kbps:
                     vsd_qos_options['burst'] = rule.max_burst_kbps
         return vsd_qos_options
@@ -91,7 +104,7 @@ class NuageQosDriver(base.DriverBase):
         if bool(subnet_mapping['nuage_l2dom_tmplt_id']):
             parent_type = nuage_constants.L2DOMAIN
         else:
-            parent_type = nuage_constants.L3SUBNET
+            parent_type = nuage_constants.SUBNET
         return parent_type
 
     @staticmethod
