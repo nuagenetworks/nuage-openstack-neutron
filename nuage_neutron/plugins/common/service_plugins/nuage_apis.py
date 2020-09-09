@@ -33,10 +33,11 @@ from oslo_log import log as logging
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
-from nuage_neutron.plugins.common import externalsg
 from nuage_neutron.plugins.common import gateway
 from nuage_neutron.plugins.common import nuage_models
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import port_security
+from nuage_neutron.plugins.common.service_plugins import externalsg
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.plugins.nuage_ml2 import extensions
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
@@ -59,6 +60,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         # Prepare default and shared netpartitions
         self._prepare_netpartitions()
         neutron_extensions.append_api_extensions_path(extensions.__path__)
+        self.psec_handler = port_security.NuagePortSecurityHandler(
+            self.vsdclient, self)
         lib_db_resource_extend.register_funcs('security_groups',
                                               [self._extend_resource_dict])
 
@@ -436,8 +439,8 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             id, required=True)
         subnet_dict = self._calculate_vsd_subnet_dict(subnet)
 
-        if subnet['type'] == constants.L3SUBNET:
-            domain_id = self.vsdclient.get_router_by_domain_subnet_id(
+        if subnet['type'] == constants.SUBNET:
+            domain_id = self.vsdclient.get_l3domain_id_by_domain_subnet_id(
                 subnet_dict['id'])
             netpart_id = self.vsdclient.get_router_np_id(domain_id)
         else:
@@ -492,7 +495,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
         elif 'os_router_ids' in filters:
             # get domain by Openstack router id
             for os_id in filters['os_router_ids']:
-                l3_domain = self.vsdclient.get_router_by_external(os_id)
+                l3_domain = self.vsdclient.get_l3domain_by_external_id(os_id)
                 if l3_domain:
                     l3domains.append(l3_domain)
         else:

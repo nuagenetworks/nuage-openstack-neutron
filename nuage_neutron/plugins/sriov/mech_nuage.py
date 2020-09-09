@@ -28,6 +28,7 @@ from nuage_neutron.plugins.common import constants as nuage_const
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import net_topology_db as ext_db
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import port_security
 from nuage_neutron.plugins.common import trunk_db
 from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
@@ -60,6 +61,8 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         self.init_vsd_client()
         self._wrap_vsdclient()
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
+        self.psec_handler = port_security.NuagePortSecurityHandler(
+            self.vsdclient, self)
         self.vif_details = {portbindings.CAP_PORT_FILTER: True}
         self.conf = cfg.CONF
         self.supported_network_types = [os_constants.TYPE_VXLAN,
@@ -429,15 +432,19 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                         port_dict['subnet_mapping']['nuage_subnet_id'])
                 params['vsd_subnet'] = vsd_subnet
 
+                vport = self.vsdclient.create_gateway_vport_no_usergroup(
+                    ctx.tenant_id,
+                    params)
                 # policy groups are not supported on netconf
                 # managed gateways and unmanaged gateways
                 create_policy = (gw['gw_type'] not in
                                  ['NETCONF_THIRDPARTY_HW_VTEP',
                                   'UNMANAGED_GATEWAY'])
-
-                vport = self.vsdclient.create_gateway_vport_no_usergroup(
-                    ctx.tenant_id,
-                    params, create_policy_group=create_policy)
+                if create_policy:
+                    self.psec_handler.process_pg_allow_all(
+                        ctx, nuage_const.HARDWARE,
+                        port_dict['subnet_mapping'], vport['vport'],
+                        vsd_subnet)
                 LOG.debug("created vport: %(vport_dict)s",
                           {'vport_dict': vport})
                 bridge_port_id = vport.get('vport').get('ID')
