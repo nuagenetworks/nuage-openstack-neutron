@@ -286,8 +286,8 @@ class NuageTrunkHandler(object):
     def _unset_sub_ports(self, trunk_id, trunk_port, subports):
         ctx = n_ctx.get_admin_context()
         trunk_host = trunk_port.get(portbindings.HOST_ID)
-        trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_host else
-                              t_consts.DOWN_STATUS)
+        trunk_target_state = (t_consts.TRUNK_ACTIVE_STATUS if trunk_host else
+                              t_consts.TRUNK_DOWN_STATUS)
         updated_ports = []
         for port in subports:
             LOG.debug('unset port id : %(id)s', {'id': port.port_id})
