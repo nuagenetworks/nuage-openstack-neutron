@@ -72,16 +72,14 @@ class NuageGatewayDriverHost(base_plugin.RootNuagePlugin,
             'port_security_enabled': False,
             'redundant': vsd_port['redundant'],
             'personality': vsd_port['personality'],
-            'type': const.HOST_VPORT
+            'type': const.HOST_VPORT,
+            'vsd_subnet': port_dict['vsd_subnet']
         }
-        vsd_subnet = self.vsdclient \
-            .get_subnet_or_domain_subnet_by_id(
-                port_dict['subnet_mapping']['nuage_subnet_id'])
-        params['vsd_subnet'] = vsd_subnet
         vport = self.vsdclient.create_gateway_vport_no_usergroup(
             port['tenant_id'],
             params)
         LOG.debug("created vport: %(vport_dict)s", {'vport_dict': vport})
+        return vport['vport']
 
     def bind_port(self, port):
         """bind_port. This call makes the REST request to VSD
@@ -109,10 +107,13 @@ class NuageGatewayDriverHost(base_plugin.RootNuagePlugin,
             try:
                 self.vsdclient.delete_nuage_vport(
                     vport['ID'])
+                return None
             except Exception as e:
                 LOG.error("Failed to delete vport from vsd {vport id: %s}",
                           vport['ID'])
                 raise e
+        else:
+            return vport
 
     def delete_port(self, port_dict):
         """delete_port. This call makes the REST request to VSD
