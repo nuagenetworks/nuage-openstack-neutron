@@ -205,8 +205,8 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         return self.l2domain.check_if_l2_dom_in_correct_ent(nuage_l2dom_id,
                                                             nuage_netpart)
 
-    def get_router_by_external(self, id):
-        return self.domain.get_router_by_external(id)
+    def get_l3domain_by_external_id(self, neutron_id):
+        return self.domain.get_l3domain_by_external_id(neutron_id)
 
     def move_l2domain_to_l3subnet(self, l2domain_id, l3subnetwork_id):
         self.l2domain.move_to_l3(l2domain_id, l3subnetwork_id)
@@ -278,18 +278,14 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def validate_port_create_redirect_target(self, params):
         return self.domain.validate_port_create_redirect_target(params)
 
-    # deprecated
-    def delete_port_security_group_bindings(self, params):
-        self.policygroups.delete_port_security_group_bindings(params)
-
-    def check_unused_policygroups(self, securitygroup_ids, sg_type='SOFTWARE'):
-        self.policygroups.check_unused_policygroups(securitygroup_ids, sg_type)
-
     def get_zone_by_domainid(self, domain_id):
         return self.domain.get_zone_by_domainid(domain_id)
 
     def get_zone_by_routerid(self, neutron_router_id, shared=False):
         return self.domain.get_zone_by_routerid(neutron_router_id, shared)
+
+    def get_zone_by_id(self, zone_id):
+        return self.domain.get_zone_by_id(zone_id)
 
     def validate_zone_create(self, l3dom_id,
                              l3isolated, l3shared):
@@ -399,7 +395,7 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def get_gw_from_dhcp_l2domain(self, nuage_id):
         return self.l2domain.get_gw_from_dhcp_options(nuage_id)
 
-    def get_router_by_domain_subnet_id(self, dom_subn_id):
+    def get_l3domain_id_by_domain_subnet_id(self, dom_subn_id):
         return helper.get_domain_id_by_nuage_subnet_id(self.restproxy,
                                                        dom_subn_id)
 
@@ -452,50 +448,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
             nuage_subnet_id,
             nuage_rtr_id)
 
-    def process_port_create_security_group(self, params):
-        return self.policygroups.process_port_create_security_group(params)
-
-    def create_security_group(self, vsd_subnet, os_security_group):
-        if vsd_subnet['type'] == constants.L2DOMAIN:
-            parent_id = vsd_subnet['ID']
-            parent_resource = nuagelib.NuageL2Domain
-        else:
-            vsd_zone = self.get_nuage_zone_by_id(vsd_subnet['parentID'])
-            parent_id = vsd_zone['nuage_parent_id']
-            parent_resource = nuagelib.NuageL3Domain
-        return self.policygroups.create_security_group(parent_resource,
-                                                       parent_id,
-                                                       os_security_group)
-
-    def create_security_group_using_parent(self, parent_id, parent_type,
-                                           os_security_group):
-        if parent_type == constants.L2DOMAIN:
-            parent_resource = nuagelib.NuageL2Domain
-        else:
-            parent_resource = nuagelib.NuageL3Domain
-        return self.policygroups.create_security_group(parent_resource,
-                                                       parent_id,
-                                                       os_security_group)
-
-    def create_security_group_rules(self, policygroup, security_group_rules,
-                                    stateful):
-        params = {'nuage_router_id': None,
-                  'nuage_l2dom_id': None,
-                  'nuage_policygroup_id': policygroup['ID'],
-                  'sg_rules': security_group_rules,
-                  'stateful': stateful}
-        if policygroup['parentType'] == constants.L2DOMAIN:
-            params['nuage_l2dom_id'] = policygroup['parentID']
-        else:
-            params['nuage_router_id'] = policygroup['parentID']
-        self.policygroups._create_nuage_sgrules_bulk(params)
-
-    def update_vport_policygroups(self, vport_id, policygroup_ids):
-        self.policygroups.update_vport_policygroups(vport_id, policygroup_ids)
-
-    def update_vports_in_policy_group(self, pg_id, vport_list):
-        self.policygroups.update_vports_in_policy_group(pg_id, vport_list)
-
     def get_fip_qos(self, nuage_fip):
         return self.qos.get_fip_qos(nuage_fip)
 
@@ -519,22 +471,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def delete_qos(self, parent_type, parent_id, qos_policy_id):
         self.qos.delete_qos(parent_type, parent_id, qos_policy_id)
-
-    def delete_nuage_sgrule(self, sg_rules, sg_type='SOFTWARE'):
-        self.policygroups.delete_nuage_sgrule(sg_rules, sg_type)
-
-    def delete_nuage_secgroup(self, id):
-        self.policygroups.delete_policy_group(id)
-
-    def delete_nuage_policy_group(self, nuage_policy_id):
-        self.policygroups.delete_nuage_policy_group(nuage_policy_id)
-
-    def validate_nuage_sg_rule_definition(self, sg_rule):
-        self.policygroups.validate_nuage_sg_rule_definition(sg_rule)
-
-    def get_sg_policygroup_mapping(self, sg_id, sg_type='SOFTWARE'):
-        return self.policygroups.get_sg_policygroup_mapping(sg_id,
-                                                            sg_type=sg_type)
 
     def create_in_adv_fwd_policy_template(self, parent_type, parent_id,
                                           params):
@@ -562,9 +498,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def delete_in_adv_fwd_policy_template(self, tmplt_id):
         helper.delete_in_adv_fwd_policy_template(self.restproxy, tmplt_id)
-
-    def create_nuage_sgrule(self, params):
-        return self.policygroups.create_nuage_sgrule(params)
 
     def create_nuage_redirect_target(self, redirect_target, l2dom_id=None,
                                      domain_id=None):
@@ -631,40 +564,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def get_redirect_target_vports(self, rtarget_id, required=False):
         return self.redirecttargets.get_redirect_target_vports(
             rtarget_id, required=required)
-
-    def create_nuage_external_security_group(self, params):
-        return self.policygroups.create_nuage_external_security_group(params)
-
-    def create_nuage_sec_grp_for_no_port_sec(self, params):
-        return self.policygroups.create_nuage_sec_grp_for_no_port_sec(params)
-
-    def create_nuage_sec_grp_for_sfc(self, params):
-        return self.policygroups.create_nuage_sec_grp_for_sfc(params)
-
-    def get_policygroup_vport_mapping_by_port_id(self, vport_id):
-        return self.policygroups.get_policygroup_vport_mapping_by_port_id(
-            vport_id)
-
-    def get_nuage_external_security_group(self, ext_sg_id):
-        return self.policygroups.get_nuage_external_security_group(ext_sg_id)
-
-    def get_nuage_external_security_groups(self, params):
-        return self.policygroups.get_nuage_external_security_groups(params)
-
-    def delete_nuage_external_security_group(self, ext_sg_id):
-        self.policygroups.delete_nuage_external_security_group(ext_sg_id)
-
-    def create_nuage_external_sg_rule(self, params):
-        return self.policygroups.create_nuage_external_sg_rule(params)
-
-    def get_nuage_external_sg_rule(self, ext_rule_id):
-        return self.policygroups.get_nuage_external_sg_rule(ext_rule_id)
-
-    def get_nuage_external_sg_rules(self, params):
-        return self.policygroups.get_nuage_external_sg_rules(params)
-
-    def delete_nuage_external_sg_rule(self, ext_rule_id):
-        self.policygroups.delete_nuage_external_sg_rule(ext_rule_id)
 
     def nuage_redirect_targets_on_l2domain(self, l2domid):
         return self.redirecttargets.nuage_redirect_targets_on_l2domain(l2domid)
@@ -799,12 +698,10 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def create_gateway_vport(self, tenant_id, vport_dict):
         return self.nuagegw.create_gateway_vport(tenant_id, vport_dict)
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict,
-                                          create_policy_group=False):
+    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict):
         return self.nuagegw.create_gateway_vport_no_usergroup(
             tenant_id,
-            vport_dict,
-            create_policy_group)
+            vport_dict)
 
     def delete_nuage_gateway_vport(self, context, id, def_netpart_id):
         return self.nuagegw.delete_nuage_gateway_vport(context,
@@ -843,10 +740,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def get_nuage_fip(self, nuage_fip_id):
         return helper.get_nuage_fip(self.restproxy, nuage_fip_id)
-
-    def get_vport_assoc_with_fip(self, nuage_fip_id):
-        return helper.get_vport_assoc_with_fip(self.restproxy,
-                                               nuage_fip_id)
 
     def create_vip(self, params):
         return self.vm.process_vip(params)
@@ -915,58 +808,6 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
         return helper.get_nuage_domain_by_zoneid(
             self.restproxy, zone_id)
 
-    def get_nuage_vport_for_port_sec(self, params, required=True):
-        return helper.get_nuage_vport_by_neutron_id(self.restproxy, params,
-                                                    required)
-
-    def get_nuage_policy_group(self, id, required=False, **filters):
-        return self.policygroups.get_policy_group(id, required=required,
-                                                  **filters)
-
-    def get_sg_policygroup_by_external_id(self, sg_id,
-                                          sg_type=constants.SOFTWARE,
-                                          required=False):
-        return self.policygroups.get_sg_policygroup_by_external_id(
-            sg_id,
-            sg_type=sg_type,
-            required=required
-        )
-
-    def update_policygroup(self, policygroup_id, data):
-        return self.policygroups.update_policygroup(policygroup_id, data)
-
-    def get_nuage_policy_groups(self, required=False, **filters):
-        return self.policygroups.get_policy_groups(required=required,
-                                                   **filters)
-
-    def get_policy_groups_by_single_filter(self, filters, required=False):
-        return self.policygroups.get_policy_groups_by_single_filter(filters,
-                                                                    required)
-
-    def get_nuage_vport_policy_groups(self, vport_id, required=False,
-                                      **filters):
-        return self.policygroups.get_child_policy_groups(
-            nuagelib.NuageVPort.resource, vport_id,
-            required=required, **filters)
-
-    def get_nuage_l2domain_policy_groups(self, l2domain_id, required=False,
-                                         **filters):
-        return self.policygroups.get_child_policy_groups(
-            nuagelib.NuageL2Domain.resource, l2domain_id,
-            required=required, **filters)
-
-    def get_nuage_domain_policy_groups(self, domain_id, required=False,
-                                       **filters):
-        return self.policygroups.get_child_policy_groups(
-            nuagelib.NuageL3Domain.resource, domain_id,
-            required=required, **filters)
-
-    def get_nuage_policy_group_vports(self, policygroup_id, required=False,
-                                      **filters):
-        return helper.get_child_vports(
-            self.restproxy, nuagelib.NuagePolicygroup.resource,
-            policygroup_id, required=required, **filters)
-
     def get_nuage_vport_redirect_targets(self, vport_id, required=False,
                                          **filters):
         return self.redirecttargets.get_child_redirect_targets(
@@ -1015,3 +856,109 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def update_subport(self, os_port, vport, data):
         self.trunk.update_subport(os_port, vport, data)
+
+    # Port Security
+
+    def get_policygroup(self, policygroup_id, required=False, **filters):
+        return self.policygroups.get_policygroup(
+            policygroup_id, required=required, **filters)
+
+    def get_policygroups(self, required=False, parent_type=None,
+                         parent_id=None, **filters):
+        return self.policygroups.get_policygroups(
+            required=required, parent_type=parent_type,
+            parent_id=parent_id, **filters)
+
+    def get_nuage_vport_policy_groups(self, vport_id, required=False,
+                                      **filters):
+        return self.policygroups.get_child_policy_groups(
+            nuagelib.NuageVPort.resource, vport_id,
+            required=required, **filters)
+
+    def get_policy_groups_by_subnet(self, vsd_subnet, required=False,
+                                    **filters):
+        if vsd_subnet['type'] == constants.L2DOMAIN:
+            return self.policygroups.get_policygroups(
+                parent_type=constants.L2DOMAIN,
+                parent_id=vsd_subnet['ID'], required=required, **filters)
+        else:
+            domain_id = self.get_l3domain_id_by_domain_subnet_id(
+                vsd_subnet['ID'])
+            return self.policygroups.get_policygroups(
+                parent_type=constants.DOMAIN,
+                parent_id=domain_id, required=required, **filters)
+
+    def get_vports_in_policygroup(self, policygroup_id):
+        return self.policygroups.get_vports_in_policygroup(policygroup_id)
+
+    def find_security_groups_in_domain(self, sgs, domain_type, domain_id,
+                                       domain_sg_pg_mapping,
+                                       pg_type=constants.SOFTWARE):
+        return self.policygroups.find_security_groups_in_domain(
+            sgs, domain_type, domain_id, domain_sg_pg_mapping,
+            pg_type=pg_type)
+
+    def find_create_security_groups(self, sgs, domain_type, domain_id,
+                                    domain_enterprise_mapping,
+                                    domain_sg_pg_mapping,
+                                    domain_acl_mapping, on_exception,
+                                    pg_type=constants.SOFTWARE,
+                                    allow_non_ip=False):
+        self.policygroups.find_create_security_groups(
+            sgs, domain_type, domain_id, domain_enterprise_mapping,
+            domain_sg_pg_mapping, domain_acl_mapping, on_exception,
+            pg_type, allow_non_ip)
+
+    def create_policygroup(self, domain_type, domain_id, pg_data):
+        return self.policygroups.create_policygroup(
+            domain_type, domain_id, pg_data)
+
+    def update_security_group(self, sg_id, updates):
+        self.policygroups.update_security_group(sg_id, updates)
+
+    def delete_security_group(self, security_group_id):
+        self.policygroups.delete_security_group(security_group_id)
+
+    def delete_policygroup(self, policygroup_id):
+        self.policygroups.delete_policygroup(policygroup_id)
+
+    def create_security_group_rule(self, sg, sg_rule, on_exception,
+                                   remote_sgs=None):
+        self.policygroups.create_security_group_rule(sg, sg_rule,
+                                                     on_exception,
+                                                     remote_sgs)
+
+    def calculate_acl_entries(self, sg_rule, pg_id, domain_type, domain_id,
+                              stateful, domain_enterprise_mapping,
+                              sg_pg_mapping,
+                              pg_type=constants.SOFTWARE):
+        return self.policygroups.calculate_acl_entries(
+            sg_rule, pg_id, domain_type, domain_id, stateful,
+            domain_enterprise_mapping, sg_pg_mapping, pg_type)
+
+    def create_acl_entry(self, acl_entry, domain_type, domain_id,
+                         domain_acl_mapping,
+                         on_exception, acl_template_id=None):
+        return self.policygroups.create_acl_entry(
+            acl_entry, domain_type, domain_id,
+            domain_acl_mapping, on_exception, acl_template_id)
+
+    def update_vport_policygroups(self, vport_id, add_policygroups,
+                                  remove_policygroups):
+        self.policygroups.update_vport_policygroups(
+            vport_id, add_policygroups, remove_policygroups)
+
+    def set_vports_in_policygroup(self, pg_id, vport_list):
+        self.policygroups.update_vports_in_policy_group(pg_id, vport_list)
+
+    def delete_acl_entry(self, acl_id):
+        self.policygroups.delete_acl_entry(acl_id)
+
+    def delete_security_group_rule(self, sg_rule):
+        self.policygroups.delete_security_group_rule(sg_rule)
+
+    def get_nuage_external_sg_rule(self, ext_rule_id):
+        return self.policygroups.get_nuage_external_sg_rule(ext_rule_id)
+
+    def get_nuage_external_sg_rules(self, params):
+        return self.policygroups.get_nuage_external_sg_rules(params)

@@ -15,9 +15,7 @@
 import logging
 
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
-from nuage_neutron.vsdclient.common.nuagelib import Trunk
-from nuage_neutron.vsdclient.common.nuagelib import TrunkInterface
-from nuage_neutron.vsdclient.common.nuagelib import TrunkPort
+from nuage_neutron.vsdclient.common import nuagelib
 from nuage_neutron.vsdclient import restproxy
 
 LOG = logging.getLogger(__name__)
@@ -74,6 +72,10 @@ class NuageTrunkBase(object):
 
 class NuageTrunk(NuageTrunkBase):
 
+    trunk_obj = nuagelib.Trunk()
+    trunkport_obj = nuagelib.TrunkPort()
+    trunkinterface_obj = nuagelib.TrunkInterface()
+
     os_trunk_to_vsd_trunk = {
         'name': [('description', copy)],
         # TODO(gridinv): VSP team decided not to support it in initial release
@@ -120,55 +122,55 @@ class NuageTrunk(NuageTrunkBase):
         data = self.map_trunk_os_to_vsd(os_trunk)
         data['associatedVPortID'] = subnet_mapping.get('nuage_vport_id')
         data['name'] = os_trunk['id']
-        self.post(Trunk, data, parent='enterprises', parent_id=ent_id)
+        self.post(self.trunk_obj, data, parent='enterprises', parent_id=ent_id)
 
     def delete_trunk(self, os_trunk, subnet_mapping):
         ent_id = subnet_mapping.get('net_partition_id')
-        vsd_trunk = self._get_by_openstack_id(Trunk, os_trunk.id,
+        vsd_trunk = self._get_by_openstack_id(self.trunk_obj, os_trunk.id,
                                               parent='enterprises',
                                               parent_id=ent_id)
         if vsd_trunk:
-            self.delete(Trunk, vsd_trunk['ID'])
+            self.delete(self.trunk_obj, vsd_trunk['ID'])
 
     # TrunkPort
     def add_subport(self, os_trunk_id, subport, vport_id, params):
         vsd_trunk = self._get_by_openstack_id(
-            Trunk, os_trunk_id,
+            self.trunk_obj, os_trunk_id,
             parent='enterprises',
             parent_id=params['net_partition_id'])
 
         data = self.map_subport_to_vsd_vport(subport)
         data['associatedTrunkID'] = vsd_trunk.get('ID')
-        self.put(TrunkPort, vport_id, data)
+        self.put(self.trunkport_obj, vport_id, data)
         self.add_subport_interface(vport_id, params)
 
     def remove_subport(self, os_port, vport):
         self.remove_subport_interface(os_port, vport)
         data = {'associatedTrunkID': None}
-        self.put(TrunkPort, vport['ID'], data)
+        self.put(self.trunkport_obj, vport['ID'], data)
 
     def update_subport(self, os_port, vport, params):
-        vm_interface = self._get_by_openstack_id(TrunkInterface,
+        vm_interface = self._get_by_openstack_id(self.trunkinterface_obj,
                                                  os_port['id'],
                                                  parent='vports',
                                                  parent_id=vport.get('ID'))
         if vm_interface:
             data = self.map_port_to_interface(params)
-            self.put(TrunkInterface, vm_interface.get('ID'), data)
+            self.put(self.trunkinterface_obj, vm_interface.get('ID'), data)
 
     # TrunkInterface
     def add_subport_interface(self, nuage_vport_id, params):
 
         data = self.map_port_to_interface(params)
         data['VPortID'] = nuage_vport_id
-        self.post(TrunkInterface, data,
+        self.post(self.trunkinterface_obj, data,
                   parent='vports',
                   parent_id=nuage_vport_id)
 
     def remove_subport_interface(self, os_port, vport):
-        vm_interface = self._get_by_openstack_id(TrunkInterface,
+        vm_interface = self._get_by_openstack_id(self.trunkinterface_obj,
                                                  os_port['id'],
                                                  parent='vports',
                                                  parent_id=vport.get('ID'))
         if vm_interface:
-            self.delete(TrunkInterface, vm_interface['ID'])
+            self.delete(self.trunkinterface_obj, vm_interface['ID'])

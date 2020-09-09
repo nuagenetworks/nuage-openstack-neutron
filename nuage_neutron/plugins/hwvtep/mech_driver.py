@@ -17,7 +17,7 @@ import time
 
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
-from neutron_lib import constants
+from neutron_lib import constants as neutron_constants
 from neutron_lib.plugins.ml2 import api
 
 import netaddr
@@ -27,7 +27,7 @@ from oslo_db import exception as db_exc
 from oslo_log import log
 
 from nuage_neutron.plugins.common import base_plugin
-from nuage_neutron.plugins.common import constants as p_const
+from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import net_topology_db as ext_db
 from nuage_neutron.plugins.common import nuagedb
@@ -46,16 +46,16 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         self._l2_plugin = None
         self._l3_plugin = None
 
-        self.agent_type = constants.AGENT_TYPE_OVS
+        self.agent_type = neutron_constants.AGENT_TYPE_OVS
         vif_details = {portbindings.CAP_PORT_FILTER: False,
                        portbindings.VIF_DETAILS_CONNECTIVITY:
                            portbindings.CONNECTIVITY_L2}
         self.supported_vnic_types = [portbindings.VNIC_NORMAL]
-        self.supported_network_types = [constants.TYPE_FLAT,
-                                        constants.TYPE_VLAN]
+        self.supported_network_types = [neutron_constants.TYPE_FLAT,
+                                        neutron_constants.TYPE_VLAN]
         mech_agent.SimpleAgentMechanismDriverBase.__init__(
             self,
-            agent_type=constants.AGENT_TYPE_OVS,
+            agent_type=neutron_constants.AGENT_TYPE_OVS,
             vif_type=portbindings.VIF_TYPE_OVS,
             vif_details=vif_details,
             supported_vnic_types=self.supported_vnic_types
@@ -76,7 +76,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
 
     def is_network_device_port(self, port):
         return port.get('device_owner', '').startswith(
-            constants.DEVICE_OWNER_PREFIXES)
+            neutron_constants.DEVICE_OWNER_PREFIXES)
 
     def _validate_create_subnet(self, db_context, network, prefixlen,
                                 subnet, vsd_managed, l2bridge):
@@ -121,7 +121,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                 s['ip_version'] == subnet['ip_version']]
             if not ipv_bridged:
                 return
-            for param in p_const.L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES:
+            for param in constants.L2BRIDGE_SUBNET_EQUAL_ATTRIBUTES:
                 self._validate_l2bridge_added_subnet_parameter(
                     ipv_bridged[0], subnet, param, l2bridge)
 
@@ -402,18 +402,15 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                         subnet_mapping['nuage_managed_subnet'],
                     'port_security_enabled': False,
                     'personality': gw['gw_type'],
-                    'type': p_const.BRIDGE_VPORT_TYPE
+                    'type': constants.BRIDGE_VPORT_TYPE
                 }
                 vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
                     subnet_mapping['nuage_subnet_id'])
                 params['vsd_subnet'] = vsd_subnet
 
-                # allow all policy group is a default switch behaviour
-                create_policy = False
-
                 vport = self.vsdclient.create_gateway_vport_no_usergroup(
                     ctx.tenant_id,
-                    params, create_policy_group=create_policy)
+                    params)
                 LOG.debug("created vport: %(vport_dict)s",
                           {'vport_dict': vport})
                 bridge_port_id = vport.get('vport').get('ID')
