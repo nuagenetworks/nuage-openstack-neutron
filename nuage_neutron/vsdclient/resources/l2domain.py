@@ -536,8 +536,8 @@ class NuageL2Domain(object):
                 return l2domain.get_gwIp_set_via_dhcp(dhcpoption)
 
     def move_to_l3(self, l2domain_id, subnet_id):
-        url = nuagelib.Job.post_url(parent=nuagelib.NuageL2Domain.resource,
-                                    parent_id=l2domain_id)
+        url = nuagelib.Job().post_url(parent=nuagelib.NuageL2Domain.resource,
+                                      parent_id=l2domain_id)
         self.restproxy.post(url, {
             'command': 'ATTACH',
             'parameters': {'destinationSubnetID': subnet_id}
