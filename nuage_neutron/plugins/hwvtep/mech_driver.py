@@ -418,9 +418,8 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                     subnet_mapping['nuage_subnet_id'])
                 params['vsd_subnet'] = vsd_subnet
 
-                # policy groups are not supported on netconf
-                # managed gateways
-                create_policy = 'NETCONF' not in gw['gw_type']
+                # allow all policy group is a default switch behaviour
+                create_policy = False
 
                 vport = self.vsdclient.create_gateway_vport_no_usergroup(
                     ctx.tenant_id,
