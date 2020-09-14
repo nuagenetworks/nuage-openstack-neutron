@@ -23,7 +23,6 @@ from oslo_log import log as logging
 from nuage_neutron.plugins.common import base_plugin
 from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants
-from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient import restproxy
@@ -52,7 +51,8 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
             self._core_plugin = directory.get_plugin()
         return self._core_plugin
 
-    def process_port_create(self, db_context, port, vport, vsd_subnet,
+    def process_port_create(self, db_context, port, vport,
+                            domain_type, domain_id,
                             subnet_mapping, pg_type):
         if self._is_vsd_mgd(subnet_mapping):
             # port security is only applicable to OS managed subnets
@@ -63,13 +63,13 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
             self._wrap_process_port_security_groups(db_context, pg_type,
                                                     added_sgs, removed_sgs,
                                                     subnet_mapping, vport,
-                                                    vsd_subnet)
+                                                    domain_type, domain_id)
         elif not port.get(portsecurity.PORTSECURITY, True):
             self.process_pg_allow_all(db_context, pg_type, subnet_mapping,
-                                      vport, vsd_subnet)
+                                      vport, domain_type, domain_id)
 
     def process_port_update(self, db_context, port, original_port, vport,
-                            vsd_subnet,
+                            domain_type, domain_id,
                             subnet_mapping, pg_type=constants.SOFTWARE):
 
         if not self._is_vsd_mgd(subnet_mapping):
@@ -82,7 +82,7 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
                 self._wrap_process_port_security_groups(db_context, pg_type,
                                                         added_sgs, removed_sgs,
                                                         subnet_mapping, vport,
-                                                        vsd_subnet)
+                                                        domain_type, domain_id)
 
         original_psec = original_port.get(portsecurity.PORTSECURITY, True)
         updated_psec = port.get(portsecurity.PORTSECURITY, True)
@@ -90,11 +90,13 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
             if updated_psec:
                 # Remove PG_ALLOW_ALL
                 self.process_pg_allow_all(db_context, pg_type, subnet_mapping,
-                                          vport, vsd_subnet, add=False)
+                                          vport, domain_type, domain_id,
+                                          add=False)
             else:
                 # Add PG_ALLOW_ALL
                 self.process_pg_allow_all(db_context, pg_type, subnet_mapping,
-                                          vport, vsd_subnet, add=True)
+                                          vport, domain_type, domain_id,
+                                          add=True)
             status = (constants.DISABLED if updated_psec
                       else constants.ENABLED)
             self.vsdclient.update_mac_spoofing_on_vport(vport['ID'], status)
@@ -112,7 +114,7 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
         return domain_sg_pgs_mapping[domain_id][sg_id]['ID']
 
     def process_pg_allow_all(self, db_context, pg_type, subnet_mapping, vport,
-                             vsd_subnet, add=True):
+                             domain_type, domain_id, add=True):
         if self._is_vsd_mgd(subnet_mapping):
             # PG_ALLOW_ALL is only set on OS managed subnets
             return
@@ -124,7 +126,7 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
             self._wrap_process_port_security_groups(db_context, pg_type,
                                                     added_sgs, removed_sgs,
                                                     subnet_mapping, vport,
-                                                    vsd_subnet)
+                                                    domain_type, domain_id)
         else:
             # Remove PG_ALLOW_ALL
             removed_sgs = [vsd_constants.NUAGE_PLCY_GRP_ALLOW_ALL]
@@ -132,21 +134,13 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
             self._wrap_process_port_security_groups(db_context, pg_type,
                                                     added_sgs, removed_sgs,
                                                     subnet_mapping, vport,
-                                                    vsd_subnet)
+                                                    domain_type, domain_id)
 
     def _wrap_process_port_security_groups(self, db_context, pg_type,
                                            added_sg_ids, removed_sg_ids,
                                            subnet_mapping, vport,
-                                           vsd_subnet=None, domain_id=None,
-                                           domain_type=None,
+                                           domain_type, domain_id,
                                            vsd_managed=False):
-        if not vsd_subnet and not domain_id:
-            raise nuage_exc.NuageAPIException(
-                msg="Unable to determine VSD Domain")
-        if not domain_id:
-            domain_id, domain_type = self._get_domain_id_type_from_vsd_subnet(
-                vsd_subnet)
-
         attempts = 3
         # Due to concurrent create & delete of PG: add a retry
         for attempt in range(attempts):
@@ -167,16 +161,17 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
                 LOG.debug("Process Port Securitygroups retry")
 
                 # Due to concurrent router-attach: find vsd subnet again
-                if (e.vsd_code == vsd_constants.PG_VPORT_DOMAIN_CONFLICT and
-                        vsd_subnet):
+                if e.vsd_code == vsd_constants.PG_VPORT_DOMAIN_CONFLICT:
                     found_vsd_subnet = self.nuage_plugin._find_vsd_subnet(
                         db_context, subnet_mapping)
-                    if found_vsd_subnet['ID'] == vsd_subnet['ID']:
+                    found_domain_type, found_domain_id = (
+                        self._get_domain_type_id_from_vsd_subnet(
+                            self.vsdclient, found_vsd_subnet))
+                    if found_domain_id == domain_id:
                         raise  # No use retrying
                     else:
-                        domain_id, domain_type = (
-                            self._get_domain_id_type_from_vsd_subnet(
-                                found_vsd_subnet))
+                        domain_type, domain_id = (found_domain_type,
+                                                  found_domain_type)
 
                 # Translate network macro error
                 elif e.vsd_code in constants.NOT_SUPPORTED_NW_MACRO:
@@ -191,17 +186,6 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
                     LOG.debug("Unrecoverable error encountered during "
                               "processing port securitygroups")
                     raise
-
-    def _get_domain_id_type_from_vsd_subnet(self, vsd_subnet):
-        if vsd_subnet['type'] == vsd_constants.L2DOMAIN:
-            domain_id = vsd_subnet['ID']
-            domain_type = vsd_constants.L2DOMAIN
-        else:
-            # find l3 domain
-            domain_id = self.vsdclient.get_l3domain_id_by_domain_subnet_id(
-                vsd_subnet['ID'])
-            domain_type = vsd_constants.DOMAIN
-        return domain_id, domain_type
 
     def _process_port_security_groups(self, db_context, vport, domain_id,
                                       domain_type,

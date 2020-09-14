@@ -12,6 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import collections
 
 from neutron.objects.qos import policy as qos_policy
 from neutron.objects.qos import rule as qos_rule
@@ -39,6 +40,9 @@ SUPPORTED_RULES = {
             'type:range': [0, db_consts.DB_INTEGER_MAX_VALUE]},
         qos_consts.DIRECTION: {
             'type:values': [constants.EGRESS_DIRECTION]}
+    },
+    qos_consts.RULE_TYPE_DSCP_MARKING: {
+        qos_consts.DSCP_MARK: {'type:values': constants.VALID_DSCP_MARKS}
     }
 }
 VIF_TYPES = [portbindings.VIF_TYPE_OVS, portbindings.VIF_TYPE_VHOST_USER]
@@ -78,20 +82,29 @@ class NuageQosDriver(base.DriverBase):
 
     @staticmethod
     def _get_vsd_qos_options(db_context, policy_id):
+        vsd_qos_options = {
+            'dscp_options': {},
+            'bandwidth_options': {},
+        }
         if policy_id is None:
-            return {}
-        vsd_qos_options = {}
+            return vsd_qos_options
 
         # The policy might not have any rules
         all_rules = qos_rule.get_rules(qos_policy.QosPolicy,
                                        db_context, policy_id)
         for rule in all_rules:
             if isinstance(rule, qos_rule.QosBandwidthLimitRule):
-                vsd_qos_options['rateLimitingActive'] = True
+                vsd_qos_options['bandwidth_options'][
+                    'rateLimitingActive'] = True
                 if rule.max_kbps:
-                    vsd_qos_options['peak'] = float(rule.max_kbps) / 1000
+                    vsd_qos_options['bandwidth_options'][
+                        'peak'] = float(rule.max_kbps) / 1000
                 if rule.max_burst_kbps:
-                    vsd_qos_options['burst'] = rule.max_burst_kbps
+                    vsd_qos_options['bandwidth_options'][
+                        'burst'] = rule.max_burst_kbps
+            elif isinstance(rule, qos_rule.QosDscpMarkingRule):
+                vsd_qos_options['dscp_options']['dscp_mark'] = rule.dscp_mark
+
         return vsd_qos_options
 
     @staticmethod
@@ -115,31 +128,11 @@ class NuageQosDriver(base.DriverBase):
 
     def update_policy(self, db_context, policy):
         vsd_options = self._get_vsd_qos_options(db_context, policy.id)
-        l3subnet_ids = set()
-        l2domain_ids = set()
-        vport_ids = []
-        for network_id in policy.get_bound_networks():
-            subnets = self._mech_driver.core_plugin.get_subnets(
-                db_context,
-                filters={'network_id': [network_id]})
-            for subnet in subnets:
-                subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-                    db_context.session, subnet['id'])
-                parent_type = self._get_parent_type(subnet_mapping)
-                if parent_type == nuage_constants.L2DOMAIN:
-                    l2domain_ids.add(subnet_mapping['nuage_subnet_id'])
-                else:
-                    l3subnet_ids.add(subnet_mapping['nuage_subnet_id'])
-        for port_id in policy.get_bound_ports():
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_port_id(
-                db_context.session, port_id)
-            vport = self._mech_driver._get_nuage_vport({'id': port_id},
-                                                       subnet_mapping)
-            vport_ids.append(vport['ID'])
 
         self._vsdclient.bulk_update_existing_qos(
-            policy.id, vsd_options,
-            l3subnet_ids, l2domain_ids, vport_ids)
+            policy.id, vsd_options['bandwidth_options'])
+        self._vsdclient.bulk_update_existing_dscp(
+            policy.id, vsd_options['dscp_options'])
 
     def update_network(self, db_context, original, updated):
         if original.get('qos_policy_id') == updated.get('qos_policy_id'):
@@ -157,6 +150,8 @@ class NuageQosDriver(base.DriverBase):
 
         # Do not process ipv4, ipv6 subnets for same vsd subnet twice
         vsd_subnets = []
+        domain_adv_fwd_mapping = collections.defaultdict(dict)
+
         for subnet in subnets:
             # Call mech driver to update qos at l2domain/l3subnet
             subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
@@ -168,8 +163,23 @@ class NuageQosDriver(base.DriverBase):
                 parent_type=self._get_parent_type(subnet_mapping),
                 parent_id=subnet_mapping['nuage_subnet_id'],
                 qos_policy_id=updated['qos_policy_id'],
-                qos_policy_options=vsd_qos_options,
+                qos_policy_options=vsd_qos_options['bandwidth_options'],
                 original_qos_policy_id=original['qos_policy_id'])
+            # DSCP marking
+            vsd_subnet = self._mech_driver._find_vsd_subnet(db_context,
+                                                            subnet_mapping)
+            domain_type, domain_id = (
+                self._mech_driver._get_domain_type_id_from_vsd_subnet(
+                    self._vsdclient, vsd_subnet))
+            self._vsdclient.create_update_dscp_marking_subnet(
+                domain_type=domain_type,
+                domain_id=domain_id,
+                vsd_subnet=vsd_subnet,
+                domain_adv_fwd_mapping=domain_adv_fwd_mapping,
+                qos_policy_id=updated['qos_policy_id'],
+                dscp_mark=vsd_qos_options['dscp_options'].get('dscp_mark'),
+                original_qos_policy_id=original['qos_policy_id'])
+
             vsd_subnets.append(subnet_mapping['nuage_subnet_id'])
 
     def create_subnet(self, context):
@@ -180,17 +190,34 @@ class NuageQosDriver(base.DriverBase):
             context._plugin_context, subnet['network_id'])
         vsd_qos_options = self._get_vsd_qos_options(db_context,
                                                     network_qos_policy_id)
-        if vsd_qos_options:
-            subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
-                                                            subnet['id'])
+        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(db_context.session,
+                                                        subnet['id'])
+
+        if vsd_qos_options['bandwidth_options']:
             self._vsdclient.create_update_qos(
                 parent_type=self._get_parent_type(subnet_mapping),
                 parent_id=subnet_mapping['nuage_subnet_id'],
                 qos_policy_id=network_qos_policy_id,
-                qos_policy_options=vsd_qos_options)
+                qos_policy_options=vsd_qos_options['bandwidth_options'])
 
-    def create_update_port(self, db_context, port, nuage_vport,
-                           original_port=None):
+        if vsd_qos_options['dscp_options']:
+            vsd_subnet = self._mech_driver._find_vsd_subnet(db_context,
+                                                            subnet_mapping)
+            domain_type, domain_id = (
+                self._mech_driver._get_domain_type_id_from_vsd_subnet(
+                    self._vsdclient, vsd_subnet))
+            self._vsdclient.create_update_dscp_marking_subnet(
+                domain_type=domain_type,
+                domain_id=domain_id,
+                vsd_subnet=vsd_subnet,
+                domain_adv_fwd_mapping=collections.defaultdict(dict),
+                qos_policy_id=network_qos_policy_id,
+                dscp_mark=vsd_qos_options['dscp_options'].get('dscp_mark'),
+                original_qos_policy_id=None)
+
+    def process_create_update_port(self, db_context, port, nuage_vport,
+                                   domain_type, domain_id,
+                                   original_port=None):
         original_qos_policy = (original_port.get('qos_policy_id')
                                if original_port else None)
         new_qos_policy = port.get('qos_policy_id')
@@ -203,9 +230,31 @@ class NuageQosDriver(base.DriverBase):
             return
 
         vsd_qos_options = self._get_vsd_qos_options(db_context, new_qos_policy)
+
+        # Update bandwidth options
         self._vsdclient.create_update_qos(
             parent_type=nuage_constants.VPORT,
             parent_id=nuage_vport['ID'],
             qos_policy_id=new_qos_policy,
-            qos_policy_options=vsd_qos_options,
+            qos_policy_options=vsd_qos_options['bandwidth_options'],
             original_qos_policy_id=original_qos_policy)
+
+        # Update DSCP options
+        existing_pg = None
+        new_pg = None
+        if new_qos_policy != original_qos_policy and original_qos_policy:
+            existing_pg = self._vsdclient.get_policygroup_in_domain(
+                original_qos_policy, domain_type, domain_id)
+
+        if vsd_qos_options['dscp_options']:
+            # Create / Update PG
+            new_pg = self._vsdclient.find_create_policygroup_for_qos(
+                domain_type, domain_id, new_qos_policy,
+                dscp_mark=vsd_qos_options['dscp_options']['dscp_mark']
+            )
+        # Update vPort Policygroups
+        add_pgs = [new_pg['ID']] if new_pg else []
+        remove_pgs = [existing_pg['ID']] if existing_pg else []
+        self._vsdclient.update_vport_policygroups(
+            vport_id=nuage_vport['ID'], add_policygroups=add_pgs,
+            remove_policygroups=remove_pgs)
