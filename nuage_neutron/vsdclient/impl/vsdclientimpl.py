@@ -454,11 +454,9 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def create_update_fip_qos(self, neutron_fip, nuage_fip):
         self.qos.create_update_fip_qos(neutron_fip, nuage_fip)
 
-    def bulk_update_existing_qos(self, qos_policy_id, qos_policy_options,
-                                 l3subnet_ids, l2domain_ids, vport_ids):
+    def bulk_update_existing_qos(self, qos_policy_id, qos_policy_options):
         self.qos.bulk_update_existing_qos(
-            qos_policy_id, qos_policy_options,
-            l3subnet_ids, l2domain_ids, vport_ids)
+            qos_policy_id, qos_policy_options)
 
     def delete_fip_qos(self, nuage_fip):
         self.qos.delete_fip_qos(nuage_fip)
@@ -888,6 +886,11 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
                 parent_type=constants.DOMAIN,
                 parent_id=domain_id, required=required, **filters)
 
+    def get_policygroup_in_domain(self, neutron_id, domain_type, domain_id,
+                                  pg_type=constants.SOFTWARE):
+        return self.policygroups.get_policygroup_in_domain(
+            neutron_id, domain_type, domain_id, pg_type)
+
     def get_vports_in_policygroup(self, policygroup_id):
         return self.policygroups.get_vports_in_policygroup(policygroup_id)
 
@@ -956,6 +959,23 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
     def delete_security_group_rule(self, sg_rule):
         self.policygroups.delete_security_group_rule(sg_rule)
+
+    def find_create_policygroup_for_qos(self, domain_type, domain_id,
+                                        qos_policy_id, dscp_mark):
+        return self.policygroups.find_create_policygroup_for_qos(
+            domain_type, domain_id, qos_policy_id, dscp_mark)
+
+    def create_update_dscp_marking_subnet(self, domain_type, domain_id,
+                                          vsd_subnet, domain_adv_fwd_mapping,
+                                          qos_policy_id,
+                                          dscp_mark,
+                                          original_qos_policy_id=None):
+        self.policygroups.create_update_dscp_marking_subnet(
+            domain_type, domain_id, vsd_subnet, domain_adv_fwd_mapping,
+            qos_policy_id, dscp_mark, original_qos_policy_id)
+
+    def bulk_update_existing_dscp(self, policy_id, dscp_options):
+        self.policygroups.bulk_update_existing_dscp(policy_id, dscp_options)
 
     def get_nuage_external_sg_rule(self, ext_rule_id):
         return self.policygroups.get_nuage_external_sg_rule(ext_rule_id)
