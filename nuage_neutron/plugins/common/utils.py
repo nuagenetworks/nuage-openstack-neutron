@@ -26,6 +26,7 @@ from oslo_log import log as logging
 
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient.restproxy import RESTProxyError
 
 
@@ -98,6 +99,18 @@ class SubnetUtilsBase(object):
         except netaddr.core.AddrFormatError:
             pass
         return value
+
+    @staticmethod
+    def _get_domain_type_id_from_vsd_subnet(vsdclient, vsd_subnet):
+        if vsd_subnet['type'] == vsd_constants.L2DOMAIN:
+            domain_id = vsd_subnet['ID']
+            domain_type = vsd_constants.L2DOMAIN
+        else:
+            # find l3 domain
+            domain_id = vsdclient.get_l3domain_id_by_domain_subnet_id(
+                vsd_subnet['ID'])
+            domain_type = vsd_constants.DOMAIN
+        return domain_type, domain_id
 
 
 def get_logger(name=None, fn=None):

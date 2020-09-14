@@ -161,13 +161,14 @@ class NuageQos(object):
             self.qos_obj.post_url(parent=parent_type, parent_id=parent_id),
             qos_data)
 
-    def bulk_update_existing_qos(self, qos_policy_id, qos_policy_options,
-                                 l3subnet_ids, l2domain_ids, vport_ids):
+    def bulk_update_existing_qos(self, qos_policy_id, qos_policy_options):
         # find all existing QOS objects
         filters = {'externalID': get_vsd_external_id(qos_policy_id)}
         qoss = self.restproxy.get(
             self.qos_obj.get_url(),
             extra_headers=self.qos_obj.extra_header_filter(**filters))
+        if not qoss:
+            return
         updates = [{'ID': qos['ID']} for qos in qoss]
         for update in updates:
             update.update(qos_policy_options)

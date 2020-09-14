@@ -15,6 +15,7 @@ import collections
 import copy
 import ipaddress
 import logging
+import random
 
 import netaddr
 
@@ -58,7 +59,7 @@ class NuagePolicyGroups(object):
         self.policygroup_obj = nuagelib.Policygroup()
 
     @staticmethod
-    def _get_vsd_external_id(neutron_id, pg_type):
+    def _get_vsd_external_id(neutron_id, pg_type=constants.SOFTWARE):
         if pg_type == constants.HARDWARE:
             prefix = 'hw:'
         else:
@@ -239,10 +240,10 @@ class NuagePolicyGroups(object):
             ignore_err_codes=(None if raise_on_pg_exists else
                               [restproxy.REST_PG_EXISTS_ERR_CODE]))[0]
 
-    def get_policygroup_in_domain(self, sg_id, domain_type, domain_id,
-                                  pg_type):
+    def get_policygroup_in_domain(self, neutron_id, domain_type, domain_id,
+                                  pg_type=constants.SOFTWARE):
         filters = {
-            'externalID': self._get_vsd_external_id(sg_id, pg_type)
+            'externalID': self._get_vsd_external_id(neutron_id, pg_type)
         }
         domain_resource_type = self._get_resource_type(domain_type)
         pgs = self.restproxy.get(
@@ -569,6 +570,172 @@ class NuagePolicyGroups(object):
             self.restproxy.delete(
                 acl_entry_tmpl_obj.delete_url() % acl_id)
 
+    def find_create_policygroup_for_qos(self, domain_type, domain_id,
+                                        qos_policy_id, dscp_mark):
+        # Find Policygroup
+        pg = self.get_policygroup_in_domain(qos_policy_id, domain_type,
+                                            domain_id)
+        create_adv_fwd_rule = False
+        prefix = 'OS_QOS_'
+        if not pg:
+            try:
+                pg_data = {
+                    'description': prefix + qos_policy_id,
+                    'name': prefix + qos_policy_id,
+                    'externalID': self._get_vsd_external_id(qos_policy_id),
+                    'type': constants.SOFTWARE
+                }
+                pg = self.create_policygroup(domain_type, domain_id, pg_data)
+                create_adv_fwd_rule = True
+            except restproxy.RESTProxyError as e:
+                if e.vsd_code == restproxy.REST_PG_EXISTS_ERR_CODE:
+                    # PG is being concurrently created, do not create rules
+                    pg = self.get_policygroup_in_domain(qos_policy_id,
+                                                        domain_type,
+                                                        domain_id)
+        if create_adv_fwd_rule:
+            # Create the rule
+            # Find the Adv Fwd Template
+            fwd_policy_id = helper.get_in_adv_fwd_policy(self.restproxy,
+                                                         domain_type,
+                                                         domain_id)
+
+            adv_fwd_obj = nuagelib.NuageAdvFwdRule()
+            adv_fwd_info = {
+                'description': prefix + qos_policy_id,
+                'name': prefix + qos_policy_id,
+                'externalID': self._get_vsd_external_id(qos_policy_id),
+                'action': 'FORWARD',
+                'DSCP': '*',
+                'protocol': 'ANY',
+                'networkType': 'ANY',
+                'flowLoggingEnabled': self.flow_logging_enabled,
+                'statsLoggingEnabled': self.stats_collection_enabled,
+                'DSCPRemarking': str(dscp_mark),
+                'locationType': 'POLICYGROUP',
+                'locationID': pg['ID']
+            }
+            for ether_type in (constants.IPV4_ETHERTYPE,
+                               constants.IPV6_ETHERTYPE):
+                adv_fwd_info['etherType'] = ether_type
+                for _ in range(3):
+                    # priority for the rules is in the lower half of
+                    # the spectrum, so they match before network type rules.
+                    adv_fwd_info['priority'] = random.randint(
+                        MIN_SG_PRI, int(MAX_SG_PRI / 2) - 100)
+                    try:
+                        self.restproxy.post(
+                            adv_fwd_obj.in_post_resource(fwd_policy_id),
+                            adv_fwd_info,
+                            on_res_exists=None,
+                            ignore_err_codes=[])
+                        break
+                    except restproxy.RESTProxyError as e:
+                        if (e.vsd_code ==
+                                restproxy.REST_DUPLICATE_AFP_ENTRY_PRIORITY):
+                            # retry
+                            adv_fwd_info['priority'] = random.randint(
+                                MIN_SG_PRI, int(MAX_SG_PRI / 2) - 100)
+                        else:
+                            raise
+        return pg
+
+    def create_update_dscp_marking_subnet(self, domain_type, domain_id,
+                                          vsd_subnet, domain_adv_fwd_mapping,
+                                          qos_policy_id,
+                                          dscp_mark,
+                                          original_qos_policy_id=None):
+        if original_qos_policy_id:
+            # Find & delete all AdvFwdRules for the vsd_subnet
+            if domain_type == constants.DOMAIN:
+                filters = {
+                    'externalID': self._get_vsd_external_id(
+                        original_qos_policy_id),
+                    'locationID': vsd_subnet['ID']
+                }
+            else:
+                filters = {
+                    'externalID': self._get_vsd_external_id(
+                        original_qos_policy_id),
+                    'locationType': 'ANY'
+                }
+            adv_fwd_obj = nuagelib.AdvFwdEntryTemplate('ingress')
+            adv_fwd_rules = self.restproxy.get(
+                adv_fwd_obj.get_url(),
+                extra_headers=adv_fwd_obj.extra_header_filter(**filters))
+            self.restproxy.bulk_delete(
+                adv_fwd_obj.bulk_url(),
+                data=[adv_rule['ID'] for adv_rule in adv_fwd_rules])
+        if qos_policy_id and dscp_mark is not None:
+            # Set new AdvFwdRules
+            fwd_policy_id = domain_adv_fwd_mapping[domain_id]
+            if not fwd_policy_id:
+                fwd_policy_id = helper.get_in_adv_fwd_policy(self.restproxy,
+                                                             domain_type,
+                                                             domain_id)
+
+            adv_fwd_obj = nuagelib.NuageAdvFwdRule()
+            prefix = 'OS_QOS_'
+            location_type = ('SUBNET' if domain_type == constants.DOMAIN
+                             else 'ANY')
+            location_id = (vsd_subnet['ID'] if domain_type == constants.DOMAIN
+                           else None)
+
+            adv_fwd_info = {
+                'description': prefix + qos_policy_id,
+                'name': prefix + qos_policy_id,
+                'externalID': self._get_vsd_external_id(qos_policy_id),
+                'action': 'FORWARD',
+                'DSCP': '*',
+                'protocol': 'ANY',
+                'networkType': 'ANY',
+                'flowLoggingEnabled': self.flow_logging_enabled,
+                'statsLoggingEnabled': self.stats_collection_enabled,
+                'DSCPRemarking': dscp_mark,
+                'locationType': location_type,
+                'locationID': location_id
+            }
+            for ether_type in (constants.IPV4_ETHERTYPE,
+                               constants.IPV6_ETHERTYPE):
+                adv_fwd_info['etherType'] = ether_type
+                for _ in range(3):
+                    # priority for the rules is in the upper half of
+                    # the spectrum, so they match after network type rules.
+                    adv_fwd_info['priority'] = random.randint(
+                        int(MAX_SG_PRI / 2) + 100, MAX_SG_PRI)
+                    try:
+                        self.restproxy.post(
+                            adv_fwd_obj.in_post_resource(fwd_policy_id),
+                            adv_fwd_info,
+                            on_res_exists=None,
+                            ignore_err_codes=[])
+                        break
+                    except restproxy.RESTProxyError as e:
+                        if (e.vsd_code ==
+                                restproxy.REST_DUPLICATE_AFP_ENTRY_PRIORITY):
+                            # retry
+                            adv_fwd_info['priority'] = random.randint(
+                                int(MAX_SG_PRI / 2) + 100, MAX_SG_PRI)
+                        else:
+                            raise
+
+    def bulk_update_existing_dscp(self, policy_id, dscp_options):
+        filters = {'externalID': get_vsd_external_id(policy_id)}
+        adv_fwd_obj = nuagelib.AdvFwdEntryTemplate('ingress')
+        adv_fwd_rules = self.restproxy.get(
+            adv_fwd_obj.get_url(),
+            extra_headers=adv_fwd_obj.extra_header_filter(**filters))
+        if adv_fwd_rules and dscp_options.get('dscp_mark') is None:
+            self.restproxy.bulk_delete(
+                adv_fwd_obj.bulk_url(),
+                data=[adv_rule['ID'] for adv_rule in adv_fwd_rules])
+        elif adv_fwd_rules:
+            updates = [{'ID': rule['ID'],
+                        'DSCPRemarking': dscp_options['dscp_mark']
+                        } for rule in adv_fwd_rules]
+            self.restproxy.bulk_put(
+                adv_fwd_obj.get_url() + '?responseChoice=1', updates)
+
     def get_nuage_external_sg_rule(self, ext_rule_id):
         try:
             nuage_aclrule = nuagelib.ACLEntryTemplate('ingress')
@@ -805,7 +972,7 @@ class NuageRedirectTargets(object):
             nuage_fwdrule.in_post_resource(fwd_policy_id),
             nuage_match_info,
             on_res_exists=self.restproxy.retrieve_by_ext_id_and_priority,
-            ignore_err_codes=[restproxy.REST_DUPLICATE_POLICY_ENTRY_PRIORITY]
+            ignore_err_codes=[restproxy.REST_DUPLICATE_AFP_ENTRY_PRIORITY]
         )
         return (self._process_redirect_target_rule(fwd_rules[0])
                 if fwd_rules else None)

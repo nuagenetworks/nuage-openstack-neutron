@@ -139,9 +139,12 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             if port['binding:host_id']:
                 port_dict = self._make_port_dict(context)
                 vport = self.np_driver.create_port(port_dict)
+                (domain_type,
+                 domain_id) = self._get_domain_type_id_from_vsd_subnet(
+                    self.vsdclient, port_dict['vsd_subnet'])
                 self.psec_handler.process_port_create(
                     context._plugin_context, port, vport,
-                    port_dict['vsd_subnet'], port_dict['subnet_mapping'],
+                    domain_type, domain_id, port_dict['subnet_mapping'],
                     constants.HARDWARE
                 )
 
@@ -183,9 +186,11 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             vport = self.np_driver.create_port(port_dict)
 
         if vport:
+            domain_type, domain_id = self._get_domain_type_id_from_vsd_subnet(
+                self.vsdclient, port_dict['vsd_subnet'])
             self.psec_handler.process_port_create(
                 context._plugin_context, port, vport,
-                port_dict['vsd_subnet'], port_dict['subnet_mapping'],
+                domain_type, domain_id, port_dict['subnet_mapping'],
                 constants.HARDWARE
             )
 

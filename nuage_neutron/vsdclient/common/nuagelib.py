@@ -2286,3 +2286,15 @@ class ACLEntryTemplate(VsdChildResource):
 
     def __init__(self, direction):
         self.resource = '%saclentrytemplates' % direction
+
+
+class AdvFwdTemplate(VsdChildResource):
+
+    def __init__(self, direction):
+        self.resource = '%advfwdtemplates' % direction
+
+
+class AdvFwdEntryTemplate(VsdChildResource):
+
+    def __init__(self, direction):
+        self.resource = '%sadvfwdentrytemplates' % direction
