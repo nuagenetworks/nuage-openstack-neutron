@@ -560,6 +560,10 @@ class VsdClient(object):
                                     **filters):
         pass
 
+    def get_policygroup_in_domain(self, neutron_id, domain_type, domain_id,
+                                  pg_type=constants.SOFTWARE):
+        pass
+
     def get_vports_in_policygroup(self, policygroup_id):
         pass
 
@@ -614,6 +618,20 @@ class VsdClient(object):
         pass
 
     def delete_security_group_rule(self, sg_rule):
+        pass
+
+    def find_create_policygroup_for_qos(self, domain_type, domain_id,
+                                        qos_policy_id, dscp_mark):
+        pass
+
+    def create_update_dscp_marking_subnet(self, domain_type, domain_id,
+                                          vsd_subnet, domain_adv_fwd_mapping,
+                                          qos_policy_id,
+                                          qos_policy_options,
+                                          original_qos_policy_id=None):
+        pass
+
+    def bulk_update_existing_dscp(self, policy_id, dscp_options):
         pass
 
     def get_nuage_external_sg_rule(self, ext_rule_id):

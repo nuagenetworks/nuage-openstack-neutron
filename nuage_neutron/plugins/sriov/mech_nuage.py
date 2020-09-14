@@ -442,10 +442,13 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                                  ['NETCONF_THIRDPARTY_HW_VTEP',
                                   'UNMANAGED_GATEWAY'])
                 if create_policy:
+                    (domain_type,
+                     domain_id) = self._get_domain_type_id_from_vsd_subnet(
+                        self.vsdclient, vsd_subnet)
                     self.psec_handler.process_pg_allow_all(
                         ctx, nuage_const.HARDWARE,
                         port_dict['subnet_mapping'], vport['vport'],
-                        vsd_subnet)
+                        domain_type, domain_id)
                 LOG.debug("created vport: %(vport_dict)s",
                           {'vport_dict': vport})
                 bridge_port_id = vport.get('vport').get('ID')
