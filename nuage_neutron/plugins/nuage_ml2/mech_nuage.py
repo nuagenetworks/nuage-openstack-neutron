@@ -636,9 +636,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
             self.calculate_vips_for_port_ips(db_context,
                                              port)
-            self.qos_driver.create_update_port(db_context, port, nuage_vport)
+            domain_type, domain_id = self._get_domain_type_id_from_vsd_subnet(
+                self.vsdclient, nuage_subnet)
+            self.qos_driver.process_create_update_port(
+                db_context, port, nuage_vport, domain_type, domain_id)
             self.psec_handler.process_port_create(db_context, port,
-                                                  nuage_vport, nuage_subnet,
+                                                  nuage_vport,
+                                                  domain_type, domain_id,
                                                   subnet_mapping,
                                                   pg_type=constants.SOFTWARE)
         except (restproxy.RESTProxyError, NuageBadRequest) as ex:
@@ -792,16 +796,22 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                         vport=nuage_vport, rollbacks=rollbacks,
                                         subnet_mapping=subnet_mapping,
                                         vsd_subnet=nuage_subnet)
-            self.qos_driver.create_update_port(db_context, port, nuage_vport,
-                                               original)
-            rollbacks.append((self.qos_driver.create_update_port,
-                              [db_context, original, nuage_vport, port], {}))
+            domain_type, domain_id = self._get_domain_type_id_from_vsd_subnet(
+                self.vsdclient, nuage_subnet)
+            self.qos_driver.process_create_update_port(db_context, port,
+                                                       nuage_vport,
+                                                       domain_type, domain_id,
+                                                       original)
+            rollbacks.append((self.qos_driver.process_create_update_port,
+                              [db_context, original, nuage_vport,
+                               domain_type, domain_id, port], {}))
             self.psec_handler.process_port_update(db_context, port, original,
-                                                  nuage_vport, nuage_subnet,
+                                                  nuage_vport,
+                                                  domain_type, domain_id,
                                                   subnet_mapping)
             rollbacks.append((self.psec_handler.process_port_update,
                               [db_context, original, port, nuage_vport,
-                               nuage_subnet, subnet_mapping], {}))
+                               domain_type, domain_id, subnet_mapping], {}))
         except Exception as e:
             LOG.error('update_port_precommit(): got exception: {}'.format(e))
             with excutils.save_and_reraise_exception():
