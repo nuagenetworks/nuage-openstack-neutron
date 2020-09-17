@@ -1,0 +1,64 @@
+- hosts: localhost
+  vars:
+    no_proxy_var: "{{ proxy_env['no_proxy'] }}"
+  tasks:
+    - name: compute no_proxy
+      block:
+      - set_fact:
+          no_proxy_var: "{{ no_proxy_var }},{{ hostvars[item]['nodepool']['interface_ip'] }}"
+        when: hostvars[item]['nodepool']['interface_ip'] is defined
+        with_items: "{{ query('inventory_hostnames', 'all,!localhost') }}"
+
+- hosts: controller
+  tasks:
+    - name: fetch vsp_info
+      slurp:
+        src: /etc/ci/vsp_info.yaml
+      register: vsp_info
+
+- hosts: all
+  strategy: linear
+  vars:
+    vsp: "{{ hostvars['controller']['vsp_info']['content'] | b64decode | from_yaml}}"
+    env:
+      no_proxy: "{{ hostvars['localhost']['no_proxy_var'] }},{{ vsp['vsd_server'].split(':')[0]}}"
+  roles:
+    - role: orchestrate-devstack
+      devstack_base_dir: "{{ devstack_bases.old }}"
+      devstack_data_base_dir: "{{ devstack_bases.shared }}"
+  environment: '{{ proxy_env|combine(env) }}'
+
+- hosts: controller
+  vars:
+    vsp: "{{ hostvars['controller']['vsp_info']['content'] | b64decode | from_yaml}}"
+    env:
+      no_proxy: "{{ hostvars['localhost']['no_proxy_var'] }},{{ vsp['vsd_server'].split(':')[0]}}"
+  roles:
+    - configure-grenade-branches
+    - role: write-grenade-conf
+      base_dir: "{{ devstack_bases.shared }}"
+      grenade_base_dir: "{{ devstack_bases.new }}"
+      grenade_plugins: "{{ devstack_plugins|default({}) }}"
+    # run-grenade is configured to run also tempest smoke tests
+    # on the old node by default.
+    - role: run-grenade
+      base_dir: "{{ devstack_bases.shared }}"
+      grenade_base_dir: "{{ devstack_bases.new }}"
+  environment: '{{ proxy_env|combine(env) }}'
+
+- hosts: tempest
+  vars:
+    devstack_base_dir: "{{ devstack_bases.new }}"
+    vsp: "{{ hostvars['controller']['vsp_info']['content'] | b64decode | from_yaml}}"
+    env:
+      no_proxy: "{{ hostvars['localhost']['no_proxy_var'] }},{{ vsp['vsd_server'].split(':')[0]}}"
+    tox_envlist: all
+    tempest_test_regex: '^(tempest\.api\.network|neutron_tempest_plugin\.(api|scenario))\..*\[(?=.*smoke)'
+    tempest_test_blacklist: "{{devstack_bases.new}}/nuage-tempest-plugin/tempest-blacklist.txt"
+  roles:
+    - setup-tempest-run-dir
+    - setup-tempest-data-dir
+    - acl-devstack-files
+    - run-tempest
+  environment: '{{ proxy_env|combine(env) }}'
+
