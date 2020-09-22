@@ -264,8 +264,12 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, portbindings.VNIC_NORMAL)
                 not in self.supported_vnic_types):
             return
-        if context.host != context.original_host and context.original_host:
+        db_context = context._plugin_context
+        if ((context.host != context.original_host and
+                context.original_host) or not port.get('fixed_ips')):
             self._delete_port_on_switch(context)
+            ext_db.delete_switchport_binding(db_context,
+                                             port['id'])
         self._create_port_on_switch(context)
 
     def delete_port_precommit(self, context):
@@ -279,7 +283,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         context.nuage_bindings = nuage_bindings
         with db_context.session.begin(subtransactions=True):
             ext_db.delete_switchport_binding(db_context,
-                                             context.current['id'])
+                                             port['id'])
 
     @context_log
     def delete_port_postcommit(self, context):
