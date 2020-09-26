@@ -114,6 +114,15 @@ class RESTProxyError(RESTProxyBaseException):
         self.vsd_code = vsd_code
 
 
+class RESTProxyBulkError(RESTProxyError):
+    def __init__(self, nr_failures, errors=[]):
+        msg = ("{} errors in BULK REST call to VSD: "
+               "Unique errors: {}").format(nr_failures, '\n'.join(errors))
+        super(RESTProxyBulkError, self).__init__(
+            msg,
+            REST_CONFLICT)
+
+
 class ResourceExistsException(RESTProxyError):
     def __init__(self, msg=''):
         super(ResourceExistsException, self).__init__(
@@ -592,13 +601,29 @@ class RESTProxyServer(object):
         response = self.rest_call('PUT', resource, data,
                                   extra_headers=extra_headers)
         if response[0] in REST_SUCCESS_CODES:
-            return
+            return response[3]
         else:
             errors = json.loads(response[3])
             vsd_code = str(errors.get('internalErrorCode'))
             if vsd_code == REST_NO_ATTR_CHANGES_TO_MODIFY_ERR_CODE:
                 return
             self.raise_error_response(response)
+
+    def bulk_put(self, resource, data, extra_headers=None):
+        # Bulk put is limited to 500 requests
+        results = []
+        for chunk in self._chunkify(data, 500):
+            response = self.put(resource, chunk,
+                                extra_headers=extra_headers)
+
+            if response['responseMetadata']['failure']:
+                nr_failures = response['responseMetadata']['failure']
+                errors = {result['data']['errors'][0]['descriptions']
+                          [0]['description'] for result in
+                          response['response'] if result['data']}
+                raise RESTProxyBulkError(nr_failures, list(errors))
+            results.extend(response['response'])
+        return results
 
     def delete(self, resource, data='', extra_headers=None):
         response = self.rest_call('DELETE', resource, data,
@@ -632,3 +657,9 @@ class RESTProxyServer(object):
     @staticmethod
     def is_marked(vsd_object):
         return vsd_object.get('name', '').endswith('_MARKED_FOR_DELETION')
+
+    @staticmethod
+    def _chunkify(sequence, chunksize):
+        """Yield successive chunks from `sequence`"""
+        for i in range(0, len(sequence), chunksize):
+            yield sequence[i:i + chunksize]
