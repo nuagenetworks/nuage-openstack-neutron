@@ -185,6 +185,8 @@
             required-projects: *required-projects
         - tempest-full-vsdipam:
             required-projects: *required-projects
+        - networking-nuage-tempest-multinode:
+            required-projects: *required-projects
 
 - job:
     name: networking-nuage-rally-task
