@@ -199,6 +199,8 @@
         - networking-nuage-fwaas-v1:
             override-checkout: stable/queens
             required-projects: *required-projects
+        - networking-nuage-tempest-multinode:
+            required-projects: *required-projects
 
 - job:
     name: networking-nuage-rally-task
