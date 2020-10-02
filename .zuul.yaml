@@ -187,6 +187,9 @@
         - networking-nuage-fwaas-v1:
             override-checkout: stable/rocky
             required-projects: *required-projects
+        - networking-nuage-tempest-multinode:
+            required-projects: *required-projects
+
 - job:
     name: networking-nuage-rally-task
     parent: rally-task-at-devstack
