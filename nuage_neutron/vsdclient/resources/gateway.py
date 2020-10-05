@@ -639,7 +639,6 @@ class NuageGateway(object):
             req_params['externalid'] = get_vsd_external_id(
                 port['id'] if port else subnet['network_id'])
             resp = gw_helper.create_vport_interface(self.restproxy,
-                                                    self.policygroup,
                                                     req_params, type)
         else:
             if enable_dhcp:
@@ -650,15 +649,13 @@ class NuageGateway(object):
             req_params['externalid'] = get_vsd_external_id(port['id'])
             req_params[constants.PORTSECURITY] = port[constants.PORTSECURITY]
             resp = gw_helper.create_vport_interface(self.restproxy,
-                                                    self.policygroup,
                                                     req_params, type)
 
         ret = resp
         ret['vport_gw_type'] = self.get_personality_type(gw['personality'])
         return ret
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, params,
-                                          create_policy_group=False):
+    def create_gateway_vport_no_usergroup(self, tenant_id, params=False):
         subnet = params.get('subnet')
         enable_dhcp = params.get('enable_dhcp')
         port = params.get('port')
@@ -694,9 +691,7 @@ class NuageGateway(object):
         if type == constants.BRIDGE_VPORT_TYPE:
             req_params[constants.PORTSECURITY] = True
             resp = gw_helper.create_vport_interface(self.restproxy,
-                                                    self.policygroup,
-                                                    req_params, type,
-                                                    create_policy_group)
+                                                    req_params, type)
         else:
             ips = {}
             for fixed_ip in port.get('fixed_ips', []):
@@ -714,9 +709,7 @@ class NuageGateway(object):
             req_params['externalid'] = get_vsd_external_id(port['id'])
             req_params[constants.PORTSECURITY] = port[constants.PORTSECURITY]
             resp = gw_helper.create_vport_interface(self.restproxy,
-                                                    self.policygroup,
-                                                    req_params, type,
-                                                    create_policy_group)
+                                                    req_params, type)
 
         ret = resp
         ret['vport_gw_type'] = self.get_personality_type(params['personality'])
@@ -727,7 +720,7 @@ class NuageGateway(object):
                                                           policygroup_id)
         if vport_list:
             if len(vport_list) == 1:
-                self.policygroup.delete_nuage_policy_group(policygroup_id)
+                self.policygroup.delete_policygroup(policygroup_id)
                 LOG.debug("Deleted policygroup associated with "
                           "interface %s", interface)
 

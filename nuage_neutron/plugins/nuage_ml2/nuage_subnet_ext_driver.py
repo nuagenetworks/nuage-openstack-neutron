@@ -100,7 +100,7 @@ class NuageSubnetExtensionDriver(api.ExtensionDriver,
                     session, result['id'], nuage_constants.NUAGE_UNDERLAY)
                 nuage_subnet = self.vsdclient.get_nuage_subnet_by_id(
                     subnet_mapping['nuage_subnet_id'],
-                    subnet_type=nuage_constants.L3SUBNET)
+                    subnet_type=nuage_constants.SUBNET)
                 result['underlay'] = bool(nuage_underlay_db)
                 if nuage_subnet:
                     result['nuage_uplink'] = nuage_subnet['parentID']

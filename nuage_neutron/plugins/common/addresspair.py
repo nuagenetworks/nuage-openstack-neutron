@@ -450,7 +450,7 @@ class NuageAddressPair(BaseNuagePlugin):
         subnet_mapping = kwargs['subnet_mapping']
         self.process_address_pairs_of_subnet(context,
                                              subnet_mapping,
-                                             constants.L3SUBNET)
+                                             constants.SUBNET)
 
     def post_router_interface_delete_addresspair(self, resource, event, plugin,
                                                  **kwargs):
