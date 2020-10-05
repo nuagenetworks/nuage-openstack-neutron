@@ -88,7 +88,7 @@ class NuageDomain(object):
             nuage_pat = nuage_underlay = 'DISABLED'
         return nuage_pat, nuage_underlay
 
-    def get_router_by_external(self, ext_id):
+    def get_l3domain_by_external_id(self, ext_id):
         params = {
             'externalID': get_vsd_external_id(ext_id)
         }
@@ -465,6 +465,11 @@ class NuageDomain(object):
                                    extra_headers=nuage_extra_headers)
         return zones[0] if zones else None
 
+    def get_zone_by_id(self, zone_id):
+        zone_obj = nuagelib.NuageZone(create_params={'zone_id': zone_id})
+        zones = self.restproxy.get(zone_obj.get_resource(), required=True)
+        return zones[0]
+
     def _get_nuage_static_routes_by_router_id(self, neutron_router_id):
         domain_id = helper.get_l3domid_by_router_id(self.restproxy,
                                                     neutron_router_id)
@@ -782,7 +787,7 @@ class NuageDomainSubnet(object):
         return True
 
     def move_to_l2(self, subnet_id, l2domain_id):
-        url = nuagelib.Job.post_url('subnets', subnet_id)
+        url = nuagelib.Job().post_url('subnets', subnet_id)
         try:
             self.restproxy.post(url, {
                 'command': 'DETACH',

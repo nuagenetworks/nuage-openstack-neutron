@@ -1,4 +1,4 @@
-# Copyright 2016 Alcatel-Lucent USA Inc.
+# Copyright 2020 NOKIA
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -11,7 +11,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import re
 
 import netaddr
@@ -30,10 +29,10 @@ from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common.extensions import (
     nuage_redirect_target as ext_rtarget)
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import port_security
 from nuage_neutron.plugins.common import utils as nuage_utils
 from nuage_neutron.vsdclient.common import cms_id_helper
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
-from nuage_neutron.vsdclient import restproxy
 
 
 class NuageRedirectTarget(BaseNuagePlugin):
@@ -46,6 +45,8 @@ class NuageRedirectTarget(BaseNuagePlugin):
 
     def __init__(self):
         super(NuageRedirectTarget, self).__init__()
+        self.psec_handler = port_security.NuagePortSecurityHandler(
+            self.vsdclient, self)
         self.nuage_callbacks.subscribe(self.post_port_update_redirect_target,
                                        resources.PORT, constants.AFTER_UPDATE)
         self.nuage_callbacks.subscribe(self.post_port_create_redirect_target,
@@ -88,7 +89,7 @@ class NuageRedirectTarget(BaseNuagePlugin):
             if not subnet_mapping:
                 return []
             if self._is_vsd_mgd(subnet_mapping) or self._is_l3(subnet_mapping):
-                domain_id = self.vsdclient.get_router_by_domain_subnet_id(
+                domain_id = self.vsdclient.get_l3domain_id_by_domain_subnet_id(
                     subnet_mapping['nuage_subnet_id'])
                 if domain_id:
                     params['parentID'] = domain_id
@@ -380,15 +381,15 @@ class NuageRedirectTarget(BaseNuagePlugin):
         vsd_managed = False if domain['externalID'] else True
         if remote_sg:
             rtarget_rule['remote_group_name'] = remote_sg['name']
-            remote_pg = self._find_or_create_policygroup_using_rt(
+            remote_pg_id = self._find_or_create_policygroup_using_rt(
                 context, remote_sg['id'], rtarget, vsd_managed)
-            rtarget_rule['remote_policygroup_id'] = remote_pg['ID']
-            rtarget_rule['origin_policygroup_id'] = remote_pg['ID']
+            rtarget_rule['remote_policygroup_id'] = remote_pg_id
+            rtarget_rule['origin_policygroup_id'] = remote_pg_id
         if origin_sg:
             rtarget_rule['origin_group_name'] = origin_sg['name']
-            origin_pg = self._find_or_create_policygroup_using_rt(
+            origin_pg_id = self._find_or_create_policygroup_using_rt(
                 context, origin_sg['id'], rtarget, vsd_managed)
-            rtarget_rule['origin_policygroup_id'] = origin_pg['ID']
+            rtarget_rule['origin_policygroup_id'] = origin_pg_id
         rtarget_rule_resp = self.vsdclient.create_nuage_redirect_target_rule(
             rtarget_rule, rtarget)
 
@@ -397,64 +398,13 @@ class NuageRedirectTarget(BaseNuagePlugin):
 
     def _find_or_create_policygroup_using_rt(self, context, security_group_id,
                                              redirect_target, vsd_managed):
-        parent_id = redirect_target['parentID']
-        parent_type = redirect_target['parentType']
+        domain_id = redirect_target['parentID']
+        domain_type = redirect_target['parentType']
 
-        external_id = cms_id_helper.get_vsd_external_id(security_group_id)
-        policygroups = self._get_policygroups(external_id, parent_id,
-                                              parent_type)
-        if len(policygroups) > 1:
-            msg = _("Found multiple policygroups with externalID %s")
-            raise n_exc.Conflict(msg=msg % external_id)
-        elif len(policygroups) == 1:
-            return policygroups[0]
-        else:
-            return self._create_pg_for_rt(context, security_group_id,
-                                          redirect_target, vsd_managed)
-
-    def _get_policygroups(self, external_id, parent_id, parent_type):
-        if parent_type == constants.L2DOMAIN:
-            policygroups = self.vsdclient.get_nuage_l2domain_policy_groups(
-                parent_id,
-                externalID=external_id)
-        else:
-            policygroups = self.vsdclient.get_nuage_domain_policy_groups(
-                parent_id,
-                externalID=external_id)
-        return policygroups
-
-    def _create_pg_for_rt(self, context, security_group_id, rt, vsd_managed):
-        security_group = self.core_plugin.get_security_group(context,
-                                                             security_group_id)
-        # pop rules, make empty policygroup first
-        security_group_rules = security_group.pop('security_group_rules')
-        try:
-            policy_group = self.vsdclient.create_security_group_using_parent(
-                rt['parentID'],
-                rt['parentType'], security_group)
-        except restproxy.RESTProxyError as e:
-            if e.vsd_code == restproxy.REST_PG_EXISTS_ERR_CODE:
-                # PG is being concurrently created
-                external_id = cms_id_helper.get_vsd_external_id(
-                    security_group_id)
-                policygroups = self._get_policygroups(
-                    external_id, rt['parentID'], rt['parentType'])
-                return policygroups[0]
-            else:
-                raise
-
-        # Before creating rules, we might have to make other policygroups first
-        # if the rule uses remote_group_id to have rule related to other PG.
-        for rule in security_group_rules:
-            remote_sg_id = rule.get('remote_group_id')
-            if remote_sg_id:
-                self._find_or_create_policygroup_using_rt(context,
-                                                          remote_sg_id,
-                                                          rt, vsd_managed)
-        if not vsd_managed:
-            self.vsdclient.create_security_group_rules(policy_group,
-                                                       security_group_rules)
-        return policy_group
+        return self.psec_handler.process_create_security_group_in_domain(
+            context,
+            security_group_id,
+            domain_id, domain_type, vsd_managed)
 
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
