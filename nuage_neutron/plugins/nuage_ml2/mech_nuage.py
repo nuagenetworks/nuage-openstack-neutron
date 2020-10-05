@@ -28,7 +28,6 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import provisioning_blocks
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api.definitions import external_net
-from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
 from neutron_lib.callbacks import resources
@@ -46,6 +45,7 @@ from nuage_neutron.plugins.common.exceptions import NuagePortBound
 from nuage_neutron.plugins.common import extensions
 from nuage_neutron.plugins.common.extensions import nuagepolicygroup
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import port_security
 from nuage_neutron.plugins.common import qos_driver
 from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
@@ -77,6 +77,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         self._core_plugin = None
         self.trunk_driver = None
         self.qos_driver = None
+        self.psec_handler = None
         self.supported_network_types = [os_constants.TYPE_VXLAN,
                                         constants.NUAGE_HYBRID_MPLS_NET_TYPE]
 
@@ -88,13 +89,17 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         self._validate_mech_nuage_configuration()
         self.init_vsd_client()
         self._wrap_vsdclient()
-        NuageSecurityGroup().register()
         NuageAddressPair().register()
         db_base_plugin_v2.AUTO_DELETE_PORT_OWNERS += [
             constants.DEVICE_OWNER_DHCP_NUAGE]
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
         self.qos_driver = qos_driver.NuageQosDriver.create(self,
                                                            self.vsdclient)
+        # Nuage Security Group works with callbacks but is initialized through
+        # mech nuage.
+        NuageSecurityGroup()
+        self.psec_handler = port_security.NuagePortSecurityHandler(
+            self.vsdclient, self)
         LOG.debug('Initializing complete')
 
     def _validate_mech_nuage_configuration(self):
@@ -640,12 +645,13 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             else:
                 nuage_vport = self._create_nuage_vport(port, nuage_subnet)
 
-            if (not port[portsecurity.PORTSECURITY] and
-                    self._is_os_mgd(subnet_mapping)):
-                self._process_port_create_secgrp_for_port_sec(db_context, port)
             self.calculate_vips_for_port_ips(db_context,
                                              port)
             self.qos_driver.create_update_port(db_context, port, nuage_vport)
+            self.psec_handler.process_port_create(db_context, port,
+                                                  nuage_vport, nuage_subnet,
+                                                  subnet_mapping,
+                                                  pg_type=constants.SOFTWARE)
         except (restproxy.RESTProxyError, NuageBadRequest) as ex:
             # TODO(gridinv): looks like in some cases we convert 404 to 400
             # so i have to catch both. Question here is - don't we hide
@@ -683,7 +689,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_CREATE,
                                         self, context=db_context, port=port,
                                         vport=nuage_vport, rollbacks=rollbacks,
-                                        subnet_mapping=subnet_mapping)
+                                        subnet_mapping=subnet_mapping,
+                                        vsd_subnet=nuage_subnet)
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
@@ -781,11 +788,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                                    nuage_vip_dict, nuage_vport,
                                                    port, subnet_mapping)
                         raise
-
+        nuage_subnet = self._find_vsd_subnet(
+            db_context, subnet_mapping)
         self._port_device_change(context, db_context, nuage_vport,
                                  original, port,
-                                 subnet_mapping, host_added,
-                                 host_removed)
+                                 subnet_mapping, nuage_subnet,
+                                 host_added, host_removed)
         rollbacks = []
         try:
             self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
@@ -793,23 +801,18 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                         port=port,
                                         original_port=original,
                                         vport=nuage_vport, rollbacks=rollbacks,
-                                        subnet_mapping=subnet_mapping)
-            new_sg = port.get('security_groups')
-            prt_sec_updt_rqd = (original.get(portsecurity.PORTSECURITY) !=
-                                port.get(portsecurity.PORTSECURITY))
-            if (self._is_os_mgd(subnet_mapping) and
-                    prt_sec_updt_rqd and not new_sg):
-                self._process_port_create_secgrp_for_port_sec(db_context,
-                                                              port)
-            if prt_sec_updt_rqd:
-                status = (constants.DISABLED
-                          if port.get(portsecurity.PORTSECURITY, True)
-                          else constants.ENABLED)
-                self.vsdclient.update_mac_spoofing_on_vport(
-                    nuage_vport['ID'],
-                    status)
+                                        subnet_mapping=subnet_mapping,
+                                        vsd_subnet=nuage_subnet)
             self.qos_driver.create_update_port(db_context, port, nuage_vport,
                                                original)
+            rollbacks.append((self.qos_driver.create_update_port,
+                              [db_context, original, nuage_vport, port], {}))
+            self.psec_handler.process_port_update(db_context, port, original,
+                                                  nuage_vport, nuage_subnet,
+                                                  subnet_mapping)
+            rollbacks.append((self.psec_handler.process_port_update,
+                              [db_context, original, port, nuage_vport,
+                               nuage_subnet, subnet_mapping], {}))
         except Exception as e:
             LOG.error('update_port_precommit(): got exception: {}'.format(e))
             with excutils.save_and_reraise_exception():
@@ -892,7 +895,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     def _get_updated_subnet_mapping_from_vsd(self, context, subnet_mapping):
         # The subnet has likely changed from l3 to l2 or vice versa
         vsd_subnet = self._find_vsd_subnet(context, subnet_mapping)
-        if vsd_subnet['type'] == constants.L3SUBNET:
+        if vsd_subnet['type'] == constants.SUBNET:
             subnet_mapping['nuage_subnet_id'] = vsd_subnet['ID']
             subnet_mapping['nuage_l2dom_tmplt_id'] = None
         else:
@@ -901,7 +904,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         return subnet_mapping
 
     def _port_device_change(self, context, db_context, nuage_vport, original,
-                            port, subnet_mapping,
+                            port, subnet_mapping, nuage_subnet,
                             host_added=False, host_removed=False):
         if not host_added and not host_removed:
             return
@@ -924,8 +927,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
         elif host_added:
             self._validate_security_groups(context)
             if self._port_should_have_vm(port):
-                nuage_subnet = self._find_vsd_subnet(
-                    db_context, subnet_mapping)
                 self._create_nuage_vm(db_context, port,
                                       np_name, subnet_mapping, nuage_vport,
                                       nuage_subnet, context.network.current)
@@ -1276,6 +1277,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             raise NuageBadRequest(resource='port', msg=msg)
 
         self._validate_nuage_l2bridges(db_context, port)
+        self._check_security_groups_per_port_limit(port['security_groups'])
 
         nuage_managed = []
         vsd_subnet_ids = set()
@@ -1396,81 +1398,6 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                  if self._is_port_supported(p, network) and
                  p['binding:host_id']]
         return len(ports)
-
-    def _process_port_create_secgrp_for_port_sec(self, context, port):
-        rtr_id = None
-        policygroup_ids = []
-        port_id = port['id']
-
-        if not port.get('fixed_ips'):
-            return self._make_port_dict(port)
-
-        subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
-            context.session, port['fixed_ips'][0]['subnet_id'])
-
-        if subnet_mapping:
-            l2dom_id, l3dom_id = get_l2_and_l3_sub_id(subnet_mapping)
-            if l3dom_id:
-                rtr_id = self.vsdclient.get_nuage_domain_id_from_subnet(
-                    l3dom_id)
-
-            params = {
-                'neutron_port_id': port_id,
-                'l2dom_id': l2dom_id,
-                'l3dom_id': l3dom_id,
-                'rtr_id': rtr_id,
-                'type': constants.VM_VPORT,
-                'sg_type': constants.SOFTWARE
-            }
-            nuage_port = self.vsdclient.get_nuage_vport_for_port_sec(params)
-            if nuage_port:
-                successful = False
-                attempt = 1
-                max_attempts = 4
-                while not successful:
-                    try:
-                        nuage_vport_id = nuage_port.get('ID')
-                        if port.get(portsecurity.PORTSECURITY):
-                            self.vsdclient.update_vport_policygroups(
-                                nuage_vport_id, policygroup_ids)
-                        else:
-                            sg_id = (self.vsdclient.
-                                     create_nuage_sec_grp_for_no_port_sec(
-                                         params))
-                            policygroup_ids.append(sg_id)
-                            self.vsdclient.update_vport_policygroups(
-                                nuage_vport_id, policygroup_ids)
-                        successful = True
-                    except restproxy.RESTProxyError as e:
-                        LOG.debug("Policy group retry %s times.", attempt)
-                        msg = str(e).lower()
-                        if (e.code not in (404, 409) and
-                                'policygroup' not in msg and
-                                'policy group' not in msg):
-                            raise
-                        elif attempt < max_attempts:
-                            attempt += 1
-                            if (e.vsd_code ==
-                                    vsd_constants.PG_VPORT_DOMAIN_CONFLICT):
-                                vsd_subnet = self._find_vsd_subnet(
-                                    context,
-                                    subnet_mapping)
-                                if not vsd_subnet:
-                                    return
-                                if vsd_subnet.get('parentType') == 'zone':
-                                    params['l2dom_id'] = None
-                                    params['l3dom_id'] = vsd_subnet['ID']
-                                    params['rtr_id'] = (
-                                        self.vsdclient.
-                                        get_nuage_domain_id_from_subnet(
-                                            params['l3dom_id']))
-                                else:
-                                    params['l2dom_id'] = vsd_subnet['ID']
-                                    params['l3dom_id'] = None
-                                    params['rtr_id'] = None
-                        else:
-                            LOG.debug("Retry failed %s times.", max_attempts)
-                            raise
 
     def _is_port_supported(self, port, network):
         if not self.is_port_vnic_type_supported(port):

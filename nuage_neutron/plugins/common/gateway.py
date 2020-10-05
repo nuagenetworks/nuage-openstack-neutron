@@ -159,7 +159,10 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             params['vsd_subnet'] = vsd_subnet
             resp = self.vsdclient.create_gateway_vport(context.tenant_id,
                                                        params)
-            vport = resp['vport']
+            self.psec_handler.process_pg_allow_all(
+                context, resp['vport_gw_type'],
+                subnet_mapping, resp['vport'], vsd_subnet)
+
         except Exception as ex:
             if hasattr(ex, 'code'):
                 if ex.code == constants.RES_CONFLICT:
