@@ -486,7 +486,9 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                 bindings = ext_db.get_switchport_bindings_by_switchport_vlan(
                     db_context, binding['switchport_uuid'],
                     binding['segmentation_id'])
-                if not bindings:
+                bp_in_use = [b for b in bindings if
+                             b.get('neutron_port_id') != port.get('id')]
+                if not bp_in_use:
                     vport = self.vsdclient.get_nuage_vport_by_id(
                         binding['nuage_vport_id'],
                         required=False)
