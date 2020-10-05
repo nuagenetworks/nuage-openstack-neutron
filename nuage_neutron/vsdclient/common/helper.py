@@ -320,15 +320,6 @@ def get_l3domain_np_id(restproxy_serv, l3dom_id):
                               required=True)[0]['parentID']
 
 
-def get_l2domain_np_id(restproxy_serv, l2dom_id):
-    req_params = {
-        'domain_id': l2dom_id
-    }
-    nuage_l2_domain = nuagelib.NuageL2Domain(create_params=req_params)
-    return restproxy_serv.get(nuage_l2_domain.get_resource(l2dom_id),
-                              required=True)[0]['parentID']
-
-
 def get_l3dom_by_router_id(restproxy_serv, rtr_id):
     req_params = {
         'externalID': get_vsd_external_id(rtr_id)
@@ -565,14 +556,6 @@ def delete_resource(restproxy_serv, resource, resource_id):
     restproxy_serv.delete(delete_uri)
 
 
-def process_rollback(restproxy_serv, rollback_list):
-    while rollback_list:
-        entry = rollback_list.pop()
-        resource = entry.get('resource')
-        resource_id = entry.get('resource_id')
-        delete_resource(restproxy_serv, resource, resource_id)
-
-
 def get_in_adv_fwd_policy(restproxy_serv, parent_type, parent_id):
     template = None
     nuageadvfwdtmplt = nuagelib.NuageInAdvFwdTemplate()
@@ -645,22 +628,10 @@ def set_external_id_only(restproxy_serv, resource, id):
     return restproxy_serv.put(resource, update_params)
 
 
-def set_external_id_with_openstack(restproxy_serv, resource, id):
-    update_params = {"externalID": id + '@openstack'}
-    return restproxy_serv.put(resource, update_params)
-
-
 def get_nuage_fip(restproxy_serv, nuage_fip_id):
     req_params = {'fip_id': nuage_fip_id}
     nuage_fip = nuagelib.NuageFloatingIP(create_params=req_params)
     return restproxy_serv.get(nuage_fip.get_fip_resource(),
-                              required=True)[0]
-
-
-def get_vport_assoc_with_fip(restproxy_serv, nuage_fip_id):
-    req_params = {'fip_id': nuage_fip_id}
-    nuage_vport = nuagelib.NuageVPort(create_params=req_params)
-    return restproxy_serv.get(nuage_vport.get_vport_for_fip(),
                               required=True)[0]
 
 
@@ -719,15 +690,6 @@ def convert_hex_for_vsd(value):
         length = len(hex_val)
     hex_val = hex_val.zfill(length)
     return hex_val
-
-
-def get_child_vports(restproxy_serv, parent_resource, parent_id,
-                     required=False, **filters):
-    nuage_vport = nuagelib.NuageVPort()
-    return restproxy_serv.get(
-        nuage_vport.get_child_resource(parent_resource, parent_id),
-        extra_headers=nuage_vport.extra_header_filter(**filters),
-        required=required)
 
 
 def add_rollback(rollbacks, method, *args, **kwargs):

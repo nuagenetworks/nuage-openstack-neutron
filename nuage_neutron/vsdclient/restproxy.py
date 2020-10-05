@@ -259,6 +259,9 @@ class RESTProxyServer(object):
             LOG.debug('VSD_API REQ %s %s %s %s', action, uri, hdr, body)
         else:
             LOG.debug('VSD_API REQ %s %s %s', action, uri, body)
+        if 'X-Nuage-PatchType' in headers:
+            LOG.debug('VSD API REQ Patch type: %s',
+                      headers['X-Nuage-PatchType'])
 
         ret = None
         for attempt in range(self.max_retries):
@@ -608,9 +611,8 @@ class RESTProxyServer(object):
             self.raise_error_response(response)
 
     def bulk_put(self, resource, data, extra_headers=None):
-        # Bulk put is limited to 500 requests
         results = []
-        for chunk in self._chunkify(data, 500):
+        for chunk in self._chunkify(data, constants.MAX_BULK_PUT):
             response = self.put(resource, chunk,
                                 extra_headers=extra_headers)
 
@@ -623,6 +625,28 @@ class RESTProxyServer(object):
             results.extend(response['response'])
         return results
 
+    def patch(self, resource, data, patch_type, extra_headers=None):
+        if patch_type not in constants.PATCH_CHOICES:
+            msg = "Unkown patch type: {}".format(patch_type)
+            raise RESTProxyError(msg=msg)
+        results = []
+        extra_headers = extra_headers or {}
+        extra_headers['X-Nuage-PatchType'] = patch_type
+        for chunk in self._chunkify(data, 250):
+            response = self.rest_call('PATCH', resource, data,
+                                      extra_headers=extra_headers)
+            if response[0] not in REST_SUCCESS_CODES:
+                errors = json.loads(response[3])
+                if response[0] == 503:
+                    msg = ('VSD temporarily unavailable, ' +
+                           str(errors['errors']))
+                else:
+                    msg = str(
+                        errors['errors'][0]['descriptions'][0]['description'])
+                raise RESTProxyError(msg, error_code=response[0])
+            results.append(response[3])
+        return results
+
     def delete(self, resource, data='', extra_headers=None):
         response = self.rest_call('DELETE', resource, data,
                                   extra_headers=extra_headers)
@@ -632,6 +656,29 @@ class RESTProxyServer(object):
             return None
         else:
             self.raise_error_response(response)
+
+    def bulk_delete(self, resource, data='', extra_headers=None):
+        results = []
+        for chunk in self._chunkify(data, constants.MAX_BULK_DELETE):
+            for data in chunk:
+                resource += ('&id=' + data)
+            response = self.delete(resource,
+                                   extra_headers=extra_headers)
+            nr_failures = response['responseMetadata']['failure']
+            if response['responseMetadata']['failure']:
+                num_not_founds = sum(1 for item in response['response'] if
+                                     item['status'] == REST_NOT_FOUND)
+                if num_not_founds != nr_failures:
+                    errors = {result['data']['errors'][0]['descriptions']
+                              [0]['description'] for result in
+                              response['response'] if
+                              (result['data'] and
+                               result['status'] != REST_NOT_FOUND and
+                               result['status'] not in REST_SUCCESS_CODES)}
+                    raise RESTProxyBulkError(nr_failures - num_not_founds,
+                                             list(errors))
+            results.append(response['response'])
+        return results
 
     def _l2domain_not_found(self, id):
         return self._resource_not_found('l2domain', id)

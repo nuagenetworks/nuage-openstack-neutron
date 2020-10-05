@@ -265,3 +265,27 @@ def rollback():
             except Exception:
                 log.exception("Rollback failed.")
         raise
+
+
+def collect_all_remote_security_groups(core_plugin, context, top_level_sg_id,
+                                       analysed_securitygroup_ids):
+    # When referencing a remote_group_id we create the corresponding
+    # Policygroup. When later on creating a PG we will not consider the
+    # remote PG anymore for rule creation so we have to do that now
+
+    # SG objects to create
+    collected_securitygroups = []
+    # Running queue of SG to be investigated for remote group id rules
+    securitygroups_to_analyse = {top_level_sg_id}
+    while len(securitygroups_to_analyse) != 0:
+        sg_id = securitygroups_to_analyse.pop()
+        if securitygroups_to_analyse in analysed_securitygroup_ids:
+            continue
+        analysed_securitygroup_ids.add(sg_id)
+        sg = core_plugin.get_security_group(context, sg_id)
+        for sg_rule in sg['security_group_rules']:
+            remote_id = sg_rule.get('remote_group_id')
+            if remote_id and remote_id not in analysed_securitygroup_ids:
+                securitygroups_to_analyse.add(remote_id)
+        collected_securitygroups.append(sg)
+    return collected_securitygroups
