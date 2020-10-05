@@ -15,14 +15,10 @@
 import logging
 
 from nuage_neutron.vsdclient.common.cms_id_helper import get_vsd_external_id
+from nuage_neutron.vsdclient.common import constants
 from nuage_neutron.vsdclient.common import nuagelib
 
 LOG = logging.getLogger(__name__)
-
-# Translate Openstack direction definition to
-# VSD direction defintion (opposite).
-DIRECTIONS_OS_VSD = {'egress': 'ingress',
-                     'ingress': 'egress'}
 
 
 class NuageQos(object):
@@ -61,7 +57,7 @@ class NuageQos(object):
 
     def get_fip_qos(self, nuage_fip):
         qos_values = {}
-        for os_direction, vsd_direction in DIRECTIONS_OS_VSD.items():
+        for os_direction, vsd_direction in constants.DIRECTIONS_OS_VSD.items():
             ratelimiter_id = nuage_fip['{}RateLimiterID'.format(
                 vsd_direction)]
             if ratelimiter_id:
@@ -77,7 +73,7 @@ class NuageQos(object):
     def create_update_fip_qos(self, neutron_fip, nuage_fip):
         fip_updates = {}
         ratelimiters_to_be_deleted = []
-        for os_direction, vsd_direction in DIRECTIONS_OS_VSD.items():
+        for os_direction, vsd_direction in constants.DIRECTIONS_OS_VSD.items():
             existing_ratelimit = nuage_fip['{}RateLimiterID'.format(
                 vsd_direction)]
             new_rate = neutron_fip['nuage_{}_fip_rate_kbps'.format(
@@ -120,7 +116,7 @@ class NuageQos(object):
     def delete_fip_qos(self, nuage_fip):
         fip_updates = {}
         ratelimiters_to_be_deleted = []
-        for os_direction, vsd_direction in DIRECTIONS_OS_VSD.items():
+        for os_direction, vsd_direction in constants.DIRECTIONS_OS_VSD.items():
             existing_ratelimit = nuage_fip['{}RateLimiterID'.format(
                 vsd_direction)]
             if existing_ratelimit:

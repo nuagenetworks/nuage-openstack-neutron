@@ -165,7 +165,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             self._map_port_chain_fc_filter(
                 context, port_chain_dict['flow_classifiers'],
                 port_for_parent_validation))
-        nuage_pgs = self.vsdclient.get_policy_groups_by_single_filter(
+        nuage_pgs = self.vsdclient.get_policygroups(
             required=True,
             filters=pg_filter)
         rdts = self.vsdclient.get_nuage_redirect_targets_by_single_filter(
@@ -353,7 +353,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             flow_classifiers.reverse()
         vlan_label_id = (
             original_port_chain['chain_parameters']['correlation_id'])
-        nuage_pgs = self.vsdclient.get_policy_groups_by_single_filter(
+        nuage_pgs = self.vsdclient.get_policygroups(
             required=True,
             filters=pg_filter)
         rdts = self.vsdclient.get_nuage_redirect_targets_by_single_filter(
@@ -439,7 +439,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                                  "egress_" + port_pair_group,
                                  "ingress_egress_" + port_pair_group]
             pg_filter = {"name": ppg_policy_groups}
-            nuage_pgs = self.vsdclient.get_policy_groups_by_single_filter(
+            nuage_pgs = self.vsdclient.get_policygroups(
                 required=True,
                 filters=pg_filter)
             if nuage_pgs:
@@ -541,7 +541,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         fc_port_rts = []
         if fc_fltr:
             fc_filter = {"name": fc_fltr}
-            fc_port_pgs = self.vsdclient.get_policy_groups_by_single_filter(
+            fc_port_pgs = self.vsdclient.get_policygroups(
                 required=True,
                 filters=fc_filter)
             if len(fc_port_pgs) != len(set(fc_fltr)):
@@ -846,7 +846,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
     def _create_nuage_port_pair_group(self, context, on_exc,
                                       ports, ppg, one_ingress_egress=False):
         l2dom_id = None
-        rtr_id = None
+        l3domain_id = None
         l3subnet_id = None
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(
             context.session,
@@ -856,7 +856,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                 l2dom_id = subnet_mapping['nuage_subnet_id']
             else:
                 l3subnet_id = subnet_mapping['nuage_subnet_id']
-                rtr_id = self.vsdclient.get_nuage_domain_id_from_subnet(
+                l3domain_id = self.vsdclient.get_nuage_domain_id_from_subnet(
                     l3subnet_id)
         else:
             msg = ('Cannot find subnet mapping for'
@@ -867,19 +867,22 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             dir_ppg = 'ingress_egress' + '_' + ppg['id']
         else:
             dir_ppg = ports[0]['direction'] + '_' + ppg['id']
+        domain_id = l2dom_id or l3domain_id
+        domain_type = constants.L2DOMAIN if l2dom_id else constants.DOMAIN
+        nuage_pg_id = self._create_port_pair_policy_group(
+            domain_type, domain_id, dir_ppg)
+        on_exc(self.vsdclient.delete_policy_group,
+               nuage_pg_id)
         params = {'l2dom_id': l2dom_id,
-                  'rtr_id': rtr_id,
-                  'l3dom_id': rtr_id,
-                  'dir_ppg': dir_ppg}
-        nuage_sg_id = self._create_port_pair_policy_group(params)
-        on_exc(self.vsdclient.delete_nuage_policy_group,
-               nuage_sg_id)
-        params['name'] = dir_ppg
-        params['redundancy_enabled'] = 'false'
-        params['insertion_mode'] = insertion_mode
-        params['external_id'] = dir_ppg
+                  'rtr_id': l3domain_id,
+                  'l3dom_id': l3domain_id,
+                  'dir_ppg': dir_ppg,
+                  'name': dir_ppg,
+                  'redundancy_enabled': 'false',
+                  insertion_mode: insertion_mode,
+                  'external_id': dir_ppg}
         rt = self.vsdclient.create_nuage_redirect_target(
-            params, l2dom_id=l2dom_id, domain_id=rtr_id)
+            params, l2dom_id=l2dom_id, domain_id=l3domain_id)
         on_exc(self.vsdclient.delete_nuage_redirect_target, rt['ID'])
         nuage_port_ids = self._get_vports_for_ports(l2dom_id,
                                                     l3subnet_id,
@@ -889,9 +892,9 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         on_exc(self.vsdclient.update_redirect_target_vports,
                rt['ID'], [])
 
-        self.vsdclient.update_vports_in_policy_group(nuage_sg_id,
-                                                     nuage_port_ids)
-        on_exc(self.vsdclient.update_vports_in_policy_group, nuage_sg_id, [])
+        self.vsdclient.set_vports_in_policygroup(nuage_pg_id,
+                                                 nuage_port_ids)
+        on_exc(self.vsdclient.set_vports_in_policygroup, nuage_pg_id, [])
 
     def _update_nuage_port_pair_group(self, context, on_exc, new_ports,
                                       old_ports,
@@ -913,8 +916,8 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
             param = {'name': name}
             rt = self.vsdclient.get_nuage_redirect_targets(param)
             external_id = cms_id_helper.get_vsd_external_id(name)
-            pp_pg = self.vsdclient.get_nuage_policy_groups(
-                required=False, externalID=external_id)
+            pp_pg = self.vsdclient.get_policygroups(required=False,
+                                                    externalID=external_id)
             if rt and pp_pg:
                 new_nuage_port_ids = []
                 old_nuage_port_ids = []
@@ -949,10 +952,10 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                     new_nuage_port_ids)
                 on_exc(self.vsdclient.update_redirect_target_vports,
                        rt[0]['ID'], old_nuage_port_ids)
-                self.vsdclient.update_vports_in_policy_group(
+                self.vsdclient.set_vports_in_policygroup(
                     pp_pg[0]['ID'],
                     new_nuage_port_ids)
-                on_exc(self.vsdclient.update_vports_in_policy_group,
+                on_exc(self.vsdclient.set_vports_in_policygroup,
                        pp_pg[0]['ID'], old_nuage_port_ids)
             else:
                 msg = ("Cannot find rt or ppg mapping for"
@@ -986,18 +989,18 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
                 on_exc(self.vsdclient.update_redirect_target_vports,
                        rt[0]['ID'], nuage_port_list)
             external_id = cms_id_helper.get_vsd_external_id(name)
-            pp_pg = self.vsdclient.get_nuage_policy_groups(
-                required=False, externalID=external_id)
+            pp_pg = self.vsdclient.get_policygroups(required=False,
+                                                    externalID=external_id)
             if pp_pg:
-                self.vsdclient.update_vports_in_policy_group(pp_pg[0]['ID'],
-                                                             [])
-                on_exc(self.vsdclient.update_vports_in_policy_group,
+                self.vsdclient.set_vports_in_policygroup(pp_pg[0]['ID'],
+                                                         [])
+                on_exc(self.vsdclient.set_vports_in_policygroup,
                        pp_pg[0]['ID'], nuage_port_list)
             if rt:
                 self.vsdclient.delete_nuage_redirect_target(
                     rt[0]['ID'])
             if pp_pg:
-                self.vsdclient.delete_nuage_policy_group(
+                self.vsdclient.delete_policy_group(
                     pp_pg[0]['ID'])
 
     def _get_vports_for_ports(self, l2_dom_id, l3subnet_id,
@@ -1007,7 +1010,7 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         for port in ports:
             params['neutron_port_id'] = port['id']
             params['l3dom_id'] = l3subnet_id
-            nuage_port = (self.vsdclient.get_nuage_vport_for_port_sec(
+            nuage_port = (self.vsdclient.get_nuage_vport_by_neutron_id(
                 params, required=required))
             if nuage_port:
                 nuage_port_list.append(nuage_port['ID'])
@@ -1028,16 +1031,16 @@ class NuageSFCPlugin(sfc_plugin.SfcPlugin,
         self._check_ports_on_same_l2_or_l3_domain(all_ports, msg)
         return ingress_ports, egress_ports, one_ingress_egress_port
 
-    def _create_port_pair_policy_group(self, policy_group_details):
-        params = {
-            'externalID': policy_group_details['dir_ppg'],
-            'l2dom_id': policy_group_details['l2dom_id'],
-            'rtr_id': policy_group_details['rtr_id'],
-            'type': constants.VM_VPORT,
-            'sg_type': constants.SOFTWARE,
-            'name': policy_group_details['dir_ppg'],
-            'description': policy_group_details['dir_ppg']
+    def _create_port_pair_policy_group(self, domain_type, domain_id, dir_ppg):
+        pg_params = {
+            'name': dir_ppg,
+            'externalID': cms_id_helper.get_vsd_external_id(dir_ppg),
+            'type': constants.SOFTWARE,
+            'description': dir_ppg,
+            'sg_id': dir_ppg
+
         }
-        nuage_sg_id = (self.vsdclient.
-                       create_nuage_sec_grp_for_sfc(params))
-        return nuage_sg_id
+        pg = self.vsdclient.create_policy_group(domain_type, domain_id,
+                                                pg_params,
+                                                raise_on_pg_exists=False)
+        return pg['ID']
