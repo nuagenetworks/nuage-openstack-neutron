@@ -288,9 +288,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         vsd_dss = self.vsdclient.get_nuage_subnet_by_mapping(dss_l2dom)
 
         if vsd_dss and self._is_l3(dss_l2dom):
-            nuage_dss_rtr_id = self.vsdclient.get_router_by_domain_subnet_id(
-                vsd_dss['ID'])
-            nuage_rtr_id = self.vsdclient.get_router_by_external(
+            nuage_dss_rtr_id = (
+                self.vsdclient.get_l3domain_id_by_domain_subnet_id(
+                    vsd_dss['ID']))
+            nuage_rtr_id = self.vsdclient.get_l3domain_by_external_id(
                 router_id)["ID"]
             if nuage_rtr_id != nuage_dss_rtr_id:
                 raise nuage_router.RtrItfAddDualSSAlreadyAttachedToAnotherRtr(
@@ -563,7 +564,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):
         router = super(NuageL3Plugin, self).get_router(context, id, fields)
-        nuage_router = self.vsdclient.get_router_by_external(id)
+        nuage_router = self.vsdclient.get_l3domain_by_external_id(id)
         self._add_nuage_router_attributes(context.session, router,
                                           nuage_router)
         return self._fields(router, fields)
@@ -718,7 +719,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
                                                       original_router['id'])
             on_exc(self._update_nuage_router_aggregate_flows,
                    context, original_router, original_router['id'])
-            nuage_router = self.vsdclient.get_router_by_external(id)
+            nuage_router = self.vsdclient.get_l3domain_by_external_id(id)
             self._add_nuage_router_attributes(context.session,
                                               router_updated, nuage_router)
 

@@ -35,6 +35,11 @@ PG_VPORT_DOMAIN_CONFLICT = '7309'
 VSD_SUBNET_FULL = '2702'
 VSD_DUPLICATE_VMIPRESERVATION = '7205'
 
+PATCH_ADD = 'add'
+PATCH_REMOVE = 'remove'
+PATCH_CHOICES = [PATCH_ADD, PATCH_REMOVE]
+
+
 NUAGE_ACL_INGRESS = 'ingress'
 NUAGE_ACL_EGRESS = 'egress'
 NUAGE_ACL_INGRESS_TEMPLATE = 'ingressacltemplate'
@@ -119,7 +124,6 @@ ASSIGN_VLAN = 'assign'
 UNASSIGN_VLAN = 'unassign'
 SOFTWARE = 'SOFTWARE'
 HARDWARE = 'HARDWARE'
-INTERCONNECT = 'INTERCONNECT'
 VPORT = 'VPORT'
 SW_GW_TYPES = ['VRSG', 'VRSB']
 # HW_GW_TYPES = ... all the rest, no need to hardcode here
@@ -148,3 +152,11 @@ NUAGE_PERMISSION_ALL = 'ALL'
 NUAGE_PERMISSION_EXTEND = 'EXTEND'
 NUAGE_PERMISSION_DEPLOY = 'DEPLOY'
 NUAGE_PERMISSION_INSTANTIATE = 'INSTANTIATE'
+
+MAX_BULK_PUT = 500
+MAX_BULK_DELETE = 150
+
+# Translate Openstack direction definition to
+# VSD direction defintion (opposite).
+DIRECTIONS_OS_VSD = {'egress': 'ingress',
+                     'ingress': 'egress'}

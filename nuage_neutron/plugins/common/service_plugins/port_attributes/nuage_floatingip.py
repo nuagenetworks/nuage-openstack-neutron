@@ -96,7 +96,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         if vsd_mapping['nuage_l2dom_tmplt_id']:
             return []
         vports = self.vsdclient.get_vports(
-            constants.L3SUBNET,
+            constants.SUBNET,
             vsd_mapping['nuage_subnet_id'],
             externalID=get_vsd_external_id(port_id))
         fip_id = vports[0]['associatedFloatingIPID'] if vports else None
@@ -131,7 +131,7 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         if vsd_subnet['type'] == constants.L2DOMAIN:
             return []
 
-        domain_id = self.vsdclient.get_router_by_domain_subnet_id(
+        domain_id = self.vsdclient.get_l3domain_id_by_domain_subnet_id(
             vsd_subnet['ID'])
         return self.vsdclient.get_nuage_domain_floatingips(
             domain_id, assigned=False, externalID=None, **vsd_filters)

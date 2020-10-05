@@ -21,20 +21,19 @@ import stevedore
 from neutron._i18n import _
 from neutron.extensions import securitygroup as ext_sg
 from neutron.services.trunk import constants as t_const
-from neutron_lib.api.definitions import port_security as portsecurity
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as n_const
 from neutron_lib.plugins.ml2 import api
 
 from nuage_neutron.plugins.common import base_plugin
+from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions
 from nuage_neutron.plugins.common import nuagedb
+from nuage_neutron.plugins.common import port_security
 from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
-from nuage_neutron.plugins.nuage_baremetal import portsecurity as psechandler
-from nuage_neutron.plugins.nuage_baremetal import sg_callback
 from nuage_neutron.plugins.nuage_baremetal import trunk_driver
 
 LOG = logging.getLogger(__name__)
@@ -63,12 +62,10 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         self._wrap_vsdclient()
         self._core_plugin = None
         self.vif_details = {portbindings.CAP_PORT_FILTER: True}
-        self.sec_handler = sg_callback.NuageBmSecurityGroupHandler(
-            self.vsdclient)
-        self.psec_handler = psechandler.NuagePortSecurityHandler(
-            self.vsdclient)
         self.np_driver = self._load_driver()
         self.trunk_driver = trunk_driver.NuageTrunkDriver.create(self)
+        self.psec_handler = port_security.NuagePortSecurityHandler(
+            self.vsdclient, self)
         LOG.debug('Initializing complete')
 
     def _load_driver(self):
@@ -141,10 +138,12 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         if self._can_bind(context):
             if port['binding:host_id']:
                 port_dict = self._make_port_dict(context)
-                self.np_driver.create_port(port_dict)
-                if not port[portsecurity.PORTSECURITY]:
-                    self.psec_handler.process_port_security(
-                        context._plugin_context, port)
+                vport = self.np_driver.create_port(port_dict)
+                self.psec_handler.process_port_create(
+                    context._plugin_context, port, vport,
+                    port_dict['vsd_subnet'], port_dict['subnet_mapping'],
+                    constants.HARDWARE
+                )
 
     @handle_nuage_api_errorcode
     @utils.context_log
@@ -156,7 +155,7 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
             return
         self._validate_fixed_ip(context)
         self._validate_security_groups(context)
-        host_added = host_removed = vnic_type_changed = psec_changed = False
+        host_added = host_removed = vnic_type_changed = False
         if original['binding:host_id'] and not port['binding:host_id']:
             host_removed = True
         if not original['binding:host_id'] and port['binding:host_id']:
@@ -164,12 +163,14 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         if (port.get(portbindings.VNIC_TYPE, "") !=
                 original.get(portbindings.VNIC_TYPE, "")):
             vnic_type_changed = True
-        if (original.get(portsecurity.PORTSECURITY) !=
-                port.get(portsecurity.PORTSECURITY)):
-            psec_changed = True
+        port_dict = None
+        vport = None
         if vnic_type_changed:
+            # Handle previous possible SOFTWARE security group
+            for sg_id in port['security_groups']:
+                self.vsdclient.delete_security_group(sg_id)
             port_dict = self._make_port_dict(context)
-            self.np_driver.update_port(port_dict)
+            vport = self.np_driver.update_port(port_dict)
         if host_removed:
             if (context.original.get('binding:vif_type') not in
                     [portbindings.VIF_TYPE_BINDING_FAILED,
@@ -179,12 +180,14 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
                 self.np_driver.delete_port(port_dict)
         elif host_added:
             port_dict = self._make_port_dict(context)
-            self.np_driver.create_port(port_dict)
+            vport = self.np_driver.create_port(port_dict)
 
-        if ((psec_changed and port.get('binding:host_id')) or
-                (host_added and not port[portsecurity.PORTSECURITY])):
-            self.psec_handler.process_port_security(
-                context._plugin_context, port)
+        if vport:
+            self.psec_handler.process_port_create(
+                context._plugin_context, port, vport,
+                port_dict['vsd_subnet'], port_dict['subnet_mapping'],
+                constants.HARDWARE
+            )
 
     @utils.context_log
     def delete_port_precommit(self, context):
@@ -246,8 +249,6 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         if self._is_vsd_mgd(subnet_mapping):
             return
 
-        self._check_security_groups_per_port_limit(sg_ids)
-
         normal_ports = nuagedb.get_port_bindings_for_sg(
             db_context.session,
             sg_ids,
@@ -296,6 +297,9 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
         profile = self._get_binding_profile(port)
         host_id = port['binding:host_id']
         local_link_information = profile.get('local_link_information')
+        vsd_subnet = self.vsdclient.get_nuage_subnet_by_mapping(
+            subnet_mapping, required=True)
+
         port_dict = {'port':
                      {'id': port_id,
                       'name': port.get('name'),
@@ -307,7 +311,8 @@ class NuageBaremetalMechanismDriver(base_plugin.RootNuagePlugin,
                       'mac_address': port['mac_address'],
                       'port_security_enabled': port['port_security_enabled']
                       },
-                     'subnet_mapping': subnet_mapping
+                     'subnet_mapping': subnet_mapping,
+                     'vsd_subnet': vsd_subnet
                      }
         subnet = context._plugin.get_subnet(context._plugin_context,
                                             subnet_mapping['subnet_id'])

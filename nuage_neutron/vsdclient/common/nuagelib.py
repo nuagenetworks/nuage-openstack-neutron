@@ -1462,179 +1462,6 @@ class NuageVPort(NuageResource):
         return {'X-Nuage-Filter': query}
 
 
-class NuagePolicygroup(NuageResource):
-    resource = 'policygroups'
-
-    def get_all_resources(self):
-        return '/%s' % self.resource
-
-    def get_policygroups_for_vport(self):
-        return '/vports/%s/%s' % (self.create_params['vport_id'],
-                                  self.resource)
-
-    def get_policygroups(self, pg_id):
-        return '/%s/%s' % (self.resource, pg_id)
-
-    def get_policygroup_id(self, response):
-        return self.get_response_objid(response)
-
-    def get_child_resource(self, parent_resource, parent_id):
-        return '/%s/%s/%s' % (parent_resource, parent_id, self.resource)
-
-    def put_child_resource(self, parent_resource, parent_id):
-        return '/%s/%s/%s?responseChoice=1' % (parent_resource, parent_id,
-                                               self.resource)
-
-    def put_resource(self, pg_id):
-        return '/%s/%s?responseChoice=1' % (self.resource, pg_id)
-
-    def post_resource(self):
-        return '/domains/%s/%s' % (self.create_params['domain_id'],
-                                   self.resource)
-
-    def post_resource_l2dom(self):
-        return '/l2domains/%s/%s' % (self.create_params['domain_id'],
-                                     self.resource)
-
-    def _get_name(self):
-        if self.create_params.get('sg_id'):
-            sg_type = self.create_params.get('sg_type', constants.SOFTWARE)
-            if sg_type == constants.HARDWARE:
-                return "{}_{}".format(self.create_params.get('sg_id'), sg_type)
-            return self.create_params.get('sg_id')
-        else:
-            return self.create_params.get('name')
-
-    def post_data(self):
-        sg_type = self.create_params.get('sg_type', constants.SOFTWARE)
-        data = {
-            'description': self.create_params['name'],
-            'name': self._get_name(),
-            'externalID': get_vsd_external_id(
-                self.create_params['externalID']),
-            'type': sg_type
-        }
-        if self.extra_params:
-            data.update(self.extra_params)
-        return data
-
-    def post_data_ext_sg(self):
-        data = {
-            'description': self.create_params['description'],
-            'name': self.create_params['name'],
-            'type': constants.SOFTWARE,
-            'external': "true",
-            'EVPNCommunityTag': self.create_params['extended_community'],
-            'externalID': self.create_params['externalID']
-        }
-        if self.extra_params:
-            data.update(self.extra_params)
-        return data
-
-    def delete_resource(self, id):
-        return '/%s/%s?responseChoice=1' % (self.resource, id)
-
-    def get_resource(self, id):
-        return '/%s/%s' % (self.resource, id)
-
-    def extra_headers_get(self):
-        headers = {
-            'X-NUAGE-FilterType': "predicate",
-            'X-Nuage-Filter': "externalID IS '%s'" % get_vsd_external_id(
-                self.create_params['externalID']),
-        }
-        return headers
-
-    def extra_headers_get_name(self, name):
-        headers = {
-            'X-NUAGE-FilterType': "predicate",
-            'X-Nuage-Filter': "name IS '%s'" % name,
-        }
-        return headers
-
-    def extra_headers_get_external(self, is_external):
-        headers = {
-            'X-NUAGE-FilterType': "predicate",
-            'X-Nuage-Filter': "external IS '%s'" % is_external,
-        }
-        return headers
-
-    def extra_headers_get_name_and_external(self, name, is_external):
-        headers = {
-            'X-Nuage-Filter': "name IS '%s' and external IS '%s'" %
-                              (name, is_external),
-        }
-        return headers
-
-    def extra_headers_get_type_and_id(self, sg_type):
-        headers = {
-            'X-NUAGE-FilterType': "predicate",
-            'X-Nuage-Filter': "type IS '%s' and externalID IS '%s'" %
-                              (sg_type, get_vsd_external_id(
-                                  self.create_params['externalID'])),
-        }
-        return headers
-
-
-class NuageACLRule(NuageResource):
-    def get_aclrule_id(self, response):
-        return self.get_response_objid(response)
-
-    def in_get_all_resources(self):
-        return '/ingressaclentrytemplates'
-
-    def eg_get_all_resources(self):
-        return '/egressaclentrytemplates'
-
-    def in_post_resource(self):
-        id = self.create_params['acl_id']
-        return ("/ingressacltemplates/%s/ingressaclentrytemplates"
-                "?responseChoice=1" % id)
-
-    def in_get_resource(self):
-        id = self.create_params['acl_id']
-        return '/ingressacltemplates/%s/ingressaclentrytemplates' % id
-
-    def eg_post_resource(self):
-        id = self.create_params['acl_id']
-        return ("/egressacltemplates/%s/egressaclentrytemplates"
-                "?responseChoice=1" % id)
-
-    def eg_get_resource(self):
-        id = self.create_params['acl_id']
-        return '/egressacltemplates/%s/egressaclentrytemplates' % id
-
-    def in_delete_resource(self, id):
-        return '/ingressaclentrytemplates/%s?responseChoice=1' % id
-
-    def eg_delete_resource(self, id):
-        return '/egressaclentrytemplates/%s?responseChoice=1' % id
-
-    def post_data_for_spoofing(self):
-        aclrule = {
-            "locationType": "POLICYGROUP",
-            "networkType": "ANY",
-            "protocol": "ANY",
-            "action": "FORWARD",
-            "DSCP": '*',
-        }
-        if self.extra_params:
-            aclrule.update(self.extra_params)
-        return aclrule
-
-    def extra_headers_get_locationID(self, policygroup_id):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "locationID IS '%s'" % policygroup_id
-        return headers
-
-    def extra_headers_get_network_id(self, policygroup_id):
-        headers = {}
-        headers['X-NUAGE-FilterType'] = "predicate"
-        headers['X-Nuage-Filter'] = "networkID IS '%s'" % policygroup_id
-        return headers
-
-
 class NuageNetPartitionNetwork(NuageResource):
     def get_resource_by_id(self, net_id):
         return '/enterprisenetworks/%s' % net_id
@@ -2313,54 +2140,60 @@ class NuageVIP(NuageResource):
 class VsdResource(object):
     resource = None
 
-    @classmethod
-    def get_url(cls):
-        return '/%s' % cls.resource
+    def get_url(self):
+        return '/%s' % self.resource
 
-    @classmethod
-    def show_url(cls):
-        return '/%s/%%s' % cls.resource
+    def show_url(self):
+        return '/%s/%%s' % self.resource
 
-    @classmethod
-    def post_url(cls):
-        return cls.get_url() + '?responseChoice=1'
+    def post_url(self):
+        return self.get_url() + '?responseChoice=1'
 
-    @classmethod
-    def put_url(cls):
-        return cls.show_url() + '?responseChoice=1'
+    def put_url(self):
+        return self.show_url() + '?responseChoice=1'
 
-    @classmethod
-    def delete_url(cls):
-        return cls.show_url() + '?responseChoice=1'
+    def delete_url(self):
+        return self.show_url() + '?responseChoice=1'
+
+    def bulk_url(self):
+        return self.get_url() + '?responseChoice=1'
 
     @staticmethod
     def extra_header_filter(**filters):
-        filter = ''
+
+        def vsd_stringify(filter_value):
+            if isinstance(filter_value, six.string_types):
+                filter_value = "'%s'" % filter_value
+            if filter_value is None:
+                filter_value = 'null'
+            return filter_value
+
+        values = []
         for field, value in six.iteritems(filters):
-            if isinstance(value, six.string_types):
-                value = "'%s'" % value
-            if value is None:
-                value = 'null'
-            if filter:
-                filter += " and "
-            filter += "%s IS %s" % (field, value)
+            if isinstance(value, list):
+                value = ["%s IS %s" % (field,
+                                       vsd_stringify(filter_value))
+                         for filter_value in value]
+                values.append(' OR '.join(value))
+            else:
+                values.append("%s IS %s" % (field, vsd_stringify(value)))
+        filter_string = ' AND '.join(values)
         return {'X-Nuage-FilterType': 'predicate',
-                'X-Nuage-Filter': filter} if filter else None
+                'X-Nuage-Filter': filter_string} if filter_string else None
 
 
 @six.add_metaclass(ABCMeta)
 class VsdChildResource(VsdResource):
-    @classmethod
-    def get_url(cls, parent=None, parent_id=None):
-        if parent and parent_id:
-            return '/%s/%s/%s' % (parent, parent_id, cls.resource)
-        else:
-            return super(VsdChildResource, cls).get_url()
 
-    @classmethod
-    def post_url(cls, parent=None, parent_id=None):
-        return cls.get_url(parent=parent,
-                           parent_id=parent_id) + '?responseChoice=1'
+    def get_url(self, parent=None, parent_id=None):
+        if parent and parent_id:
+            return '/%s/%s/%s' % (parent, parent_id, self.resource)
+        else:
+            return super(VsdChildResource, self).get_url()
+
+    def post_url(self, parent=None, parent_id=None):
+        return self.get_url(parent=parent,
+                            parent_id=parent_id) + '?responseChoice=1'
 
 
 class FirewallRule(VsdChildResource):
@@ -2414,10 +2247,9 @@ class Resync(VsdChildResource):
 class VmIpReservation(VsdChildResource):
     resource = 'vmipreservations'
 
-    @classmethod
-    def delete_url(cls, parent=None, parent_id=None, url_parameters=None):
-        base = cls.get_url(parent=parent,
-                           parent_id=parent_id) + '?responseChoice=1'
+    def delete_url(self, parent=None, parent_id=None, url_parameters=None):
+        base = self.get_url(parent=parent,
+                            parent_id=parent_id) + '?responseChoice=1'
         if url_parameters:
             return base + '&' + urlencode(url_parameters)
         else:
@@ -2426,3 +2258,31 @@ class VmIpReservation(VsdChildResource):
 
 class NuageQos(VsdChildResource):
     resource = 'qos'
+
+
+class EnterpriseNetwork(VsdChildResource):
+    resource = 'enterprisenetworks'
+
+
+class ACLTemplate(VsdChildResource):
+
+    def __init__(self, direction):
+        self.resource = "%sacltemplates" % direction
+
+    @staticmethod
+    def post_data(name, external_id, allow_non_ip, priority):
+        return {
+            'name': name,
+            'description': 'default ACL',
+            'active': True,
+            'defaultAllowNonIp': allow_non_ip,
+            'defaultInstallACLImplicitRules': False,
+            'externalID': external_id,
+            'priority': priority
+        }
+
+
+class ACLEntryTemplate(VsdChildResource):
+
+    def __init__(self, direction):
+        self.resource = '%saclentrytemplates' % direction

@@ -14,6 +14,8 @@
 
 from abc import abstractmethod
 
+from nuage_neutron.vsdclient.common import constants
+
 
 class VsdClient(object):
 
@@ -117,7 +119,7 @@ class VsdClient(object):
     def check_if_l2_dom_in_correct_ent(self, nuage_l2dom_id, nuage_netpart):
         pass
 
-    def get_router_by_external(self, id):
+    def get_l3domain_by_external_id(self, neutron_id):
         pass
 
     def move_l2domain_to_l3subnet(self, l2domain_id, l3subnetwork_id):
@@ -169,13 +171,13 @@ class VsdClient(object):
     def validate_port_create_redirect_target(self, params):
         pass
 
-    def check_unused_policygroups(self, securitygroup_ids, sg_type='SOFTWARE'):
-        pass
-
     def get_zone_by_domainid(self, domain_id):
         pass
 
     def get_zone_by_routerid(self, neutron_router_id, shared=False):
+        pass
+
+    def get_zone_by_id(self, zone_id):
         pass
 
     def validate_zone_create(self, l3dom_id,
@@ -235,7 +237,7 @@ class VsdClient(object):
     def get_gw_from_dhcp_l2domain(self, nuage_id):
         pass
 
-    def get_router_by_domain_subnet_id(self, dom_subn_id):
+    def get_l3domain_id_by_domain_subnet_id(self, dom_subn_id):
         pass
 
     def get_nuage_vport_by_id(self, id, required=True):
@@ -264,25 +266,6 @@ class VsdClient(object):
                                       nuage_subnet_id, nuage_rtr_id):
         pass
 
-    def process_port_create_security_group(self, params):
-        pass
-
-    def create_security_group(self, vsd_subnet, os_security_group):
-        pass
-
-    def create_security_group_using_parent(self, parent_id, parent_type,
-                                           os_security_group):
-        pass
-
-    def create_security_group_rules(self, policygroup, security_group_rules):
-        pass
-
-    def update_vports_in_policy_group(self, pg_id, vport_list):
-        pass
-
-    def update_vport_policygroups(self, vport_id, policygroup_ids):
-        pass
-
     def get_fip_qos(self, nuage_fip):
         pass
 
@@ -301,32 +284,6 @@ class VsdClient(object):
         pass
 
     def delete_qos(self, parent_type, parent_id, qos_policy_id):
-        pass
-
-    def delete_nuage_sgrule(self, sg_rules, sg_type='SOFTWARE'):
-        pass
-
-    def delete_nuage_secgroup(self, id):
-        pass
-
-    def delete_nuage_policy_group(self, policy_id):
-        pass
-
-    def validate_nuage_sg_rule_definition(self, sg_rule):
-        pass
-
-    def get_sg_policygroup_by_external_id(self, sg_id,
-                                          sg_type='SOFTWARE',
-                                          required=False):
-        pass
-
-    def update_policygroup(self, policygroup_id, data):
-        pass
-
-    def get_sg_policygroup_mapping(self, sg_id, sg_type='SOFTWARE'):
-        pass
-
-    def create_nuage_sgrule(self, params):
         pass
 
     def create_in_adv_fwd_policy_template(self, parent_type,
@@ -399,39 +356,6 @@ class VsdClient(object):
         pass
 
     def get_redirect_target_vports(self, rtarget_id, required=False):
-        pass
-
-    def create_nuage_external_security_group(self, params):
-        pass
-
-    def create_nuage_sec_grp_for_no_port_sec(self, params):
-        pass
-
-    def create_nuage_sec_grp_for_sfc(self, params):
-        pass
-
-    def get_policygroup_vport_mapping_by_port_id(self, vport_id):
-        pass
-
-    def get_nuage_external_security_group(self, ext_sg_id):
-        pass
-
-    def get_nuage_external_security_groups(self, params):
-        pass
-
-    def delete_nuage_external_security_group(self, ext_sg_id):
-        pass
-
-    def create_nuage_external_sg_rule(self, params):
-        pass
-
-    def get_nuage_external_sg_rule(self, ext_rule_id):
-        pass
-
-    def get_nuage_external_sg_rules(self, params):
-        pass
-
-    def delete_nuage_external_sg_rule(self, ext_rule_id):
         pass
 
     def nuage_redirect_targets_on_l2domain(self, l2domid):
@@ -519,8 +443,7 @@ class VsdClient(object):
     def create_gateway_vport(self, tenant_id, vport_dict):
         pass
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict,
-                                          create_policy_group=False):
+    def create_gateway_vport_no_usergroup(self, tenant_id, vport_dict):
         pass
 
     def delete_nuage_gateway_vport(self, context, id, def_netpart_id):
@@ -543,9 +466,6 @@ class VsdClient(object):
         pass
 
     def get_nuage_fip(self, nuage_fip_id):
-        pass
-
-    def get_vport_assoc_with_fip(self, nuage_fip_id):
         pass
 
     def create_vip(self, params):
@@ -599,75 +519,8 @@ class VsdClient(object):
     def get_nuage_domain_by_zoneid(self, zone_id):
         pass
 
-    def get_nuage_vport_for_port_sec(self, params, required=True):
-        pass
-
-    def get_nuage_policy_group(self, id, required=False, **filters):
-        pass
-
-    def get_nuage_policy_groups(self, required=False, **filters):
-        pass
-
-    def get_policy_groups_by_single_filter(self, filters, required=False):
-        pass
-
-    def get_nuage_vport_policy_groups(self, vport_id, required=False,
-                                      **filters):
-        pass
-
-    def get_nuage_l2domain_policy_groups(self, l2domain_id, required=False,
-                                         **filters):
-        pass
-
-    def get_nuage_domain_policy_groups(self, domain_id, required=False,
-                                       **filters):
-        pass
-
-    def get_nuage_policy_group_vports(self, policygroup_id, required=False,
-                                      **filters):
-        pass
-
     def get_nuage_vport_redirect_targets(self, vport_id, required=False,
                                          **filters):
-        pass
-
-    # Firewall
-
-    def create_firewall_rule(self, enterprise_id, os_rule):
-        pass
-
-    def update_firewall_rule(self, enterprise_id, id, os_rule):
-        pass
-
-    def delete_firewall_rule(self, enterprise_id, id):
-        pass
-
-    def delete_vsd_firewallrule(self, id):
-        pass
-
-    def create_firewall_policy(self, enterprise_id, os_policy):
-        pass
-
-    def update_firewall_policy(self, enterprise_id, id, os_policy):
-        pass
-
-    def delete_firewall_policy(self, enterprise_id, id):
-        pass
-
-    def insert_rule(self, enterprise_id, os_policy_id, os_rule_info):
-        pass
-
-    def remove_rule(self, enterprise_id, os_policy_id, os_rule_info):
-        pass
-
-    def create_firewall(self, enterprise_id, os_firewall, l3domain_ids):
-        pass
-
-    def update_firewall(self, enterprise_id, os_firewall, l3domain_ids,
-                        handle_block_acl, routers_updated):
-        pass
-
-    def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
         pass
 
     # Plugin stats
@@ -688,4 +541,83 @@ class VsdClient(object):
         pass
 
     def update_subport(self, os_port, vport, params):
+        pass
+
+    # Port Security
+
+    def get_policygroup(self, policygroup_id, required=False, **filters):
+        pass
+
+    def get_policygroups(self, required=False, parent_type=None,
+                         parent_id=None, **filters):
+        pass
+
+    def get_nuage_vport_policy_groups(self, vport_id, required=False,
+                                      **filters):
+        pass
+
+    def get_policy_groups_by_subnet(self, vsd_subnet, required=False,
+                                    **filters):
+        pass
+
+    def get_vports_in_policygroup(self, policygroup_id):
+        pass
+
+    def find_security_groups_in_domain(self, sgs, domain_type, domain_id,
+                                       domain_sg_pg_mapping,
+                                       pg_type=constants.SOFTWARE):
+        pass
+
+    def find_create_security_groups(self, sgs, domain_type, domain_id,
+                                    domain_enterprise_mapping,
+                                    domain_sg_pg_mapping,
+                                    domain_acl_mapping, on_exception,
+                                    pg_type=constants.SOFTWARE,
+                                    allow_non_ip=False):
+        pass
+
+    def create_policygroup(self, domain_type, domain_id, pg_data):
+        pass
+
+    def update_security_group(self, sg_id, updates):
+        pass
+
+    def delete_security_group(self, security_group_id):
+        pass
+
+    def delete_policygroup(self, policygroup_id):
+        pass
+
+    def create_security_group_rule(self, sg, sg_rule, on_exception,
+                                   remote_sgs=None):
+        pass
+
+    def calculate_acl_entries(self, sg_rule, pg_id, domain_type, domain_id,
+                              stateful, domain_enterprise_mapping,
+                              sg_pg_mapping,
+                              pg_type=constants.SOFTWARE):
+        pass
+
+    def create_acl_entry(self, acl_entry, domain_type, domain_id,
+                         domain_acl_mapping,
+                         on_exception, acl_template_id=None):
+        pass
+
+    def update_vport_policygroups(self, vport_id, add_policygroups,
+                                  remove_policygroups):
+        pass
+
+    def set_vports_in_policygroup(self, pg_id, vport_list):
+        pass
+
+    def delete_acl_entry(self, acl_id):
+        pass
+
+    def delete_security_group_rule(self, sg_rule):
+        pass
+
+    def get_nuage_external_sg_rule(self, ext_rule_id):
+        pass
+
+    def get_nuage_external_sg_rules(self, params):
         pass
