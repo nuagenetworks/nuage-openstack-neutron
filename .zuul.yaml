@@ -201,6 +201,11 @@
             required-projects: *required-projects
         - networking-nuage-tempest-multinode:
             required-projects: *required-projects
+        - ovs-restart:
+            override-checkout: stable/queens
+            vars:
+              vsp_release: '6.0'
+            required-projects: *required-projects
 
 - job:
     name: networking-nuage-rally-task
