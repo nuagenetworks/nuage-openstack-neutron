@@ -226,7 +226,7 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
                 suffix = '_HARDWARE' if pg_type == constants.HARDWARE else ''
                 sg_rules = [
                     {'id': vsd_constants.NUAGE_PLCY_GRP_ALLOW_ALL,
-                     'etherType': ethertype,
+                     'ethertype': ethertype,
                      'direction': direction}
                     for ethertype in [neutron_constants.IPv4,
                                       neutron_constants.IPv6]
