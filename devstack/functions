@@ -173,6 +173,38 @@ function create_or_retrieve_cms {
     eval "$1=${NUAGE_VSD_CMS_ID}"
 }
 
+function clean_vsd_public_network {
+    username=$( echo "${NUAGE_VSD_SERVER_AUTH}" | cut -d ':' -f 1)
+    upper_ssl=${NUAGE_VSD_SERVER_SSL^^}
+    if [[ "$upper_ssl" = "TRUE" ]]; then
+        base_url="https://"
+    else
+        base_url="http://"
+    fi
+    base_url+="$NUAGE_VSD_SERVERS"
+    base_url+="$NUAGE_VSD_BASE_URI"
+    url="$base_url$NUAGE_VSD_AUTH_RESOURCE"
+
+    echo "Connecting to VSD"
+    result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$NUAGE_VSD_SERVER_AUTH" "$url")
+    regex='"APIKey":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    apikey="${BASH_REMATCH[1]}"
+    echo "Connected"
+
+    echo "Getting public subnet with same CIDR as this deployment"
+    url="$base_url/subnets"
+    result=$(curl --request GET --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --header "X-Nuage-FilterType: predicate" --header "X-Nuage-Filter: address IS '$PUBLIC_NETWORK_GATEWAY'" --user "$username:$apikey" "$url")
+    regex='"ID":.?"([^"]*)"'
+    if [[ ${result} =~ $regex ]]; then
+        id="${BASH_REMATCH[1]}"
+        url="$base_url/subnets/$id"
+        curl --request DELETE --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url"
+        echo "Deleted public subnet $id"
+    fi
+
+}
+
 function configure_octavia_nuage {
     if is_service_enabled octavia; then
         echo "configuring Octavia Healthmanager port"
