@@ -39,6 +39,7 @@ if [[ "$1" == "stack" ]]; then
             mkdir -v -p $NEUTRON_CONF_DIR/policy.d && cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/etc/neutron/policy.d/nuage_policy.json $NEUTRON_CONF_DIR/policy.d
             configure_neutron_nuage
             configure_networking_sfc_policy
+            clean_vsd_public_network
             if [[ "${NUAGE_USE_SWITCHDEV}" == "True" ]]; then
                 cp -v $NUAGE_OPENSTACK_NEUTRON_DIR/devstack/lib/nuage_switchdev_policy.json $NEUTRON_CONF_DIR/policy.d
             fi
