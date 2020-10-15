@@ -134,6 +134,19 @@
         - tempest-full:
             override-checkout: stable/queens
             required-projects: *required-projects
+    upgrade:
+      jobs:
+        - networking-nuage-tempest-upgrade:
+            # Run 6.0 deployment with 5.4/queens neutron code for
+            # upgrade testing to 6.0/queens
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+              - name: OpenStack/nuage-openstack-neutronclient
+                override-checkout: 6.0/queens
+              - name: opendev.org/openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -176,6 +189,17 @@
         - networking-nuage-vtep-vlan-nuage:
             override-checkout: stable/queens
             required-projects: *required-projects
+        - networking-nuage-tempest-upgrade:
+            # Run 6.0 deployment with 5.4/queens neutron code for
+            # upgrade testing to 6.0/queens
+            override-checkout: stable/queens
+            required-projects:
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 5.4/queens
+              - name: OpenStack/nuage-openstack-neutronclient
+                override-checkout: 6.0/queens
+              - name: opendev.org/openstack/neutron-tempest-plugin
+                override-checkout: 0.3.0
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
