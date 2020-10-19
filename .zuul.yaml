@@ -9,22 +9,23 @@
                 override-checkout: 0.9.0
         - networking-nuage-tempest-smoke-vsdipam:
             required-projects: *required-projects
-
     gate:
       jobs:
         - networking-nuage-tempest-smoke:
             required-projects: *required-projects
         - networking-nuage-tempest-smoke-vsdipam:
             required-projects: *required-projects
-
-    experimental:
+    upgrade:
       jobs:
-        - networking-nuage-vtep-vxlan:
-            required-projects: *required-projects
+        - networking-nuage-tempest-upgrade:
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.9.0
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 6.0/rocky
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
-            
             required-projects: *required-projects
         - networking-nuage-tempest-virtio-vsdipam:
             required-projects: *required-projects
@@ -139,7 +140,6 @@
         - networking-nuage-tempest-api-switchdev:
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
-            
             required-projects: *required-projects
     periodic-saturday:
       jobs:
@@ -155,6 +155,12 @@
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
             required-projects: *required-projects
+        - networking-nuage-tempest-upgrade:
+            required-projects:
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 0.9.0
+              - name: OpenStack/nuage-openstack-neutron
+                override-checkout: 6.0/rocky
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
