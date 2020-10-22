@@ -50,21 +50,23 @@ class NuageFwaasBase(object):
     def __init__(self, restproxy):
         super(NuageFwaasBase, self).__init__()
         self.restproxy = restproxy
+        self.firewall_rule_obj = FirewallRule()
+        self.firewall_acl_obj = FirewallAcl()
 
     def _vsd_fw_rule_by_os_id(self, enterprise_id, id, required=False):
         return self._get_by_openstack_id(
-            FirewallRule, id, parent='enterprises', parent_id=enterprise_id,
-            required=required)
+            self.firewall_rule_obj, id, parent='enterprises',
+            parent_id=enterprise_id, required=required)
 
     def _vsd_fw_acl_by_os_id(self, enterprise_id, id, required=False):
         return self._get_by_openstack_id(
-            FirewallAcl, id, parent='enterprises', parent_id=enterprise_id,
-            required=required)
+            self.firewall_acl_obj, id, parent='enterprises',
+            parent_id=enterprise_id, required=required)
 
     def _get_by_openstack_id(self, resource, id, parent=None, parent_id=None,
                              required=False):
         external_id = get_vsd_external_id(id)
-        filter_header = FirewallRule.extra_header_filter(
+        filter_header = self.firewall_rule_obj.extra_header_filter(
             externalID=external_id)
         objects = self.get(resource, parent=parent, parent_id=parent_id,
                            extra_headers=filter_header)
@@ -176,7 +178,8 @@ class NuageFwaasMapper(NuageFwaasBase):
             # os rules
             vsd_rules_ext_id_to_id = {
                 rule['externalID']: rule['ID']
-                for rule in get_by_field_values(self.restproxy, FirewallRule,
+                for rule in get_by_field_values(self.restproxy,
+                                                self.firewall_rule_obj,
                                                 'externalID', external_ids,
                                                 parent='enterprises',
                                                 parent_id=enterprise_id)
@@ -228,53 +231,55 @@ class NuageFwaas(NuageFwaasMapper):
 
     def create_firewall_rule(self, enterprise_id, os_rule):
         data = self.map_rule_os_to_vsd(os_rule, post=True)
-        return self.post(FirewallRule, data, parent='enterprises',
+        return self.post(self.firewall_rule_obj, data, parent='enterprises',
                          parent_id=enterprise_id)
 
     def update_firewall_rule(self, enterprise_id, id, os_rule):
         fw_rule = self._vsd_fw_rule_by_os_id(enterprise_id, id, required=True)
         data = self.map_rule_os_to_vsd(os_rule)
         if data:
-            self.put(FirewallRule, fw_rule['ID'], data)
+            self.put(self.firewall_rule_obj, fw_rule['ID'], data)
 
     def delete_firewall_rule(self, enterprise_id, id):
         fw_rule = self._vsd_fw_rule_by_os_id(enterprise_id, id)
         if fw_rule:
-            self.delete(FirewallRule, fw_rule['ID'])
+            self.delete(self.firewall_rule_obj, fw_rule['ID'])
 
     def delete_vsd_firewallrule(self, id):
-        self.delete(FirewallRule, id)
+        self.delete(self.firewall_rule_obj, id)
 
     # Firewall Policy
 
     def create_firewall_policy(self, enterprise_id, os_policy):
         data = self.map_policy_os_to_vsd(enterprise_id, os_policy, post=True)
-        return self.post(FirewallAcl, data, parent='enterprises',
+        return self.post(self.firewall_acl_obj, data, parent='enterprises',
                          parent_id=enterprise_id)
 
     def update_firewall_policy(self, enterprise_id, id, os_policy):
         fw_acl = self._vsd_fw_acl_by_os_id(enterprise_id, id, required=True)
         data = self.map_policy_os_to_vsd(enterprise_id, os_policy)
         if data:
-            self.put(FirewallAcl, fw_acl['ID'], data)
+            self.put(self.firewall_acl_obj, fw_acl['ID'], data)
 
     def delete_firewall_policy(self, enterprise_id, id):
         fw_acl = self._vsd_fw_acl_by_os_id(enterprise_id, id)
         if fw_acl:
-            self.delete(FirewallAcl, fw_acl['ID'])
+            self.delete(self.firewall_acl_obj, fw_acl['ID'])
 
     def insert_rule(self, enterprise_id, os_policy_id, os_rule_info):
         fw_acl = self._vsd_fw_acl_by_os_id(
             enterprise_id, os_policy_id, required=True)
         data = self.map_rule_info_os_to_vsd(enterprise_id, os_rule_info,
                                             insert=True)
-        self.restproxy.put(FirewallAcl.insert_url() % fw_acl['ID'], data)
+        self.restproxy.put(self.firewall_acl_obj.insert_url() % fw_acl['ID'],
+                           data)
 
     def remove_rule(self, enterprise_id, os_policy_id, os_rule_info):
         fw_acl = self._vsd_fw_acl_by_os_id(
             enterprise_id, os_policy_id, required=True)
         data = self.map_rule_info_os_to_vsd(enterprise_id, os_rule_info)
-        self.restproxy.put(FirewallAcl.remove_url() % fw_acl['ID'], data)
+        self.restproxy.put(self.firewall_acl_obj.remove_url() % fw_acl['ID'],
+                           data)
 
     def _create_drop_all_fw_acl(self, enterprise_id, firewall_id):
         policy = {'name': 'DROP_ALL_ACL_%s' % firewall_id,
@@ -288,9 +293,9 @@ class NuageFwaas(NuageFwaasMapper):
         try:
             fw_acl = self._vsd_fw_acl_by_os_id(enterprise_id,
                                                firewall_id)
-            self.restproxy.put(FirewallAcl.domains_url() % fw_acl['ID'],
-                               [])
-            self.delete(FirewallAcl, fw_acl['ID'])
+            self.restproxy.put(
+                self.firewall_acl_obj.domains_url() % fw_acl['ID'], [])
+            self.delete(self.firewall_acl_obj, fw_acl['ID'])
         except restproxy.ResourceNotFoundException:
             pass
 
@@ -334,5 +339,5 @@ class NuageFwaas(NuageFwaasMapper):
                 fw_acl = self._vsd_fw_acl_by_os_id(enterprise_id,
                                                    os_firewall['id'],
                                                    required=True)
-        self.restproxy.put(FirewallAcl.domains_url() % fw_acl['ID'],
+        self.restproxy.put(self.firewall_acl_obj.domains_url() % fw_acl['ID'],
                            l3domain_ids)

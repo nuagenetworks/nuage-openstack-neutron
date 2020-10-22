@@ -2251,17 +2251,14 @@ class FirewallRule(VsdChildResource):
 class FirewallAcl(VsdChildResource):
     resource = 'firewallacls'
 
-    @classmethod
-    def insert_url(cls):
-        return cls.show_url() + '/insert?responseChoice=1'
+    def insert_url(self):
+        return self.show_url() + '/insert?responseChoice=1'
 
-    @classmethod
-    def remove_url(cls):
-        return cls.show_url() + '/remove?responseChoice=1'
+    def remove_url(self):
+        return self.show_url() + '/remove?responseChoice=1'
 
-    @classmethod
-    def domains_url(cls):
-        return cls.show_url() + '/domains?responseChoice=1'
+    def domains_url(self):
+        return self.show_url() + '/domains?responseChoice=1'
 
 
 class NuageRateLimiter(VsdResource):
