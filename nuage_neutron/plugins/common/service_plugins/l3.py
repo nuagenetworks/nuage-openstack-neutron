@@ -217,13 +217,8 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
     def _process_router_interface_add_info(self, context, interface_info,
                                            session, vport):
-        port_id_specified = interface_info and 'port_id' in interface_info
-        subnet_id_specified = interface_info and 'subnet_id' in interface_info
-        # validation from upstream
-        if not (port_id_specified or subnet_id_specified):
-            msg = _("Either subnet_id or port_id must be specified")
-            raise n_exc.BadRequest(resource='router', msg=msg)
-        if port_id_specified:
+        add_by_port, add_by_sub = self._validate_interface_info(interface_info)
+        if add_by_port:
             port_id = interface_info['port_id']
             port = self.core_plugin._get_port(context, port_id)
             if not port['fixed_ips']:
