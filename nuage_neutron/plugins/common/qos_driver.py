@@ -19,6 +19,7 @@ from neutron.objects.qos import rule as qos_rule
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants
 from neutron_lib.db import constants as db_consts
+from neutron_lib.plugins import utils
 from neutron_lib.services.qos import base
 from neutron_lib.services.qos import constants as qos_consts
 from oslo_config import cfg
@@ -46,7 +47,7 @@ SUPPORTED_RULES = {
     }
 }
 VIF_TYPES = [portbindings.VIF_TYPE_OVS, portbindings.VIF_TYPE_VHOST_USER]
-VNIC_TYPES = [portbindings.VNIC_NORMAL]
+VNIC_TYPES = [portbindings.VNIC_NORMAL, portbindings.VNIC_DIRECT]
 
 
 class NuageQosDriver(base.DriverBase):
@@ -79,6 +80,25 @@ class NuageQosDriver(base.DriverBase):
     @property
     def is_loaded(self):
         return NUAGE_QOS in cfg.CONF.ml2.extension_drivers
+
+    def validate_rule_for_port(self, context, rule, port):
+        validated = super(NuageQosDriver, self).validate_rule_for_port(
+            context, rule, port)
+        if not validated:
+            return False
+        # This driver only supports DIRECT VNIC type with switchdev
+        # capabilities, not SRIOV.
+        port_binding = utils.get_port_binding_by_status_and_host(
+            port.bindings, constants.ACTIVE, raise_if_not_found=True,
+            port_id=port['id'])
+        vnic_type = port_binding.vnic_type
+        if vnic_type == portbindings.VNIC_DIRECT:
+            # Reject when there are no switchdev capabilities
+            profile = port_binding.get('profile')
+            capabilities = profile.get('capabilities', []) if profile else []
+            return 'switchdev' in capabilities
+        else:
+            return True
 
     @staticmethod
     def _get_vsd_qos_options(db_context, policy_id):
