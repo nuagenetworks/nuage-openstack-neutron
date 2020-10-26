@@ -76,16 +76,11 @@
     periodic:
       jobs:
         - networking-nuage-tempest-virtio
-        - networking-nuage-tempest-virtio-vsdipam
         - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario
-        - networking-nuage-tempest-scenario-vsdipam
         - networking-nuage-tempest-cli
         - tempest-full
-        - tempest-full-vsdipam
         - networking-nuage-tempest-api-switchdev
         - networking-nuage-vtep-vlan-upstream:
             nodeset: openstack-single-node-bionic
