@@ -40,7 +40,7 @@ def create_nuage_prefix_macro(restproxy_serv, sg_rule, np_id):
     net_name = str(str(ipaddress.ip_address(
         net.ip).exploded).replace(':', '-')).replace('.', '-')
 
-    macro_name = str(sg_rule.get('ethertype')) + '_' + \
+    macro_name = str(sg_rule.get('ethertype', constants.OS_IPV4)) + '_' + \
         net_name + '_' + str(net.prefixlen)
     req_params = {
         'net_partition_id': np_id,
