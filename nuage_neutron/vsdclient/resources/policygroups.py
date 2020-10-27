@@ -437,8 +437,10 @@ class NuagePolicyGroups(object):
                 replace(':', '-').replace('.', '-') + '_' +
                 str(remote_network.prefixlen)))
         # Assumption: enterprise network is going to exist more often than not
-        enterprise_networks = self._get_enterprise_network_by_name(
-            enterprise_id=enterprise_id, name=params['name'])
+        enterprise_networks = self._get_enterprise_network(
+            enterprise_id=enterprise_id, ip_type=params['IPType'],
+            address=params.get('address'), netmask=params.get('netmask'),
+            ipv6_address=params.get('IPv6Address'))
         if not enterprise_networks:
             enterprise_network_obj = nuagelib.EnterpriseNetwork()
             enterprise_networks = self.restproxy.post(
@@ -450,15 +452,21 @@ class NuagePolicyGroups(object):
                     restproxy.REST_NW_MACRO_EXISTS_INTERNAL_ERR_CODE])
         if not enterprise_networks:
             # Concurrent Create
-            enterprise_networks = self._get_enterprise_network_by_name(
-                enterprise_id=enterprise_id, name=params['name'],
-                required=True)
+            enterprise_networks = self._get_enterprise_network(
+                enterprise_id=enterprise_id, ip_type=params['IPType'],
+                address=params.get('address'), netmask=params.get('netmask'),
+                ipv6_address=params.get('IPv6Address'), required=True)
         return enterprise_networks[0]
 
-    def _get_enterprise_network_by_name(self, enterprise_id, name,
-                                        required=False):
+    def _get_enterprise_network(self, enterprise_id, ip_type,
+                                address=None, netmask=None, ipv6_address=None,
+                                required=False):
         ent_nw_obj = nuagelib.EnterpriseNetwork()
-        filters = {'name': name}
+        if ip_type == constants.IPV4:
+            filters = {'address': str(address), 'netmask': str(netmask)}
+        else:
+            filters = {'IPv6Address': str(ipv6_address)}
+
         return self.restproxy.get(
             ent_nw_obj.get_url(parent='enterprises',
                                parent_id=enterprise_id),
