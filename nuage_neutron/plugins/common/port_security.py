@@ -167,11 +167,8 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
                     found_domain_type, found_domain_id = (
                         self._get_domain_type_id_from_vsd_subnet(
                             self.vsdclient, found_vsd_subnet))
-                    if found_domain_id == domain_id:
-                        raise  # No use retrying
-                    else:
-                        domain_type, domain_id = (found_domain_type,
-                                                  found_domain_type)
+                    domain_type, domain_id = (found_domain_type,
+                                              found_domain_type)
 
                 # Translate network macro error
                 elif e.vsd_code in constants.NOT_SUPPORTED_NW_MACRO:
