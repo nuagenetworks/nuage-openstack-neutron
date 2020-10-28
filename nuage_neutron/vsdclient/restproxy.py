@@ -634,17 +634,20 @@ class RESTProxyServer(object):
         extra_headers = extra_headers or {}
         extra_headers['X-Nuage-PatchType'] = patch_type
         for chunk in self._chunkify(data, 250):
-            response = self.rest_call('PATCH', resource, data,
+            response = self.rest_call('PATCH', resource, chunk,
                                       extra_headers=extra_headers)
             if response[0] not in REST_SUCCESS_CODES:
                 errors = json.loads(response[3])
+                vsd_code = None
                 if response[0] == 503:
                     msg = ('VSD temporarily unavailable, ' +
                            str(errors['errors']))
                 else:
                     msg = str(
                         errors['errors'][0]['descriptions'][0]['description'])
-                raise RESTProxyError(msg, error_code=response[0])
+                    vsd_code = str(errors.get('internalErrorCode'))
+                raise RESTProxyError(msg, error_code=response[0],
+                                     vsd_code=vsd_code)
             results.append(response[3])
         return results
 
