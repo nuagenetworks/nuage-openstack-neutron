@@ -257,9 +257,10 @@ class NuageL2Domain(object):
 
     def delete_subnet(self, l2dom_id, mapping):
         nuagel2domain = nuagelib.NuageL2Domain()
-        l2dom = self.restproxy.get(nuagel2domain.get_resource(l2dom_id))[0]
         nuagel2domtemplate = nuagelib.NuageL2DomTemplate()
+        l2dom = self.restproxy.get(nuagel2domain.get_resource(l2dom_id))
         if l2dom:
+            l2dom = l2dom[0]
             template_id = l2dom['templateID']
             template = self.restproxy.get(
                 nuagel2domtemplate.get_resource(template_id))[0]
