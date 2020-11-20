@@ -78,8 +78,7 @@ class NuageIpamSubnet(driver.NeutronDbSubnet):
                 nr_retries += 1
                 if nr_retries < max_retries:
                     LOG.debug('Could not find VSD Domain/Subnet. '
-                              'Retrying {}/{}.'.format(nr_retries,
-                                                       max_retries))
+                              'Retrying {}/{}.', nr_retries, max_retries)
                     # Find on VSD parent based on reverse of is_l2, as we
                     # assume router-attach/detach scenario
                     is_l2 = not is_l2
@@ -90,8 +89,7 @@ class NuageIpamSubnet(driver.NeutronDbSubnet):
                         pass
                 else:
                     LOG.debug('Could not find VSD Domain/Subnet after '
-                              'retrying {}/{} times.'.format(nr_retries,
-                                                             max_retries))
+                              'retrying {}/{} times.', nr_retries, max_retries)
                     raise
 
         # Create IP allocation request object
