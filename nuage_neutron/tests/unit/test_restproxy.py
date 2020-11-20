@@ -41,10 +41,11 @@ class TestNuageRestproxy(testtools.TestCase):
         on_res_exists.assert_called()
         self.assertEqual('fake_return_object', returned_value)
         # assert LOG is getting called correctly
-        log_mock.debug.assert_any_call('Received 409 from VSD with '
-                                       'internalErrorCode 2510. Trying '
-                                       'on_res_exists to recover.')
-        log_mock.debug.assert_called_with('Recovery from 409 successful.')
+        log_mock.debug.assert_any_call('Received {} from VSD with '
+                                       'internalErrorCode {}. Trying '
+                                       '{} to recover.', 409, 2510,
+                                       "on_res_exists")
+        log_mock.debug.assert_called_with('Recovery from {} successful.', 409)
 
     @mock.patch.object(RESTProxyServer, 'rest_call')
     @mock.patch('nuage_neutron.vsdclient.restproxy.LOG')
@@ -69,7 +70,9 @@ class TestNuageRestproxy(testtools.TestCase):
                                on_res_exists=on_res_exists)
         on_res_exists.assert_called()
         # assert LOG is getting called correctly
-        log_mock.debug.assert_any_call('Received 409 from VSD with '
-                                       'internalErrorCode 2510. Trying '
-                                       'on_res_exists to recover.')
-        log_mock.debug.assert_called_with('Recovery from 409 unsuccessful.')
+        log_mock.debug.assert_any_call('Received {} from VSD with '
+                                       'internalErrorCode {}. Trying '
+                                       '{} to recover.', 409, 2510,
+                                       "on_res_exists")
+        log_mock.debug.assert_called_with('Recovery from {} unsuccessful.',
+                                          409)

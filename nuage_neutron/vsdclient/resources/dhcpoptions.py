@@ -152,7 +152,7 @@ class NuageDhcpOptions(object):
         dhcp_opt       : DHCP opt to delete from VSD.
         vport_id       : Vport on which to delete the DHCP option.
         """
-        LOG.debug('delete nuage dhcp option for resource {}'.format(vport_id))
+        LOG.debug('delete nuage dhcp option for resource {}', vport_id)
         ip_version = dhcp_opt['ip_version']
         nuage_dhcp_options = nuagelib.NuageDhcpOptions(ip_version)
         dhcp_id = self._check_dhcp_option_exists(
@@ -172,7 +172,7 @@ class NuageDhcpOptions(object):
         external_id    : neutron portID on which we create the DHCP options.
         """
         LOG.debug('Create/Update nuage dhcp option for '
-                  'resource {}'.format(parent_id))
+                  'resource {}', parent_id)
         ip_version = extra_dhcp_opt['ip_version']
         option_number = extra_dhcp_opt['opt_name']
         option_value = extra_dhcp_opt['opt_value']
