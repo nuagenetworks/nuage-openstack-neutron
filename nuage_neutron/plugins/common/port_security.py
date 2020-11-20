@@ -162,7 +162,7 @@ class NuagePortSecurityHandler(base_plugin.SubnetUtilsBase,
                 if attempt == attempts - 1:
                     # Last attempt
                     LOG.debug("Process Port Securitygroups retry"
-                              " failed {} times.".format(attempts))
+                              " failed {} times.", attempts)
                     raise
                 LOG.debug("Process Port Securitygroups retry")
 

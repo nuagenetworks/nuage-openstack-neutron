@@ -310,13 +310,14 @@ class NuagePolicyGroups(object):
         is_hardware = pg_type == constants.HARDWARE
         # Simulate stateful experience with stateless rules in two directions
         needs_reverse_rule = False
-
+        # Hardware rules are always stateless
+        stateful = stateful if not is_hardware else False
         acl_values = {
             'locationType': 'POLICYGROUP',
             'locationID': pg_id,
             'action': 'FORWARD',
             'DSCP': '*',
-            'stateful': stateful if not is_hardware else False,
+            'stateful': stateful,
             'flowLoggingEnabled': self.flow_logging_enabled
             if not is_hardware else False,
             'statsLoggingEnabled': self.stats_collection_enabled
