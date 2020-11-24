@@ -331,7 +331,7 @@ class NuagePolicyGroups(object):
 
         if sg_rule.get('id'):
             acl_values['externalID'] = self._get_vsd_external_id(
-                sg_rule['id'], constants.SOFTWARE)
+                sg_rule['id'], pg_type)
 
         # VSD etherType in hex value: 4 or 6
         if not is_ipv6:
@@ -560,8 +560,10 @@ class NuagePolicyGroups(object):
 
     def delete_security_group_rule(self, sg_rule):
         filters = {
-            'externalID': self._get_vsd_external_id(sg_rule['id'],
-                                                    constants.SOFTWARE)}
+            'externalID': [self._get_vsd_external_id(sg_rule['id'], pg_type)
+                           for pg_type in
+                           (constants.HARDWARE, constants.SOFTWARE)]
+        }
         for _, vsd_direction in constants.DIRECTIONS_OS_VSD.items():
             acl_entry_tmpl_obj = nuagelib.ACLEntryTemplate(vsd_direction)
             # Get all acl entries corresponding to external ID
