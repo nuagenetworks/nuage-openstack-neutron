@@ -310,10 +310,13 @@ class NuagePolicyGroups(object):
         is_ipv6 = (sg_rule.get('ethertype',
                                constants.OS_IPV4) == constants.OS_IPV6)
         is_hardware = pg_type == constants.HARDWARE
-        # Simulate stateful experience with stateless rules in two directions
-        needs_reverse_rule = False
+
         # Hardware rules are always stateless
         stateful = stateful if not is_hardware else False
+
+        # Simulate stateful experience with stateless rules in two directions
+        needs_reverse_rule = False
+
         acl_values = {
             'locationType': 'POLICYGROUP',
             'locationID': pg_id,
