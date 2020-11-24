@@ -213,11 +213,12 @@ class NuagePolicyGroups(object):
             data = acltemplate_obj.post_data(
                 name=name, external_id=external_id, allow_non_ip=allow_non_ip,
                 priority=1)
-            acl_template_id = self.restproxy.post(
+            acl_template = self.restproxy.post(
                 acltemplate_obj.post_url(domain_resource_type, domain_id),
                 data,
                 on_res_exists=self.restproxy.retrieve_by_cms_id_and_priority,
                 ignore_err_codes=[restproxy.REST_DUPLICATE_ACL_PRIORITY])[0]
+            acl_template_id = acl_template['ID']
         return acl_template_id
 
     def _create_policygroup_for_securitygroup(self, sg, domain_type, domain_id,
