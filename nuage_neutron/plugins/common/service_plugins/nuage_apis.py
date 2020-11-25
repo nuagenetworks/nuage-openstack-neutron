@@ -315,11 +315,11 @@ class NuageApi(base_plugin.BaseNuagePlugin,
             context.session, id)
         if ent_rtr_mapping:
             msg = (_("One or more router still attached to "
-                     "net_partition %s.") % net_partition_name)
+                     "net_partition %s") % net_partition_name)
             raise n_exc.BadRequest(resource='net_partition', msg=msg)
         if ent_l2dom_mapping:
             msg = (_("One or more L2 Domain Subnet present in the "
-                     "net_partition %s.") % net_partition_name)
+                     "net_partition %s") % net_partition_name)
             raise n_exc.BadRequest(resource='net_partition', msg=msg)
 
     @nuage_utils.handle_nuage_api_errorcode
@@ -455,7 +455,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     @log_helpers.log_method_call
     def get_vsd_subnets(self, context, filters=None, fields=None):
         if 'vsd_zone_id' not in filters:
-            msg = _('vsd_zone_id is a required filter parameter for this API.')
+            msg = _('vsd_zone_id is a required filter parameter for this API')
             raise n_exc.BadRequest(resource='vsd-subnets', msg=msg)
         l3subs = self.vsdclient.get_domain_subnet_by_zone_id(
             filters['vsd_zone_id'][0])
@@ -500,7 +500,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
                     l3domains.append(l3_domain)
         else:
             msg = _('vsd_organisation_id or os_router_ids is a required filter'
-                    ' parameter for this API.')
+                    ' parameter for this API')
             raise n_exc.BadRequest(resource='vsd-domains', msg=msg)
 
         # add type to the domains (used by horizon linkedselect)
@@ -552,7 +552,7 @@ class NuageApi(base_plugin.BaseNuagePlugin,
     def get_vsd_zones(self, context, filters=None, fields=None):
         if 'vsd_domain_id' not in filters:
             msg = _('vsd_domain_id is a required filter parameter for this '
-                    'API.')
+                    'API')
             raise n_exc.BadRequest(resource='vsd-zones', msg=msg)
         try:
             vsd_zones = self.vsdclient.get_zone_by_domainid(
