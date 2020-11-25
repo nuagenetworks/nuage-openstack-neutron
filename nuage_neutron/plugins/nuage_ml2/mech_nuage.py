@@ -51,7 +51,6 @@ from nuage_neutron.plugins.common import utils
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
-from nuage_neutron.plugins.common.validation import require
 from nuage_neutron.plugins.nuage_ml2.securitygroup import NuageSecurityGroup
 from nuage_neutron.plugins.nuage_ml2 import trunk_driver
 
@@ -626,8 +625,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                         "(please do not edit)")
                 nuage_vport = self._create_nuage_vport(port, nuage_subnet,
                                                        desc)
-                np_name = self.vsdclient.get_net_partition_name_by_id(np_id)
-                require(np_name, "netpartition", np_id)
+                np_name = nuagedb.get_net_partition_by_id(
+                    db_context.session, np_id)['name']
                 nuage_vm = self._create_nuage_vm(
                     db_context, port, np_name, subnet_mapping,
                     nuage_vport, nuage_subnet, network)
@@ -907,10 +906,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                             host_added=False, host_removed=False):
         if not host_added and not host_removed:
             return
-        np_name = self.vsdclient.get_net_partition_name_by_id(
-            subnet_mapping['net_partition_id'])
-        require(np_name, "netpartition",
-                subnet_mapping['net_partition_id'])
+        np_name = nuagedb.get_net_partition_by_id(
+            db_context.session, subnet_mapping['net_partition_id'])['name']
 
         if host_removed:
             if (self._port_should_have_vm(original) or
@@ -964,10 +961,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         if nuage_vport and nuage_vport.get('hasAttachedInterfaces'):
             # Delete VMInterface
-            np_name = self.vsdclient.get_net_partition_name_by_id(
-                subnet_mapping['net_partition_id'])
-            require(np_name, "netpartition",
-                    subnet_mapping['net_partition_id'])
+            np_name = nuagedb.get_net_partition_by_id(
+                db_context.session, subnet_mapping['net_partition_id'])['name']
             device_id = port['device_id']
             if not device_id:
                 # Due to concurrent Create/Update/Delete we do not know the
