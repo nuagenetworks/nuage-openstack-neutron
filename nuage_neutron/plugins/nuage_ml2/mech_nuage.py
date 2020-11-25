@@ -1500,7 +1500,8 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
     @staticmethod
     def _supported_vnic_types():
         return [portbindings.VNIC_NORMAL,
-                portbindings.VNIC_DIRECT]
+                portbindings.VNIC_DIRECT,
+                portbindings.VNIC_VIRTIO_FORWARDER]
 
     @staticmethod
     def _direct_vnic_supported(port):
@@ -1514,9 +1515,11 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
     @staticmethod
     def is_port_vnic_type_supported(port):
-        return (NuageMechanismDriver._direct_vnic_supported(port) or
-                port.get(portbindings.VNIC_TYPE, '') ==
-                portbindings.VNIC_NORMAL)
+        if port.get(portbindings.VNIC_TYPE) == portbindings.VNIC_DIRECT:
+            return NuageMechanismDriver._direct_vnic_supported(port)
+        else:
+            return (port.get(portbindings.VNIC_TYPE) in
+                    NuageMechanismDriver._supported_vnic_types())
 
     def check_vlan_transparency(self, context):
         """Nuage driver vlan transparency support."""
