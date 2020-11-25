@@ -632,8 +632,11 @@ class RootNuagePlugin(SubnetUtilsBase):
 
     @staticmethod
     def vnic_is_l2bridge_compatible(port_vnic_type):
-        return Capabilities.by_port_vnic_type[port_vnic_type][
-            Capabilities.BRIDGED_NETWORKS]
+        capability = Capabilities.by_port_vnic_type.get(port_vnic_type)
+        if capability:
+            return capability.get(Capabilities.BRIDGED_NETWORKS, False)
+        else:
+            LOG.debug("No l2bridge capabilities found for %s", port_vnic_type)
 
     def _validate_nuage_l2bridges(self, db_context, port):
         nuage_l2bridge = nuagedb.get_nuage_l2bridge_id_for_network(

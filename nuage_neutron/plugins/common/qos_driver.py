@@ -47,7 +47,8 @@ SUPPORTED_RULES = {
     }
 }
 VIF_TYPES = [portbindings.VIF_TYPE_OVS, portbindings.VIF_TYPE_VHOST_USER]
-VNIC_TYPES = [portbindings.VNIC_NORMAL, portbindings.VNIC_DIRECT]
+VNIC_TYPES = [portbindings.VNIC_NORMAL, portbindings.VNIC_DIRECT,
+              portbindings.VNIC_VIRTIO_FORWARDER]
 
 
 class NuageQosDriver(base.DriverBase):

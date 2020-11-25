@@ -57,6 +57,7 @@
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev
+        - networking-nuage-tempest-api-virtio-forwarder
     cli:
       jobs:
         - networking-nuage-tempest-cli
