@@ -250,8 +250,8 @@ class NuageTrunkHandler(object):
                     os_port['tenant_id'],
                     subnet_mapping['net_partition_id'])
 
-            np_name = _vsdclient.get_net_partition_name_by_id(
-                subnet_mapping['net_partition_id'])
+            np_name = db.get_net_partition_by_id(
+                subnet_mapping['net_partition_id'])['name']
 
             data = {
                 'id': os_port['id'],
