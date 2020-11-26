@@ -640,3 +640,42 @@ class VsdClient(object):
 
     def get_nuage_external_sg_rules(self, params):
         pass
+
+    # Firewall
+
+    def create_firewall_rule(self, enterprise_id, os_rule):
+        pass
+
+    def update_firewall_rule(self, enterprise_id, id, os_rule):
+        pass
+
+    def delete_firewall_rule(self, enterprise_id, id):
+        pass
+
+    def delete_vsd_firewallrule(self, id):
+        pass
+
+    def create_firewall_policy(self, enterprise_id, os_policy):
+        pass
+
+    def update_firewall_policy(self, enterprise_id, id, os_policy):
+        pass
+
+    def delete_firewall_policy(self, enterprise_id, id):
+        pass
+
+    def insert_rule(self, enterprise_id, os_policy_id, os_rule_info):
+        pass
+
+    def remove_rule(self, enterprise_id, os_policy_id, os_rule_info):
+        pass
+
+    def create_firewall(self, enterprise_id, os_firewall, l3domain_ids):
+        pass
+
+    def update_firewall(self, enterprise_id, os_firewall, l3domain_ids,
+                        handle_block_acl, routers_updated):
+        pass
+
+    def delete_firewall(self, enterprise_id, os_firewall, l3domain_ids):
+        pass
