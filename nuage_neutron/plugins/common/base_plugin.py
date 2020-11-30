@@ -214,8 +214,8 @@ class RootNuagePlugin(SubnetUtilsBase):
         # this is not the only subnet linked to same nuage subnet
         # need to validate allocation pools being disjunct
 
-        LOG.debug('_validate_allocation_pools: subnet {} has allocation pools '
-                  '{}', subnet['id'], subnet['allocation_pools'])
+        LOG.debug('_validate_allocation_pools: subnet %s has allocation pools '
+                  '%s', subnet['id'], subnet['allocation_pools'])
 
         def pools_to_ip_sets(_ip_pools, _ip_sets, _ip_ranges):
 
@@ -245,8 +245,8 @@ class RootNuagePlugin(SubnetUtilsBase):
             sub = self.core_plugin.get_subnet(context, mapping['subnet_id'])
             pools_to_ip_sets(sub['allocation_pools'], ip_sets, ip_ranges)
 
-            LOG.debug('_validate_allocation_pools: validating with subnet {} '
-                      'with allocation pools {}', sub, sub['allocation_pools'])
+            LOG.debug('_validate_allocation_pools: validating with subnet %s '
+                      'with allocation pools %s', sub, sub['allocation_pools'])
 
         # inspired by IpamBackendMixin.validate_allocation_pools:
         #                    ~    ~    ~
