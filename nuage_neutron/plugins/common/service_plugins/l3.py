@@ -821,7 +821,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         try:
             session.expunge(ent_rtr_mapping)
         except Exception as e:
-            LOG.warn('Got exception when expunging session: {}', str(e))
+            LOG.warn('Got exception when expunging session: %s', e)
 
         if ent_rtr_mapping:
             LOG.debug("Enterprise to router mapping found for router %s", id)
@@ -1164,7 +1164,7 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
         if do_delete and nuage_fip:
             self.vsdclient.delete_nuage_floatingip(
                 nuage_fip['ID'])
-            LOG.debug('Floating-ip {} deleted '
+            LOG.debug('Floating-ip %s deleted '
                       'from VSD', neutron_fip['id'])
 
         self.update_floatingip_status(
