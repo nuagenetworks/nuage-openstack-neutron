@@ -267,7 +267,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             else:
                 LOG.debug('get_nuage_gateway_vport: subnet_id could not '
                           'be retrieved as no subnet_info is present for '
-                          'nuage_subnet_id={}', nuage_subnet_id)
+                          'nuage_subnet_id=%s', nuage_subnet_id)
         else:
             LOG.debug('get_nuage_gateway_vport: subnet_id already '
                       'contained')
