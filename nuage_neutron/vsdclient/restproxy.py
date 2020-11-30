@@ -306,7 +306,7 @@ class RESTProxyServer(object):
                 ret = (response.status_code, response.reason, response.text,
                        resp_data, response.headers, headers['Authorization'])
             except requests.exceptions.RequestException as e:
-                LOG.error(_('ServerProxy: request failed: {}'), e)
+                LOG.error(_('ServerProxy: request failed: %s'), e)
             else:
                 if response.status_code != REST_SERV_UNAVAILABLE_CODE:
                     return ret
@@ -572,19 +572,19 @@ class RESTProxyServer(object):
             if str(errors.get('internalErrorCode')) in ignore_err_codes:
                 if on_res_exists:
                     LOG.debug(
-                        'Received {} from VSD with internalErrorCode '
-                        '{}. Trying {} to recover.',
+                        'Received %s from VSD with internalErrorCode '
+                        '%s. Trying %s to recover.',
                         REST_CONFLICT_ERR_CODE,
                         errors.get('internalErrorCode'),
                         on_res_exists.__name__)
                     get_response = on_res_exists(self, resource, data)
                     if get_response:
                         LOG.debug(
-                            'Recovery from {} successful.',
+                            'Recovery from %s successful.',
                             REST_CONFLICT_ERR_CODE)
                     else:
                         LOG.debug(
-                            'Recovery from {} unsuccessful.',
+                            'Recovery from %s unsuccessful.',
                             REST_CONFLICT_ERR_CODE)
                         msg = str(errors['errors'][0]['descriptions'][0]
                                   ['description'])
