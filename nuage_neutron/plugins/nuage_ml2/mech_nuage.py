@@ -667,7 +667,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             if self._get_port_from_neutron(db_context, port):
                 raise
             else:
-                LOG.info(_("Port was deleted concurrently: {}"), ex)
+                LOG.info(_("Port was deleted concurrently: %s"), ex)
                 return
         except Exception:
             if nuage_vm:
@@ -813,7 +813,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                               [db_context, original, port, nuage_vport,
                                domain_type, domain_id, subnet_mapping], {}))
         except Exception as e:
-            LOG.error('update_port_precommit(): got exception: {}', e)
+            LOG.error('update_port_precommit(): got exception: %s', e)
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
                     rollback[0](*rollback[1], **rollback[2])
