@@ -984,12 +984,13 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
              'nuage_ingress_fip_rate_kbps' in fields) and
                 fip.get('port_id')):
             nuage_fip = self.vsdclient.get_nuage_fip_by_id(id)
-            nuage_rate_limit = self.vsdclient.get_fip_qos(nuage_fip)
-            for direction, value in six.iteritems(nuage_rate_limit):
-                if 'ingress' in direction:
-                    fip['nuage_ingress_fip_rate_kbps'] = value
-                elif 'egress' in direction:
-                    fip['nuage_egress_fip_rate_kbps'] = value
+            if nuage_fip:
+                nuage_rate_limit = self.vsdclient.get_fip_qos(nuage_fip)
+                for direction, value in six.iteritems(nuage_rate_limit):
+                    if 'ingress' in direction:
+                        fip['nuage_ingress_fip_rate_kbps'] = value
+                    elif 'egress' in direction:
+                        fip['nuage_egress_fip_rate_kbps'] = value
 
         return self._fields(fip, fields)
 
@@ -1074,6 +1075,11 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
             with nuage_utils.rollback() as on_exc:
                 neutron_fip = super(NuageL3Plugin, self).update_floatingip(
                     context, id, floatingip)
+                orig_fip_dict = self._make_floatingip_dict(orig_fip)
+                reverse_updates = {key: orig_fip_dict.get(key) for key
+                                   in updates}
+                on_exc(super(NuageL3Plugin, self).update_floatingip,
+                       context, id, {"floatingip": reverse_updates})
                 self._verify_process_proprietary_fip_qos(
                     updates, neutron_fip, for_update=original_port_id)
 
@@ -1094,13 +1100,20 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
                     # Rollback
                     def rollback_create_update_floatingip():
-                        original_port = self.core_plugin.get_port(
-                            context, original_port_id)
-                        original_vport = self._get_vport_for_neutron_port(
-                            context, original_port['id'], required=False)
-                        self._create_update_floatingip(
-                            context, orig_fip, original_port, original_vport,
-                            neutron_fip)
+                        if original_port_id:
+                            # Restore previous state
+                            original_port = self.core_plugin.get_port(
+                                context, original_port_id)
+                            original_vport = self._get_vport_for_neutron_port(
+                                context, original_port['id'], required=False)
+                            self._create_update_floatingip(
+                                context, orig_fip, original_port,
+                                original_vport, original_fip=neutron_fip)
+                        else:
+                            # Delete created fip
+                            self._disassociate_floatingip(
+                                context, neutron_fip,
+                                detached_port_id=port['id'])
                     on_exc(rollback_create_update_floatingip)
 
                     self._update_proprietary_fip_qos(neutron_fip, nuage_vport,
