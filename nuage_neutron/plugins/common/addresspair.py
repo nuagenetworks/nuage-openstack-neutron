@@ -11,6 +11,8 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import copy
+
 import netaddr
 import six
 
@@ -271,6 +273,11 @@ class NuageAddressPair(BaseNuagePlugin):
         subnet_id = port['fixed_ips'][0]['subnet_id']
         subnet_mapping = nuagedb.get_subnet_l2dom_by_id(context.session,
                                                         subnet_id)
+        # Sanitize out single ip CIDR VIPS (eg. /32)
+        # copy port to not influence original object
+        port = copy.deepcopy(port)
+        self._sanitize_single_ip_cidr(port.get(addr_pair.ADDRESS_PAIRS))
+        self._sanitize_single_ip_cidr(delete_addr_pairs)
         if subnet_mapping:
             if vport:
                 if create:
@@ -278,6 +285,19 @@ class NuageAddressPair(BaseNuagePlugin):
                 else:
                     self._update_vips(context, subnet_mapping,
                                       port, vport, delete_addr_pairs)
+
+    def _sanitize_single_ip_cidr(self, address_pairs):
+        """_sanitize_single_ip_cidr
+
+        Sanitize single ip cidr allowd address pair as VSD cannot
+        process them with CIDR suffix (eg /32 or /128).
+
+        :param address_pairs: address_pairs to sanitize
+        """
+        for address_pair in address_pairs or []:
+            ip_network = netaddr.IPNetwork(address_pair['ip_address'])
+            if ip_network.size == 1:
+                address_pair['ip_address'] = str(ip_network.ip)
 
     @staticmethod
     def _verify_allowed_address_pairs(port, original_port):
