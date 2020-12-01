@@ -13,7 +13,6 @@
 #    under the License.
 
 import logging
-
 from netaddr import IPNetwork
 
 from nuage_neutron.plugins.common import utils
