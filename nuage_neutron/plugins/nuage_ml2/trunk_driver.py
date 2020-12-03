@@ -252,6 +252,7 @@ class NuageTrunkHandler(object):
                     subnet_mapping['net_partition_id'])
 
             np_name = db.get_net_partition_by_id(
+                ctx.session,
                 subnet_mapping['net_partition_id'])['name']
 
             data = {
