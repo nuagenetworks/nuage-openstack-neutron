@@ -237,9 +237,10 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
         """Find or allocate new segment suitable for Hw VTEP
 
         """
-        segment = next(item for item in context.segments_to_bind if
+        segment = next((item for item in context.segments_to_bind if
                        item[api.NETWORK_TYPE] in [os_constants.TYPE_FLAT,
-                                                  os_constants.TYPE_VLAN])
+                                                  os_constants.TYPE_VLAN]),
+                       None)
         if not segment:
             binding_profile = self._get_binding_profile(context.current)
             segment = context.allocate_dynamic_segment(

@@ -33,6 +33,15 @@
             override-checkout: stable/rocky
             required-projects: *required-projects
 
+    sriov:
+      jobs:
+        - networking-nuage-tempest-sriov:
+            override-checkout: stable/rocky
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov-flat-vlan:
+            override-checkout: stable/rocky
+            required-projects: *required-projects
+
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
