@@ -106,6 +106,7 @@ class NuageTrunkHandler(object):
     def _update_subport_bindings(self, context, trunk_id, subports):
         el = context.elevated()
         ports_by_trunk_id = collections.defaultdict(list)
+        ports_by_trunk_id[trunk_id] = []
         updated_ports = collections.defaultdict(list)
         for s in subports:
             ports_by_trunk_id[s['trunk_id']].append(s)
@@ -279,8 +280,11 @@ class NuageTrunkHandler(object):
                        'sub': len(subports)})
             self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
 
-    def _unset_sub_ports(self, trunk_id, subports):
+    def _unset_sub_ports(self, trunk_id, trunk_port, subports):
         ctx = n_ctx.get_admin_context()
+        trunk_host = trunk_port.get(portbindings.HOST_ID)
+        trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_host else
+                              t_consts.DOWN_STATUS)
         updated_ports = []
         for port in subports:
             LOG.debug('unset port id : %(id)s', {'id': port.port_id})
@@ -303,6 +307,8 @@ class NuageTrunkHandler(object):
                 LOG.error("Failed to clear binding for subport: %s", e)
         if len(subports) != len(updated_ports):
             self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
+        else:
+            self.set_trunk_status(ctx, trunk_id, trunk_target_state)
 
     def trunk_created(self, trunk):
         ctx = n_ctx.get_admin_context()
@@ -312,7 +318,8 @@ class NuageTrunkHandler(object):
         if not self.plugin_driver.is_port_supported(trunk_port):
             return
         LOG.debug('trunk_created: %(trunk)s', {'trunk': trunk})
-        self._set_sub_ports(trunk.id, trunk.sub_ports)
+        if trunk.sub_ports:
+            self._set_sub_ports(trunk.id, trunk.sub_ports)
 
     def trunk_deleted(self, trunk):
         ctx = n_ctx.get_admin_context()
@@ -322,7 +329,7 @@ class NuageTrunkHandler(object):
         if not self.plugin_driver.is_port_supported(trunk_port):
             return
         LOG.debug('trunk_deleted: %(trunk)s', {'trunk': trunk})
-        self._unset_sub_ports(trunk.id, trunk.sub_ports)
+        self._unset_sub_ports(trunk.id, trunk_port, trunk.sub_ports)
 
     def subports_pre_create(self, context, trunk, subports):
         LOG.debug('subport_pre_create: %(trunk)s subports : %(sp)s',
@@ -360,7 +367,7 @@ class NuageTrunkHandler(object):
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
         if not self.plugin_driver.is_port_supported(trunk_port):
             return
-        self._unset_sub_ports(trunk.id, subports)
+        self._unset_sub_ports(trunk.id, trunk_port, subports)
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
         if event == events.PRECOMMIT_CREATE:
