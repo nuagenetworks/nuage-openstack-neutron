@@ -321,5 +321,5 @@
     parent: networking-nuage-tempest-smoke
     override-checkout: stable/rocky
     vars:
-      ci_vsp_name: ci-vsp-multiversion-0.0
+      ci_vsp_name: ci-vsp-multiversion-20.10
     required-projects: *required-projects
