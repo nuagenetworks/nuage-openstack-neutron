@@ -178,6 +178,7 @@ NUAGE_L2BRIDGE_SERVICE_PLUGIN = 'NUAGE_L2BRIDGE'
 NUAGE_ML2_DRIVER_NAME = 'nuage'
 NUAGE_ML2_SRIOV_DRIVER_NAME = 'nuage_sriov'
 NUAGE_ML2_BM_DRIVER_NAME = 'nuage_baremetal'
+NUAGE_ML2_HWVTEP_DRIVER_NAME = 'nuage_hwvtep'
 
 AFTER_CREATE = 'after_create_nuage'
 AFTER_UPDATE = 'after_update_nuage'
