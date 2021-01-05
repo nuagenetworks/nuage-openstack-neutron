@@ -34,6 +34,7 @@ from nuage_neutron.plugins.common import net_topology_db as ext_db
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.utils import context_log
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
+from nuage_neutron.plugins.hwvtep import trunk_driver
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 
 LOG = log.getLogger(__name__)
@@ -61,12 +62,16 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
             vif_details=vif_details,
             supported_vnic_types=self.supported_vnic_types
         )
+        self.trunk_driver = trunk_driver.NuageHwvtepTrunkDriver.create(self)
 
     def initialize(self):
         LOG.debug('Initializing driver')
         self.init_vsd_client()
         self.register_callbacks()
         LOG.debug('Initializing complete')
+
+    def get_supported_vnic_types(self):
+        return self.supported_vnic_types
 
     def get_allowed_network_types(self, agent=None):
         return self.supported_network_types
