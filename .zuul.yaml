@@ -76,17 +76,14 @@
         - networking-nuage-tempest-cli
         - tempest-full
         - networking-nuage-tempest-api-switchdev
-        - networking-nuage-vtep-vlan-upstream:
-            nodeset: openstack-single-node-bionic
+        - networking-nuage-vtep-vlan-upstream
+        - networking-nuage-vtep-vlan-nuage
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp
         - networking-nuage-tempest-sriov-flat-vlan
         - networking-nuage-rally-task
-        - networking-nuage-vtep-vxlan:
-            nodeset: openstack-single-node-bionic
-        - networking-nuage-vtep-vlan-nuage:
-            nodeset: openstack-single-node-bionic
+        - networking-nuage-vtep-vxlan
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows
