@@ -151,6 +151,8 @@
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
             required-projects: *required-projects
+        - networking-nuage-vtep-vlan-nuage:
+            required-projects: *required-projects
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -162,8 +164,6 @@
         - networking-nuage-fwaas-v1:
             required-projects: *required-projects
         - networking-nuage-vtep-vxlan:
-            required-projects: *required-projects
-        - networking-nuage-vtep-vlan-nuage:
             required-projects: *required-projects
     periodic-sunday:
       jobs:
