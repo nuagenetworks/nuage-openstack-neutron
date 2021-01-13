@@ -153,6 +153,9 @@
         - networking-nuage-vtep-vlan-upstream:
             override-checkout: stable/rocky
             required-projects: *required-projects
+        - networking-nuage-vtep-vlan-nuage:
+            override-checkout: stable/rocky
+            required-projects: *required-projects
     periodic-saturday:
       jobs:
         - networking-nuage-tempest-qdhcp:
@@ -165,9 +168,6 @@
             override-checkout: stable/rocky
             required-projects: *required-projects
         - networking-nuage-vtep-vxlan:
-            override-checkout: stable/rocky
-            required-projects: *required-projects
-        - networking-nuage-vtep-vlan-nuage:
             override-checkout: stable/rocky
             required-projects: *required-projects
         - networking-nuage-tempest-smoke-multiversion-20.10
