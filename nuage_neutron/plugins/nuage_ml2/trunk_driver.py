@@ -62,7 +62,7 @@ class NuageTrunkHandler(object):
         return self._core_plugin
 
     def set_trunk_status(self, context, trunk_id, status):
-        with db_api.autonested_transaction(context.session):
+        with db_api.CONTEXT_WRITER.using(context):
             trunk = trunk_objects.Trunk.get_object(context, id=trunk_id)
             if trunk:
                 trunk.update(status=status)
