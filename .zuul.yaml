@@ -5,28 +5,23 @@
       jobs:
         - openstack-tox-pep8
         - networking-nuage-tempest-smoke
-        - networking-nuage-tempest-smoke-vsdipam
     gate:
       jobs:
         - openstack-tox-pep8
         - networking-nuage-tempest-smoke
-        - networking-nuage-tempest-smoke-vsdipam
     experimental:
       jobs:
         - networking-nuage-vtep-vxlan
     virtio:
       jobs:
         - networking-nuage-tempest-virtio
-        - networking-nuage-tempest-virtio-vsdipam
     sriov:
       jobs:
         - networking-nuage-tempest-sriov
         - networking-nuage-tempest-sriov-flat-vlan
-        - networking-nuage-tempest-sriov-vsdipam
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-baremetal-vsdipam
     full:
       jobs:
         - networking-nuage-tempest-virtio
@@ -65,7 +60,6 @@
     scenario:
       jobs:
         - networking-nuage-tempest-scenario
-        - networking-nuage-tempest-scenario-vsdipam
     scale:
       jobs:
         - networking-nuage-tempest-scale
@@ -76,16 +70,11 @@
     periodic:
       jobs:
         - networking-nuage-tempest-virtio
-        - networking-nuage-tempest-virtio-vsdipam
         - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario
-        - networking-nuage-tempest-scenario-vsdipam
         - networking-nuage-tempest-cli
         - tempest-full
-        - tempest-full-vsdipam
         - networking-nuage-tempest-api-switchdev
         - networking-nuage-vtep-vlan-upstream:
             nodeset: openstack-single-node-bionic
