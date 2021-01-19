@@ -7,13 +7,9 @@
             required-projects: &required-projects
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 0.9.0
-        - networking-nuage-tempest-smoke-vsdipam:
-            required-projects: *required-projects
     gate:
       jobs:
         - networking-nuage-tempest-smoke:
-            required-projects: *required-projects
-        - networking-nuage-tempest-smoke-vsdipam:
             required-projects: *required-projects
     upgrade:
       jobs:
@@ -27,21 +23,15 @@
       jobs:
         - networking-nuage-tempest-virtio:
             required-projects: *required-projects
-        - networking-nuage-tempest-virtio-vsdipam:
-            required-projects: *required-projects
     sriov:
       jobs:
         - networking-nuage-tempest-sriov:
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-flat-vlan:
             required-projects: *required-projects
-        - networking-nuage-tempest-sriov-vsdipam:
-            required-projects: *required-projects
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal:
-            required-projects: *required-projects
-        - networking-nuage-tempest-baremetal-vsdipam:
             required-projects: *required-projects
     full:
       jobs:
@@ -117,8 +107,6 @@
     scenario:
       jobs:
         - networking-nuage-tempest-scenario:
-            required-projects: *required-projects
-        - networking-nuage-tempest-scenario-vsdipam:
             required-projects: *required-projects
     scale:
       jobs:
