@@ -99,6 +99,7 @@
         - networking-nuage-tempest-scenario-vsdipam
         - tempest-full-vsdipam
         - networking-nuage-tempest-multinode
+        - ovs-restart
 
 - job:
     name: networking-nuage-rally-task
