@@ -24,6 +24,7 @@ import netaddr
 from neutron._i18n import _
 from neutron.db import db_base_plugin_v2
 from neutron.plugins.ml2.drivers import mech_agent
+from neutron.services.trunk import constants as t_consts
 from oslo_db import exception as db_exc
 from oslo_log import log
 
@@ -478,18 +479,36 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
             ext_db.add_switchport_binding(ctx, binding)
 
     def _create_port_on_switch(self, context):
+        """_create_port_on_switch
+
+        This methods checks if port update should result
+        in port provisioning - eg creation of the VPort
+
+        :param context: neutron port context on port-update
+
+        """
         port = context.current
         device_id = port['device_id']
         device_owner = port['device_owner']
         host = port[portbindings.HOST_ID]
+        # on subnet delete network:dhcp ports might exist with no fixed ips
+        # this makes sure no VPort exist in that case
         if not port.get('fixed_ips'):
             return
-        if not hasattr(context, 'top_bound_segment'):
+        if not (host and device_owner):
             return
-        if not context.top_bound_segment:
+        # if port is not bound or was bound previously
+        # by other port update just return
+        if (not context.top_bound_segment or
+                context.top_bound_segment ==
+                context.original_top_bound_segment):
             return
-        if not (host and device_id and device_owner):
-            return
+        # trunk subports never have device_id, otherwise
+        # nova erroneously tries to delete those ports
+        # on instance delete (and they are in use by trunk)
+        if not device_id:
+            if device_owner != t_consts.TRUNK_SUBPORT_OWNER:
+                return
         if not self.provisioning_required(port):
             return
 
