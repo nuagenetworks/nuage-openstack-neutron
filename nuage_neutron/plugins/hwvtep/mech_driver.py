@@ -19,6 +19,7 @@ from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants as neutron_constants
 from neutron_lib.plugins.ml2 import api
+from neutron_lib.services.trunk import constants as t_consts
 
 import netaddr
 from neutron._i18n import _
@@ -380,6 +381,18 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                         raise exceptions.NuageBadRequest(msg=msg)
                     gw = gws[0]
 
+                subnet_mapping = self._get_subnet_mapping(
+                    context._plugin_context,
+                    port)
+                if not subnet_mapping:
+                    LOG.debug("Subnet mapping for port %s could not be found, "
+                              "it might have been deleted concurrently.",
+                              port['id'])
+                    return
+                subnet = context._plugin.get_subnet(
+                    context._plugin_context,
+                    subnet_mapping['subnet_id'])
+
                 params = {
                     'gatewayport': switchport.get('redundant_port_uuid') or
                     switchport['port_uuid'],
@@ -390,12 +403,6 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                 vlan = self.vsdclient.create_gateway_vlan(params)
                 LOG.debug("created vlan: %(vlan_dict)s",
                           {'vlan_dict': vlan})
-                subnet_mapping = self._get_subnet_mapping(
-                    context._plugin_context,
-                    port)
-                subnet = context._plugin.get_subnet(
-                    context._plugin_context,
-                    subnet_mapping['subnet_id'])
                 params = {
                     'gatewayinterface': vlan['ID'],
                     'np_id': subnet_mapping['net_partition_id'],
@@ -430,16 +437,36 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
             ext_db.add_switchport_binding(ctx, binding)
 
     def _create_port_on_switch(self, context):
+        """_create_port_on_switch
+
+        This methods checks if port update should result
+        in port provisioning - eg creation of the VPort
+
+        :param context: neutron port context on port-update
+
+        """
         port = context.current
         device_id = port['device_id']
         device_owner = port['device_owner']
         host = port[portbindings.HOST_ID]
-        if not hasattr(context, 'top_bound_segment'):
+        # on subnet delete network:dhcp ports might exist with no fixed ips
+        # this makes sure no VPort exist in that case
+        if not port.get('fixed_ips'):
             return
-        if not context.top_bound_segment:
+        if not (host and device_owner):
             return
-        if not (host and device_id and device_owner):
+        # if port is not bound or was bound previously
+        # by other port update just return
+        if (not context.top_bound_segment or
+                context.top_bound_segment ==
+                context.original_top_bound_segment):
             return
+        # trunk subports never have device_id, otherwise
+        # nova erroneously tries to delete those ports
+        # on instance delete (and they are in use by trunk)
+        if not device_id:
+            if device_owner != t_consts.TRUNK_SUBPORT_OWNER:
+                return
         if self.is_network_device_port(port):
             return
 
