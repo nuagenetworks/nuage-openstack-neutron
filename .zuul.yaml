@@ -80,6 +80,9 @@
         - networking-nuage-fwaas-v1:
             override-checkout: stable/queens
             required-projects: *required-projects
+        - ovs-restart:
+            override-checkout: stable/queens
+            required-projects: *required-projects
 
     fwaas:
       jobs:
