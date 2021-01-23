@@ -402,8 +402,9 @@ class NuagePolicyGroups(object):
             # Redefine stateful parameter if necessary,
             # only when SG is stateful.
             # VSP supports stateful icmp only on very specific types
-            if icmp_type not in (STATEFUL_ICMP_V4_TYPES +
-                                 STATEFUL_ICMP_V6_TYPES):
+            stateful_icmp_type = (STATEFUL_ICMP_V6_TYPES if is_ipv6 else
+                                  STATEFUL_ICMP_V4_TYPES)
+            if icmp_type not in stateful_icmp_type:
                 if stateful:
                     acl_values['stateful'] = False
                     needs_reverse_rule = True
