@@ -13,16 +13,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.db import api as db_api
 from neutron.objects import trunk as trunk_objects
 from neutron.services.trunk import constants as t_consts
 from neutron.services.trunk.drivers import base as trunk_base
 from neutron.services.trunk import exceptions as t_exc
 from neutron_lib.api.definitions import portbindings
+from neutron_lib.api.definitions import trunk as trunk_api
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
-from neutron_lib import constants as n_consts
 from neutron_lib import context as n_ctx
 from neutron_lib.plugins import directory
 from oslo_config import cfg
@@ -59,10 +58,10 @@ class NuageHwvtepTrunkHandler(object):
 
     @staticmethod
     def set_trunk_status(context, trunk_id, status):
-        with db_api.autonested_transaction(context.session):
-            trunk = trunk_objects.Trunk.get_object(context, id=trunk_id)
-            if trunk:
-                trunk.update(status=status)
+        trunk_plugin = directory.get_plugin(trunk_api.ALIAS)
+        trunk_plugin.update_trunk(context, trunk_id,
+                                  {trunk_api.TRUNK:
+                                   {'status': status}})
 
     def trunk_status_change(self, resource, event, trigger, **kwargs):
         updated_port = kwargs['port']
@@ -107,8 +106,7 @@ class NuageHwvtepTrunkHandler(object):
                 updated_port = self.core_plugin.update_port(
                     context, port.port_id,
                     {'port': {portbindings.HOST_ID: trunk_host,
-                              'device_owner': t_consts.TRUNK_SUBPORT_OWNER,
-                              'status': n_consts.PORT_STATUS_ACTIVE}})
+                              'device_owner': t_consts.TRUNK_SUBPORT_OWNER}})
                 vif_type = updated_port.get(portbindings.VIF_TYPE)
                 if vif_type == portbindings.VIF_TYPE_BINDING_FAILED:
                     raise t_exc.SubPortBindingError(port_id=port.port_id,
@@ -116,13 +114,16 @@ class NuageHwvtepTrunkHandler(object):
                 updated_ports.append(updated_port)
             except t_exc.SubPortBindingError as e:
                 LOG.error("Failed to bind subport: %s", e)
+                self.set_trunk_status(context,
+                                      trunk.id,
+                                      t_consts.ERROR_STATUS)
             except Exception as e:
                 LOG.error("Failed to bind subport: %s", e)
         if len(subports) != len(updated_ports):
             LOG.debug("Trunk: %s is degraded", trunk.id)
-            trunk.update(status=t_consts.DEGRADED_STATUS)
+            self.set_trunk_status(context, trunk.id, t_consts.DEGRADED_STATUS)
         else:
-            trunk.update(status=trunk_target_state)
+            self.set_trunk_status(context, trunk.id, trunk_target_state)
 
     @staticmethod
     def _validate_port_fixedip(port):
