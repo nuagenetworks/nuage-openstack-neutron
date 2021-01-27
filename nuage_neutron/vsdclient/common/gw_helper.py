@@ -29,7 +29,7 @@ LOG = logging.getLogger(__name__)
 
 def _create_vport_interface(subnet_id, restproxy_serv,
                             subn_type, vport_type,
-                            params):
+                            params, on_rollback=None):
     nuage_vlan_id = params.get('nuage_vlan_id')
 
     req_params = dict()
@@ -63,9 +63,10 @@ def _create_vport_interface(subnet_id, restproxy_serv,
         nuage_vport.post_vport_data(),
         on_res_exists=restproxy_serv.vport_retrieve_by_ext_id_and_vlan,
         ignore_err_codes=[restproxy.REST_VLAN_IN_USE_ERR_CODE])[0]
-
-    # create the interface
     nuage_vport_id = vport['ID']
+    if on_rollback:
+        on_rollback(delete_nuage_vport, restproxy_serv, nuage_vport_id)
+    # create the interface
     req_params['vport_id'] = nuage_vport_id
 
     if vport_type == constants.BRIDGE_VPORT_TYPE:
@@ -91,6 +92,9 @@ def _create_vport_interface(subnet_id, restproxy_serv,
         nuage_interface.post_iface_data(),
         on_res_exists=restproxy_serv.retrieve_by_external_id,
         ignore_err_codes=[restproxy.REST_IFACE_EXISTS_ERR_CODE])[0]
+    if on_rollback:
+        on_rollback(delete_nuage_interface, restproxy_serv,
+                    vport_intf['ID'], vport_type)
 
     return {
         'vport': vport,
@@ -98,7 +102,8 @@ def _create_vport_interface(subnet_id, restproxy_serv,
     }
 
 
-def create_vport_interface(restproxy_serv, params, vport_type):
+def create_vport_interface(restproxy_serv, params,
+                           vport_type, on_rollback=None):
     l2domain_id = params.get('l2domain_id')
     nuage_subnet_id = params.get('nuage_subnet_id')
 
@@ -107,23 +112,27 @@ def create_vport_interface(restproxy_serv, params, vport_type):
             return _create_vport_interface(l2domain_id, restproxy_serv,
                                            constants.L2DOMAIN,
                                            constants.BRIDGE_VPORT_TYPE,
-                                           params)
+                                           params,
+                                           on_rollback=on_rollback)
         else:
             return _create_vport_interface(nuage_subnet_id, restproxy_serv,
                                            constants.SUBNET,
                                            constants.BRIDGE_VPORT_TYPE,
-                                           params)
+                                           params,
+                                           on_rollback=on_rollback)
     else:
         if l2domain_id:
             return _create_vport_interface(l2domain_id, restproxy_serv,
                                            constants.L2DOMAIN,
                                            constants.HOST_VPORT_TYPE,
-                                           params)
+                                           params,
+                                           on_rollback=on_rollback)
         else:
             return _create_vport_interface(nuage_subnet_id, restproxy_serv,
                                            constants.SUBNET,
                                            constants.HOST_VPORT_TYPE,
-                                           params)
+                                           params,
+                                           on_rollback=on_rollback)
 
 
 def get_tenant_perm(restproxy_serv, vlan_id, required=False):
