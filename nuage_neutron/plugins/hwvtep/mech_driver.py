@@ -18,10 +18,12 @@ import time
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
 from neutron_lib import constants
+from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins.ml2 import api
 
 import netaddr
 from neutron._i18n import _
+from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.plugins.ml2.drivers import mech_agent
 from neutron.services.trunk import constants as t_consts
@@ -35,8 +37,11 @@ from nuage_neutron.plugins.common import net_topology_db as ext_db
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common.utils import context_log
 from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
+from nuage_neutron.plugins.common.utils import rollback as utils_rollback
 from nuage_neutron.plugins.hwvtep import trunk_driver
+from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
+from nuage_neutron.vsdclient import restproxy
 
 LOG = log.getLogger(__name__)
 
@@ -238,9 +243,32 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                 return
             else:
                 l2_id, l3_sub_id = get_l2_and_l3_sub_id(mapping)
-                self.vsdclient.delete_subnet(l3_vsd_subnet_id=l3_sub_id,
-                                             l2dom_id=l2_id,
-                                             mapping=mapping)
+                try:
+                    self.vsdclient.delete_subnet(l3_vsd_subnet_id=l3_sub_id,
+                                                 l2dom_id=l2_id,
+                                                 mapping=mapping)
+                except restproxy.RESTProxyError as e:
+                    resource_in_use = (e.code == restproxy.RES_CONFLICT and
+                                       e.vsd_code in
+                                       [vsd_constants.VSD_VM_EXIST,
+                                        vsd_constants.VSD_VM_EXISTS_ON_VPORT])
+                    if resource_in_use:
+                        vports = self.vsdclient.get_vports(
+                            (p_const.SUBNET if l3_sub_id else
+                             p_const.L2DOMAIN),
+                            l3_sub_id or l2_id)
+                        for vport in vports:
+                            self.vsdclient.\
+                                delete_nuage_gateway_vport_no_usergroup(
+                                    None,
+                                    vport)
+
+                        self.vsdclient.delete_subnet(
+                            l3_vsd_subnet_id=l3_sub_id,
+                            l2dom_id=l2_id,
+                            mapping=mapping)
+                    else:
+                        raise
         else:
             # VSD managed could be ipv6 + ipv4. If only one of the 2 is
             # deleted, the use permission should not be removed yet.
@@ -375,9 +403,25 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
             # Single port or Active/Standby redundancy
             return switch_mappings, None
 
-    def _create_bridgeport(self, context, bridge, segmentation_id):
-        port = context.current
-        ctx = context._plugin_context
+    @db_api.retry_if_session_inactive()
+    def _create_bridgeport(self, context, port, bridge, segmentation_id):
+        """_create_bridgeport
+
+        This methods creates a BridgePort in VSP if needed.
+        It takes time to orchestrate a BP and it can lead
+        to race conditions in concurrent operations.
+        Method will cleanup created BP when neutron port
+        does not exist anymore at the time of persisting it,
+        on other DB errors we will try to restart transaction.
+
+        :param context: neutron plugin context
+        :param port: neutron port to wire
+        :param bridge: ovs bridge corresponding to physnet
+        :param segmentation_id: vlan id to create BridgePort with
+
+        """
+
+        ctx = context
         host = port[portbindings.HOST_ID]
         switch_mappings = ext_db.get_switchports_by_host_bridge(
             ctx, host, bridge)
@@ -406,82 +450,91 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         mappings, rg = self._get_redundancy(bridge,
                                             switch_mappings,
                                             ctx.tenant_id)
-        for switchport in mappings:
-            vports = ext_db.get_switchport_bindings_by_switchport_vlan(
+        subnet_mapping = self._get_subnet_mapping(ctx, port)
+        if not subnet_mapping:
+            LOG.debug("Subnet mapping for port %s could not be found, "
+                      "it might have been deleted concurrently.",
+                      port['id'])
+            return
+        try:
+            subnet = self.core_plugin.get_subnet(
                 ctx,
-                switchport['port_uuid'],
-                segmentation_id)
+                subnet_mapping['subnet_id'])
+        except n_exc.SubnetNotFound:
+            LOG.debug("Subnet %s could not be found, "
+                      "it might have been deleted concurrently.",
+                      subnet_mapping['subnet_id'])
+            return
+        with utils_rollback() as on_exc:
+            for switchport in mappings:
+                existing_vport = (
+                    ext_db.get_switchport_bindings_by_switchport_vlan(
+                        ctx,
+                        switchport['port_uuid'],
+                        segmentation_id))
 
-            if len(vports) == 0:
-                if rg:
-                    gw = self.vsdclient.get_gateway(ctx.tenant_id, rg)
+                if not existing_vport:
+                    if rg:
+                        gw = self.vsdclient.get_gateway(ctx.tenant_id, rg)
+                    else:
+                        filters = {'system_id': [switchport['switch_id']]}
+                        gws = self.vsdclient.get_gateways(ctx.tenant_id,
+                                                          filters)
+                        if not gws:
+                            msg = (_("No gateway found %s")
+                                   % filters['system_id'][0])
+                            raise exceptions.NuageBadRequest(msg=msg)
+                        gw = gws[0]
+
+                    params = {
+                        'gatewayport': switchport.get('redundant_port_uuid') or
+                        switchport['port_uuid'],
+                        'value': segmentation_id,
+                        'redundant': rg is not None,
+                        'personality': gw['gw_type']
+                    }
+                    vlan = self.vsdclient.create_gateway_vlan(params)
+                    LOG.debug("created vlan: %(vlan_dict)s",
+                              {'vlan_dict': vlan})
+                    on_exc(self.vsdclient.delete_gateway_port_vlan,
+                           vlan_id=vlan['ID'])
+
+                    params = {
+                        'gatewayinterface': vlan['ID'],
+                        'np_id': subnet_mapping['net_partition_id'],
+                        'tenant': port['tenant_id'],
+                        'subnet': subnet,
+                        'enable_dhcp': subnet['enable_dhcp'],
+                        'nuage_managed_subnet':
+                            subnet_mapping['nuage_managed_subnet'],
+                        'port_security_enabled': False,
+                        'personality': gw['gw_type'],
+                        'type': p_const.BRIDGE_VPORT_TYPE
+                    }
+                    vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
+                        subnet_mapping['nuage_subnet_id'])
+                    params['vsd_subnet'] = vsd_subnet
+
+                    # allow all policy group is a default switch behaviour
+                    create_policy = False
+
+                    vport = self.vsdclient.create_gateway_vport_no_usergroup(
+                        ctx.tenant_id, params,
+                        create_policy_group=create_policy,
+                        on_rollback=on_exc)
+                    LOG.debug("created vport: %(vport_dict)s",
+                              {'vport_dict': vport})
+                    bridge_port_id = vport.get('vport').get('ID')
                 else:
-                    filters = {'system_id': [switchport['switch_id']]}
-                    gws = self.vsdclient.get_gateways(ctx.tenant_id,
-                                                      filters)
-                    if len(gws) == 0:
-                        msg = (_("No gateway found %s")
-                               % filters['system_id'][0])
-                        raise exceptions.NuageBadRequest(msg=msg)
-                    gw = gws[0]
-
-                subnet_mapping = self._get_subnet_mapping(
-                    context._plugin_context,
-                    port)
-                if not subnet_mapping:
-                    LOG.debug("Subnet mapping for port %s could not be found, "
-                              "it might have been deleted concurrently.",
-                              port['id'])
-                    return
-                subnet = context._plugin.get_subnet(
-                    context._plugin_context,
-                    subnet_mapping['subnet_id'])
-
-                params = {
-                    'gatewayport': switchport.get('redundant_port_uuid') or
-                    switchport['port_uuid'],
-                    'value': segmentation_id,
-                    'redundant': rg is not None,
-                    'personality': gw['gw_type']
+                    bridge_port_id = existing_vport[0]['nuage_vport_id']
+                binding = {
+                    'neutron_port_id': port.get('id'),
+                    'nuage_vport_id': bridge_port_id,
+                    'switchport_uuid': switchport['port_uuid'],
+                    'segmentation_id': segmentation_id,
+                    'switchport_mapping_id': switchport['id']
                 }
-                vlan = self.vsdclient.create_gateway_vlan(params)
-                LOG.debug("created vlan: %(vlan_dict)s",
-                          {'vlan_dict': vlan})
-                params = {
-                    'gatewayinterface': vlan['ID'],
-                    'np_id': subnet_mapping['net_partition_id'],
-                    'tenant': port['tenant_id'],
-                    'subnet': subnet,
-                    'enable_dhcp': subnet['enable_dhcp'],
-                    'nuage_managed_subnet':
-                        subnet_mapping['nuage_managed_subnet'],
-                    'port_security_enabled': False,
-                    'personality': gw['gw_type'],
-                    'type': p_const.BRIDGE_VPORT_TYPE
-                }
-                vsd_subnet = self.vsdclient.get_nuage_subnet_by_id(
-                    subnet_mapping['nuage_subnet_id'])
-                params['vsd_subnet'] = vsd_subnet
-
-                # do not create policy groups - just waist of resources
-                create_policy = False
-
-                vport = self.vsdclient.create_gateway_vport_no_usergroup(
-                    ctx.tenant_id,
-                    params, create_policy_group=create_policy)
-                LOG.debug("created vport: %(vport_dict)s",
-                          {'vport_dict': vport})
-                bridge_port_id = vport.get('vport').get('ID')
-            else:
-                bridge_port_id = vports[0]['nuage_vport_id']
-            binding = {
-                'neutron_port_id': port.get('id'),
-                'nuage_vport_id': bridge_port_id,
-                'switchport_uuid': switchport['port_uuid'],
-                'segmentation_id': segmentation_id,
-                'switchport_mapping_id': switchport['id']
-            }
-            ext_db.add_switchport_binding(ctx, binding)
+                ext_db.add_switchport_binding(ctx, binding)
 
     def _create_port_on_switch(self, context):
         """_create_port_on_switch
@@ -493,6 +546,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
 
         """
         port = context.current
+        db_context = context._plugin_context
         device_id = port['device_id']
         device_owner = port['device_owner']
         host = port[portbindings.HOST_ID]
@@ -532,7 +586,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                              {'vlan_id': vlan_id,
                               'host': host,
                               'bridge': bridge})
-                    self._create_bridgeport(context, bridge, vlan_id)
+                    self._create_bridgeport(db_context, port, bridge, vlan_id)
             else:
                 LOG.warning("Refusing to create bridgeport on host with "
                             "dead agent: %s", agent)

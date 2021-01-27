@@ -117,6 +117,7 @@ class NuageHwvtepTrunkHandler(object):
                 self.set_trunk_status(context,
                                       trunk.id,
                                       t_consts.ERROR_STATUS)
+                return
             except Exception as e:
                 LOG.error("Failed to bind subport: %s", e)
         if len(subports) != len(updated_ports):
@@ -173,7 +174,8 @@ class NuageHwvtepTrunkHandler(object):
         LOG.debug("updating subport bindings for trunk %s", trunk_id)
         self._update_subport_bindings(ctx, trunk_id, subports)
 
-    def _unset_sub_ports(self, trunk_id, trunk_port, subports):
+    def _unset_sub_ports(self, trunk_id, trunk_port,
+                         subports, update_state=True):
         ctx = n_ctx.get_admin_context()
         trunk_host = trunk_port.get(portbindings.HOST_ID)
         trunk_target_state = (t_consts.ACTIVE_STATUS if trunk_host else
@@ -197,10 +199,11 @@ class NuageHwvtepTrunkHandler(object):
                 LOG.error("Failed to clear binding for subport: %s", e)
             except Exception as e:
                 LOG.error("Failed to clear binding for subport: %s", e)
-        if len(subports) != len(updated_ports):
-            self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
-        else:
-            self.set_trunk_status(ctx, trunk_id, trunk_target_state)
+        if update_state:
+            if len(subports) != len(updated_ports):
+                self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
+            else:
+                self.set_trunk_status(ctx, trunk_id, trunk_target_state)
 
     def trunk_created(self, trunk):
         LOG.debug('trunk_created: %(trunk)s', {'trunk': trunk})
@@ -209,7 +212,8 @@ class NuageHwvtepTrunkHandler(object):
 
     def trunk_deleted(self, trunk, trunk_port):
         LOG.debug('trunk_deleted: %(trunk)s', {'trunk': trunk})
-        self._unset_sub_ports(trunk.id, trunk_port, trunk.sub_ports)
+        self._unset_sub_ports(trunk.id, trunk_port,
+                              trunk.sub_ports, update_state=False)
 
     def subports_pre_create(self, context, trunk, trunk_port, subports):
         LOG.debug('subport_pre_create: %(trunk)s subports : %(sp)s',
