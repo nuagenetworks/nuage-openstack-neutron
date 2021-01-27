@@ -478,7 +478,7 @@ class NuageGateway(object):
         nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
 
         permissions = self.restproxy.get(nuage_ent_perm.get_resource_by_vlan(),
-                                         required=True)
+                                         required=False)
         ent_perm = permissions[0] if permissions else None
         if ent_perm:
             req_params['perm_id'] = ent_perm['ID']
@@ -655,7 +655,8 @@ class NuageGateway(object):
         ret['vport_gw_type'] = self.get_personality_type(gw['personality'])
         return ret
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, params=False):
+    def create_gateway_vport_no_usergroup(self, tenant_id, params=False,
+                                          on_rollback=None):
         subnet = params.get('subnet')
         enable_dhcp = params.get('enable_dhcp')
         port = params.get('port')
@@ -691,7 +692,8 @@ class NuageGateway(object):
         if type == constants.BRIDGE_VPORT_TYPE:
             req_params[constants.PORTSECURITY] = True
             resp = gw_helper.create_vport_interface(self.restproxy,
-                                                    req_params, type)
+                                                    req_params, type,
+                                                    on_rollback=on_rollback)
         else:
             ips = {}
             for fixed_ip in port.get('fixed_ips', []):
@@ -709,7 +711,8 @@ class NuageGateway(object):
             req_params['externalid'] = get_vsd_external_id(port['id'])
             req_params[constants.PORTSECURITY] = port[constants.PORTSECURITY]
             resp = gw_helper.create_vport_interface(self.restproxy,
-                                                    req_params, type)
+                                                    req_params, type,
+                                                    on_rollback=on_rollback)
 
         ret = resp
         ret['vport_gw_type'] = self.get_personality_type(params['personality'])
