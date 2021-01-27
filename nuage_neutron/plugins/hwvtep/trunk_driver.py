@@ -204,8 +204,7 @@ class NuageHwvtepTrunkHandler(object):
                 LOG.error("Failed to clear binding for subport: %s", e)
         if update_state:
             if len(subports) != len(updated_ports):
-                self.set_trunk_status(ctx, trunk_id,
-                                      t_consts.TRUNK_DEGRADED_STATUS)
+                self.set_trunk_status(ctx, trunk_id, t_consts.DEGRADED_STATUS)
             else:
                 self.set_trunk_status(ctx, trunk_id, trunk_target_state)
 
