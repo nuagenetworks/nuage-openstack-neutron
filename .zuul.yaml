@@ -175,6 +175,7 @@
             required-projects: *required-projects
         - networking-nuage-tempest-api-switchdev:
             override-checkout: stable/queens
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
             override-checkout: stable/queens
             required-projects: *required-projects
