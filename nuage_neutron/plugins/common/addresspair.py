@@ -480,6 +480,12 @@ class NuageAddressPair(BaseNuagePlugin):
                                              constants.L2DOMAIN)
 
     @staticmethod
+    def _supported_vnic_types():
+        return [portbindings.VNIC_NORMAL,
+                portbindings.VNIC_DIRECT,
+                portbindings.VNIC_VIRTIO_FORWARDER]
+
+    @staticmethod
     def _direct_vnic_supported(port):
         profile = port.get(portbindings.PROFILE)
         capabilities = []
@@ -491,6 +497,8 @@ class NuageAddressPair(BaseNuagePlugin):
 
     @staticmethod
     def is_port_vnic_type_supported(port):
-        return (NuageAddressPair._direct_vnic_supported(port) or
-                port.get(portbindings.VNIC_TYPE, '') ==
-                portbindings.VNIC_NORMAL)
+        if port.get(portbindings.VNIC_TYPE) == portbindings.VNIC_DIRECT:
+            return NuageAddressPair._direct_vnic_supported(port)
+        else:
+            return (port.get(portbindings.VNIC_TYPE) in
+                    NuageAddressPair._supported_vnic_types())

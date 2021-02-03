@@ -36,6 +36,9 @@ class Capabilities(object):
         'direct': {
             BRIDGED_NETWORKS: True
         },
+        'virtio-forwarder': {
+            BRIDGED_NETWORKS: True
+        },
         'baremetal': {
             BRIDGED_NETWORKS: False
         }
