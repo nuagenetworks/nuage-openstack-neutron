@@ -153,6 +153,12 @@
                 override-checkout: 6.0/queens
               - name: opendev.org/openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
+        - networking-nuage-tempest-hwvtep-trunking-correction:
+            override-checkout: stable/queens
+            required-projects:
+              - <<: *required-projects
+              - name: OpenStack/nuage-openstack-upgrade-scripts
+                override-checkout: feature/hwvtep-trunking
     periodic:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -362,3 +368,10 @@
       - name: opendev.org/openstack/neutron-tempest-plugin
         override-checkout: 0.3.0
       - opendev.org/openstack/tempest
+
+- job:
+    name: networking-nuage-tempest-hwvtep-trunking-correction
+    parent: networking-nuage-vtep-vlan-nuage
+    vars:
+      tempest_test_regex: '^nuage_tempest_plugin\.tests\.upgrade\.test_correct_hwvtep.*'
+      tempest_concurrency: 1
