@@ -166,12 +166,18 @@
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
-            required-projects: *required-projects
+            required-projects:
+              - <<: *required-projects
+              - name: openstack/octavia-tempest-plugin
+                override-checkout: rocky-em
         - networking-nuage-octavia-standby:
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/rocky/amphora-x64-haproxy.qcow2"
-            required-projects: *required-projects
+            required-projects:
+              - <<: *required-projects
+              - name: openstack/octavia-tempest-plugin
+                override-checkout: rocky-em
         - networking-nuage-tempest-virtio-vsdipam:
             required-projects: *required-projects
         - networking-nuage-tempest-sriov-vsdipam:
