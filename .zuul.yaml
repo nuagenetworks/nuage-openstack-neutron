@@ -237,6 +237,7 @@
             override-checkout: stable/queens
             required-projects: *required-projects
         - networking-nuage-tempest-multinode:
+            override-checkout: stable/queens
             required-projects: *required-projects
         - ovs-restart:
             override-checkout: stable/queens
