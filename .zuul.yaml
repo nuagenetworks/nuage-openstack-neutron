@@ -31,6 +31,14 @@
         - networking-nuage-tempest-smoke:
             override-checkout: stable/queens
             required-projects: *required-projects
+    experimental:
+      jobs:
+        - networking-nuage-tempest-multinode:
+            override-checkout: stable/queens
+            required-projects: *required-projects
+        - networking-nuage-tempest-nova-evacuate:
+            override-checkout: stable/queens
+            required-projects: *required-projects
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -213,6 +221,12 @@
                 override-checkout: 6.0/queens
               - name: opendev.org/openstack/neutron-tempest-plugin
                 override-checkout: 0.3.0
+        - networking-nuage-tempest-multinode:
+            override-checkout: stable/queens
+            required-projects: *required-projects
+        - networking-nuage-tempest-nova-evacuate:
+            override-checkout: stable/queens
+            required-projects: *required-projects
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
@@ -240,9 +254,6 @@
               - name: openstack/octavia-tempest-plugin
                 override-checkout: rocky-em
         - networking-nuage-fwaas-v1:
-            override-checkout: stable/queens
-            required-projects: *required-projects
-        - networking-nuage-tempest-multinode:
             override-checkout: stable/queens
             required-projects: *required-projects
         - ovs-restart:
