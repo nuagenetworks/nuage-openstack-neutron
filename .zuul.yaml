@@ -17,6 +17,14 @@
         - networking-nuage-tempest-smoke:
             override-checkout: stable/rocky
             required-projects: *required-projects
+    experimental:
+      jobs:
+        - networking-nuage-tempest-multinode:
+            override-checkout: stable/rocky
+            required-projects: *required-projects
+        - networking-nuage-tempest-nova-evacuate:
+            override-checkout: stable/rocky
+            required-projects: *required-projects
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -171,6 +179,12 @@
             override-checkout: stable/rocky
             required-projects: *required-projects
         - networking-nuage-tempest-smoke-multiversion-20.10
+        - networking-nuage-tempest-multinode:
+            override-checkout: stable/rocky
+            required-projects: *required-projects
+        - networking-nuage-tempest-nova-evacuate:
+            override-checkout: stable/rocky
+            required-projects: *required-projects
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
@@ -202,9 +216,6 @@
         - networking-nuage-tempest-sriov-vsdipam:
             required-projects: *required-projects
         - networking-nuage-fwaas-v1:
-            override-checkout: stable/rocky
-            required-projects: *required-projects
-        - networking-nuage-tempest-multinode:
             override-checkout: stable/rocky
             required-projects: *required-projects
         - ovs-restart:
