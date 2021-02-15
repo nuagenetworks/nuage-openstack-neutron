@@ -19,6 +19,12 @@
                 override-checkout: 0.9.0
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 6.0/rocky
+    experimental:
+      jobs:
+        - networking-nuage-tempest-multinode:
+            required-projects: *required-projects
+        - networking-nuage-tempest-nova-evacuate:
+            required-projects: *required-projects
     virtio:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -64,7 +70,6 @@
     fwaas:
       jobs:
         - networking-nuage-fwaas-v1:
-            override-checkout: stable/rocky
             required-projects: *required-projects
     octavia:
       jobs:
@@ -84,7 +89,6 @@
               - <<: *required-projects
               - name: openstack/octavia-tempest-plugin
                 override-checkout: rocky-em
-
     sfc:
       jobs:
         - legacy-tempest-aio-sfc
@@ -156,6 +160,10 @@
                 override-checkout: 0.9.0
               - name: OpenStack/nuage-openstack-neutron
                 override-checkout: 6.0/rocky
+        - networking-nuage-tempest-multinode:
+            required-projects: *required-projects
+        - networking-nuage-tempest-nova-evacuate:
+            required-projects: *required-projects
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
@@ -181,8 +189,6 @@
         - networking-nuage-tempest-scenario-vsdipam:
             required-projects: *required-projects
         - tempest-full-vsdipam:
-            required-projects: *required-projects
-        - networking-nuage-tempest-multinode:
             required-projects: *required-projects
         - ovs-restart:
             required-projects: *required-projects
