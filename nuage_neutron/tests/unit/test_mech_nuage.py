@@ -68,12 +68,10 @@ class TestNuageMechanismDriver(testtools.TestCase):
         if config_type == ConfigTypes.MISSING_ML2_EXTENSION:
             conf.config(group='ml2',
                         extension_drivers=['nuage_subnet',
-                                           'nuage_port',
-                                           'port_security'])
+                                           'nuage_port'])
         else:
             conf.config(group='ml2',
-                        extension_drivers=['nuage_network',
-                                           'nuage_subnet',
+                        extension_drivers=['nuage_subnet',
                                            'nuage_port',
                                            'port_security'])
 
@@ -117,7 +115,16 @@ class TestNuageMechanismDriver(testtools.TestCase):
         self.assertRaisesRegex(
             oslo_config.cfg.ConfigFileValueError,
             r'Missing required extension\(s\) '
-            r'\[\'nuage_network\'\] for mechanism driver nuage',
+            r'\[\'port_security\'\] for mechanism driver nuage',
+            NuageMechanismDriver().initialize)
+
+    def test_init_missing_nuage_network_ml2_extension_for_l2bridge(self):
+        self.set_config_fixture(
+            ConfigTypes.NUAGE_L2BRIDGE_WITHOUT_NUAGE_NETWORK)
+        self.assertRaisesRegex(
+            oslo_config.cfg.ConfigFileValueError,
+            'Missing required extension '
+            r'\'nuage_network\' for service plugin NuageL2Bridge',
             NuageMechanismDriver().initialize)
 
     def test_init_native_nmd_invalid_server(self):
