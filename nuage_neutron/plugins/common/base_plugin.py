@@ -408,6 +408,23 @@ class RootNuagePlugin(SubnetUtilsBase):
                            min_required_extensions,
                            'extension(s)',
                            nuage_driver)
+        # Additional check: extension driver nuage_network is required
+        # only when NuageL2Bridge service plugin is enabled.
+        nuagel2bridge = ('NuageL2Bridge',
+                         'nuage_neutron.plugins.common.service_plugins.'
+                         'nuage_l2bridge.NuageL2BridgePlugin')
+        nuage_network = ('nuage_network',
+                         'nuage_neutron.plugins.nuage_ml2.'
+                         'nuage_network_ext_driver.'
+                         'NuageNetworkExtensionDriver')
+        if (nuagel2bridge[0] in mentioned_service_plugins or
+                nuagel2bridge[1] in mentioned_service_plugins):
+            if (nuage_network[0] not in mentioned_extensions and
+                    nuage_network[1] not in mentioned_extensions):
+                msg = ("Missing required extension "
+                       "'nuage_network' for service plugin "
+                       "NuageL2Bridge")
+                raise cfg.ConfigFileValueError(msg)
 
     @staticmethod
     def _check_config(mentioned, min_required, resource, driver_name):
