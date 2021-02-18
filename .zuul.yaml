@@ -85,7 +85,6 @@
         - networking-nuage-tempest-scenario
         - networking-nuage-tempest-cli
         - tempest-full
-        - networking-nuage-tempest-api-switchdev
         - networking-nuage-vtep-vlan-upstream
         - networking-nuage-vtep-vlan-nuage
     periodic-saturday:
@@ -96,6 +95,8 @@
         - networking-nuage-vtep-vxlan
         - networking-nuage-tempest-multinode
         - networking-nuage-tempest-nova-evacuate
+        - networking-nuage-tempest-api-switchdev
+        - networking-nuage-tempest-api-virtio-forwarder
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows
