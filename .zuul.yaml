@@ -141,8 +141,6 @@
             required-projects: *required-projects
         - tempest-full:
             required-projects: *required-projects
-        - networking-nuage-tempest-api-switchdev:
-            required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
             required-projects: *required-projects
         - networking-nuage-vtep-vlan-nuage:
@@ -162,6 +160,10 @@
         - networking-nuage-tempest-multinode:
             required-projects: *required-projects
         - networking-nuage-tempest-nova-evacuate:
+            required-projects: *required-projects
+        - networking-nuage-tempest-api-switchdev:
+            required-projects: *required-projects
+        - networking-nuage-tempest-api-virtio-forwarder:
             required-projects: *required-projects
     periodic-sunday:
       jobs:
