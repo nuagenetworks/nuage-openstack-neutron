@@ -85,6 +85,8 @@
         - networking-nuage-tempest-sriov-flat-vlan
         - networking-nuage-rally-task
         - networking-nuage-vtep-vxlan
+        - networking-nuage-tempest-multinode
+        - networking-nuage-tempest-nova-evacuate
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows
@@ -96,7 +98,6 @@
         - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario-vsdipam
         - tempest-full-vsdipam
-        - networking-nuage-tempest-multinode
         - ovs-restart
 
 - job:
