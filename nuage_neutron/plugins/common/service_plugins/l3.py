@@ -825,13 +825,10 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         if ent_rtr_mapping:
             LOG.debug("Enterprise to router mapping found for router %s", id)
-            filters = {
-                'device_id': [id],
-                'device_owner': [lib_constants.DEVICE_OWNER_ROUTER_INTF]
-            }
-            ports = self.core_plugin.get_ports(context, filters)
-            if ports:
-                raise l3_exc.RouterInUse(router_id=id)
+
+            # First verify whether router is allowed to be deleted
+            self._ensure_router_not_in_use(context, id)
+
             nuage_domain_id = ent_rtr_mapping['nuage_router_id']
             vsd_retry_error_codes = [(vsd_constants.CONFLICT_ERR_CODE,
                                       vsd_constants.VSD_VM_EXISTS_ON_VPORT),
