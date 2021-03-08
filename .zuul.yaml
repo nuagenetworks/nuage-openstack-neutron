@@ -163,8 +163,6 @@
             required-projects: *required-projects
         - networking-nuage-tempest-api-switchdev:
             required-projects: *required-projects
-        - networking-nuage-tempest-api-virtio-forwarder:
-            required-projects: *required-projects
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
