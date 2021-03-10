@@ -56,7 +56,7 @@ class NuageGatewayDriverBridge(base_plugin.RootNuagePlugin,
         params = {
             'gatewayport': vsd_port['port_id'],
             'value': segmentation_id,
-            'redundant': vsd_port['redundant'],
+            'redundancy_type': vsd_port['redundancy_type'],
             'personality': vsd_port['personality']
         }
         vlan = self.vsdclient.create_gateway_vlan(params)
