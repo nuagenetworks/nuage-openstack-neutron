@@ -52,14 +52,16 @@ def validate_switchports(vsdclient, tenant_id, switchports):
         port = gw_ports[0]
         if port.get('gw_redundant_port_id') is not None:
             port_id = port.get('gw_redundant_port_id')
-            redundant = True
+            # Determine actual redundacy type of gw_redundant_port
+            gw_port = vsdclient.get_gateway_port(port_id)
+            redundancy_type = gw_port.get('gw_redundancy_type')
         else:
             port_id = port.get('gw_port_id')
-            redundant = False
+            redundancy_type = port.get('gw_redundancy_type')
         vsd_port = {
             'port_id': port_id,
             'personality': gws[0]['gw_type'],
-            'redundant': redundant
+            'redundancy_type': redundancy_type
         }
         vsdports.add(port_id)
     if len(vsdports) > 1:

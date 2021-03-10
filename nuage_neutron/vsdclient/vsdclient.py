@@ -410,16 +410,16 @@ class VsdClient(object):
     def update_router(self, nuage_domain_id, router, updates):
         pass
 
-    def get_gateway(self, tenant_id, gw_id):
+    def get_gateway(self, tenant_id, gw_id, redundancy_type=None):
         pass
 
-    def get_gateways(self, tenant_id, filters):
+    def get_gateways(self, tenant_id, filters, redundancy_type=None):
         pass
 
     def get_gateway_ports(self, tenant_id, filters):
         pass
 
-    def get_gateway_port(self, tenant_id, gw_port_id):
+    def get_gateway_port(self, gw_port_id, redundancy_type):
         pass
 
     def get_gateway_port_vlans(self, tenant_id, netpart_id, filters):

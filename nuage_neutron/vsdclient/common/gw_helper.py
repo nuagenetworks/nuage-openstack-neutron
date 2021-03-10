@@ -155,7 +155,8 @@ def get_gateway_port_vlan(restproxy_serv, nuage_vlan_id):
                               required=True)[0]
 
 
-def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
+def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None,
+                     redundancy_type=None):
     # gw_port_id can actually be a name/id. In case of VSG, port name can
     # have a '/'. In that case we just return.
     if '/' in gw_port_id:
@@ -175,13 +176,15 @@ def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
     # If this invariant ever changes, we need a nested loop, looping over
     # personalities, and inside, loop over redundancy modes
     # -------------------------------------------------------------------------
+    redundancy_types = ([redundancy_type] if redundancy_type else
+                        constants.VSD_GW_REDUNDANCY_TYPES)
     for nuage_gw_port in [nuagelib.NuageGatewayPortBase.factory(
             create_params={
                 'port_id': gw_port_id,
                 'personality': any_hw_personality
             },
             extra_params=None,
-            redundant=redundant) for redundant in [False, True]]:
+            redundancy_type=rd_type) for rd_type in redundancy_types]:
 
         try:
             gw_port = restproxy_serv.get(nuage_gw_port.get_resource(),
@@ -200,18 +203,19 @@ def get_gateway_port(restproxy_serv, gw_port_id, gw_id=None):
     return gw_port
 
 
-def get_gateway(restproxy_serv, gw_id):
+def get_gateway(restproxy_serv, gw_id, redundancy_type=None):
     req_params = {
         'gw_id': gw_id
     }
+    redundancy_types = ([redundancy_type] if redundancy_type
+                        else constants.VSD_GW_REDUNDANCY_TYPES)
     for nuage_gw in [nuagelib.NuageGatewayBase.factory(
             create_params=req_params,
             extra_params=None,
-            redundant=redundant) for redundant in [False, True]]:
+            redundancy_type=rd_type) for rd_type in redundancy_types]:
         try:
             gateway = restproxy_serv.get(nuage_gw.get_resource_by_id(),
                                          required=True)[0]
-            gateway['redundant'] = 'redundantGatewayStatus' in gateway
             return gateway
         except restproxy.RESTProxyError:
             continue
@@ -336,28 +340,6 @@ def get_gateways_for_netpart(restproxy_serv, netpart_id):
                               required=True)
 
 
-def get_ent_permission_on_gateway(restproxy_serv, gw_id, redundancy=False):
-    req_params = {
-        'gw_id': gw_id
-    }
-    nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-    ent_permissions = restproxy_serv.get(
-        nuage_ent_perm.get_resource_by_gw(redundancy),
-        required=True)
-    return ent_permissions[0] if ent_permissions else None
-
-
-def get_ent_permission_on_port(restproxy_serv, gw_port_id, redundancy=False):
-    req_params = {
-        'port_id': gw_port_id
-    }
-    nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-    ent_permissions = restproxy_serv.get(
-        nuage_ent_perm.get_resource_by_port(redundancy),
-        required=True)
-    return ent_permissions[0] if ent_permissions else None
-
-
 def get_ent_permission_on_vlan(restproxy_serv, gw_vlan_id):
     req_params = {
         'vlan_id': gw_vlan_id
@@ -368,6 +350,15 @@ def get_ent_permission_on_vlan(restproxy_serv, gw_vlan_id):
     return ent_permissions[0] if ent_permissions else None
 
 
+def get_gateway_redundancy_type(gateway):
+    redundancy_type = (constants.REDUNDANT_RG if
+                       'redundantGatewayStatus' in gateway else
+                       constants.REDUNDANT_ESGW if
+                       'associatedGatewayIDs' in gateway else
+                       constants.SINGLE_GW)
+    return redundancy_type
+
+
 def make_gateway_dict(gateway):
     ret = {
         'gw_id': gateway['ID'],
@@ -376,12 +367,13 @@ def make_gateway_dict(gateway):
         'gw_status': gateway.get('pending', False),
         'gw_template': gateway.get('templateID', None),
         'gw_system_id': gateway.get('systemID', None),
-        'gw_redundant': 'redundantGatewayStatus' in gateway
+        'gw_redundancy_type': get_gateway_redundancy_type(gateway),
     }
     return ret
 
 
 def make_gw_port_dict(port):
+    parent_type = port.get('parentType')
     ret = {
         'gw_port_id': port['ID'],
         'gw_port_name': port['name'],
@@ -389,9 +381,14 @@ def make_gw_port_dict(port):
         'gw_port_phy_name': port['physicalName'],
         'gw_port_vlan': port['VLANRange'],
         'gw_port_mnemonic': port['userMnemonic'],
-        'gw_redundant_port_id': port.get('associatedRedundantPortID'),
-        'rg_id': port.get('parentID') if
-        port.get('parentType') == 'redundancygroup' else None
+        'gw_redundant_port_id': (port.get('associatedRedundantPortID') or
+                                 port.get('associatedEthernetSegmentGroupID')),
+        'gw_id': port.get('parentID'),
+        'gw_redundancy_type': (
+            constants.REDUNDANT_RG if parent_type == 'redundancygroup' else
+            constants.REDUNDANT_ESGW if
+            parent_type == 'ethernetsegmentgwgroup' else
+            constants.SINGLE_GW),
     }
     return ret
 

@@ -55,7 +55,7 @@ class NuageGateway(object):
         return (constants.SOFTWARE if personality in constants.SW_GW_TYPES
                 else constants.HARDWARE)
 
-    def get_gateways(self, tenant_id, filters):
+    def get_gateways(self, tenant_id, filters, redundancy_type=None):
         extra_params = dict()
         extra_headers = dict()
         req_params = dict()
@@ -72,10 +72,14 @@ class NuageGateway(object):
         elif filters and 'system_id' in filters:
             extra_params['system_id'] = filters.get('system_id')[0]
 
+        redundancy_types = (
+            [redundancy_type] if redundancy_type
+            else constants.VSD_GW_REDUNDANCY_TYPES)
+
         for nuage_gw in [nuagelib.NuageGatewayBase.factory(
                 create_params=req_params,
                 extra_params=extra_params,
-                redundant=redundant) for redundant in [False, True]]:
+                redundancy_type=rd_type) for rd_type in redundancy_types]:
             if req_params.get('gw_id'):
                 res_url = nuage_gw.get_resource_by_id()
             elif extra_params.get('name'):
@@ -94,7 +98,6 @@ class NuageGateway(object):
                               " or in pending state",
                               gw['ID'])
                     continue
-                gw['redundant'] = 'redundantGatewayStatus' in gw
                 gw_list.append(gw)
 
         return gw_list
@@ -150,13 +153,13 @@ class NuageGateway(object):
         if not req_params.get('personality'):
             gw = gw_helper.get_gateway(self.restproxy, req_params['gw_id'])
             req_params['personality'] = gw['personality']
-            redundant = 'redundantGatewayStatus' in gw
+            redundancy_type = gw_helper.get_gateway_redundancy_type(gw)
         else:
-            redundant = req_params['redundant']
+            redundancy_type = req_params['redundancy_type']
         nuage_gw_port = nuagelib.NuageGatewayPortBase.factory(
             create_params=req_params,
             extra_params=extra_params,
-            redundant=redundant)
+            redundancy_type=redundancy_type)
         if extra_params:
             if 'gw_port_name' in extra_params:
                 extra_headers = nuage_gw_port.extra_headers_by_name()
@@ -167,20 +170,20 @@ class NuageGateway(object):
             extra_headers=extra_headers,
             required=True)
 
-    def _get_gateway_port_vlans(self, tenant_id, req_params,
+    def _get_gateway_port_vlans(self, req_params,
                                 extra_params=None):
         if not req_params.get('personality'):
             gw_port = gw_helper.get_gateway_port(self.restproxy,
                                                  req_params['port_id'])
             gw = gw_helper.get_gateway(self.restproxy, gw_port['parentID'])
             req_params['personality'] = gw['personality']
-            redundant = 'redundantGatewayStatus' in gw
+            redundancy_type = gw_helper.get_gateway_redundancy_type(gw)
         else:
-            redundant = req_params['redundant']
+            redundancy_type = req_params['redundancy_type']
         nuage_gw_vlan = nuagelib.NuageVlanBase.factory(
             create_params=req_params,
             extra_params=extra_params,
-            redundant=redundant)
+            redundancy_type=redundancy_type)
 
         resource_url = nuage_gw_vlan.get_resource_by_port()
 
@@ -203,7 +206,7 @@ class NuageGateway(object):
             params = {
                 'port_id': filters['gatewayport'][0]
             }
-            vlan_list = self._get_gateway_port_vlans(tenant_id, params)
+            vlan_list = self._get_gateway_port_vlans(params)
         elif 'gatewayport' in filters and 'name' in filters:
             params = {
                 'port_id': filters['gatewayport'][0]
@@ -211,8 +214,7 @@ class NuageGateway(object):
             extra_params = {
                 'vlan_value': filters['name'][0]
             }
-            vlan_list = self._get_gateway_port_vlans(tenant_id, params,
-                                                     extra_params)
+            vlan_list = self._get_gateway_port_vlans(params, extra_params)
         elif 'gatewayport' in filters and 'id' in filters:
             params = {
                 'port_id': filters['gatewayport'][0]
@@ -220,14 +222,13 @@ class NuageGateway(object):
             extra_params = {
                 'vlan_value': filters['id'][0]
             }
-            vlan_list = self._get_gateway_port_vlans(tenant_id, params,
-                                                     extra_params)
+            vlan_list = self._get_gateway_port_vlans(params, extra_params)
         elif 'name' in filters:
             try:
                 vlan_list = [gw_helper.get_gateway_port_vlan(
                     self.restproxy,
                     filters['name'][0])]
-            except Exception as e:
+            except restproxy.RESTProxyError as e:
                 # If vlan does not exist return a empty list
                 if e.code == constants.RES_NOT_FOUND:
                     return []
@@ -239,11 +240,11 @@ class NuageGateway(object):
             params = {
                 'port_id': filters['gatewayport'][0]
             }
-            vlan_list = self._get_gateway_port_vlans(tenant_id, params)
+            vlan_list = self._get_gateway_port_vlans(params)
         else:
             # This is when no --gateway and --gatewayport option is specified
             # in neutronclient
-            vlan_list = self._get_vlans_for_tenant(tenant_id, netpart_id)
+            vlan_list = self._get_vlans_for_tenant(netpart_id)
 
         if tenant_id:
             updated_vlan_list = []
@@ -281,7 +282,7 @@ class NuageGateway(object):
             req_params = {
                 'gw_id': gw['ID'],
                 'personality': gw['personality'],
-                'redundant': gw['redundant']
+                'redundancy_type': gw_helper.get_gateway_redundancy_type(gw)
             }
 
             gw_ports = self._get_gateway_ports(req_params=req_params)
@@ -290,10 +291,10 @@ class NuageGateway(object):
                 req_params = {
                     'port_id': gw_port['ID'],
                     'personality': gw['personality'],
-                    'redundant': gw['redundant']
+                    'redundancy_type': gw_helper.get_gateway_redundancy_type(
+                        gw)
                 }
-                gw_port_vlans.extend(
-                    self._get_gateway_port_vlans(tenant_id, req_params))
+                gw_port_vlans.extend(self._get_gateway_port_vlans(req_params))
 
         return gw_port_vlans if gw_port_vlans else []
 
@@ -306,31 +307,6 @@ class NuageGateway(object):
         permissions = self.restproxy.get(nuage_ent_perm.get_resource_by_vlan(),
                                          required=True)
         return permissions[0] if permissions else None
-
-    def _check_ent_permission(self, gw_id, gw_port_id, netpart_id):
-        gw = gw_helper.get_gateway(self.restproxy, gw_id)
-        gw_perm = gw_helper.get_ent_permission_on_gateway(self.restproxy,
-                                                          gw_id,
-                                                          gw['redundant'])
-        if gw_perm and gw_perm['permittedEntityID'] != netpart_id:
-            msg = (_("Non default enterprise %(ent)s has permission for "
-                     "gateway %(gw)s, so cannot create/delete vlan") %
-                   {'ent': gw_perm['permittedEntityID'],
-                    'gw': gw_id})
-            raise restproxy.ResourceConflictException(msg)
-        else:
-            gw_port_perm = gw_helper.get_ent_permission_on_port(
-                self.restproxy,
-                gw_port_id,
-                self.is_hw_gateway(gw) and gw['redundant'])
-            if gw_port_perm and (gw_port_perm['permittedEntityID'] !=
-                                 netpart_id):
-                msg = (_("Non default enterprise %(ent)s has permission for "
-                         "gateway port %(port)s, so cannot create/delete "
-                         "vlan") %
-                       {'ent': gw_port_perm['permittedEntityID'],
-                        'port': gw_port_id})
-                raise restproxy.ResourceConflictException(msg)
 
     def create_gateway_port_vlan(self, vlan_dict):
         gw_id = vlan_dict.get('gateway')
@@ -356,11 +332,11 @@ class NuageGateway(object):
             'port_id': gw_port_id,
             'personality': gw['personality']
         }
-
+        redundancy_type = gw_helper.get_gateway_redundancy_type(gw)
         nuage_gw_vlan = nuagelib.NuageVlanBase.factory(
             create_params=req_params,
             extra_params=None,
-            redundant=gw['redundant'])
+            redundancy_type=redundancy_type)
         return self.restproxy.post(nuage_gw_vlan.post_vlan(),
                                    nuage_gw_vlan.post_vlan_data(vlan_value))
 
@@ -372,7 +348,7 @@ class NuageGateway(object):
         nuage_gw_vlan = nuagelib.NuageVlanBase.factory(
             create_params=req_params,
             extra_params=None,
-            redundant=vlan_dict['redundant'])
+            redundancy_type=vlan_dict['redundancy_type'])
         return self.restproxy.post(
             nuage_gw_vlan.post_vlan(),
             nuage_gw_vlan.post_vlan_data(vlan_dict['value']),
@@ -401,13 +377,12 @@ class NuageGateway(object):
                 data,
                 on_res_exists=self.restproxy.retrieve_by_external_id,
                 ignore_err_codes=[restproxy.REST_ENT_PERMS_EXISTS_ERR_CODE])[0]
-        except Exception as e:
-            if not self._check_parent_permissions(tenant_id,
-                                                  vlan_id,
+        except Exception:
+            if not self._check_parent_permissions(vlan_id,
                                                   netpart_id):
-                raise e
+                raise
 
-    def _check_parent_permissions(self, tenant_id, vlan_id, netpart_id):
+    def _check_parent_permissions(self, vlan_id, netpart_id):
         req_params = {
             'vlan_id': vlan_id
         }
@@ -422,8 +397,9 @@ class NuageGateway(object):
         gw = gw_helper.get_gateway(self.restproxy, gw_port['parentID'])
         req_params['port_id'] = gw_port_id
         nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
+        redundancy_type = gw_helper.get_gateway_redundancy_type(gw)
         permissions = self.restproxy.get(
-            nuage_ent_perm.get_resource_by_port(gw['redundant']),
+            nuage_ent_perm.get_resource_by_port(redundancy_type),
             required=True)
         ent_perm = permissions[0] if permissions else None
         if ent_perm:
@@ -443,7 +419,8 @@ class NuageGateway(object):
 
         # Get ent permissions on gateway
         gw_port = gw_helper.get_gateway_port(self.restproxy, gw_port_id,
-                                             gw_port['parentID'])
+                                             gw_port['parentID'],
+                                             redundancy_type=redundancy_type)
         if not gw_port:
             msg = (_("Port %s not found on gateway ", gw_port_id))  # noqa H702
             raise restproxy.ResourceNotFoundException(msg)
@@ -451,8 +428,9 @@ class NuageGateway(object):
         gw_id = gw_port['parentID']
         req_params['gw_id'] = gw_id
         nuage_ent_perm = nuagelib.NuageEntPermission(create_params=req_params)
-        permissions = self.restproxy.get(nuage_ent_perm.get_resource_by_gw(),
-                                         required=True)
+        permissions = self.restproxy.get(
+            nuage_ent_perm.get_resource_by_gw(redundancy_type),
+            required=True)
         ent_perm = permissions[0] if permissions else None
         if ent_perm:
             ent_id = ent_perm['permittedEntityID']
@@ -655,8 +633,9 @@ class NuageGateway(object):
         ret['vport_gw_type'] = self.get_personality_type(gw['personality'])
         return ret
 
-    def create_gateway_vport_no_usergroup(self, tenant_id, params=False,
+    def create_gateway_vport_no_usergroup(self, tenant_id, params=None,
                                           on_rollback=None):
+        params = params or {}
         subnet = params.get('subnet')
         enable_dhcp = params.get('enable_dhcp')
         port = params.get('port')
@@ -860,7 +839,7 @@ class NuageGateway(object):
         try:
             nuage_vlan = gw_helper.get_gateway_port_vlan(self.restproxy,
                                                          nuage_vlan_id)
-        except Exception as e:
+        except restproxy.RESTProxyError as e:
             if e.code == constants.RES_NOT_FOUND:
                 return
             raise

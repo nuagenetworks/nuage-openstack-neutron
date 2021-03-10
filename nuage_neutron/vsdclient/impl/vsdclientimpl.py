@@ -618,17 +618,18 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
     def update_router(self, nuage_domain_id, router, updates):
         self.domain.update_router(nuage_domain_id, router, updates)
 
-    def get_gateway(self, tenant_id, gw_id):
+    def get_gateway(self, tenant_id, gw_id, redundancy_type=None):
         try:
-            resp = gw_helper.get_gateway(self.restproxy, gw_id)
+            resp = gw_helper.get_gateway(self.restproxy, gw_id,
+                                         redundancy_type)
             return gw_helper.make_gateway_dict(resp)
         except Exception as e:
             if e.code == constants.RES_NOT_FOUND:
                 return []
             raise
 
-    def get_gateways(self, tenant_id, filters):
-        gws = self.nuagegw.get_gateways(tenant_id, filters)
+    def get_gateways(self, tenant_id, filters, redundancy_type=None):
+        gws = self.nuagegw.get_gateways(tenant_id, filters, redundancy_type)
         gw_list = []
         for gw in gws:
             ret = gw_helper.make_gateway_dict(gw)
@@ -645,9 +646,9 @@ class VsdClientImpl(VsdClient, SubnetUtilsBase):
 
         return port_list
 
-    def get_gateway_port(self, tenant_id, gw_port_id):
+    def get_gateway_port(self, gw_port_id, redundancy_type=None):
         resp = gw_helper.get_gateway_port(self.restproxy,
-                                          gw_port_id)
+                                          gw_port_id, redundancy_type)
         if resp:
             return gw_helper.make_gw_port_dict(resp)
         else:
