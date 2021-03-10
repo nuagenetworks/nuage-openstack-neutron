@@ -35,6 +35,7 @@ from nuage_neutron.plugins.common.utils import handle_nuage_api_errorcode
 from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
 from nuage_neutron.plugins.sriov import trunk_driver
+from nuage_neutron.vsdclient.common import constants as vsd_constants
 from nuage_neutron.vsdclient.restproxy import ResourceExistsException
 
 
@@ -275,12 +276,18 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                                  'pci_slot': profile.get('pci_slot')}})
             local_link_information = None
         else:
+            if gw_port_mapping.get('redundant_port_uuid'):
+                # Redundant port: determine redundancy_type
+                gw_port = self.vsdclient.get_gateway_port(
+                    gw_port_mapping['id'])
+                redundancy_type = gw_port['gw_redundancy_type']
+            else:
+                redundancy_type = vsd_constants.SINGLE_GW
             local_link_information = [{
                 'id': gw_port_mapping['id'],
                 'switch_info': gw_port_mapping['switch_info'],
                 'switch_id': gw_port_mapping['switch_id'],
-                'redundant': gw_port_mapping.get(
-                    'redundant_port_uuid') is not None,
+                'redundancy_type': redundancy_type,
                 'port_id': gw_port_mapping['port_uuid']
             }]
 
@@ -382,7 +389,10 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 segmentation_id)
             if len(vports) == 0:
                 filters = {'system_id': [gwport['switch_id']]}
-                gws = self.vsdclient.get_gateways(ctx.tenant_id, filters)
+                # Explicitely do not support RG en ESGW for faster retrieval
+                gws = self.vsdclient.get_gateways(
+                    ctx.tenant_id, filters,
+                    redundancy_type=vsd_constants.SINGLE_GW)
                 if len(gws) == 0:
                     msg = (_("No gateway found %s")
                            % filters['system_id'][0])
@@ -399,7 +409,7 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                 params = {
                     'gatewayport': port_id,
                     'value': segmentation_id,
-                    'redundant': gwport['redundant'],
+                    'redundancy_type': gwport['redundancy_type'],
                     'personality': gw['gw_type']
                 }
                 try:
