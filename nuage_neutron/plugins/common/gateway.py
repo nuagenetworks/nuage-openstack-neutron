@@ -72,7 +72,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             'status': gateway['gw_status'],
             'template': gateway['gw_template'],
             'systemid': gateway['gw_system_id'],
-            'redundant': gateway['gw_redundant']
+            'redundant': gateway['gw_redundancy_type']
         }
 
         if context:
@@ -183,7 +183,6 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
     @log_helpers.log_method_call
     def create_nuage_gateway_vlan(self, context, nuage_gateway_vlan):
         vlan = nuage_gateway_vlan['nuage_gateway_vlan']
-
         resp = self.vsdclient.create_gateway_port_vlan(vlan)
         return self._make_vlan_dict(resp, context=context)
 
@@ -389,7 +388,7 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
     @utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def get_nuage_gateway_port(self, context, id, fields=None):
-        resp = self.vsdclient.get_gateway_port(context.tenant_id, id)
+        resp = self.vsdclient.get_gateway_port(id)
 
         if resp:
             return self._make_gw_port_dict(resp, fields=fields,

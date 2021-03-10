@@ -279,11 +279,13 @@ function configure_networking_sfc_policy {
 }
 
 function create_fake_bridges_for_hwvtep(){
-    # Create br-active and br-standby
+    # Create br-active, br-standby and br-srl
     $(sudo ovs-vsctl -- --may-exist add-br br-active)
     $(sudo ovs-vsctl -- --may-exist add-br br-standby)
+    $(sudo ovs-vsctl -- --may-exist add-br br-srl)
     $(sudo ovs-vsctl br-set-external-id br-active bridge-id br-active)
     $(sudo ovs-vsctl br-set-external-id br-standby bridge-id br-standby)
+    $(sudo ovs-vsctl br-set-external-id br-srl bridge-id br-srl)
 
 }
 
@@ -307,23 +309,41 @@ function create_fake_gateway_for_hw_vtep(){
     apikey="${BASH_REMATCH[1]}"
     echo "Connected"
 
-    # Name of GW is based on machine id, we have 5 gateways
+    # Name of GW is based on machine id, we have 6 gateways
     deployment_id=$RANDOM
     names=("OS_CI_1_$deployment_id" "OS_CI_2_$deployment_id" "OS_CI_3_$deployment_id" "OS_CI_4_$deployment_id" "OS_CI_5_$deployment_id")
     physical_names=("OS_CI_1_$deployment_id" "LAG-1" "LAG-1" "OS_CI_4_$deployment_id" "OS_CI_5_$deployment_id")
     gateway_ids=()
     gatewayport_ids=()
 
-    echo "Creating GWtemplate"
+    echo "Creating GWtemplate for WBX"
     url=$base_url'/gatewaytemplates'
     name="OS_CI_$deployment_id"
     result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"NUAGE_210_WBX_48_S\"}")
     regex='"ID":.?"([^"]*)"'
     [[ ${result} =~ $regex ]]
     GW_TMPLT_ID="${BASH_REMATCH[1]}"
-    echo "Created GWTemplate with id: $GW_TMPLT_ID"
+    echo "Created GWTemplate for WBX with id: $GW_TMPLT_ID"
 
-    echo "Creating fake gateways for HW VTEP"
+    echo "Creating gnmi profile for SR Linux"
+    url=$base_url'/gnmiprofiles'
+    name="OS_CI_$deployment_id"
+    result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"password\":\"admin\", \"userName\":\"admin\", \"port\":\"57400\"}")
+    regex='"ID":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    GNMI_PROFILE_ID="${BASH_REMATCH[1]}"
+    echo "Created gnmi profile with id: $GNMI_PROFILE_ID"
+
+    echo "Creating GWtemplate for SR Linux"
+    url=$base_url'/gatewaytemplates'
+    name="OS_CI_SR_$deployment_id"
+    result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"SR_LINUX\"}")
+    regex='"ID":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    SRL_GW_TMPLT_ID="${BASH_REMATCH[1]}"
+    echo "Created GWTemplate with id: $SRL_GW_TMPLT_ID"
+
+    echo "Creating fake gateways (WBX) for HW VTEP"
     for i in "${!names[@]}"; do
       name=${names[i]}
       physical_name=${physical_names[i]}
@@ -346,6 +366,24 @@ function create_fake_gateway_for_hw_vtep(){
       gatewayport_ids+=($PORT_ID)
 
     done
+
+    echo "Creating fake gateway (SRL) for HW VTEP"
+    name="OS_CI_SRL_$deployment_id"
+    echo "Creating SRL GW"
+    url=$base_url'/gateways'
+    result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"personality\":\"SR_LINUX\", \"systemID\":\"$name\", \"templateID\":\"$SRL_GW_TMPLT_ID\", \"associatedGNMIProfileID\":\"$GNMI_PROFILE_ID\", \"managementID\":\"$PUBLIC_NETWORK_GATEWAY\"}")
+    regex='"ID":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    GW_ID="${BASH_REMATCH[1]}"
+    echo "Created SRLGW with id: $GW_ID"
+
+    url=$base_url'/gateways/'$GW_ID'/ports'
+    result=$(curl --request POST --insecure --silent --header "Content-Type: application/json" --header "X-Nuage-Organization: $NUAGE_VSD_ORGANIZATION" --user "$username:$apikey" "$url" --data "{\"name\":\"$name\", \"VLANRange\":\"0-4095\", \"physicalName\":\"$name\", \"portType\":\"ACCESS\"}")
+    regex='"ID":.?"([^"]*)"'
+    [[ ${result} =~ $regex ]]
+    PORT_ID="${BASH_REMATCH[1]}"
+    echo "Created GWPort for SRL with id: $PORT_ID"
+
 
     # Create Redundant Gateway using GW2 and GW3
     # Create redundancygroup
@@ -383,6 +421,11 @@ function create_fake_gateway_for_hw_vtep(){
     echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
     name=${names[4]}
     SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "$name" --host-id $(hostname) --pci-slot eth5 --bridge br-standby | grep ' id ' | get_field 2)
+    echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
+
+    # Switchport mapping for the SRL gateway, no bonding, br-srl
+    name="OS_CI_SRL_$deployment_id"
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "$name" --host-id $(hostname) --pci-slot eth6 --bridge br-srl | grep ' id ' | get_field 2)
     echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
 
 }

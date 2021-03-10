@@ -365,10 +365,11 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
         RG ID.
 
         :returns switch_mappings: list of switch mappings plugin
-                 has to orchestrate
-        :returns redundancy_group_id: VSD RG id to which switch
+                 has to orchestrate (filtered out from input)
+        :returns redundancy_type: REDUNDANCYGROUP or ETHERNETSEGMENTGWGROUP
+                                  or SINGLE_GW in case of no redundancy.
+        :returns redundancy_id: VSD id for redundancy_type to which switch
                  mappings belong or None.
-
         """
         redundant_ports = ({mapping.get('redundant_port_uuid') for
                            mapping in switch_mappings})
@@ -383,13 +384,12 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
             # Active/Active redundancy, fetch RG id and
             # return a single mapping to orchestrate
             rg_port = self.vsdclient.get_gateway_port(
-                tenant_id,
                 redundant_ports.pop())
-            return (switch_mappings[::len(switch_mappings)],
-                    rg_port.get('rg_id'))
+            return (switch_mappings[:1], rg_port['gw_redundancy_type'],
+                    rg_port['gw_id'])
         else:
             # Single port or Active/Standby redundancy
-            return switch_mappings, None
+            return switch_mappings, vsd_constants.SINGLE_GW, None
 
     @db_api.retry_if_session_inactive()
     def _create_bridgeport(self, context, port, bridge, segmentation_id):
@@ -435,9 +435,11 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                      {'pb': port_bindings,
                       'port_id': port['id']})
             return
-        mappings, rg = self._get_redundancy(bridge,
-                                            switch_mappings,
-                                            ctx.tenant_id)
+        (switch_mappings,
+         redundancy_type,
+         redundant_gw_id) = self._get_redundancy(bridge,
+                                                 switch_mappings,
+                                                 ctx.tenant_id)
         subnet_mapping = self._get_subnet_mapping(ctx, port)
         if not subnet_mapping:
             LOG.debug("Subnet mapping for port %s could not be found, "
@@ -454,7 +456,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                       subnet_mapping['subnet_id'])
             return
         with utils_rollback() as on_exc:
-            for switchport in mappings:
+            for switchport in switch_mappings:
                 existing_vport = (
                     ext_db.get_switchport_bindings_by_switchport_vlan(
                         ctx,
@@ -462,12 +464,15 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                         segmentation_id))
 
                 if not existing_vport:
-                    if rg:
-                        gw = self.vsdclient.get_gateway(ctx.tenant_id, rg)
+                    if redundant_gw_id:
+                        gw = self.vsdclient.get_gateway(
+                            ctx.tenant_id, redundant_gw_id,
+                            redundancy_type=redundancy_type)
                     else:
                         filters = {'system_id': [switchport['switch_id']]}
-                        gws = self.vsdclient.get_gateways(ctx.tenant_id,
-                                                          filters)
+                        gws = self.vsdclient.get_gateways(
+                            ctx.tenant_id, filters,
+                            redundancy_type=redundancy_type)
                         if not gws:
                             msg = (_("No gateway found %s")
                                    % filters['system_id'][0])
@@ -478,7 +483,7 @@ class NuageHwVtepMechanismDriver(base_plugin.RootNuagePlugin,
                         'gatewayport': switchport.get('redundant_port_uuid') or
                         switchport['port_uuid'],
                         'value': segmentation_id,
-                        'redundant': rg is not None,
+                        'redundancy_type': redundancy_type,
                         'personality': gw['gw_type']
                     }
                     vlan = self.vsdclient.create_gateway_vlan(params)

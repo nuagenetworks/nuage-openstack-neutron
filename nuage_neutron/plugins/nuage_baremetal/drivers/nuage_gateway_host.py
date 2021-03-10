@@ -56,7 +56,7 @@ class NuageGatewayDriverHost(base_plugin.RootNuagePlugin,
         params = {
             'gatewayport': vsd_port['port_id'],
             'value': segmentation_id,
-            'redundant': vsd_port['redundant'],
+            'redundancy_type': vsd_port['redundancy_type'],
             'personality': vsd_port['personality']
         }
         vlan = self.vsdclient.create_gateway_vlan(params)
@@ -70,7 +70,6 @@ class NuageGatewayDriverHost(base_plugin.RootNuagePlugin,
             'nuage_managed_subnet':
                 port_dict['subnet_mapping']['nuage_managed_subnet'],
             'port_security_enabled': False,
-            'redundant': vsd_port['redundant'],
             'personality': vsd_port['personality'],
             'type': const.HOST_VPORT,
             'vsd_subnet': port_dict['vsd_subnet']
