@@ -30,6 +30,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 import six
 
+from nuage_neutron.plugins.common import config
 from nuage_neutron.plugins.common import constants as p_consts
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb as db
@@ -340,12 +341,18 @@ class NuageTrunkHandler(object):
             return
         self._validate_subports_vnic_type(context, trunk,
                                           trunk_port, subports)
-        self._validate_vlan_in_net(context, subports)
-        self._validate_vlan_allocated_by_net(context, trunk, subports)
-        trunk_subports = self._validate_subports_vlan(context, trunk)
-        self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
-        self._validate_same_netpartition(context, trunk_port,
-                                         trunk_subports)
+        try:
+            self._validate_vlan_in_net(context, subports)
+            self._validate_vlan_allocated_by_net(context, trunk, subports)
+            trunk_subports = self._validate_subports_vlan(context, trunk)
+            self._validate_subports_not_trunk_net(trunk_port, trunk_subports)
+            self._validate_same_netpartition(context, trunk_port,
+                                             trunk_subports)
+        except nuage_exc.SubnetMappingNotFound:
+            if config.enable_native_sriov_trunks():
+                pass
+            else:
+                raise
 
     def trunk_pre_create(self, context, trunk):
         if trunk.sub_ports:
