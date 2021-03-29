@@ -528,6 +528,17 @@ class TestNuageMechanismDriver(testtools.TestCase):
 
         self.assertTrue(config.ingress_replication_enabled())
 
+    # ENABLE NATIVE SRIOV TRUNKS
+
+    def test_enable_native_sriov_trunks(self):
+        self.assertFalse(config.enable_native_sriov_trunks())
+
+    def test_enable_native_sriov_trunks_set(self):
+        conf = self.set_config_fixture()
+        conf.config(group='PLUGIN', enable_native_sriov_trunks=True)
+
+        self.assertTrue(config.enable_native_sriov_trunks())
+
     # ip utility checks
 
     def test_ip_comparison(self):
