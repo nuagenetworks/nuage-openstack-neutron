@@ -101,6 +101,9 @@ plugin_opts = [
                 help=_('Set to true to allow non-IP traffic by default')),
     cfg.BoolOpt('enable_ingress_replication', default=False,
                 help=_('Set to true to enable ingress replication (NETCONF)')),
+    cfg.BoolOpt('enable_native_sriov_trunks', default=False,
+                help=_('Set to true to enable SRIOV trunks '
+                       'on non-Nuage networks')),
     cfg.ListOpt('experimental_features', default=[],
                 help=_('List of experimental features to be enabled.')),
     cfg.ListOpt('enable_debug', default=[],
@@ -129,3 +132,7 @@ def default_allow_non_ip_enabled():
 
 def ingress_replication_enabled():
     return cfg.CONF.PLUGIN.enable_ingress_replication
+
+
+def enable_native_sriov_trunks():
+    return cfg.CONF.PLUGIN.enable_native_sriov_trunks
