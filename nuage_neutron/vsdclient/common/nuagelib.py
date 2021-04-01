@@ -1529,13 +1529,16 @@ class NuageNetPartitionNetwork(NuageResource):
 
 class NuageGatewayBase(NuageResource):
     # creation method
-    def factory(create_params, extra_params, redundant=False):
-        if redundant:
+    def factory(create_params, extra_params, redundancy_type=None):
+        if not redundancy_type or redundancy_type == constants.SINGLE_GW:
+            return NuageGateway(create_params=create_params,
+                                extra_params=extra_params)
+        elif redundancy_type == constants.REDUNDANT_RG:
             return NuageRedundancyGroup(create_params=create_params,
                                         extra_params=extra_params)
         else:
-            return NuageGateway(create_params=create_params,
-                                extra_params=extra_params)
+            return NuageEthernetSegmentGWGroup(create_params=create_params,
+                                               extra_params=extra_params)
     factory = staticmethod(factory)
 
     def get_response_id(self, response):
@@ -1594,15 +1597,34 @@ class NuageRedundancyGroup(NuageGatewayBase):
                 self.create_params['gw_id'])
 
 
+class NuageEthernetSegmentGWGroup(NuageGatewayBase):
+    def get_resource(self):
+        return '/ethernetsegmentgwgroups'
+
+    def get_resource_for_netpart(self):
+        return ('/enterprises/%s/ethernetsegmentgwgroups' %
+                self.create_params['netpart_id'])
+
+    def get_resource_by_id(self):
+        return '/ethernetsegmentgwgroups/%s' % self.create_params['gw_id']
+
+    def get_ent_perm(self):
+        return ('/ethernetsegmentgwgroups/%s/enterprisepermissions' %
+                self.create_params['gw_id'])
+
+
 class NuageGatewayPortBase(NuageResource):
     # creation method
-    def factory(create_params, extra_params, redundant=False):
-        if redundant:
+    def factory(create_params, extra_params, redundancy_type=None):
+        if not redundancy_type or redundancy_type == constants.SINGLE_GW:
+            return NuageGatewayPort(create_params=create_params,
+                                    extra_params=extra_params)
+        elif redundancy_type == constants.REDUNDANT_RG:
             return NuageGatewayRedundantPort(create_params=create_params,
                                              extra_params=extra_params)
         else:
-            return NuageGatewayPort(create_params=create_params,
-                                    extra_params=extra_params)
+            return NuageEthernetSegmentGroup(create_params=create_params,
+                                             extra_params=extra_params)
     factory = staticmethod(factory)
 
     def get_response_id(self, response):
@@ -1699,15 +1721,35 @@ class NuageGatewayRedundantPort(NuageGatewayPortBase):
                 self.create_params['port_id']
 
 
+class NuageEthernetSegmentGroup(NuageGatewayPortBase):
+    def get_resource(self):
+        return '/ethernetsegmentgroups/%s' % self.create_params['port_id']
+
+    def get_resource_by_gateway(self):
+        return ('/ethernetsegmentgwgroups/%s/ethernetsegmentgroups' %
+                self.create_params['gw_id'])
+
+    def post_vlan(self):
+        return ('/ethernetsegmentgroups/%s/vlans' %
+                self.create_params['port_id'])
+
+    def get_ent_perm(self):
+        return ('/ethernetsegmentgroups/%s/enterprisepermissions' %
+                self.create_params['port_id'])
+
+
 class NuageVlanBase(NuageResource):
     # create method
-    def factory(create_params, extra_params, redundant=False):
-        if redundant:
-            return NuageRedundantVlan(create_params=create_params,
-                                      extra_params=extra_params)
-        else:
+    def factory(create_params, extra_params, redundancy_type=None):
+        if not redundancy_type or redundancy_type == constants.SINGLE_GW:
             return NuageVlan(create_params=create_params,
                              extra_params=extra_params)
+        elif redundancy_type == constants.REDUNDANT_RG:
+            return NuageRedundancyGroupVlan(create_params=create_params,
+                                            extra_params=extra_params)
+        else:
+            return NuageEthernetSegmentGroupVlan(create_params=create_params,
+                                                 extra_params=extra_params)
     factory = staticmethod(factory)
 
     def get_resonse_id(self, response):
@@ -1751,7 +1793,7 @@ class NuageVlan(NuageVlanBase):
         return '/ports/%s/vlans' % self.create_params['port_id']
 
 
-class NuageRedundantVlan(NuageVlanBase):
+class NuageRedundancyGroupVlan(NuageVlanBase):
     def post_vlan(self):
         if self.create_params['personality'] in constants.SW_GW_TYPES:
             return '/ports/%s/vlans' % self.create_params['port_id']
@@ -1765,6 +1807,16 @@ class NuageRedundantVlan(NuageVlanBase):
         else:
             return '/vsgredundantports/%s/vlans' % \
                 self.create_params['port_id']
+
+
+class NuageEthernetSegmentGroupVlan(NuageVlanBase):
+    def post_vlan(self):
+        return ('/ethernetsegmentgroups/%s/vlans' %
+                self.create_params['port_id'])
+
+    def get_resource_by_port(self):
+        return ('/ethernetsegmentgroups/%s/vlans' %
+                self.create_params['port_id'])
 
 
 @six.add_metaclass(ABCMeta)
@@ -1884,21 +1936,27 @@ class NuageEntPermission(NuageResource, NuageBasePermission):
         return '/vlans/%s/enterprisepermissions' % self.create_params[
             'vlan_id']
 
-    def get_resource_by_port(self, redundancy=False):
-        if redundancy:
-            return '/vsgredundantports/%s/enterprisepermissions' %\
-                self.create_params['port_id']
+    def get_resource_by_port(self, redundancy_type=None):
+        if not redundancy_type or redundancy_type == constants.SINGLE_GW:
+            return ('/ports/%s/enterprisepermissions' %
+                    self.create_params['port_id'])
+        elif redundancy_type == constants.REDUNDANT_RG:
+            return ('/vsgredundantports/%s/enterprisepermissions' %
+                    self.create_params['port_id'])
         else:
-            return '/ports/%s/enterprisepermissions' %\
-                self.create_params['port_id']
+            return ('/ethernetsegmentgroups/%s/enterprisepermissions' %
+                    self.create_params['port_id'])
 
-    def get_resource_by_gw(self, redundancy=False):
-        if redundancy:
-            return '/redundancygroups/%s/enterprisepermissions' %\
-                self.create_params['gw_id']
+    def get_resource_by_gw(self, redundancy_type=None):
+        if not redundancy_type or redundancy_type == constants.SINGLE_GW:
+            return ('/gateways/%s/enterprisepermissions' %
+                    self.create_params['port_id'])
+        elif redundancy_type == constants.REDUNDANT_RG:
+            return ('/redundancygroups/%s/enterprisepermissions' %
+                    self.create_params['port_id'])
         else:
-            return '/gateways/%s/enterprisepermissions' %\
-                self.create_params['gw_id']
+            return ('/ethernetsegmentgroups/%s/enterprisepermissions' %
+                    self.create_params['port_id'])
 
 
 class NuageHostInterface(NuageResource):
