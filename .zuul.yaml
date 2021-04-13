@@ -38,6 +38,17 @@
     agent:
       jobs:
         - networking-nuage-tempest-qdhcp
+    fwaas:
+      jobs:
+        - networking-nuage-fwaas-v1:
+            required-projects:
+              - OpenStack/neutron-fwaas
+            vars:
+              devstack_plugins:
+                neutron-fwaas: https://github.mv.usa.alcatel.com/OpenStack/neutron-fwaas.git
+              devstack_localrc:
+                USE_PYTHON3: true
+                FORCE_CONFIG_DRIVE: true
     octavia:
       jobs:
         - networking-nuage-octavia:
@@ -110,6 +121,7 @@
         - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario-vsdipam
+        - networking-nuage-fwaas-v1
         - tempest-full-vsdipam
         - ovs-restart
 
@@ -162,27 +174,6 @@
         OVS_BRIDGE: alubr0
       rally_task: rally-jobs/nuage-openstack-neutron.yaml
     timeout: 7800
-
-- job:
-    name: legacy-tempest-aio-base
-    parent: legacy-dsvm-base
-    run: playbooks/tempest-aio-ml2/run.yaml
-    post-run: playbooks/tempest-aio-ml2/post.yaml
-    vars:
-      vsp_release: '20.5'
-      job_flavor: ml2
-      python3: False
-      branch_override: default
-    timeout: 10800
-    required-projects:
-      - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
-      - OpenStack/nuage-tempest-plugin
-      - openstack/neutron-tempest-plugin
-      - openstack/placement
-      - openstack/python-neutronclient
-      - openstack/tempest
 
 - job:
     name: legacy-tempest-aio-sfc
