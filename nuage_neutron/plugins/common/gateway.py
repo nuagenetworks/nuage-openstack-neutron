@@ -23,6 +23,7 @@ from nuage_neutron.plugins.common import constants
 from nuage_neutron.plugins.common import exceptions as nuage_exc
 from nuage_neutron.plugins.common import nuagedb
 from nuage_neutron.plugins.common import utils
+from nuage_neutron.vsdclient.common import constants as vsd_constants
 
 from nuage_neutron.vsdclient.common.helper import get_l2_and_l3_sub_id
 
@@ -72,7 +73,8 @@ class NuagegatewayMixin(utils.SubnetUtilsBase):
             'status': gateway['gw_status'],
             'template': gateway['gw_template'],
             'systemid': gateway['gw_system_id'],
-            'redundant': gateway['gw_redundancy_type']
+            'redundant': (gateway['gw_redundancy_type'] !=
+                          vsd_constants.SINGLE_GW)
         }
 
         if context:
