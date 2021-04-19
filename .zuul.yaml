@@ -121,7 +121,15 @@
         - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal-vsdipam
         - networking-nuage-tempest-scenario-vsdipam
-        - networking-nuage-fwaas-v1
+        - networking-nuage-fwaas-v1:
+            required-projects:
+              - OpenStack/neutron-fwaas
+            vars:
+              devstack_plugins:
+                neutron-fwaas: https://github.mv.usa.alcatel.com/OpenStack/neutron-fwaas.git
+              devstack_localrc:
+                USE_PYTHON3: true
+                FORCE_CONFIG_DRIVE: true
         - tempest-full-vsdipam
         - ovs-restart
 
