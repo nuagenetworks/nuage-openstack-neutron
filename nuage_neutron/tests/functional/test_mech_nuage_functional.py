@@ -15,8 +15,9 @@
 import contextlib
 import re
 
-import mock
-from mock import MagicMock
+from unittest import mock
+from unittest.mock import MagicMock
+
 from oslo_config import cfg
 
 from neutron.tests.unit.plugins.ml2.test_plugin import Ml2PluginV2TestCase
