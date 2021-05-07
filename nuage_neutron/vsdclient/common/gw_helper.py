@@ -143,7 +143,8 @@ def get_tenant_perm(restproxy_serv, vlan_id, required=False):
     nuage_perm = nuagelib.NuagePermission(create_params=req_params)
     permissions = restproxy_serv.get(nuage_perm.get_resource_by_vlan(),
                                      required=required)
-    return permissions[0] if permissions else None
+    filtered = [x for x in permissions if not x.get('enterprisePermission')]
+    return filtered[0] if filtered else None
 
 
 def get_gateway_port_vlan(restproxy_serv, nuage_vlan_id):
