@@ -464,9 +464,6 @@ class NuageGateway(object):
                 nuage_ent_perm.get_resource_by_id() + '?responseChoice=1')
 
     def add_tenant_perm(self, vlan_id, user_tenant, netpart_id):
-        req_params = {
-            'vlan_id': vlan_id
-        }
         # Check if the grp exists in VSD, if not create it
         nuage_user, nuage_group = helper.create_usergroup(
             self.restproxy, user_tenant, netpart_id)
@@ -481,6 +478,10 @@ class NuageGateway(object):
             else:
                 LOG.debug(msg)
                 return
+
+        req_params = {
+            'vlan_id': vlan_id
+        }
 
         nuage_perm = nuagelib.NuagePermission(create_params=req_params)
         data = nuage_perm.perm_update(nuage_group)
@@ -498,10 +499,11 @@ class NuageGateway(object):
         nuage_perm = nuagelib.NuagePermission(create_params=req_params)
         permissions = self.restproxy.get(nuage_perm.get_resource_by_vlan(),
                                          required=True)
-        if not permissions:
-            return False
+        perms = [p for p in permissions if not p.get('enterprisePermission')]
+        if perms:
+            return perms[0]['permittedEntityID'] == nuage_group
         else:
-            return permissions[0]['permittedEntityID'] == nuage_group
+            return False
 
     def remove_tenant_perm(self, vlan_id, user_tenant, netpart_id):
         nuage_user, nuage_group = helper.create_usergroup(
@@ -517,8 +519,9 @@ class NuageGateway(object):
         nuage_perm = nuagelib.NuagePermission(create_params=req_params,
                                               extra_params=extra_params)
         permissions = self.restproxy.get(nuage_perm.get_resource_by_vlan())
-
-        for perm in permissions:
+        filtered = [p for p in permissions if not
+                    p.get('enterprisePermission')]
+        for perm in filtered:
             if perm['permittedEntityID'] == nuage_group:
                 LOG.debug("Removing %(grp)s permission from vlan %(vlan)s",
                           {'grp': user_tenant,
@@ -528,13 +531,13 @@ class NuageGateway(object):
                     nuage_perm.get_resource_by_id() + '?responseChoice=1')
 
                 # return the num of remaining groups
-                return len(permissions) - 1
+                return len(filtered) - 1
 
         msg = _("Vlan %(vlan)s is not assigned to tenant "
                 "%(grp)s") % {'grp': user_tenant,
                               'vlan': vlan_id}
         LOG.debug(msg)
-        return len(permissions) - 1
+        return len(filtered) - 1
 
     def update_gateway_port_vlan(self, tenant_id, vlan_id, params):
         action = params['vlan']['action']
