@@ -1,14 +1,6 @@
 - project:
     check:
       jobs:
-        - openstack-tox-pep8:
-            required-projects:
-              - name: opendev.org/openstack/neutron
-                override-checkout: stable/queens
-        - openstack-tox-py27:
-            required-projects:
-              - name: opendev.org/openstack/neutron
-                override-checkout: stable/queens
         - networking-nuage-tempest-smoke:
             override-checkout: stable/queens
             required-projects: &required-projects
@@ -20,14 +12,6 @@
                 override-checkout: 0.3.0
     gate:
       jobs:
-        - openstack-tox-pep8:
-            required-projects:
-              - name: opendev.org/openstack/neutron
-                override-checkout: stable/queens
-        - openstack-tox-py27:
-            required-projects:
-              - name: opendev.org/openstack/neutron
-                override-checkout: stable/queens
         - networking-nuage-tempest-smoke:
             override-checkout: stable/queens
             required-projects: *required-projects
