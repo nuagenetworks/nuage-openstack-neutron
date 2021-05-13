@@ -78,17 +78,13 @@ class NuageNetTopologyPlugin(ext_db.NuageGwPortMappingDbMixin,
         orig = self.get_switchport_mapping(context, id)
         with context.session.begin(subtransactions=True):
             s = switchport_mapping['switchport_mapping']
-            if (s.get('switch_id') and
-                s.get('switch_id') != orig.get('switch_id') or
-                s.get('port_id') and
-                    s.get('port_id') != orig.get('port_id')):
-                if not s.get('port_id'):
-                    s['port_id'] = orig['port_id']
-                if not s.get('switch_id'):
-                    s['switch_id'] = orig['switch_id']
-                gw_port_id, gw_rport_id = self._validate_switchport(context, s)
-                s['port_uuid'] = gw_port_id
-                s['redundant_port_uuid'] = gw_rport_id
+            if not s.get('port_id'):
+                s['port_id'] = orig['port_id']
+            if not s.get('switch_id'):
+                s['switch_id'] = orig['switch_id']
+            gw_port_id, gw_rport_id = self._validate_switchport(context, s)
+            s['port_uuid'] = gw_port_id
+            s['redundant_port_uuid'] = gw_rport_id
             if (s.get('pci_slot') and
                 s.get('pci_slot') != orig.get('pci_slot') or
                 s.get('host_id') and
