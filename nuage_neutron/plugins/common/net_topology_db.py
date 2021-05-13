@@ -114,12 +114,16 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase):
 
     __native_bulk_support = False
 
-    def _ensure_switchport_mapping_not_in_use(self, context, id):
+    def _ensure_switchport_mapping_not_in_use(self, context, id, mapping=None):
         switchport = self._get_switchport_mapping(context, id)
         bindings = get_switchport_bindings_by_switchport_mapping(
             context,
             switchport.get('id'))
-        if len(bindings) > 0:
+        if bindings:
+            if (mapping and
+                    switchport.get('switch_id') == mapping.get('switch_id') and
+                    switchport.get('port_id') == mapping.get('port_id')):
+                return switchport
             raise _ext.SwitchportInUse(id=id)
         return switchport
 
@@ -243,7 +247,7 @@ class NuageGwPortMappingDbMixin(_ext.NuageNetTopologyPluginBase):
 
     def update_switchport_mapping(self, context, id, switchport_mapping):
         s = switchport_mapping['switchport_mapping']
-        gw_map_db = self._ensure_switchport_mapping_not_in_use(context, id)
+        gw_map_db = self._ensure_switchport_mapping_not_in_use(context, id, s)
         with context.session.begin(subtransactions=True):
             if s:
                 gw_map_db.update(s)
