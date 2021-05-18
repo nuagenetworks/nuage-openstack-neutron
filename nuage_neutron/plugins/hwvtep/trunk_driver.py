@@ -247,8 +247,9 @@ class NuageHwvtepTrunkHandler(object):
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
         ctx = n_ctx.get_admin_context()
-        trunk = (payload.original_trunk if event == events.AFTER_DELETE else
-                 payload.current_trunk)
+        trunk = (payload.desired_state if
+                 event == events.PRECOMMIT_CREATE else
+                 payload.states[0])
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
         if (trunk_port.get(portbindings.VNIC_TYPE) not in
                 self.plugin_driver.get_supported_vnic_types()):
@@ -262,7 +263,7 @@ class NuageHwvtepTrunkHandler(object):
 
     def subport_event(self, resource, event, trunk_plugin, payload):
         ctx = n_ctx.get_admin_context()
-        trunk = payload.original_trunk
+        trunk = payload.states[0]
         trunk_port = self.core_plugin.get_port(ctx, trunk.port_id)
         if (trunk_port.get(portbindings.VNIC_TYPE) not in
                 self.plugin_driver.get_supported_vnic_types()):
@@ -271,14 +272,14 @@ class NuageHwvtepTrunkHandler(object):
             self.subports_pre_create(payload.context,
                                      trunk,
                                      trunk_port,
-                                     payload.subports)
+                                     payload.metadata['subports'])
         if event == events.AFTER_CREATE:
             self.subports_added(trunk,
-                                payload.subports)
+                                payload.metadata['subports'])
         elif event == events.AFTER_DELETE:
             self.subports_deleted(trunk,
                                   trunk_port,
-                                  payload.subports)
+                                  payload.metadata['subports'])
 
 
 class NuageHwvtepTrunkDriver(trunk_base.DriverBase):

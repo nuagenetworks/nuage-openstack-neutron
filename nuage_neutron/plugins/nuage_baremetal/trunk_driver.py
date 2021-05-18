@@ -317,23 +317,23 @@ class NuageTrunkHandler(object):
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
         if event == events.PRECOMMIT_CREATE:
-            self.trunk_pre_create(payload.context, payload.current_trunk)
+            self.trunk_pre_create(payload.context, payload.desired_state)
         elif event == events.AFTER_CREATE:
-            self.trunk_created(payload.current_trunk)
+            self.trunk_created(payload.states[0])
         elif event == events.AFTER_DELETE:
-            self.trunk_deleted(payload.original_trunk)
+            self.trunk_deleted(payload.states[0])
 
     def subport_event(self, resource, event, trunk_plugin, payload):
         if event == events.PRECOMMIT_CREATE:
             self.subports_pre_create(payload.context,
-                                     payload.original_trunk,
-                                     payload.subports)
+                                     payload.states[0],
+                                     payload.metadata['subports'])
         if event == events.AFTER_CREATE:
-            self.subports_added(payload.original_trunk,
-                                payload.subports)
+            self.subports_added(payload.states[0],
+                                payload.metadata['subports'])
         elif event == events.AFTER_DELETE:
-            self.subports_deleted(payload.original_trunk,
-                                  payload.subports)
+            self.subports_deleted(payload.states[0],
+                                  payload.metadata['subports'])
 
 
 class NuageTrunkDriver(trunk_base.DriverBase):
