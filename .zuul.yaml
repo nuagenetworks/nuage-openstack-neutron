@@ -40,8 +40,14 @@
         - networking-nuage-tempest-qdhcp
     octavia:
       jobs:
-        - networking-nuage-octavia
-        - networking-nuage-octavia-standby
+        - networking-nuage-octavia:
+            vars:
+              devstack_localrc:
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/wallaby/amphora-x64-haproxy.qcow2"
+        - networking-nuage-octavia-standby:
+            vars:
+              devstack_localrc:
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/wallaby/amphora-x64-haproxy.qcow2"
     sfc:
       jobs:
         - legacy-tempest-aio-sfc
@@ -92,8 +98,14 @@
       jobs:
         - networking-nuage-tempest-aggregateflows
         - networking-nuage-tempest-scale
-        - networking-nuage-octavia
-        - networking-nuage-octavia-standby
+        - networking-nuage-octavia:
+            vars:
+              devstack_localrc:
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/wallaby/amphora-x64-haproxy.qcow2"
+        - networking-nuage-octavia-standby:
+            vars:
+              devstack_localrc:
+                IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/wallaby/amphora-x64-haproxy.qcow2"
         - networking-nuage-tempest-virtio-vsdipam
         - networking-nuage-tempest-sriov-vsdipam
         - networking-nuage-tempest-baremetal-vsdipam
