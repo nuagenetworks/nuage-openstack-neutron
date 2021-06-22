@@ -1902,13 +1902,13 @@ class NuageEntPermission(NuageResource, NuageBasePermission):
     def get_resource_by_gw(self, redundancy_type=None):
         if not redundancy_type or redundancy_type == constants.SINGLE_GW:
             return ('/gateways/%s/enterprisepermissions' %
-                    self.create_params['port_id'])
+                    self.create_params['gw_id'])
         elif redundancy_type == constants.REDUNDANT_RG:
             return ('/redundancygroups/%s/enterprisepermissions' %
-                    self.create_params['port_id'])
+                    self.create_params['gw_id'])
         else:
-            return ('/ethernetsegmentgroups/%s/enterprisepermissions' %
-                    self.create_params['port_id'])
+            return ('/ethernetsegmentgwgroups/%s/enterprisepermissions' %
+                    self.create_params['gw_id'])
 
 
 class NuageHostInterface(NuageResource):
