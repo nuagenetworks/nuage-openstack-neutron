@@ -63,10 +63,10 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def post_create_security_group_rule(self, resource, event, trigger,
-                                        **kwargs):
-        context = kwargs['context']
-        sg_rule = kwargs['security_group_rule']
-        sg_id = sg_rule['security_group_id']
+                                        payload):
+        context = payload.context
+        sg_rule = payload.desired_state
+        sg_id = payload.resource_id
         sg = self.core_plugin.get_security_group(context, sg_id)
         remote_sgs = []
         if sg_rule.get('remote_group_id'):
@@ -89,8 +89,8 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def pre_delete_security_group_rule(self, resource, event, trigger,
-                                       **kwargs):
-        context = kwargs['context']
-        id = kwargs['security_group_rule_id']
-        sg_rule = self.core_plugin.get_security_group_rule(context, id)
+                                       payload):
+        context = payload.context
+        sgr_id = payload.resource_id
+        sg_rule = self.core_plugin.get_security_group_rule(context, sgr_id)
         self.vsdclient.delete_security_group_rule(sg_rule)
