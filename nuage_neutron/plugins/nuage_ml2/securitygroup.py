@@ -42,14 +42,14 @@ class NuageSecurityGroup(base_plugin.BaseNuagePlugin,
     @nuage_utils.handle_nuage_api_errorcode
     @log_helpers.log_method_call
     def update_security_group_postcommit(self, resource, event, trigger,
-                                         **kwargs):
-        sg_id = kwargs['security_group_id']
-        original_name = kwargs['original_security_group']['name']
-        updated_name = kwargs['security_group'].get('name')
+                                         payload):
+        sg_id = payload.resource_id
+        original_name = payload.states[0]['name']
+        updated_name = payload.latest_state.get('name')
         if updated_name is not None and original_name != updated_name:
             # Update PG description
             updates = {
-                'description': kwargs['security_group']['name']
+                'description': updated_name
             }
             self.vsdclient.update_security_group(sg_id, updates)
 
