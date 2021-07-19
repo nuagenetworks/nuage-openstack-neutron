@@ -67,8 +67,8 @@ class NuageTrunkHandler(object):
             if trunk:
                 trunk.update(status=status)
 
-    def _trunk_status_change(self, resource, event, trigger, **kwargs):
-        updated_port = kwargs['port']
+    def _trunk_status_change(self, resource, event, trigger, payload):
+        updated_port = payload.latest_state
         trunk_details = updated_port.get('trunk_details')
         # If no trunk details port is not parent of a trunk
         if not trunk_details:
@@ -85,7 +85,7 @@ class NuageTrunkHandler(object):
                       "switchdev capability", portbindings.VNIC_DIRECT)
             return
 
-        context = kwargs['context']
+        context = payload.context
         if trunk_details.get('trunk_id'):
             trunk = trunk_objects.Trunk.get_object(
                 context, id=trunk_details.get('trunk_id'))

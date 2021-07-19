@@ -61,8 +61,8 @@ class NuageTrunkHandler(object):
             if trunk:
                 trunk.update(status=status)
 
-    def _trunk_status_change(self, resource, event, trigger, **kwargs):
-        updated_port = kwargs['port']
+    def _trunk_status_change(self, resource, event, trigger, payload):
+        updated_port = payload.latest_state
         trunk_details = updated_port.get('trunk_details')
         # If no trunk details port is not parent of a trunk
         if not trunk_details:
@@ -73,7 +73,7 @@ class NuageTrunkHandler(object):
                       " %s due to unsupported VNIC type",
                       updated_port.get('id'))
             return
-        original_port = kwargs['original_port']
+        original_port = payload.states[0]
         updated_host_id = (original_port['binding:host_id'] and
                            not updated_port['binding:host_id'] or
                            not original_port['binding:host_id'] and
@@ -81,7 +81,7 @@ class NuageTrunkHandler(object):
         if not updated_host_id:
             return
 
-        context = kwargs['context']
+        context = payload.context
         if trunk_details.get('trunk_id'):
             trunk = trunk_objects.Trunk.get_object(
                 context, id=trunk_details.get('trunk_id'))
