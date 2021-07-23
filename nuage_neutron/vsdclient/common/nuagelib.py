@@ -1377,12 +1377,12 @@ class NuageVPort(NuageResource):
         return '/%s/%s/%s' % (parent_resource, parent_id, self.resource)
 
     def post_vport_for_l2domain(self):
-        return '/l2domains/%s/%s' % (self.create_params['l2domain_id'],
-                                     self.resource)
+        return '/l2domains/%s/%s?responseChoice=1' % (
+            self.create_params['l2domain_id'], self.resource)
 
     def post_vport_for_subnet(self):
-        return '/subnets/%s/%s' % (self.create_params['subnet_id'],
-                                   self.resource)
+        return '/subnets/%s/%s?responseChoice=1' % (
+            self.create_params['subnet_id'], self.resource)
 
     def post_vport_data(self):
         data = {
