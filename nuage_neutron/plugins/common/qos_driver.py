@@ -83,10 +83,11 @@ class NuageQosDriver(base.DriverBase):
         return NUAGE_QOS in cfg.CONF.ml2.extension_drivers
 
     def validate_rule_for_port(self, context, rule, port):
-        validated = super(NuageQosDriver, self).validate_rule_for_port(
-            context, rule, port)
-        if not validated:
-            return False
+        if hasattr(super(NuageQosDriver, self), 'validate_rule_for_port'):
+            validated = super(NuageQosDriver, self).validate_rule_for_port(
+                context, rule, port)
+            if not validated:
+                return False
         # This driver only supports DIRECT VNIC type with switchdev
         # capabilities, not SRIOV.
         port_binding = utils.get_port_binding_by_status_and_host(
