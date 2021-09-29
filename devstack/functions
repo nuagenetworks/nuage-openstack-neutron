@@ -269,12 +269,13 @@ function configure_networking_sfc_policy {
 }
 
 function create_fake_bridges_for_hwvtep(){
-    # Create br-active and br-standby
+    # Create br-active, br-standby and br-srl
     $(sudo ovs-vsctl -- --may-exist add-br br-active)
     $(sudo ovs-vsctl -- --may-exist add-br br-standby)
+    $(sudo ovs-vsctl -- --may-exist add-br br-srl)
     $(sudo ovs-vsctl br-set-external-id br-active bridge-id br-active)
     $(sudo ovs-vsctl br-set-external-id br-standby bridge-id br-standby)
-
+    $(sudo ovs-vsctl br-set-external-id br-srl bridge-id br-srl)
 }
 
 function create_fake_gateway_for_hw_vtep(){
@@ -297,10 +298,10 @@ function create_fake_gateway_for_hw_vtep(){
     apikey="${BASH_REMATCH[1]}"
     echo "Connected"
 
-    # Name of GW is based on machine id, we have 5 gateways
+    # Name of GW is based on machine id, we have 6 gateways
     deployment_id=$RANDOM
-    names=("OS_CI_1_$deployment_id" "OS_CI_2_$deployment_id" "OS_CI_3_$deployment_id" "OS_CI_4_$deployment_id" "OS_CI_5_$deployment_id")
-    physical_names=("OS_CI_1_$deployment_id" "LAG-1" "LAG-1" "OS_CI_4_$deployment_id" "OS_CI_5_$deployment_id")
+    names=("OS_CI_1_$deployment_id" "OS_CI_2_$deployment_id" "OS_CI_3_$deployment_id" "OS_CI_4_$deployment_id" "OS_CI_5_$deployment_id" "OS_CI_6_$deployment_id")
+    physical_names=("OS_CI_1_$deployment_id" "LAG-1" "LAG-1" "OS_CI_4_$deployment_id" "OS_CI_5_$deployment_id" "OS_CI_6_$deployment_id")
     gateway_ids=()
     gatewayport_ids=()
 
@@ -374,7 +375,9 @@ function create_fake_gateway_for_hw_vtep(){
     name=${names[4]}
     SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "$name" --host-id $(hostname) --pci-slot eth5 --bridge br-standby | grep ' id ' | get_field 2)
     echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
-
+    name=${names[5]}
+    SWITCHPORT_MAPPING_ID=$(neutron --os-cloud devstack-admin nuage-switchport-mapping-create --switch-info "$name" --switch-id "$name" --port-id "$name" --host-id $(hostname) --pci-slot eth6 --bridge br-srl | grep ' id ' | get_field 2)
+    echo "Created switchport-mapping $SWITCHPORT_MAPPING_ID"
 }
 
 
