@@ -179,6 +179,9 @@
             override-checkout: stable/rocky
             required-projects: *required-projects
         - networking-nuage-tempest-smoke-multiversion-20.10
+        - networking-nuage-tempest-sriov-multiversion-20.10
+        - networking-nuage-vtep-vlan-upstream-multiversion-20.10
+        - networking-nuage-vtep-vlan-nuage-multiversion-20.10
         - networking-nuage-tempest-multinode:
             override-checkout: stable/rocky
             required-projects: *required-projects
@@ -338,6 +341,30 @@
 - job:
     name: networking-nuage-tempest-smoke-multiversion-20.10
     parent: networking-nuage-tempest-smoke
+    override-checkout: stable/rocky
+    vars:
+      ci_vsp_name: ci-vsp-multiversion-20.10
+    required-projects: *required-projects
+
+- job:
+    name: networking-nuage-tempest-sriov-multiversion-20.10
+    parent: networking-nuage-tempest-sriov
+    override-checkout: stable/rocky
+    vars:
+      ci_vsp_name: ci-vsp-multiversion-20.10
+    required-projects: *required-projects
+
+- job:
+    name: networking-nuage-vtep-vlan-upstream-multiversion-20.10
+    parent: networking-nuage-vtep-vlan-upstream
+    override-checkout: stable/rocky
+    vars:
+      ci_vsp_name: ci-vsp-multiversion-20.10
+    required-projects: *required-projects
+
+- job:
+    name: networking-nuage-vtep-vlan-nuage-multiversion-20.10
+    parent: networking-nuage-vtep-vlan-nuage
     override-checkout: stable/rocky
     vars:
       ci_vsp_name: ci-vsp-multiversion-20.10
