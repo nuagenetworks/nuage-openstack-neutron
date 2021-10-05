@@ -36,6 +36,7 @@
         - networking-nuage-tempest-sriov-flat-vlan:
             override-checkout: stable/queens
             required-projects: *required-projects
+        - networking-nuage-tempest-sriov-multiversion-20.10
     baremetal:
       jobs:
         - networking-nuage-tempest-baremetal:
@@ -212,6 +213,10 @@
         - networking-nuage-tempest-nova-evacuate:
             override-checkout: stable/queens
             required-projects: *required-projects
+        - networking-nuage-tempest-smoke-multiversion-20.10
+        - networking-nuage-tempest-sriov-multiversion-20.10
+        - networking-nuage-vtep-vlan-upstream-multiversion-20.10
+        - networking-nuage-vtep-vlan-nuage-multiversion-20.10
     periodic-sunday:
       jobs:
         - networking-nuage-tempest-aggregateflows:
@@ -369,6 +374,31 @@
 - job:
     name: networking-nuage-tempest-hwvtep-trunking-correction
     parent: networking-nuage-vtep-vlan-nuage
+    override-checkout: stable/queens
     vars:
       tempest_test_regex: '^nuage_tempest_plugin\.tests\.upgrade\.test_correct_hwvtep.*'
       tempest_concurrency: 1
+    required-projects: *required-projects
+
+- job:
+    name: networking-nuage-tempest-sriov-multiversion-20.10
+    parent: networking-nuage-tempest-sriov
+    override-checkout: stable/queens
+    vars:
+      ci_vsp_name: ci-vsp-multiversion-20.10
+    required-projects: *required-projects
+
+- job:
+    name: networking-nuage-vtep-vlan-upstream-multiversion-20.10
+    parent: networking-nuage-vtep-vlan-upstream
+    override-checkout: stable/queens
+    vars:
+      ci_vsp_name: ci-vsp-multiversion-20.10
+    required-projects: *required-projects
+
+- job:
+    name: networking-nuage-vtep-vlan-nuage-multiversion-20.10
+    parent: networking-nuage-vtep-vlan-nuage
+    required-projects: *required-projects
+    vars:
+      ci_vsp_name: ci-vsp-multiversion-20.10
