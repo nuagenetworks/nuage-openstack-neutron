@@ -1,6 +1,4 @@
 - project:
-    templates:
-      - openstack-python-jobs
     check:
       jobs:
         - networking-nuage-tempest-smoke:
