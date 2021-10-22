@@ -177,11 +177,12 @@ class NuageBGPVPNDriver(driver_api.BGPVPNDriver,
         }
         self.l3_plugin.update_router(context, router_id, update_dict)
 
-    def post_router_update(self, resource, event, trigger, **kwargs):
-        request_router = kwargs.get('request_router')
-        updated_router = kwargs.get('updated_router')
-        rollbacks = kwargs.get('rollbacks')
-        context = kwargs.get('context')
+    def post_router_update(self, resource, event, trigger, payload):
+        metadata = payload.metadata
+        request_router = metadata.get('request_router')
+        updated_router = payload.latest_state
+        rollbacks = metadata.get('rollbacks')
+        context = payload.context
         rd = request_router.get('rd')
         rt = request_router.get('rt')
         if not rd and not rt:

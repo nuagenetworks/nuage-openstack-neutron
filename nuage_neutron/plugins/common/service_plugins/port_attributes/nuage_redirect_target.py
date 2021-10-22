@@ -579,31 +579,34 @@ class NuageRedirectTarget(BaseNuagePlugin):
                 raise nuage_exc.NuageBadRequest(msg=msg)
 
     def post_port_update_redirect_target(self, resource, event, trigger,
-                                         context, port, original_port,
-                                         **kwargs):
+                                         payload):
+        port = payload.latest_state
+        original_port = payload.states[0]
         if ext_rtarget.REDIRECTTARGETS not in port:
             return
         if (port[ext_rtarget.REDIRECTTARGETS] == original_port.get(
                 ext_rtarget.REDIRECTTARGETS)):
             return
         nuage_rtargets_ids = self._validate_port_redirect_target(
-            context,
+            payload.context,
             port,
             port[ext_rtarget.REDIRECTTARGETS]
         )
-        self._delete_port_redirect_target_bindings(context, port['id'])
+        self._delete_port_redirect_target_bindings(payload.context,
+                                                   port['id'])
         self.process_port_redirect_target(
-            context, port, port[ext_rtarget.REDIRECTTARGETS],
+            payload.context, port, port[ext_rtarget.REDIRECTTARGETS],
             nuage_rtargets_ids)
 
     def post_port_create_redirect_target(self, resource, event, trigger,
-                                         context, port, **kwargs):
+                                         payload):
+        port = payload.latest_state
         if ext_rtarget.REDIRECTTARGETS not in port:
             port[ext_rtarget.REDIRECTTARGETS] = []
             return
 
         n_rtarget_ids = self._validate_port_redirect_target(
-            context, port, port[ext_rtarget.REDIRECTTARGETS])
+            payload.context, port, port[ext_rtarget.REDIRECTTARGETS])
         self.process_port_redirect_target(
-            context, port, port[ext_rtarget.REDIRECTTARGETS],
+            payload.context, port, port[ext_rtarget.REDIRECTTARGETS],
             n_rtarget_ids)

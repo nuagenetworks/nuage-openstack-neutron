@@ -30,6 +30,7 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.api import validators as lib_validators
+from neutron_lib.callbacks import events
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as os_constants
 from neutron_lib import context as n_context
@@ -609,9 +610,12 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
 
         self._validate_port(db_context, port,
                             is_network_external, subnet_mappings, network)
-        self.nuage_callbacks.notify(resources.PORT, constants.BEFORE_CREATE,
-                                    self, context=db_context,
-                                    request_port=port)
+        self.nuage_callbacks.publish(resources.PORT, constants.BEFORE_CREATE,
+                                     self,
+                                     payload=events.DBEventPayload(
+                                         context=db_context,
+                                         resource_id=port['id'],
+                                         states=(port,)))
 
         subnet_mapping = subnet_mappings[0]
         nuage_vport = nuage_vm = np_name = None
@@ -678,11 +682,21 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             raise
         rollbacks = []
         try:
-            self.nuage_callbacks.notify(resources.PORT, constants.AFTER_CREATE,
-                                        self, context=db_context, port=port,
-                                        vport=nuage_vport, rollbacks=rollbacks,
-                                        subnet_mapping=subnet_mapping,
-                                        vsd_subnet=nuage_subnet)
+            metadata = {
+                'vport': nuage_vport,
+                'rollbacks': rollbacks,
+                'subnet_mapping': subnet_mapping,
+                'vsd_subnet': nuage_subnet,
+                'rollbacks': rollbacks
+            }
+            self.nuage_callbacks.publish(resources.PORT,
+                                         constants.AFTER_CREATE,
+                                         self,
+                                         payload=events.DBEventPayload(
+                                             context=db_context,
+                                             resource_id=port['id'],
+                                             metadata=metadata,
+                                             states=(port, )))
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
@@ -788,13 +802,21 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                                  host_added, host_removed)
         rollbacks = []
         try:
-            self.nuage_callbacks.notify(resources.PORT, constants.AFTER_UPDATE,
-                                        self.core_plugin, context=db_context,
-                                        port=port,
-                                        original_port=original,
-                                        vport=nuage_vport, rollbacks=rollbacks,
-                                        subnet_mapping=subnet_mapping,
-                                        vsd_subnet=nuage_subnet)
+            metadata = {
+                'vport': nuage_vport,
+                'rollbacks': rollbacks,
+                'subnet_mapping': subnet_mapping,
+                'vsd_subnet': nuage_subnet,
+                'rollbacks': rollbacks
+            }
+            self.nuage_callbacks.publish(resources.PORT,
+                                         constants.AFTER_UPDATE,
+                                         self.core_plugin,
+                                         payload=events.DBEventPayload(
+                                             context=db_context,
+                                             resource_id=port['id'],
+                                             metadata=metadata,
+                                             states=(original, port)))
             domain_type, domain_id = self._get_domain_type_id_from_vsd_subnet(
                 self.vsdclient, nuage_subnet)
             self.qos_driver.process_create_update_port(db_context, port,
@@ -985,12 +1007,17 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
                 raise e
             rollbacks = []
             try:
-                self.nuage_callbacks.notify(
+                self.nuage_callbacks.publish(
                     resources.PORT, constants.AFTER_DELETE,
-                    self.core_plugin, context=db_context,
-                    updated_port=port,
-                    port=port,
-                    subnet_mapping=subnet_mapping)
+                    self.core_plugin,
+                    payload=events.DBEventPayload(
+                        context=db_context,
+                        resource_id=port['id'],
+                        metadata={
+                            'subnet_mapping': subnet_mapping,
+                            'rollbacks': rollbacks
+                        },
+                        states=(port,)))
             except Exception:
                 with excutils.save_and_reraise_exception():
                     for rollback in reversed(rollbacks):

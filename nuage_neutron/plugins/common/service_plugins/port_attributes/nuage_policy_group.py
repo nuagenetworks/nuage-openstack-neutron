@@ -178,15 +178,20 @@ class NuagePolicyGroup(vsd_passthrough_resource.VsdPassthroughResource):
         return self.vsdclient.get_policy_groups_by_subnet(vsd_subnet,
                                                           **vsd_filters)
 
-    def post_port_update_nuage_pg(self, resource, event, trigger, context,
-                                  port, vport, original_port, rollbacks,
-                                  **kwargs):
+    def post_port_update_nuage_pg(self, resource, event, trigger, payload):
+        context = payload.context
+        port = payload.latest_state
+        metadata = payload.metadata
         return self.process_port_nuage_policy_group(
-            event, context, port, vport, rollbacks=rollbacks)
+            event, context, port, metadata.get('vport'),
+            rollbacks=metadata.get('rollbacks'))
 
-    def post_port_create_nuage_pg(self, resource, event, trigger, context,
-                                  port, vport, **kwargs):
-        self.process_port_nuage_policy_group(event, context, port, vport)
+    def post_port_create_nuage_pg(self, resource, event, trigger, payload):
+        context = payload.context
+        port = payload.latest_state
+        metadata = payload.metadata
+        self.process_port_nuage_policy_group(event, context, port,
+                                             metadata.get('vport'))
         if NUAGE_POLICY_GROUPS not in port:
             port[NUAGE_POLICY_GROUPS] = None
 

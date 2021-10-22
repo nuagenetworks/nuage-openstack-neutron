@@ -39,7 +39,7 @@ class NuageCallbacksManager(manager.CallbacksManager):
     raised by our service_plugins to be able to halt the neutron flow and bring
     exceptions to the user.
     """
-    def _notify_loop(self, resource, event, trigger, **kwargs):
+    def _notify_loop(self, resource, event, trigger, payload):
         LOG.debug("Notify callbacks for %(resource)s, %(event)s",
                   {'resource': resource, 'event': event})
 
@@ -48,4 +48,4 @@ class NuageCallbacksManager(manager.CallbacksManager):
               in self._callbacks[resource].get(event, [])]))
         for callback_id, callback in callbacks:
             LOG.debug("Calling callback %s", callback_id)
-            callback(resource, event, trigger, **kwargs)
+            callback(resource, event, trigger, payload)

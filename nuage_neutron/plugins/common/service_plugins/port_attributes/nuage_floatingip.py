@@ -136,13 +136,15 @@ class NuageFloatingip(vsd_passthrough_resource.VsdPassthroughResource):
         return self.vsdclient.get_nuage_domain_floatingips(
             domain_id, assigned=False, externalID=None, **vsd_filters)
 
-    def post_port_update_nuage_fip(self, resource, event, trigger, port, vport,
-                                   rollbacks, **kwargs):
-        self.process_port_nuage_floatingip(event, port, vport,
-                                           rollbacks=rollbacks)
+    def post_port_update_nuage_fip(self, resource, event, trigger, payload):
+        port = payload.latest_state
+        metadata = payload.metadata
+        self.process_port_nuage_floatingip(event, port, metadata.get('vport'),
+                                           rollbacks=metadata.get('rollbacks'))
 
-    def post_port_create_nuage_fip(self, resource, event, trigger, port, vport,
-                                   **kwargs):
+    def post_port_create_nuage_fip(self, resource, event, trigger, payload):
+        port = payload.latest_state
+        vport = payload.metadata.get('vport')
         if vport and port.get(NUAGE_FLOATINGIP):
             self.process_port_nuage_floatingip(event, port, vport)
         if NUAGE_FLOATINGIP not in port:

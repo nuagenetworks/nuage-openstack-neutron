@@ -86,8 +86,8 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                     dhcp_option['opt_name'], e)
                 raise e
 
-    def _validate_port_dhcp_opts(self, resource, event, trigger, **kwargs):
-        request_port = kwargs.get('request_port')
+    def _validate_port_dhcp_opts(self, resource, event, trigger, payload):
+        request_port = payload.latest_state
         if not request_port or \
                 not lib_validators.is_attr_set(
                     request_port.get('extra_dhcp_opts')):
@@ -259,8 +259,9 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
         return self.vsdclient.get_nuage_vport_by_neutron_id(
             port_params, required=required)
 
-    def post_port_create_dhcp_opts(self, resource, event, trigger, port,
-                                   vport, **kwargs):
+    def post_port_create_dhcp_opts(self, resource, event, trigger, payload):
+        port = payload.latest_state
+        vport = payload.metadata.get('vport')
         if (not lib_validators.is_attr_set(port.get('extra_dhcp_opts')) or
                 len(port.get('extra_dhcp_opts')) == 0):
             return
@@ -271,9 +272,10 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
         self._create_update_extra_dhcp_options(
             dhcp_options, vport, port['id'])
 
-    def post_port_update_dhcp_opts(self, resource, event, trigger,
-                                   port, original_port, vport, subnet_mapping,
-                                   **kwargs):
+    def post_port_update_dhcp_opts(self, resource, event, trigger, payload):
+        port = payload.latest_state
+        original_port = payload.states[0]
+        metadata = payload.metadata
         if port['extra_dhcp_opts'] == original_port['extra_dhcp_opts']:
             return
 
@@ -283,8 +285,9 @@ class PortDHCPOptionsNuage(base_plugin.BaseNuagePlugin):
                                 if port['extra_dhcp_opts'] else [])
 
         for ip_version in [4, 6]:
-            self._post_port_update_dhcp_opts(original_port, vport,
-                                             subnet_mapping,
+            self._post_port_update_dhcp_opts(original_port,
+                                             metadata.get('vport'),
+                                             metadata.get('subnet_mapping'),
                                              ip_version,
                                              request_dhcp_options,
                                              old_dhcp_options)

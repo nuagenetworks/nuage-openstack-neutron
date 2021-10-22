@@ -20,6 +20,7 @@ from neutron._i18n import _
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
+from neutron_lib.callbacks import events
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as lib_constants
 from neutron_lib.db import api as lib_db_api
@@ -351,14 +352,18 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
         rollbacks = []
         try:
-            self.nuage_callbacks.notify(resources.ROUTER_INTERFACE,
-                                        event,
-                                        self,
-                                        context=context,
-                                        router_id=router_id,
-                                        subnet_id=subnet_id,
-                                        rollbacks=rollbacks,
-                                        subnet_mapping=subnet_mapping)
+            metadata = {
+                'subnet_id': subnet_id,
+                'subnet_mapping': subnet_mapping,
+                'rollbacks': rollbacks
+            }
+            self.nuage_callbacks.publish(resources.ROUTER_INTERFACE,
+                                         event,
+                                         self,
+                                         payload=events.DBEventPayload(
+                                             context,
+                                             resource_id=router_id,
+                                             metadata=metadata))
         except Exception:
             with excutils.save_and_reraise_exception():
                 for rollback in reversed(rollbacks):
@@ -718,12 +723,17 @@ class NuageL3Plugin(base_plugin.BaseNuagePlugin,
 
             rollbacks = []
             try:
-                self.nuage_callbacks.notify(
-                    resources.ROUTER, constants.AFTER_UPDATE, self,
-                    context=context, updated_router=router_updated,
-                    original_router=original_router,
-                    request_router=updates, domain=nuage_router,
-                    rollbacks=rollbacks)
+                self.nuage_callbacks.publish(
+                    resources.ROUTER,
+                    constants.AFTER_UPDATE,
+                    self,
+                    payload=events.DBEventPayload(
+                        context, states=(original_router, router_updated),
+                        resource_id=router_updated['id'],
+                        metadata={
+                            'request_router': updates,
+                            'rollbacks': rollbacks
+                        }))
             except Exception:
                 with excutils.save_and_reraise_exception():
                     for rollback in reversed(rollbacks):

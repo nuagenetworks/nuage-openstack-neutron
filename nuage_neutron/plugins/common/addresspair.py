@@ -385,10 +385,10 @@ class NuageAddressPair(BaseNuagePlugin):
                 self.calculate_vips_for_port_ips(context, port)
                 self._create_allowed_address_pairs(context, port, vport)
 
-    def post_port_create_addresspair(self, resource, event, plugin, **kwargs):
-        port = kwargs.get('port')
-        vport = kwargs.get('vport')
-        context = kwargs.get('context')
+    def post_port_create_addresspair(self, resource, event, trigger, payload):
+        port = payload.latest_state
+        vport = payload.metadata.get('vport')
+        context = payload.context
         configure_vips = (port.get(constants.VIPS_FOR_PORT_IPS) or
                           port.get("allowed_address_pairs"))
         if not self.is_port_vnic_type_supported(port) or not configure_vips:
@@ -454,27 +454,30 @@ class NuageAddressPair(BaseNuagePlugin):
                            "{}".format(str(ip_address)))
                     raise nuage_exc.NuageBadRequest(msg=msg)
 
-    def post_port_update_addresspair(self, resource, event, plugin, context,
-                                     port, original_port, vport, rollbacks,
-                                     **kwargs):
+    def post_port_update_addresspair(self, resource, event, trigger, payload):
+        context = payload.context
+        port = payload.latest_state
+        original_port = payload.states[0]
+        vport = payload.metadata.get('vport')
+        rollbacks = payload.metadata.get('rollbacks', [])
         if self.is_port_vnic_type_supported(port):
             self._update_allowed_address_pairs(context, port,
                                                original_port, vport)
             rollbacks.append((self._update_allowed_address_pairs,
                               [context, original_port, port, vport], {}))
 
-    def post_router_interface_create_addresspair(self, resource, event, plugin,
-                                                 **kwargs):
-        context = kwargs['context']
-        subnet_mapping = kwargs['subnet_mapping']
+    def post_router_interface_create_addresspair(self, resource, event,
+                                                 trigger, payload):
+        context = payload.context
+        subnet_mapping = payload.metadata['subnet_mapping']
         self.process_address_pairs_of_subnet(context,
                                              subnet_mapping,
                                              constants.SUBNET)
 
-    def post_router_interface_delete_addresspair(self, resource, event, plugin,
-                                                 **kwargs):
-        context = kwargs['context']
-        subnet_mapping = kwargs['subnet_mapping']
+    def post_router_interface_delete_addresspair(self, resource, event,
+                                                 trigger, payload):
+        context = payload.context
+        subnet_mapping = payload.metadata['subnet_mapping']
         self.process_address_pairs_of_subnet(context,
                                              subnet_mapping,
                                              constants.L2DOMAIN)
