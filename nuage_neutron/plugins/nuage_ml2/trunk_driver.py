@@ -16,7 +16,11 @@
 import collections
 
 from neutron.objects import trunk as trunk_objects
+from neutron.plugins.ml2.drivers.openvswitch.agent.common import (
+    constants as agent_consts)
 from neutron.services.trunk.drivers import base as trunk_base
+from neutron.services.trunk.drivers.openvswitch.driver import (
+    vif_details_bridge_name_handler)
 from neutron.services.trunk import exceptions as t_exc
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.callbacks import events
@@ -456,6 +460,15 @@ class NuageTrunkDriver(trunk_base.DriverBase):
         registry.subscribe(self._handler.subport_event,
                            resources.SUBPORTS,
                            events.PRECOMMIT_CREATE)
+        # gridinv: ovs-fp mech driver inherits openvswitch get_vif_details(),
+        # which will issue notification that will trigger method below.
+        # As a result, it will overwirite bridge name in vif_details with
+        # a computed ovs bridge name for trunk ports (tbr-xxx), causing
+        # conflicting ovs bridge to be created on compute. Call below
+        # will de-register this handler to preserve Nuage trunk implementation.
+        registry.unsubscribe(vif_details_bridge_name_handler,
+                             agent_consts.OVS_BRIDGE_NAME,
+                             events.BEFORE_READ)
 
     @classmethod
     def create(cls, plugin_driver):
