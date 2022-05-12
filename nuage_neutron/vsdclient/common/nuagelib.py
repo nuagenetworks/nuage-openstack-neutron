@@ -965,7 +965,7 @@ class NuageVM(NuageResource):
             interface['IPv6Address'] = self.create_params['ipv6']
 
         data = {
-            'name': 'vm-' + self.create_params['mac'].replace(':', ''),
+            'name': self.create_params['name'],
             'interfaces': [interface],
             'UUID': self.create_params['id'],
             'externalID': get_vsd_external_id(self.create_params['id'])
