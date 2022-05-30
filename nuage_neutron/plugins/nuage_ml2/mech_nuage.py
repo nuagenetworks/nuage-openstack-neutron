@@ -737,8 +737,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             db_context, original, port)
 
         host_added = host_removed = False
-        if (not original['binding:host_id'] and port['binding:host_id'] or
-                not original['device_id'] and port['device_id']):
+        if not original['binding:host_id'] and port['binding:host_id']:
             host_added = True
         elif (original['binding:host_id'] and not port['binding:host_id'] or
                 original['device_id'] and not port['device_id']):
