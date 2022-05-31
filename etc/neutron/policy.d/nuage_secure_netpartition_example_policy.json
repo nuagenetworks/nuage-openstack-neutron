@@ -1,9 +1,0 @@
-{
-    "get_net_partition": "rule:admin_only",
-    "create_net_partition": "rule:admin_only",
-    "delete_net_partition": "rule:admin_only",
-    "create_subnet:net_partition": "rule:admin_only",
-    "update_subnet:net_partition": "rule:admin_only",
-    "create_router:net_partition": "rule:admin_only",
-    "update_router:net_partition": "rule:admin_only"
-}

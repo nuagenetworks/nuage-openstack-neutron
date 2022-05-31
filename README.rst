@@ -1,10 +1,6 @@
-=======================
-nuage-openstack-neutron
-=======================
+This project is no longer maintained.
 
-Openstack Neutron Plugin for Nuage Networks
-
-* Free software: Apache license
-* Source: https://github.com/nuagenetworks/nuage-openstack-neutron
-
-Visit Nuage Networks at http://www.nuagenetworks.net
+The contents of this repository are still available in the Git
+source code management system.  To see the contents of this
+repository before it reached its end of life, please check out the
+previous commit with "git checkout HEAD^1".
