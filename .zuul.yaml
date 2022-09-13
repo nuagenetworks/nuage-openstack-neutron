@@ -4,47 +4,79 @@
     check:
       jobs:
         - openstack-tox-pep8
-        - networking-nuage-tempest-smoke
+        - networking-nuage-tempest-smoke:
+            required-projects: &required-projects
+              - name: openstack/tempest
+                override-checkout: train-last
+              - name: openstack/neutron-tempest-plugin
+                override-checkout: 1.5.0
     gate:
       jobs:
         - openstack-tox-pep8
-        - networking-nuage-tempest-smoke
+        - networking-nuage-tempest-smoke:
+            required-projects: *required-projects
     experimental:
       jobs:
-        - networking-nuage-vtep-vxlan
+        - networking-nuage-vtep-vxlan:
+            required-projects: *required-projects
     virtio:
       jobs:
-        - networking-nuage-tempest-virtio
+        - networking-nuage-tempest-virtio:
+            required-projects: *required-projects
     sriov:
       jobs:
-        - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-sriov-flat-vlan
+        - networking-nuage-tempest-sriov:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov-flat-vlan:
+            required-projects: *required-projects
     baremetal:
       jobs:
-        - networking-nuage-tempest-baremetal
+        - networking-nuage-tempest-baremetal:
+            required-projects: *required-projects
     full:
       jobs:
-        - networking-nuage-tempest-virtio
-        - networking-nuage-tempest-virtio-vsdipam
-        - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-sriov-vsdipam
-        - networking-nuage-tempest-sriov-flat-vlan
-        - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-baremetal-vsdipam
-        - networking-nuage-tempest-scenario
-        - networking-nuage-tempest-scenario-vsdipam
-        - networking-nuage-vtep-vlan-upstream
-        - networking-nuage-vtep-vlan-nuage
+        - networking-nuage-tempest-virtio:
+            required-projects: *required-projects
+        - networking-nuage-tempest-virtio-vsdipam:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov-vsdipam:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov-flat-vlan:
+            required-projects: *required-projects
+        - networking-nuage-tempest-baremetal:
+            required-projects: *required-projects
+        - networking-nuage-tempest-baremetal-vsdipam:
+            required-projects: *required-projects
+        - networking-nuage-tempest-scenario:
+            required-projects: *required-projects
+        - networking-nuage-tempest-scenario-vsdipam:
+            required-projects: *required-projects
+        - networking-nuage-vtep-vlan-upstream:
+            required-projects: *required-projects
+        - networking-nuage-vtep-vlan-nuage:
+            required-projects: *required-projects
     agent:
       jobs:
-        - networking-nuage-tempest-qdhcp
+        - networking-nuage-tempest-qdhcp:
+            required-projects: *required-projects
     octavia:
       jobs:
         - networking-nuage-octavia:
+            required-projects: &required-projects-octavia
+              - <<: *required-projects
+              - name: openstack/octavia-tempest-plugin
+                override-checkout: train-last
+              - name: openstack/octavia
+                override-checkout: train-em
+              - name: openstack/python-octaviaclient
+                override-checkout: train-em
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
         - networking-nuage-octavia-standby:
+            required-projects: *required-projects-octavia
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
@@ -53,61 +85,94 @@
         - legacy-tempest-aio-sfc
     switchdev:
       jobs:
-        - networking-nuage-tempest-api-switchdev
-        - networking-nuage-tempest-api-virtio-forwarder
+        - networking-nuage-tempest-api-switchdev:
+            required-projects: *required-projects
+        - networking-nuage-tempest-api-virtio-forwarder:
+            required-projects: *required-projects
     cli:
       jobs:
-        - networking-nuage-tempest-cli
+        - networking-nuage-tempest-cli:
+            required-projects: *required-projects
     aggregateflows:
       jobs:
-        - networking-nuage-tempest-aggregateflows
+        - networking-nuage-tempest-aggregateflows:
+            required-projects: *required-projects
     scenario:
       jobs:
-        - networking-nuage-tempest-scenario
+        - networking-nuage-tempest-scenario:
+            required-projects: *required-projects
     scale:
       jobs:
-        - networking-nuage-tempest-scale
+        - networking-nuage-tempest-scale:
+            required-projects: *required-projects
     upstream:
       jobs:
-        - tempest-full
-        - tempest-full-vsdipam
+        - tempest-full:
+            required-projects: *required-projects
+        - tempest-full-vsdipam:
+            required-projects: *required-projects
     periodic:
       jobs:
-        - networking-nuage-tempest-virtio
-        - networking-nuage-tempest-sriov
-        - networking-nuage-tempest-baremetal
-        - networking-nuage-tempest-scenario
-        - networking-nuage-tempest-cli
-        - tempest-full
-        - networking-nuage-vtep-vlan-upstream
-        - networking-nuage-vtep-vlan-nuage
+        - networking-nuage-tempest-virtio:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov:
+            required-projects: *required-projects
+        - networking-nuage-tempest-baremetal:
+            required-projects: *required-projects
+        - networking-nuage-tempest-scenario:
+            required-projects: *required-projects
+        - networking-nuage-tempest-cli:
+            required-projects: *required-projects
+        - tempest-full:
+            required-projects: *required-projects
+        - networking-nuage-vtep-vlan-upstream:
+            required-projects: *required-projects
+        - networking-nuage-vtep-vlan-nuage:
+            required-projects: *required-projects
     periodic-saturday:
       jobs:
-        - networking-nuage-tempest-qdhcp
-        - networking-nuage-tempest-sriov-flat-vlan
-        - networking-nuage-vtep-vxlan
-        - networking-nuage-tempest-multinode
-        - networking-nuage-tempest-nova-evacuate
-        - networking-nuage-tempest-api-switchdev
-        - networking-nuage-tempest-api-virtio-forwarder
+        - networking-nuage-tempest-qdhcp:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov-flat-vlan:
+            required-projects: *required-projects
+        - networking-nuage-vtep-vxlan:
+            required-projects: *required-projects
+        - networking-nuage-tempest-multinode:
+            required-projects: *required-projects
+        - networking-nuage-tempest-nova-evacuate:
+            required-projects: *required-projects
+        - networking-nuage-tempest-api-switchdev:
+            required-projects: *required-projects
+        - networking-nuage-tempest-api-virtio-forwarder:
+            required-projects: *required-projects
     periodic-sunday:
       jobs:
-        - networking-nuage-tempest-aggregateflows
-        - networking-nuage-tempest-scale
+        - networking-nuage-tempest-aggregateflows:
+            required-projects: *required-projects
+        - networking-nuage-tempest-scale:
+            required-projects: *required-projects
         - networking-nuage-octavia:
+            required-projects: *required-projects-octavia
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
         - networking-nuage-octavia-standby:
+            required-projects: *required-projects-octavia
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
-        - networking-nuage-tempest-virtio-vsdipam
-        - networking-nuage-tempest-sriov-vsdipam
-        - networking-nuage-tempest-baremetal-vsdipam
-        - networking-nuage-tempest-scenario-vsdipam
-        - tempest-full-vsdipam
-        - ovs-restart
+        - networking-nuage-tempest-virtio-vsdipam:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov-vsdipam:
+            required-projects: *required-projects
+        - networking-nuage-tempest-baremetal-vsdipam:
+            required-projects: *required-projects
+        - networking-nuage-tempest-scenario-vsdipam:
+            required-projects: *required-projects
+        - tempest-full-vsdipam:
+            required-projects: *required-projects
+        - ovs-restart:
+            required-projects: *required-projects
 
 - job:
     name: legacy-tempest-aio-sfc
