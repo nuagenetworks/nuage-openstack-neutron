@@ -6,8 +6,6 @@
         - openstack-tox-pep8
         - networking-nuage-tempest-smoke:
             required-projects: &required-projects
-              - name: openstack/tempest
-                override-checkout: train-last
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 1.5.0
     gate:
