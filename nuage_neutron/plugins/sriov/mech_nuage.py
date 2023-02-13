@@ -36,7 +36,6 @@ from nuage_neutron.plugins.common.utils import ignore_no_update
 from nuage_neutron.plugins.common.utils import ignore_not_found
 from nuage_neutron.plugins.sriov import trunk_driver
 from nuage_neutron.vsdclient.common import constants as vsd_constants
-from nuage_neutron.vsdclient.restproxy import ResourceExistsException
 
 
 LOG = logging.getLogger(__name__)
@@ -413,11 +412,13 @@ class NuageSriovMechanismDriver(base_plugin.RootNuagePlugin,
                     'redundancy_type': gwport['redundancy_type'],
                     'personality': gw['gw_type']
                 }
+                # noinspection PyBroadException
                 try:
                     vlan = self.vsdclient.create_gateway_vlan(params)
                     LOG.debug("created vlan: %(vlan_dict)s",
                               {'vlan_dict': vlan})
-                except ResourceExistsException:
+                except Exception:  # OPENSTACK-3054: For any case (any Except.)
+                    #                ignore if allow_existing_flat_vlan is set
                     allow_flat = self.conf.nuage_sriov.allow_existing_flat_vlan
                     if segmentation_id == 0 and allow_flat:
                         LOG.info('Reusing existing vlan due to '
