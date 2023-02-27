@@ -15,4 +15,3 @@
   roles:
     - setup-nuage-source-dirs
     - write-vsp-devstack-local-conf
-
