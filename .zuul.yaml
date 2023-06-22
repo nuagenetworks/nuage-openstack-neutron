@@ -20,20 +20,6 @@
       jobs:
         - networking-nuage-vtep-vxlan:
             required-projects: *required-projects-wallaby
-    virtio:
-      jobs:
-        - networking-nuage-tempest-virtio:
-            required-projects: *required-projects-wallaby
-    sriov:
-      jobs:
-        - networking-nuage-tempest-sriov:
-            required-projects: *required-projects-wallaby
-        - networking-nuage-tempest-sriov-flat-vlan:
-            required-projects: *required-projects-wallaby
-    baremetal:
-      jobs:
-        - networking-nuage-tempest-baremetal:
-            required-projects: *required-projects-wallaby
     full:
       jobs:
         - networking-nuage-tempest-virtio:
@@ -74,26 +60,15 @@
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/wallaby/amphora-x64-haproxy.qcow2"
-    sfc:
-      jobs:
-        - legacy-tempest-aio-sfc:
-            required-projects: *required-projects-wallaby
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev:
             required-projects: *required-projects-wallaby
         - networking-nuage-tempest-api-virtio-forwarder:
             required-projects: *required-projects-wallaby
-    cli:
-      jobs:
-        - networking-nuage-tempest-cli
     aggregateflows:
       jobs:
         - networking-nuage-tempest-aggregateflows:
-            required-projects: *required-projects-wallaby
-    scenario:
-      jobs:
-        - networking-nuage-tempest-scenario:
             required-projects: *required-projects-wallaby
     scale:
       jobs:
@@ -167,50 +142,3 @@
             required-projects: *required-projects-wallaby
         - ovs-restart:
             required-projects: *required-projects-wallaby
-
-- job:
-    name: legacy-tempest-aio-base
-    parent: legacy-dsvm-base
-    run: playbooks/tempest-aio-ml2/run.yaml
-    post-run: playbooks/tempest-aio-ml2/post.yaml
-    vars:
-      job_flavor: ml2
-      python3: False
-      branch_override: default
-    timeout: 10800
-    required-projects:
-      - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
-      - OpenStack/nuage-tempest-plugin
-      - openstack/neutron-tempest-plugin
-      - openstack/placement
-      - openstack/python-neutronclient
-      - openstack/tempest
-
-- job:
-    name: legacy-tempest-aio-sfc
-    parent: legacy-dsvm-base
-    run: playbooks/tempest-aio-sfc/run.yaml
-    post-run: playbooks/tempest-aio-sfc/post.yaml
-    vars:
-      job_flavor: sfc
-      branch_override: default
-    timeout: 9000
-    required-projects:
-      - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
-      - OpenStack/nuage-tempest-plugin
-      - openstack/networking-sfc
-      - openstack/neutron-tempest-plugin
-      - openstack/placement
-      - openstack/python-neutronclient
-      - openstack/tempest
-
-- job:
-    name: legacy-tempest-aio-client  # used by nuage-openstack-neutronclient
-    parent: legacy-tempest-aio-base
-    vars:
-      job_flavor: neutronclient
-    timeout: 9000

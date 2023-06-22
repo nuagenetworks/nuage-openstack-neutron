@@ -1016,7 +1016,7 @@ class NuageMechanismDriver(base_plugin.RootNuagePlugin,
             if self._check_segment(segment):
                 context.set_binding(segment[api.ID],
                                     portbindings.VIF_TYPE_OVS,
-                                    {portbindings.CAP_PORT_FILTER: False})
+                                    {portbindings.CAP_PORT_FILTER: True})
                 break
 
     @staticmethod
