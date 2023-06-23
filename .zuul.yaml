@@ -3,36 +3,24 @@
       - openstack-python36-jobs
     check:
       jobs:
-        - openstack-tox-pep8
-    gate:
-      jobs:
-        - openstack-tox-pep8
-    experimental:
-      jobs:
-        - networking-nuage-vtep-vxlan:
+        - openstack-tox-pep8:
+            nodeset: centos-8-stream
+        - networking-nuage-tempest-smoke:
             required-projects: &required-projects
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 1.5.0
-            nodeset: openstack-single-node-bionic
-        - networking-nuage-vtep-vlan-upstream:
-            required-projects: *required-projects
-            nodeset: openstack-single-node-bionic
-        - networking-nuage-vtep-vlan-nuage:
-            required-projects: *required-projects
-            nodeset: openstack-single-node-bionic
-    virtio:
+    gate:
       jobs:
+        - openstack-tox-pep8:
+            nodeset: centos-8-stream
+        - networking-nuage-tempest-smoke:
+            required-projects: *required-projects
+    experimental:
+      jobs:
+        - networking-nuage-vtep-vxlan:
+            required-projects: *required-projects
+            nodeset: openstack-single-node-bionic
         - networking-nuage-tempest-virtio:
-            required-projects: *required-projects
-    sriov:
-      jobs:
-        - networking-nuage-tempest-sriov:
-            required-projects: *required-projects
-        - networking-nuage-tempest-sriov-flat-vlan:
-            required-projects: *required-projects
-    baremetal:
-      jobs:
-        - networking-nuage-tempest-baremetal:
             required-projects: *required-projects
     full:
       jobs:
@@ -83,18 +71,11 @@
             vars:
               devstack_localrc:
                 IMAGE_URLS: "http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/cirros.qcow2, http://openstack-infra.an.nuagenetworks.net/nuage-glance-images/octavia/train/amphora-x64-haproxy.qcow2"
-    sfc:
-      jobs:
-        - legacy-tempest-aio-sfc
     switchdev:
       jobs:
         - networking-nuage-tempest-api-switchdev:
             required-projects: *required-projects
         - networking-nuage-tempest-api-virtio-forwarder:
-            required-projects: *required-projects
-    cli:
-      jobs:
-        - networking-nuage-tempest-cli:
             required-projects: *required-projects
     aggregateflows:
       jobs:
@@ -122,24 +103,3 @@
         - networking-nuage-vtep-vlan-nuage:
             required-projects: *required-projects
             nodeset: openstack-single-node-bionic
-
-- job:
-    name: legacy-tempest-aio-sfc
-    parent: legacy-dsvm-base
-    run: playbooks/tempest-aio-sfc/run.yaml
-    post-run: playbooks/tempest-aio-sfc/post.yaml
-    vars:
-      vsp_release: '20.5'
-      job_flavor: sfc
-      branch_override: default
-    timeout: 9000
-    required-projects:
-      - OpenStack/nuage-gate-utils
-      - OpenStack/nuage-openstack-neutron
-      - OpenStack/nuage-openstack-neutronclient
-      - OpenStack/nuage-tempest-plugin
-      - openstack/networking-sfc
-      - openstack/neutron-tempest-plugin
-      - openstack/placement
-      - openstack/python-neutronclient
-      - openstack/tempest
