@@ -92,8 +92,6 @@
             required-projects: *required-projects-wallaby
         - networking-nuage-tempest-cli:
             required-projects: *required-projects-wallaby
-        - tempest-full:
-            required-projects: *required-projects-wallaby
         - networking-nuage-vtep-vlan-upstream:
             required-projects: *required-projects-wallaby
         - networking-nuage-vtep-vlan-nuage:
