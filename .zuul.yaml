@@ -97,6 +97,14 @@
             required-projects: *required-projects
     periodic:
       jobs:
+        - networking-nuage-tempest-virtio:
+            required-projects: *required-projects
+        - networking-nuage-tempest-sriov:
+            required-projects: *required-projects
+        - networking-nuage-tempest-baremetal:
+            required-projects: *required-projects
+        - networking-nuage-tempest-scenario:
+            required-projects: *required-projects
         - networking-nuage-vtep-vlan-upstream:
             required-projects: *required-projects
             nodeset: openstack-single-node-bionic
