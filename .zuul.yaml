@@ -9,6 +9,10 @@
             required-projects: &required-projects
               - name: openstack/neutron-tempest-plugin
                 override-checkout: 1.5.0
+              - name: openstack/nova
+                override-checkout: train-eol
+              - name: openstack/placement
+                override-checkout: train-eol
     gate:
       jobs:
         - openstack-tox-pep8:
